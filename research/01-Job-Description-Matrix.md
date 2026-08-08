@@ -329,6 +329,373 @@ Free-form. Use for anything that does not fit the structure above: doubts about 
 
 ---
 
+## Records
+
+### `JD-001` — `Not stated (recruiter contact: Sammy@somewhere.com)` — `Marketing Automation Lead (HubSpot Expert)`
+
+#### General Information
+
+| Field | Value |
+| --- | --- |
+| Job ID | `JD-001` |
+| Company | `Not stated` — posting is unbranded; applications route through a third-party contact (`Sammy@somewhere.com`), suggesting a recruiter/agency rather than the hiring company directly |
+| Job Title | Marketing Automation Lead (HubSpot Expert) |
+| Industry | Information Technology |
+| Employment Type | `Not stated` |
+| Location | Remote — aligned to CET / UTC+2 (EU business hours) |
+| Salary | `Not stated` — posting asks the *candidate* to state expected monthly salary in USD rather than disclosing a range |
+| Source | `Not stated` — posting text supplied directly, no board or URL given |
+| Date Collected | 2026-08-08 |
+| Link to Original Posting | `Not stated` |
+| Archive Reference | Posting text captured verbatim in NAIGX research conversation, 2026-08-08 — recommend saving a standalone copy, since no live URL exists to archive against |
+
+---
+
+#### Business Analysis
+
+**Business Problems**
+
+| # | Business Problem | Evidence from Posting |
+| --- | --- | --- |
+| 1 | GTM organization lacks an owned, well-architected data backbone — HubSpot is being run without a dedicated owner for data model and system design | "we are looking for a Marketing Automation Expert that can build the backbone of data for our GTM organization" |
+| 2 | Demand-gen systems are not reliably delivering a consistent experience across touchpoints | "ensure that our demand gen systems are working flawlessly to provide next-level customer experiences across every touchpoint" |
+| 3 | No clear visibility into true demand source / attribution | "UTM/attribution modeling. Knows how to track where demand actually comes from" |
+| 4 | Leadership and marketing are bottlenecked on a central data team for reporting | "Basic SQL or data querying. Able to pull their own reports without waiting on a data team" |
+| 5 | Data hygiene and lead routing are unmanaged or inconsistent | "Comfortable with data hygiene and lead routing logic" |
+
+**Business Goals**
+
+- Stand up marketing automation/CRM systems that run "flawlessly" across every customer touchpoint
+- Give leadership self-serve, visualized reporting to make informed decisions
+- Establish data and automation flows that span Product, Engineering, Sales, and Leadership, not just Marketing
+
+**Current Pain Points**
+
+| Pain Point | Stated or Inferred | Frequency / Volume (if given) |
+| --- | --- | --- |
+| Reporting requires waiting on a data team | Stated | Not stated |
+| Automations break and require calm, methodical debugging | Stated | Not stated |
+| Workflows are being built without being mapped/documented first | Inferred (from "map and document complex workflows before building them") | Not stated |
+| Funnel-stage definitions (MQL/SQL/pipeline) may be inconsistent across teams | Inferred | Not stated |
+
+---
+
+#### Technical Requirements
+
+**Required Skills**
+
+| Skill | Type (technical / process / domain) | Level (required / preferred) |
+| --- | --- | --- |
+| HubSpot data model & system design ownership | technical | required |
+| SQL / data querying | technical | required |
+| Webhook/API literacy (non-coding) | technical | required |
+| UTM/attribution modeling | technical | required |
+| Reporting & data visualization | technical | required |
+| Workflow mapping & documentation | process | required |
+| Data hygiene & lead routing logic | process | required |
+| Funnel stage knowledge (MQL/SQL/pipeline) | domain | required |
+| Automation debugging under pressure | technical | required |
+| Paid media fundamentals (agency briefing / budget mgmt) | domain | required |
+| Email nurture strategy (segmentation, sequencing, personalization) | domain | required |
+| Webinar / content syndication ops | domain | preferred |
+| PLG / developer-tools marketing experience | domain | preferred |
+| Product usage data familiarity | technical | preferred |
+| Community-led / open-source GTM exposure | domain | preferred |
+
+**Required Software**
+
+| Software | Category | Level (required / preferred) |
+| --- | --- | --- |
+| HubSpot | Marketing Automation / CRM | required |
+
+**Required AI Tools**
+
+| AI Tool / Platform | Stated Use Case | Level (required / preferred) |
+| --- | --- | --- |
+| `—` | Not stated | `—` |
+
+**Required Automation Platforms**
+
+| Platform | Stated Use Case | Level (required / preferred) |
+| --- | --- | --- |
+| `—` | Not stated by name — only described generically as "data and automation flows across the organization" | `—` |
+
+**APIs / Integrations Mentioned**
+
+| API / System | Direction (read / write / both) | Stated Purpose |
+| --- | --- | --- |
+| Generic webhooks/APIs | both | "understands how systems talk to each other" — no specific system named |
+| Amplitude (nice to have) | read | Product usage data feeding into marketing automation |
+| "Database" (nice to have, as named in posting) | read | Product usage data — ambiguous term, unclear if a specific product or used generically |
+
+**Reporting / Analytics Requirements**
+
+| Requirement | Audience | Cadence | Delivery Format |
+| --- | --- | --- | --- |
+| Demand/pipeline visibility for decision-making | Leadership | Not stated | Not stated (implied visualization/dashboard) |
+| Self-serve SQL pulls | Marketing Automation Lead (self-service) | Not stated | Not stated |
+
+---
+
+#### Product Insights
+
+**Automation Opportunities**
+
+| # | Task | Automation Potential (full / partial / none) | Rationale |
+| --- | --- | --- | --- |
+| 1 | UTM/attribution tagging and rollup reporting | full | Rules-based tagging plus automated dashboarding once conventions are set |
+| 2 | Lead routing execution | partial | Rules can run automatically, but hygiene exceptions still need human judgment |
+| 3 | Leadership reporting pack assembly | partial | SQL pulls and chart generation can be templated; narrative framing still benefits from a human |
+| 4 | Pre-build workflow mapping/documentation | partial | AI can draft a flow diagram from a description, but validation against real systems needs a human |
+
+**AI Opportunities**
+
+| # | Task | AI Role (generate / classify / extract / summarize / decide) | Rationale |
+| --- | --- | --- | --- |
+| 1 | Diagnosing broken HubSpot automations | extract / decide | Reading workflow config + run history to isolate a failure point is a diagnostic-reasoning task explicitly named as a required human skill ("debug a broken automation without panicking") |
+| 2 | Attribution/UTM analysis | classify / extract | Mapping inconsistent UTM tagging to real demand sources is pattern classification |
+| 3 | Leadership report generation | summarize | Converting SQL output into a leadership-ready narrative and visualization |
+| 4 | Lead routing rule audit | decide | Recommending routing logic changes based on observed data hygiene issues |
+
+**Potential NAIGX Feature**
+
+> If NAIGX provided an AI copilot that reads a HubSpot workflow's configuration and recent run history, then a Marketing Automation Lead would be able to diagnose and explain a broken automation in minutes instead of manually tracing each step, reducing time-to-resolution on demand-gen system outages.
+
+| Field | Value |
+| --- | --- |
+| Feature Name | HubSpot Automation Debugger / Workflow Diagnostic Copilot |
+| Problem It Solves | "Can debug a broken automation without panicking" is stated as a hiring requirement — evidence that this diagnostic work is currently manual and skill-gated |
+| Dependencies / Prerequisites | HubSpot API/webhook read access; access to workflow history or run logs |
+| Related Existing Hypotheses | None yet — JD-001 is the first record in this matrix |
+
+**Portfolio Opportunity**
+
+| Field | Value |
+| --- | --- |
+| Deliverable | Demo tool that ingests a HubSpot workflow's config plus recent run history and outputs a plain-English root-cause diagnosis with a suggested fix |
+| Scope | Single-workflow diagnostic; mock HubSpot data acceptable if no live sandbox is available; output a readable report artifact |
+| Estimated Effort | Days for a functional prototype; weeks for a polished version wired to a real HubSpot sandbox |
+| What It Proves | NAIGX can operationalize a skill explicitly named in a live job posting as hard to hire for |
+| Reusable Assets Produced | HubSpot API client wrapper, workflow/run-log parser, diagnostic-report template |
+
+**Scoring**
+
+| Dimension | Score (1–5) | Justification |
+| --- | --- | --- |
+| Difficulty | 3 | Requires HubSpot API familiarity and enough sandbox/log examples to generalize; integration work, not a new capability |
+| Business Impact | 3 | Addresses a named skill gap, but this is a single record — impact is speculative until recurrence is observed |
+| Priority Score | 3 (Medium) | Single-record evidence only; revisit once 2–3 more HubSpot/RevOps postings are collected to test recurrence |
+
+---
+
+#### Personal Notes
+
+```
+- This posting asks applicants to send expected salary, reasons for leaving the last three roles, and an
+  "unrestricted, public, non-expiring" Google Drive video introduction to a generic address
+  (Sammy@somewhere.com — note the placeholder-looking domain). Requesting job-history justification and an
+  openly public video link before any interview is a pattern more associated with data-harvesting/scam
+  postings than a genuine first-stage screen. Flagging for awareness, not scoring as a market signal.
+- Salary asymmetry: the posting requires the candidate's number but discloses none of its own. Worth watching
+  whether this is common across the sample or specific to this listing.
+- No automation platform (e.g. Zapier, Make, n8n) is named despite "automation flows across the organization"
+  language — worth checking in future records whether HubSpot-native workflows alone typically satisfy this,
+  or whether a connector platform is usually named alongside HubSpot.
+- Sample size is 1. Per this document's own guidance, no dashboard recalculation or ranking should be drawn
+  from a single record — Summary Dashboard intentionally left untouched until more records exist.
+```
+
+---
+
+### `JD-002` — `Not stated (identified internally as Req #20684; certified woman-owned small business, mission-critical aviation services)` — `AI Automation Engineer`
+
+#### General Information
+
+| Field | Value |
+| --- | --- |
+| Job ID | `JD-002` |
+| Company | `Not stated` — posting withholds the company name; described only as "a certified woman-owned small business providing end-to-end mission-critical aviation services, including aircraft leasing, ISR configuration, program management, and logistics support for government and commercial clients worldwide" |
+| Job Title | AI Automation Engineer (posting header also uses "AI Data Engineer" once when describing the sought role — inconsistent internally, see Personal Notes) |
+| Industry | Aerospace / Aviation (government and commercial, incl. ISR/defense-adjacent logistics) |
+| Employment Type | `Not stated` — no Full-time/Part-time/Contract label given, though "Mon–Fri, 9:00 AM–5:00 PM PST" hours and a monthly pay range imply a standard ongoing engagement |
+| Location | Location of Search: Philippines, South Africa, Latin America · Work Location: Remote |
+| Salary | $4,000–$5,000/month (USD implied, not stated explicitly), "varies based on skill set and experience level" |
+| Source | `Not stated` — posting text supplied directly, no board or URL given |
+| Date Collected | 2026-08-08 |
+| Link to Original Posting | `Not stated` |
+| Archive Reference | Posting text captured verbatim in NAIGX research conversation, 2026-08-08 — recommend saving a standalone copy, since no live URL exists to archive against |
+
+---
+
+#### Business Analysis
+
+**Business Problems**
+
+| # | Business Problem | Evidence from Posting |
+| --- | --- | --- |
+| 1 | Company has no dedicated internal owner for AI infrastructure or strategy — AI adoption is ad hoc rather than centrally driven | "help build and scale their internal AI infrastructure" / "serve as the organization's technical lead for artificial intelligence initiatives" / "Opportunity to shape the company's long-term AI roadmap" |
+| 2 | Cross-departmental administrative and operational workflows are manual, repetitive, and consuming staff time | "Automate business processes including: Scheduling, Data entry, Travel coordination, Administrative workflows, Operational reporting" |
+| 3 | No single point of contact exists for AI/automation questions or troubleshooting across teams | "Serve as the organization's primary point of contact for AI and automation initiatives" / "Provide guidance and support to internal teams on AI best practices" |
+| 4 | Existing AI platforms/assistants are not being systematically maintained or optimized | "Help evolve and optimize existing AI platforms and internal AI assistants" / "Troubleshoot AI-related issues and optimize existing solutions" |
+| 5 | AI workflows and technical solutions are undocumented, creating risk of tribal knowledge | "Document AI workflows, processes, and technical solutions" |
+
+**Business Goals**
+
+- Build and scale an internal AI infrastructure/ecosystem owned by a single technical lead
+- Automate manual administrative processes (scheduling, data entry, travel coordination, reporting) across multiple departments
+- Increase operational efficiency and reduce manual work as a measurable outcome ("Reduction in manual administrative processes" is listed as a success metric)
+- Drive broader "digital transformation" across the organization, not just a single department
+- Maintain and expand internal AI assistants built on Claude (Claude for Work/Cowork)
+
+**Current Pain Points**
+
+| Pain Point | Stated or Inferred | Frequency / Volume (if given) |
+| --- | --- | --- |
+| Repetitive manual tasks across scheduling, data entry, travel coordination, and reporting | Stated | Not stated |
+| No formal AI governance/best-practices guidance for internal teams | Inferred (from "Provide guidance and support to internal teams on AI best practices") | Not stated |
+| AI initiatives currently lack a single accountable owner | Inferred (from "primary point of contact" and "technical lead" framing) | Not stated |
+| Executive/admin support tasks (personal scheduling, travel) are being handled without dedicated support | Stated ("Personal Assistance" section) | Occasional ("Assist with occasional personal administrative tasks") |
+
+---
+
+#### Technical Requirements
+
+**Required Skills**
+
+| Skill | Type (technical / process / domain) | Level (required / preferred) |
+| --- | --- | --- |
+| AI Engineering / Data Engineering / Software Engineering experience (2–5 yrs) | technical | required |
+| Hands-on experience building AI workflows/assistants/automations with Claude (Claude for Work/Cowork) | technical | required |
+| Workflow automation solution building | technical | required |
+| Understanding of AI concepts and modern AI tools | technical | required |
+| API and system integration experience | technical | required |
+| Data management and analytical skills | technical | required |
+| Developing scalable technical solutions | technical | required |
+| Problem-solving and troubleshooting | process | required |
+| Written and verbal English communication | domain | required |
+| Independent management of multiple technical initiatives | process | required |
+| AI assistants / LLM experience | technical | preferred |
+| Workflow automation platform experience | technical | preferred |
+| Multi-system/API integration experience | technical | preferred |
+| Cloud-based AI services familiarity | technical | preferred |
+| Building internal productivity tools | technical | preferred |
+| Scripting/programming (Python, JavaScript, or SQL) | technical | preferred |
+| Operational/administrative process automation support | process | preferred |
+| Government, aviation, logistics, or regulated-industry background | domain | preferred |
+
+**Required Software**
+
+| Software | Category | Level (required / preferred) |
+| --- | --- | --- |
+| Microsoft Office Suite | Productivity | preferred (listed under "Technology & Tools") |
+| Google Workspace | Productivity | preferred (listed under "Technology & Tools") |
+
+**Required AI Tools**
+
+| AI Tool / Platform | Stated Use Case | Level (required / preferred) |
+| --- | --- | --- |
+| Claude / Claude Cowork | Building AI workflows, assistants, and automations; maintaining internal AI assistants | required |
+| ChatGPT | Listed under "Technology & Tools" as preferred, no specific use case stated | preferred |
+| Large Language Models (LLMs), general | Underpins AI assistants and automation solutions | preferred |
+| Cloud-based AI services (unnamed) | Not stated beyond "familiarity" | preferred |
+
+**Required Automation Platforms**
+
+| Platform | Stated Use Case | Level (required / preferred) |
+| --- | --- | --- |
+| Workflow automation tools (unnamed) | Automating scheduling, data entry, travel coordination, admin workflows, and operational reporting | preferred — listed generically under "Technology & Tools," no specific platform (e.g. Zapier/Make/n8n) named |
+
+**APIs / Integrations Mentioned**
+
+| API / System | Direction (read / write / both) | Stated Purpose |
+| --- | --- | --- |
+| Generic APIs / system integrations (unnamed) | both | "Experience working with APIs and system integrations"; "Experience integrating multiple business systems and APIs" |
+| Data engineering / ETL tools (unnamed) | both | Listed under "Technology & Tools," no specific tool named |
+
+**Reporting / Analytics Requirements**
+
+| Requirement | Audience | Cadence | Delivery Format |
+| --- | --- | --- | --- |
+| Operational reporting automation | Not stated (internal business functions, implied) | Not stated | Not stated |
+
+---
+
+#### Product Insights
+
+**Automation Opportunities**
+
+| # | Task | Automation Potential (full / partial / none) | Rationale |
+| --- | --- | --- | --- |
+| 1 | Scheduling (business and personal) | full | Rules-based calendar coordination is a well-established automation target, explicitly named twice in the posting |
+| 2 | Data entry | full | Repetitive, structured-input task explicitly named as an automation target |
+| 3 | Travel coordination | partial | Booking logistics can be automated, but exceptions (preferences, disruptions) still need human judgment, especially for the "personal assistance" variant |
+| 4 | Operational reporting | partial | Data aggregation/formatting can be automated; interpretation and distribution to stakeholders likely still needs review |
+| 5 | Administrative workflows (general) | partial | Too broadly defined in the posting to guarantee full automation across all cases |
+
+**AI Opportunities**
+
+| # | Task | AI Role (generate / classify / extract / summarize / decide) | Rationale |
+| --- | --- | --- | --- |
+| 1 | Internal AI assistant maintenance/optimization | decide / generate | "Help evolve and optimize existing AI platforms and internal AI assistants" implies ongoing tuning of prompts, tools, and assistant behavior |
+| 2 | Operational reporting | extract / summarize | Converting raw operational data into reporting output is a summarization task |
+| 3 | Troubleshooting AI-related issues | classify / decide | Diagnosing failures in AI-powered workflows before they can be fixed |
+| 4 | Documentation of AI workflows and processes | summarize / generate | "Document AI workflows, processes, and technical solutions" is a generation task well-suited to AI-assisted drafting |
+
+**Potential NAIGX Feature**
+
+> If NAIGX provided a Claude-based internal-assistant scaffolding kit (prebuilt patterns for scheduling, data entry, and operational-reporting assistants, with built-in documentation generation), then a solo AI Automation Engineer would be able to stand up and document department-level automations in days instead of building each one from scratch, reducing the time-to-value for single-owner AI infrastructure initiatives.
+
+| Field | Value |
+| --- | --- |
+| Feature Name | Claude Cowork Assistant Starter Kit (Scheduling / Data-Entry / Reporting templates) |
+| Problem It Solves | Posting explicitly requires hands-on Claude/Claude Cowork experience for building workflows and assistants, with one engineer solely responsible for infrastructure, maintenance, troubleshooting, and documentation — evidence that this is currently a from-scratch, single-owner effort |
+| Dependencies / Prerequisites | Claude for Work/Cowork access; API/system integration credentials for target business systems (unnamed in posting); a documentation template format |
+| Related Existing Hypotheses | None yet — no recurrence observed across JD-001 and JD-002 (different tool ecosystems: HubSpot vs. Claude Cowork) |
+
+**Portfolio Opportunity**
+
+| Field | Value |
+| --- | --- |
+| Deliverable | A small library of Claude-based automation templates (e.g., meeting-scheduling assistant, structured data-entry assistant, operational-report generator) packaged with auto-generated documentation for each |
+| Scope | 2–3 template assistants with mock data/business systems; auto-generated docs as the differentiator, since documentation is explicitly named as a required deliverable in this role |
+| Estimated Effort | Days for one template end-to-end; a week or two for a 2–3 template library with consistent documentation output |
+| What It Proves | NAIGX can operationalize the exact tool stack (Claude/Claude Cowork) and task set named as this role's core responsibilities |
+| Reusable Assets Produced | Claude Cowork assistant templates, a documentation-generation pattern reusable across future automation records |
+
+**Scoring**
+
+| Dimension | Score (1–5) | Justification |
+| --- | --- | --- |
+| Difficulty | 2 | Templates use Claude/Claude Cowork directly with mock data; no novel integration required for a first version |
+| Business Impact | 3 | Addresses a named, specific tool requirement (Claude Cowork) with clear stated tasks, but based on a single posting — recurrence unconfirmed |
+| Priority Score | 3 (Medium) | Single-record evidence; revisit once more Claude/Cowork-specific postings are collected to test recurrence against JD-001's HubSpot-centric pattern |
+
+---
+
+#### Personal Notes
+
+```
+- The posting is internally inconsistent about the role's own name: the header and most of the body say
+  "AI Automation Engineer," but the "About the Company" paragraph says "They are seeking an AI Data Engineer."
+  Recorded the discrepancy rather than silently picking one.
+- Company identity is deliberately withheld beyond a generic description and an internal requisition number
+  (20684). No company name, board, or URL was provided — flagged as Not stated throughout rather than guessed.
+- This is the first posting in the matrix naming Claude/Claude Cowork specifically as a required tool, which is
+  directly relevant to NAIGX's own toolchain — worth watching closely for recurrence across future records, as
+  it would be a strong, low-effort integration signal.
+- "Personal Assistance" duties (personal scheduling, travel, confidentiality) sit oddly alongside a formal
+  "technical lead for AI initiatives" role — likely reflects a small/founder-led organization where one hire
+  covers both executive support and technical ownership. Worth checking if this pattern recurs in similarly
+  small companies.
+- No specific automation platform (Zapier/Make/n8n), cloud provider, or ETL tool is named despite being
+  listed as tool categories — unusually vague compared to JD-001, which at least named HubSpot as the core
+  system. This posting reads as earlier-stage / less mature in its AI tooling than JD-001.
+- Sample size is 2. Per this document's own guidance, dashboard recalculation should wait for a larger,
+  more diverse sample before drawing trend conclusions — Summary Dashboard intentionally left untouched.
+```
+
+---
+
 ## Validation Checklist
 
 A record is not counted in the Summary Dashboard until every box is checked.
