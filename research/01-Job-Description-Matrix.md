@@ -696,6 +696,235 @@ Free-form. Use for anything that does not fit the structure above: doubts about 
 
 ---
 
+### `JD-003` — `Not stated (posting reference 52037504280; marketing/media agency serving fitness & wellness clients)` — `Senior Digital & Automations Developer`
+
+#### General Information
+
+| Field | Value |
+| --- | --- |
+| Job ID | `JD-003` |
+| Company | `Not stated` — posting refers to the employer only as "Client" and "company"; the agency framing is inferred from "various client CRMs," "client campaigns," "our client portal," and the preferred qualification "experience working with multiple client CRMs in an agency environment" |
+| Job Title | Senior Digital & Automations Developer |
+| Industry | Media (as labeled in the posting) — client base is fitness & wellness, inferred from the named client CRMs (Mindbody, Mariana Tek, ClubReady) and "familiarity with the wellness and fitness industry is a plus" |
+| Employment Type | Full-time ("Remote (Full-time, exclusive)" — "exclusive" indicates no concurrent employment permitted) |
+| Location | Remote — PST or MST overlap required |
+| Salary | $1,200–$2,200 USD per month, "depending on experience" |
+| Source | `Not stated` — posting text supplied directly, no board or URL given; the trailing number in the title (`52037504280`) appears to be a posting/requisition reference |
+| Date Collected | 2026-08-08 |
+| Link to Original Posting | `Not stated` |
+| Archive Reference | Posting text captured verbatim in NAIGX research conversation, 2026-08-08 — recommend saving a standalone copy, since no live URL exists to archive against |
+
+---
+
+#### Business Analysis
+
+**Business Problems**
+
+| # | Business Problem | Evidence from Posting |
+| --- | --- | --- |
+| 1 | Agency's own CRM is disconnected from the CRMs its clients run on, so data does not move between the two without manual work | "Build and maintain API integrations to connect CRM platforms to third-party tools, ensuring seamless and efficient data flow" / "Connect and maintain integrations between HubSpot and various client CRMs, including Mindbody, Mariana Tek, ClubReady, and similar platforms" |
+| 2 | Every client arrives on a different vertical-specific CRM, so integration work is rebuilt per client instead of reused | Three distinct fitness/wellness CRMs named plus "and similar platforms"; preferred qualification "experience working with multiple client CRMs in an agency environment" |
+| 3 | Internal operations and client-facing processes are manual enough to justify a dedicated automation hire | "Create and manage AI automations to streamline internal operations and enhance client processes" |
+| 4 | CRM data quality and segmentation are not reliable enough to support campaign execution | "including accurate data entry, effective segmentation, and workflow setup to support client campaigns and internal processes" |
+| 5 | Paid media execution across Meta and Google lacks technical/automation support | "Support automation and technical workflows across Meta and Google Ads ecosystems" |
+| 6 | System failures cause downtime that the current team cannot resolve quickly | "troubleshoot technical issues and implement effective solutions, ensuring minimal downtime and optimal system performance" |
+| 7 | The client portal is under-featured and not yet proven at scale | "Support the development of new features for our client portal, focusing on functionality, scalability, and user engagement" |
+| 8 | Technical capability is spread thin — one hire is expected to cover front-end, back-end, database, integration, QA, and DevOps | "possess a skillset more closely aligned with a full-stack developer. Front-End Development, Back-End Architecture, Database Management, System Integration, Quality Assurance & DevOps & Deployment" |
+
+**Business Goals**
+
+- Achieve "seamless and efficient data flow" between HubSpot and each client's CRM
+- Streamline internal operations and improve client processes through AI automations
+- Keep systems at "minimal downtime and optimal system performance"
+- Maintain web assets (WordPress and Next.js) that are "user-friendly, optimized, and aligned with company's branding"
+- Grow the client portal along three named axes: functionality, scalability, and user engagement
+- Keep projects "aligned with company's goals and timely completion," supported by regular status updates
+- No numeric targets or metrics are stated anywhere in the posting
+
+**Current Pain Points**
+
+| Pain Point | Stated or Inferred | Frequency / Volume (if given) |
+| --- | --- | --- |
+| Integrations between HubSpot and client CRMs break or need ongoing upkeep | Stated ("maintain integrations"; "Assist with API setups, integrations, and troubleshooting") | Not stated |
+| Inaccurate CRM data entry and weak segmentation | Stated | Not stated |
+| Technical issues currently cause downtime | Stated | Not stated |
+| Project status is not visible without someone actively reporting it | Inferred (from "Provide regular updates on projects, ensuring alignment with company's goals") | "Regular" — cadence not defined |
+| Client onboarding requires bespoke integration work per CRM | Inferred (from three named CRMs plus "and similar platforms") | Not stated |
+| Team lacks a single person able to work across the full stack | Inferred (from the breadth of the "Role Overview" skill list vs. a 2-year minimum experience bar) | Not stated |
+| Ads work is handled without technical/automation tooling | Inferred (from "Support automation and technical workflows across Meta and Google Ads ecosystems") | Not stated |
+
+---
+
+#### Technical Requirements
+
+**Required Skills**
+
+| Skill | Type (technical / process / domain) | Level (required / preferred) |
+| --- | --- | --- |
+| API integration build and maintenance | technical | required |
+| Full-stack development (front-end, back-end architecture) | technical | required |
+| Database management | technical | required |
+| System integration | technical | required |
+| Quality assurance | technical | required |
+| DevOps & deployment | technical | required |
+| Web design and development | technical | required |
+| CRM workflow, segmentation, and reporting configuration (HubSpot) | technical | required |
+| AI automation creation and management | technical | required |
+| Automation building with best-practice/efficiency focus | technical | required |
+| Technical troubleshooting, independently and with a team | process | required |
+| Excellent written and verbal English communication | process | required |
+| Proactive status reporting and remote task management | process | required |
+| Remote work capability with US time-zone alignment | process | required |
+| Minimum 2 years experience | domain | required |
+| Basic scripting or automation experience | technical | preferred |
+| Working with multiple client CRMs in an agency environment | domain | preferred |
+| Wellness and fitness industry familiarity | domain | preferred |
+| Prior experience supporting a CTO or technical lead | domain | preferred |
+
+**Required Software**
+
+| Software | Category | Level (required / preferred) |
+| --- | --- | --- |
+| HubSpot | CRM / Marketing Automation | required |
+| Mindbody | Client CRM (fitness & wellness) — integration target | required |
+| Mariana Tek | Client CRM (fitness & wellness) — integration target | required |
+| ClubReady | Client CRM (fitness & wellness) — integration target | required |
+| Meta Ads | Advertising platform | required |
+| Google Ads | Advertising platform | required |
+| WordPress | CMS / Web | required |
+| Next.js | Web framework | required (posting writes it as "Net.js" in the proficiency line and "Next.js" in the responsibilities — see Personal Notes) |
+| BaseDash | Database interface / admin tooling | required |
+
+**Required AI Tools**
+
+| AI Tool / Platform | Stated Use Case | Level (required / preferred) |
+| --- | --- | --- |
+| `Not stated` | "Create and manage AI automations to streamline internal operations and enhance client processes" — the capability is required but no AI tool, model, or vendor is named anywhere in the posting | required (capability), tool unspecified |
+
+**Required Automation Platforms**
+
+| Platform | Stated Use Case | Level (required / preferred) |
+| --- | --- | --- |
+| Zapier | "Proficiency in creating automations with tools like Zapier, with a focus on best practices and efficiency"; also listed again in the explicit proficiency line | required |
+| Make | "Basic scripting or automation experience using tools such as Zapier, Make, or similar" | preferred |
+| Unnamed "similar" automation tools | Same line as Make — category left open | preferred |
+
+**APIs / Integrations Mentioned**
+
+| API / System | Direction (read / write / both) | Stated Purpose |
+| --- | --- | --- |
+| HubSpot API | both | Hub of the integration model — connected outward to client CRMs and third-party tools |
+| Mindbody API | both | "Connect and maintain integrations between HubSpot and various client CRMs" |
+| Mariana Tek API | both | Same as above |
+| ClubReady API | both | Same as above |
+| Meta Ads | both | "Support automation and technical workflows across Meta and Google Ads ecosystems"; also named as an API integration target alongside HubSpot |
+| Google Ads | both | "Support automation and technical workflows across Meta and Google Ads ecosystems" |
+| Unnamed third-party tools | both | "connect CRM platforms to third-party tools, ensuring seamless and efficient data flow" |
+
+**Reporting / Analytics Requirements**
+
+| Requirement | Audience | Cadence | Delivery Format |
+| --- | --- | --- | --- |
+| HubSpot reporting (named as part of required CRM knowledge) | Not stated | Not stated | Not stated |
+| Project status updates | Not stated (internal — implied leadership or a CTO/technical lead, given the preferred qualification) | "Regular" — not defined | Not stated |
+
+---
+
+#### Product Insights
+
+**Automation Opportunities**
+
+| # | Task | Automation Potential (full / partial / none) | Rationale |
+| --- | --- | --- | --- |
+| 1 | Contact/member data sync between HubSpot and client CRMs (Mindbody, Mariana Tek, ClubReady) | full | Deterministic record mapping once field mappings are agreed; this is the posting's most-repeated responsibility |
+| 2 | CRM data entry | full | "Accurate data entry" is explicitly named as a problem; structured-input work with a defined target schema |
+| 3 | Pushing CRM segments into Meta/Google Ads audiences | full | Both sides expose audience APIs and the posting frames ads work as "technical or automation" rather than creative |
+| 4 | Integration health monitoring and failure alerting | full | Failures are detectable programmatically; the posting's goal of "minimal downtime" depends on detection speed |
+| 5 | Per-client integration setup during onboarding | partial | Repeatable scaffolding is automatable, but each client's field/schema differences still need human confirmation |
+| 6 | Segmentation and workflow setup in HubSpot | partial | Rules execute automatically once defined; the definition itself follows campaign strategy set by a human |
+| 7 | Project status updates | partial | Status can be assembled from system activity; alignment commentary and priority calls remain human |
+| 8 | Technical troubleshooting / root-cause resolution | partial | Detection and triage automate well; fixes vary case by case |
+| 9 | Web asset updates (WordPress, Next.js) and client portal feature development | none | Design judgment and feature-level engineering are not rules-based work |
+
+**AI Opportunities**
+
+| # | Task | AI Role (generate / classify / extract / summarize / decide) | Rationale |
+| --- | --- | --- | --- |
+| 1 | Mapping fields between HubSpot and an unfamiliar client CRM schema | extract / decide | Each new client CRM presents a different schema for the same underlying concepts (member, booking, membership status); inferring the correspondence is exactly the repetitive judgment work implied by "and similar platforms" |
+| 2 | Diagnosing failed API integrations | classify / decide | "Assist with API setups, integrations, and troubleshooting" — reading error responses and payloads to isolate a cause is diagnostic reasoning |
+| 3 | Proposing HubSpot segments from CRM data patterns | classify | "Effective segmentation" is named as a problem; grouping records by behavioral signals is a classification task |
+| 4 | Drafting regular project status updates | summarize | Converting integration/deployment activity into a written update matches the stated "proactive approach to providing updates" |
+| 5 | Generating integration documentation for each client connector | generate / summarize | Not stated as a requirement, but implied by an agency maintaining many similar-but-different connectors — flagged as inference, not evidence |
+
+**Potential NAIGX Feature**
+
+State as a falsifiable hypothesis.
+
+> If NAIGX provided a multi-CRM connector hub with AI-assisted field mapping — a HubSpot-centered integration layer that inspects an unfamiliar client CRM's schema, proposes a field mapping, and monitors the resulting sync — then an agency onboarding a new fitness/wellness client would be able to stand up a working two-way integration in hours instead of building a bespoke connector per client, reducing per-client integration build time and the downtime caused by silently broken syncs.
+
+| Field | Value |
+| --- | --- |
+| Feature Name | Multi-CRM Connector Hub with AI-Assisted Field Mapping |
+| Problem It Solves | The posting names three distinct client CRMs plus "and similar platforms" and asks one hire to connect and maintain all of them against HubSpot — direct evidence that per-client integration work is recurring, manual, and currently unstandardized |
+| Dependencies / Prerequisites | HubSpot API access; API access to each client CRM (Mindbody, Mariana Tek, ClubReady — availability and partner-approval requirements unverified); a schema-inspection layer; sync monitoring and alerting |
+| Related Existing Hypotheses | `JD-001` — HubSpot as the system of record and the first record to name automation debugging as a hire-worthy skill; this record repeats both signals. `JD-002` — generic "integrating multiple business systems and APIs" requirement, same underlying problem with no named tools |
+
+**Portfolio Opportunity**
+
+| Field | Value |
+| --- | --- |
+| Deliverable | A working HubSpot ↔ fitness-CRM connector demo: schema inspection, AI-proposed field mapping presented for human approval, two-way sync, and an integration health dashboard showing sync status and failures |
+| Scope | One client CRM end-to-end (or a mock CRM with a realistic member/booking/membership schema if API access is gated), plus a second mock schema to prove the mapping step generalizes rather than being hardcoded |
+| Estimated Effort | Days for the mapping and sync prototype against mock schemas; weeks if live API access to a real fitness CRM must be obtained and certified |
+| What It Proves | NAIGX can absorb the "connect HubSpot to whatever CRM this client happens to use" problem that agencies currently solve by hiring — and that the mapping step, not the transport, is where the leverage is |
+| Reusable Assets Produced | HubSpot API client wrapper (shared with `JD-001`'s deliverable), schema-inspection module, AI field-mapping prompt/eval pair, sync-health monitoring component |
+
+**Scoring**
+
+| Dimension | Score (1–5) | Justification |
+| --- | --- | --- |
+| Difficulty | 4 | Multiple third-party APIs, each with its own auth model and likely partner-approval gating; two-way sync introduces conflict-resolution and idempotency problems that a one-way demo can hide |
+| Business Impact | 4 | Addresses the posting's single most-repeated responsibility, and the underlying "connect our CRM to their systems" problem now appears in all three records collected so far |
+| Priority Score | 4 (High) | HubSpot is named in 2 of 3 records and cross-system integration in 3 of 3 — the first recurrence signal in this matrix. Per this document's rules, recurrence raises priority; the sample is still too small to treat as settled |
+
+---
+
+#### Personal Notes
+
+```
+- First record to answer the open question logged in JD-001's notes: whether a connector platform is typically
+  named alongside HubSpot. Here it is — Zapier (required) and Make (preferred), explicitly. Worth revisiting
+  JD-001's assumption that HubSpot-native workflows alone might satisfy "automation flows."
+- HubSpot now appears in 2 of 3 records (JD-001, JD-003), and cross-system API integration in 3 of 3. This is
+  the first recurrence in the matrix. Noting it, not acting on it — 3 records is far below the ~20 this
+  document sets as the threshold where ranking stops being noise.
+- Third record in a row where AI/automation capability is requested. JD-001 named no AI tool, JD-002 named
+  Claude specifically, JD-003 requires "AI automations" but names no AI tool at all. The pattern to watch is
+  whether "AI automation" is being used as a generic label for workflow automation rather than as LLM work.
+- The posting has several transcription errors that were preserved rather than silently corrected: "Net.js"
+  (Next.js, spelled correctly earlier in the same posting), "Client is looking for a candidates," and an
+  uncapitalized "proficiency in Zapier,BaseDash..." line. Reads like a lightly-edited internal req rather
+  than a polished public listing.
+- Compensation asymmetry is stark. $1,200–$2,200/month for full-stack development, database management,
+  DevOps, QA, multi-CRM API integration, HubSpot administration, two ad platforms, AI automation, WordPress,
+  Next.js, and client portal feature work — against JD-002's $4,000–$5,000/month for a narrower AI automation
+  scope. Both target offshore talent markets. Either the scope here is aspirational (per this document's own
+  "postings are aspirational" limitation) or the role is significantly under-scoped against its pay band.
+  Do not read the tool list as a confirmed current stack.
+- "Remote (Full-time, exclusive)" — the exclusivity clause is unusual enough to note; it suggests prior
+  experience with contractors splitting time across employers.
+- BaseDash is the first niche tool named in this matrix that is not a household platform. Listed as a
+  required proficiency with no stated use case, which is odd for a tool of that size — possibly reflects an
+  existing internal setup the hire is expected to inherit rather than a considered requirement.
+- Industry is labeled "Media" in the posting, but every named client CRM is fitness/wellness. Recorded the
+  posting's own label with the inferred client vertical alongside it, rather than overriding.
+- Company identity is withheld; the posting refers to the employer in the third person as "Client," which
+  suggests it was published by a recruiter or staffing intermediary rather than the agency itself.
+- Sample size is 3. Summary Dashboard intentionally left untouched, consistent with JD-001 and JD-002.
+```
+
+---
+
 ## Validation Checklist
 
 A record is not counted in the Summary Dashboard until every box is checked.
