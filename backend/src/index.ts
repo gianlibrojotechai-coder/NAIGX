@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import cors from "@fastify/cors";
 
 const app = Fastify({
   logger: true,
@@ -14,6 +15,10 @@ app.get("/health", async () => {
 
 const start = async () => {
   try {
+    await app.register(cors, {
+      origin: "http://localhost:5173",
+    });
+
     await app.listen({
       port: 3000,
       host: "0.0.0.0",
