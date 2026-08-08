@@ -1177,6 +1177,246 @@ State as a falsifiable hypothesis.
 
 ---
 
+### `JD-005` — `Shoe Zero (end client; posting placed by an unnamed recruiting intermediary)` — `Automation & Systems Integration Specialist`
+
+#### General Information
+
+| Field | Value |
+| --- | --- |
+| Job ID | `JD-005` |
+| Company | Shoe Zero — named in the posting header ("Automation Specialist \| Shoe Zero - 15646"). The posting body is written by an intermediary who refers to "my client," so Shoe Zero is the end employer and the recruiter is unnamed |
+| Job Title | Automation & Systems Integration Specialist (the header uses the shorter "Automation Specialist") |
+| Industry | Information Technology (as labeled in the posting) — the actual business appears to be e-commerce / DTC retail, inferred from Shopify as the core system plus fulfillment, ads attribution, and the company name |
+| Employment Type | `Not stated` — no Full-time/Part-time/Contract label given |
+| Location | Remote — open to candidates located in Latin America (LATAM) and the Philippines. No time-zone overlap requirement stated |
+| Salary | $1,500–$2,500 per month, "commensurate with experience" (currency not stated explicitly; USD implied) — the posting *also* asks the candidate to state expected salary despite publishing a range |
+| Source | `Not stated` — posting text supplied directly, no board or URL given; the trailing number in the header (`15646`) appears to be a posting reference, shorter than the format seen in `JD-003` and `JD-004` |
+| Date Collected | 2026-08-08 |
+| Link to Original Posting | `Not stated` |
+| Archive Reference | Posting text captured verbatim in NAIGX research conversation, 2026-08-08 — recommend saving a standalone copy, since no live URL exists to archive against |
+
+---
+
+#### Business Analysis
+
+**Business Problems**
+
+| # | Business Problem | Evidence from Posting |
+| --- | --- | --- |
+| 1 | Storefront and CRM are disconnected, so customer and lead data does not arrive clean or complete | "Integrate Shopify with CRM (HubSpot, Close, Zoho, Salesforce, etc.) for clean lead/customer data flow" |
+| 2 | The business cannot trace ad spend through to revenue — no closed-loop reporting exists | "Proven builds integrating Shopify + CRM + Email/SMS + Ads attribution into closed-loop reporting" |
+| 3 | Existing automations fail without anyone knowing — there is no error handling or monitoring layer | "Implement strong error handling, monitoring, and documentation for workflows" / evaluation criterion "how they handled API errors or scaling issues" |
+| 4 | Automations that work today are not expected to survive growth | "ensure systems scale as the business grows" / "Build scalable, reliable workflows" stated as the Core Focus |
+| 5 | Workflows are undocumented, leaving the business dependent on whoever built them | "documentation for workflows" named as a core responsibility |
+| 6 | Manual handoffs persist across fulfillment, analytics, ads attribution, and marketing | "Automate workflows across fulfillment, analytics, ads attribution, and marketing platforms" |
+| 7 | No one currently owns automation as a discipline — the role must both design and implement | Evaluation criterion: "Execution ability: can they both design and implement?" |
+
+**Business Goals**
+
+- Build "scalable, reliable workflows to connect Shopify, CRM, marketing, and analytics tools" (stated as the Core Focus)
+- Achieve clean lead/customer data flow between the storefront and whichever CRM is in use
+- Reach closed-loop reporting spanning Shopify, CRM, Email/SMS, and ads attribution
+- Make automations observable and debuggable rather than silently failing
+- Keep automation infrastructure viable as the business grows
+- No numeric targets, volumes, revenue figures, or reliability thresholds are stated anywhere in the posting
+
+**Current Pain Points**
+
+| Pain Point | Stated or Inferred | Frequency / Volume (if given) |
+| --- | --- | --- |
+| API errors and failures in existing automations | Stated (elevated to an evaluation criterion, not just a responsibility) | Not stated |
+| Scaling problems in existing automations | Stated (also an evaluation criterion) | Not stated |
+| Lead/customer data arriving unclean between Shopify and CRM | Stated ("for clean lead/customer data flow" — the goal implies the current state) | Not stated |
+| Attribution cannot be closed back to revenue | Stated | Not stated |
+| Workflows lack monitoring, so failures are discovered late | Stated | Not stated |
+| Undocumented workflows create key-person dependency | Inferred (from documentation being named as a standing responsibility) | Not stated |
+| CRM is not settled — four different CRMs are named as possibilities | Inferred (from "HubSpot, Close, Zoho, Salesforce, etc." — either the client runs several, or the recruiter is describing a skill class rather than the actual stack) | Not stated |
+
+---
+
+#### Technical Requirements
+
+**Required Skills**
+
+| Skill | Type (technical / process / domain) | Level (required / preferred) |
+| --- | --- | --- |
+| Hands-on automation building (3+ years) with Make.com and/or n8n | technical | required |
+| API proficiency | technical | required |
+| Webhook proficiency | technical | required |
+| JSON and data manipulation | technical | required |
+| Integrating Shopify + CRM + Email/SMS + Ads attribution into closed-loop reporting | technical | required |
+| Debugging automations | technical | required |
+| Optimizing and scaling automations | technical | required |
+| Error handling design | technical | required |
+| Workflow monitoring | technical | required |
+| Workflow documentation | process | required |
+| Both design and implementation ability (not one or the other) | process | required |
+| Demonstrable portfolio of real automation builds | process | required (stated as an evaluation criterion) |
+| GA4 server-side tagging and attribution feeds | technical | preferred |
+| AI automation familiarity | technical | preferred |
+| ETL pipeline background | technical | preferred |
+| RPA background | technical | preferred |
+| Workflow monitoring tooling background | technical | preferred |
+
+**Required Software**
+
+| Software | Category | Level (required / preferred) |
+| --- | --- | --- |
+| Shopify | E-commerce platform — the hub of the integration model | required |
+| HubSpot | CRM — integration target | required (one of four named CRMs; see Personal Notes) |
+| Close | CRM — integration target | required (one of four named) |
+| Zoho | CRM — integration target | required (one of four named) |
+| Salesforce | CRM — integration target | required (one of four named) |
+| Google Analytics 4 (GA4) | Analytics / server-side tagging | preferred (Bonus Points) |
+| Email/SMS platforms (unnamed) | Marketing messaging | required as a category — no specific vendor named |
+| Ads attribution platforms (unnamed) | Advertising measurement | required as a category — no specific vendor named |
+| Fulfillment systems (unnamed) | Operations | required as a category — no specific vendor named |
+
+**Required AI Tools**
+
+| AI Tool / Platform | Stated Use Case | Level (required / preferred) |
+| --- | --- | --- |
+| OpenAI | `Not stated` — named only as an example of "AI automation" familiarity under Bonus Points, with no task attached | preferred |
+| LangChain | `Not stated` — named in the same parenthetical, with no task attached | preferred |
+
+**Required Automation Platforms**
+
+| Platform | Stated Use Case | Level (required / preferred) |
+| --- | --- | --- |
+| Make.com | "Build and maintain workflows in Make.com and n8n"; 3+ years hands-on experience required with Make.com and/or n8n | required |
+| n8n | Same as above — named as a co-equal primary platform | required |
+| Zapier | "Build and maintain workflows in Make.com and n8n (Zapier optional)" — explicitly demoted to optional | preferred (posting says "optional") |
+| RPA tools (unnamed) | Listed under Bonus Points as background experience, no platform named | preferred |
+| ETL pipeline tools (unnamed) | Listed under Bonus Points as background experience, no platform named | preferred |
+
+**APIs / Integrations Mentioned**
+
+| API / System | Direction (read / write / both) | Stated Purpose |
+| --- | --- | --- |
+| Shopify API | both | Core system connected outward to CRM, marketing, analytics, and fulfillment |
+| CRM APIs (HubSpot, Close, Zoho, Salesforce) | both | "clean lead/customer data flow" from Shopify into CRM |
+| Webhooks (generic) | both | Named as a required proficiency alongside APIs and JSON |
+| Email/SMS platform APIs (unnamed) | both | Component of the closed-loop reporting build |
+| Ads attribution APIs (unnamed) | both | Component of the closed-loop reporting build |
+| GA4 server-side tagging / attribution feeds | both | Bonus — server-side event collection feeding attribution |
+| Fulfillment system APIs (unnamed) | both | "Automate workflows across fulfillment..." |
+
+**Reporting / Analytics Requirements**
+
+| Requirement | Audience | Cadence | Delivery Format |
+| --- | --- | --- | --- |
+| Closed-loop reporting across Shopify, CRM, Email/SMS, and ads attribution | Not stated (implied marketing/leadership) | Not stated | Not stated |
+| Workflow monitoring | Not stated (implied the automation owner) | Continuous (implied by "monitoring") | Not stated |
+| Ads attribution feeds | Not stated | Not stated | Not stated (GA4 server-side tagging named as the preferred mechanism) |
+
+---
+
+#### Product Insights
+
+**Automation Opportunities**
+
+| # | Task | Automation Potential (full / partial / none) | Rationale |
+| --- | --- | --- | --- |
+| 1 | Shopify → CRM customer and lead sync | full | Deterministic record transfer once field mappings exist; named as the first responsibility |
+| 2 | Closed-loop report assembly across Shopify, CRM, Email/SMS, and ads | full | Once the joins are defined, assembly and refresh are mechanical — the difficulty is upstream identity resolution, not the reporting step |
+| 3 | Fulfillment status propagation between systems | full | Event-driven, rules-based state changes with no judgment required |
+| 4 | Workflow failure detection and alerting | full | Run outcomes are machine-readable on both Make.com and n8n; this is the gap the posting most insistently describes |
+| 5 | Workflow documentation generation | full | Workflow definitions are structured data — documentation can be derived from them rather than written by hand, and the posting names documentation as recurring work |
+| 6 | Failure triage and root-cause identification | partial | Classification of common failure classes automates well; novel or cross-system failures still need a human |
+| 7 | Ads attribution stitching across sessions and channels | partial | Identity resolution across anonymous and known states is genuinely hard and error-prone; GA4 server-side tagging improves collection but does not settle attribution logic |
+| 8 | Data normalization across four different CRM schemas | partial | Mapping automates once established; deciding what a field *means* in each CRM does not |
+| 9 | Re-architecting workflows to survive growth | none | "Ensure systems scale as the business grows" is a design judgment about future load, not a rules-based task |
+| 10 | Choosing between Make.com, n8n, and Zapier for a given workflow | none | Platform selection weighs cost, team skill, and failure characteristics — explicitly the "design" half of the design-and-implement requirement |
+
+**AI Opportunities**
+
+| # | Task | AI Role (generate / classify / extract / summarize / decide) | Rationale |
+| --- | --- | --- | --- |
+| 1 | Classifying workflow run failures by cause (auth, rate limit, schema change, bad data, timeout) | classify | The posting elevates "how they handled API errors" to an evaluation criterion — evidence that failure handling is the expensive part of the job, and failure classes are learnable from run payloads |
+| 2 | Root-cause explanation and suggested fix from an error payload | extract / decide | Reading a failed run's payload and error to isolate the break is diagnostic reasoning, stated as "Troubleshoot automation issues" |
+| 3 | Generating workflow documentation from workflow definitions | generate / summarize | Documentation is a stated deliverable and workflow definitions are structured input — a well-shaped generation task |
+| 4 | Detecting upstream API or schema drift before it breaks a workflow | classify | Inferred from the combination of "strong error handling" and "ensure systems scale"; drift is a leading cause of silent automation failure. Flagged as inference — the posting does not name drift specifically |
+| 5 | Mapping Shopify customer records onto an unfamiliar CRM's schema | extract / decide | Four CRMs are named as possible targets; inferring field correspondence for each is the same task identified in `JD-003` |
+| 6 | Summarizing closed-loop performance for non-technical stakeholders | summarize | Inferred — closed-loop reporting is stated but its audience and format are not. Flagged as inference |
+
+**Potential NAIGX Feature**
+
+State as a falsifiable hypothesis.
+
+> If NAIGX provided a reliability layer for Make.com and n8n that watches execution history, classifies failures by cause, explains the root break in plain language, and keeps workflow documentation generated from the live workflow definitions, then an automation specialist owning dozens of client workflows would be able to detect and diagnose a broken automation before the business notices it, reducing silent-failure dwell time and the key-person dependency that undocumented workflows create.
+
+| Field | Value |
+| --- | --- |
+| Feature Name | Automation Reliability Layer (failure triage, monitoring, and generated documentation for Make.com / n8n) |
+| Problem It Solves | This posting names error handling, monitoring, documentation, troubleshooting, and scaling as five separate responsibilities and then repeats two of them as hiring *evaluation criteria*. The work being purchased is keeping automations alive, not building them |
+| Dependencies / Prerequisites | Make.com and n8n execution/API access sufficient to read run history and workflow definitions (feasibility not yet verified against either platform's API surface); a failure-classification taxonomy; a documentation template; alert delivery |
+| Related Existing Hypotheses | `JD-001` — "can debug a broken automation without panicking" named as a hiring requirement. `JD-003` — "troubleshoot technical issues... ensuring minimal downtime," plus the same per-CRM field-mapping problem. `JD-004` — AI-assisted debugging of distributed systems. This is the first hypothesis in the matrix to reach the 3-record recurrence bar this document sets as its strongest available validation |
+
+**Portfolio Opportunity**
+
+| Field | Value |
+| --- | --- |
+| Deliverable | A workflow reliability dashboard that ingests Make.com and/or n8n execution history, classifies failed runs by cause, produces a plain-English root-cause explanation per failure, and auto-generates per-workflow documentation from the workflow definition |
+| Scope | One platform end-to-end (n8n is the more accessible starting point if self-hostable; Make.com added second to prove the classifier is not platform-specific). A small set of deliberately broken workflows — expired auth, rate limit, changed upstream schema, malformed payload — as the evaluation set |
+| Estimated Effort | Days for ingestion plus failure classification over seeded failures on one platform; weeks to add the second platform and generated documentation |
+| What It Proves | NAIGX can address the recurring "automations break and nobody knows" problem that three independent records in this matrix pay salaries to solve — and can do it across platforms rather than for one vendor |
+| Reusable Assets Produced | Failure-classification taxonomy and prompt/eval pair, execution-history ingestion adapters, documentation generator (shared with `JD-002`'s documentation deliverable), seeded-failure evaluation set |
+
+**Scoring**
+
+| Dimension | Score (1–5) | Justification |
+| --- | --- | --- |
+| Difficulty | 3 | Both platforms expose workflow definitions and run history, so ingestion is integration work rather than new capability. The real difficulty is a failure taxonomy that generalizes across platforms instead of overfitting to seeded examples |
+| Business Impact | 4 | Affects a core process — the posting treats failure handling as the primary thing being bought — but no volume, downtime cost, or revenue impact is stated anywhere, so the size of the pain is asserted rather than measured |
+| Priority Score | 5 (Build next) | First hypothesis to clear this document's own recurrence bar: automation failure diagnosis appears in `JD-001`, `JD-003`, `JD-004`, and `JD-005` — four of five records, across four industries. Per the stated prioritization rules, recurrence raises priority, and moderate difficulty with large impact is where work should start. Caveat recorded honestly: "independent" cannot be fully verified, since three of the five records withhold the employer's identity |
+
+---
+
+#### Personal Notes
+
+```
+- First record in the matrix with a named employer (Shoe Zero). This partially relieves the company-independence
+  problem flagged in JD-004's notes, but only partially — the posting is written by an unnamed intermediary
+  ("I will present this to my client"), so the recruiter remains unidentified even though the end client is not.
+- Important refinement to a suspicion recorded in JD-001. That record flagged the "unrestricted, public,
+  non-expiring video introduction" request as a possible data-harvesting or scam pattern. JD-005 makes the same
+  request in almost identical language — but alongside a named end client, a published salary range, and
+  detailed coaching on lighting and posture. The more likely explanation is now that this is standard practice
+  among offshore recruiting intermediaries rather than a scam signal. Keeping JD-001's note as written, since
+  it was correctly labeled as a flag rather than a conclusion, and recording the correction here instead.
+- HubSpot now appears in 3 of 5 records (JD-001, JD-003, JD-005). It is the most-mentioned named tool in the
+  matrix. In JD-005 it is listed first among four interchangeable CRMs, which is weaker evidence than JD-001's
+  dedicated-owner framing — worth weighting mentions by centrality, not just counting them.
+- Automation failure diagnosis now appears in 4 of 5 records and is the basis of this record's hypothesis. This
+  is the first theme to clear the 3+ independent-record bar the Success Metrics section calls "the strongest
+  validation available here," which is why this record carries the matrix's first Priority 5.
+- JD-003 and JD-005 are near-structural twins: connect a commercial hub (HubSpot / Shopify) to a rotating set
+  of client systems, own the integrations, fix them when they break, work remotely from LATAM or the
+  Philippines, $1,200-$2,500/month, placed through an intermediary. Two records is not a segment, but if this
+  shape recurs it identifies a specific buyer: offshore integration ownership for SMB and DTC operations.
+- Make.com is now in 2 of 5 records (JD-003 preferred, JD-005 required) and Zapier in 2 of 5 (JD-003 required,
+  JD-005 explicitly "optional"). First appearance of n8n, and the first posting to treat Make and n8n as
+  primary with Zapier demoted — a possible signal about where mid-market automation work is moving, on a
+  sample far too small to assert it.
+- OpenAI and LangChain are named with no use case attached, under Bonus Points. Inverse of JD-003, which
+  required "AI automations" while naming no tool. Across the sample, AI is named as either a capability
+  without tools or tools without a capability - JD-002 and JD-004 are the only records that connect a specific
+  AI tool to a specific task.
+- Industry labeling problem recurs. The posting is filed under "Information Technology" while the business is
+  plainly e-commerce/DTC retail - the same mismatch as JD-003 ("Media" for a fitness/wellness agency). The
+  labels appear to describe the job board's taxonomy, not the employer. Recorded both, as in JD-003. Any
+  industry-spread metric built on the posting labels will be wrong.
+- Salary asymmetry noted in JD-001 recurs in a milder form: this posting publishes a range AND asks the
+  candidate for their expected number. Two of five records now ask candidates to bid against an unstated or
+  partially stated band.
+- Sample size is 5. Summary Dashboard still intentionally untouched - but at 5 records there are now enough
+  cross-record patterns (HubSpot 3/5, failure diagnosis 4/5, the industry-label defect, the unverifiable
+  company-independence metric) that a first dashboard pass is worth scheduling deliberately, on a fixed
+  cadence as this document requires, rather than being triggered by the next record that happens to arrive.
+```
+
+---
+
 ## Validation Checklist
 
 A record is not counted in the Summary Dashboard until every box is checked.
