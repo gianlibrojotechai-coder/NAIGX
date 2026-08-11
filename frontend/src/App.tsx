@@ -1,69 +1,74 @@
-import { useEffect, useState } from "react";
 import "./App.css";
 
-type HealthResponse = {
-  status: string;
-  app: string;
-  version: string;
-};
-
 function App() {
-  const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    const fetchHealth = async () => {
-      try {
-        const response = await fetch("http://localhost:3000/health");
-
-        if (!response.ok) {
-          throw new Error("Failed to connect to backend.");
-        }
-
-        const data = await response.json();
-        setHealth(data);
-      } catch (err) {
-        setError("Unable to connect to the backend.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchHealth();
-  }, []);
-
-  if (loading) {
-    return <h1>Connecting to backend...</h1>;
-  }
-
-  if (error) {
-    return <h1>{error}</h1>;
-  }
-
   return (
-    <div
-      style={{
-        fontFamily: "Arial",
-        padding: "40px",
-        textAlign: "center",
-      }}
-    >
-      <h1>NAIGX</h1>
+    <div className="app">
+      <div className="container">
 
-      <h2 style={{ color: "green" }}>🟢 Backend Connected</h2>
+        <header className="header card">
+          <div>
+            <h1>NAIGX</h1>
+            <h2>AI Workflow Analyzer</h2>
+            <p>
+              Analyze automation workflows using AI to identify complexity,
+              risks, and optimization opportunities.
+            </p>
+          </div>
 
-      <p>
-        <strong>Status:</strong> {health?.status}
-      </p>
+          <span className="status">
+            🟢 Backend Connected
+          </span>
+        </header>
 
-      <p>
-        <strong>Application:</strong> {health?.app}
-      </p>
+        <section className="card">
 
-      <p>
-        <strong>Version:</strong> {health?.version}
-      </p>
+          <h3>Workflow Description</h3>
+
+          <p className="section-description">
+            Paste your workflow, automation, or process description below.
+          </p>
+
+          <textarea
+            placeholder="Example:
+
+Google Forms
+↓
+Google Sheets
+↓
+Gmail
+
+or describe your workflow in plain English..."
+          />
+
+          <button>
+            🔍 Analyze Workflow
+          </button>
+
+        </section>
+
+        <section className="card">
+
+          <h3>Analysis</h3>
+
+          <div className="empty-state">
+
+            <div className="empty-icon">
+              🤖
+            </div>
+
+            <h4>Waiting for analysis</h4>
+
+            <p>
+              Paste an automation workflow above and click
+              <strong> Analyze Workflow </strong>
+              to begin.
+            </p>
+
+          </div>
+
+        </section>
+
+      </div>
     </div>
   );
 }
