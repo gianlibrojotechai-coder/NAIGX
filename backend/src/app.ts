@@ -13,6 +13,10 @@ import type { FastifyInstance } from "fastify";
 
 import type { AppConfig } from "./config/env.js";
 import type { Database } from "./db/client.js";
+import {
+  generateRequestId,
+  registerRequestContext,
+} from "./http/request-context.js";
 import { healthRoutes } from "./routes/health.js";
 
 export interface AppDependencies {
@@ -28,10 +32,20 @@ export async function buildApp({
     logger: {
       level: config.logLevel,
     },
+    genReqId: generateRequestId,
   });
+
+  // Applied to the root instance, before routes, so every route context
+  // inherits it and every response carries the correlation headers.
+  registerRequestContext(app);
 
   await app.register(cors, {
     origin: config.corsOrigin,
+    // Custom response headers are unreadable by a browser client unless
+    // explicitly exposed. Without this the correlation headers exist on the
+    // wire but cannot be surfaced by the very clients meant to quote them
+    // when reporting an incident (`API §9.5`).
+    exposedHeaders: ["X-Request-Id", "X-Correlation-Id"],
   });
 
   await app.register(healthRoutes, {
