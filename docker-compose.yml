@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: naigx-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: naigx
+      POSTGRES_PASSWORD: naigx_dev_password
+      POSTGRES_DB: naigx
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - naigx_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  naigx_postgres_data:
