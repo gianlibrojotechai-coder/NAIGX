@@ -3,45 +3,64 @@ import "./App.css";
 function App() {
   return (
     <div className="app">
-      <div className="container">
+      <main className="container">
 
-        <header className="header card">
-          <div>
+        <header className="hero">
+
+          <div className="hero-content">
+
+            <span className="logo-badge">
+              AI Workflow Intelligence
+            </span>
+
             <h1>NAIGX</h1>
-            <h2>AI Workflow Analyzer</h2>
+
+            <h2>Understand Any Workflow. Powered by AI.</h2>
+
             <p>
-              Analyze automation workflows using AI to identify complexity,
-              risks, and optimization opportunities.
+              Paste an automation workflow from n8n, Make.com, Zapier,
+              or describe it in plain English. NAIGX will analyze its
+              complexity, detect risks, and recommend improvements.
             </p>
+
           </div>
 
-          <span className="status">
-            🟢 Backend Connected
-          </span>
+          <div className="status">
+
+            <span className="dot"></span>
+
+            Connected
+
+          </div>
+
         </header>
 
         <section className="card">
 
           <h3>Workflow Description</h3>
 
-          <p className="section-description">
-            Paste your workflow, automation, or process description below.
+          <p className="card-subtitle">
+
+            Paste your automation workflow below.
+
           </p>
 
           <textarea
-            placeholder="Example:
+            placeholder={`Example:
 
-Google Forms
-↓
+Google Form
+      ↓
 Google Sheets
-↓
-Gmail
-
-or describe your workflow in plain English..."
+      ↓
+OpenAI
+      ↓
+Slack Notification`}
           />
 
           <button>
-            🔍 Analyze Workflow
+
+            Analyze Workflow
+
           </button>
 
         </section>
@@ -52,23 +71,35 @@ or describe your workflow in plain English..."
 
           <div className="empty-state">
 
-            <div className="empty-icon">
+            <div className="robot">
               🤖
             </div>
 
-            <h4>Waiting for analysis</h4>
+            <h4>Ready to Analyze</h4>
 
             <p>
-              Paste an automation workflow above and click
-              <strong> Analyze Workflow </strong>
-              to begin.
+
+              Your AI workflow report will appear here.
+
             </p>
+
+            <ul>
+
+              <li>✔ Complexity Score</li>
+
+              <li>✔ Risk Detection</li>
+
+              <li>✔ Best Practices</li>
+
+              <li>✔ Optimization Suggestions</li>
+
+            </ul>
 
           </div>
 
         </section>
 
-      </div>
+      </main>
     </div>
   );
 }
