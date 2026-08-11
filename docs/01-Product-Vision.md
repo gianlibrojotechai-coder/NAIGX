@@ -1,422 +1,464 @@
-# Product Vision
+# NAIGX — Product Vision
 
-**File:** `docs/Product-Vision.md`
-**Status:** Living Document — Vision, not specification
-**Evidence Base:** `research/00-Market-Discovery.md` · `research/01-Job-Description-Matrix.md` (`JD-001`→`JD-005`) · `research/06-Market-Insights.md`
-**Last Updated:** 2026-08-09
+**The constitutional document of the product.**
 
-> This document defines what NAIGX is for and where it is going. It deliberately contains no features, no architecture, and no implementation detail. Those belong in design documents downstream.
->
-> Every claim below is traceable to the research corpus. Where the vision runs ahead of the evidence, that is stated rather than concealed.
-
----
-
-## ⚠️ Stage and Evidence Honesty
-
-NAIGX is a **market-driven portfolio project built by a solo developer**. It has no customers, no investors, no teams, and no production deployment. Nothing in this document should be read as describing a company that exists.
-
-The evidence base is likewise early. Per `06-Market-Insights.md`, the corpus is **five job postings from a single source type**, which caps every finding at 🟡 *Emerging Signal* under the project's own validation threshold. No insight informing this vision is yet 🟢 *Validated*.
-
-This vision is therefore **a direction argued from early evidence, not a plan justified by proven demand.** It is expected to change. The parts most likely to change are marked.
-
----
-
-## What Is NAIGX?
-
-**NAIGX is an AI operating system for business: a layer that observes the software a company already runs, explains what is happening across it, and supports the people responsible for keeping it working.**
-
-The word *operating system* is used in its original sense — not an application, but the layer beneath applications that manages resources, surfaces state, and coordinates work. NAIGX does not aim to be another place where work happens. It aims to be the layer that makes the work already happening across many tools legible and reliable.
-
-Three clarifications, each grounded in the research:
-
-| NAIGX is | NAIGX is not | Evidence |
-|---|---|---|
-| A layer **over** existing business software | A replacement for it | Every corpus record centers a system of record the company intends to keep (`JD-001` HubSpot, `JD-003` HubSpot, `JD-004` event infrastructure, `JD-005` Shopify) |
-| An **explanatory** intelligence | An autonomous actor | Zero of five records request autonomous AI decision-making; every stated AI use case terminates in human review (`06-Market-Insights.md`, Trend 2) |
-| **Portable** across heterogeneous stacks | A deep single-vendor product | 30+ distinct products across five postings; only one appears in a majority (`06-Market-Insights.md`, Software section) |
-
----
-
-## Why Does NAIGX Exist?
-
-There are two honest answers, and both belong here.
-
-### The market reason
-
-The research corpus describes a specific, repeated failure in how companies run their software.
-
-Five postings across five industries — B2B SaaS, aviation logistics, a fitness/wellness agency, fintech, and e-commerce — describe five different job titles with almost no overlapping tools. They describe the same job: **one person, made responsible for the connections between systems that were never designed to work together, and then for keeping those connections alive.**
-
-Three findings drive the existence of this product:
-
-1. **Integration ownership is what companies are actually buying** (5/5 records). The work is moving data correctly between systems, not building software.
-2. **The expensive part is operating integrations, not building them** (4/5 records). Two postings promote failure handling out of the responsibilities list and into *hiring selection criteria* — `JD-001` names "can debug a broken automation without panicking" as a qualification; `JD-005` makes "how they handled API errors or scaling issues" an evaluation criterion. Companies believe this specific capability is the scarce one.
-3. **This discipline is unowned in every organization observed** (5/5 records). The language is uniformly foundational — "build the backbone," "primary point of contact," "lead and scale," "can they both design and implement?" None of these companies is replacing someone.
-
-The gap NAIGX addresses is the space between *connected* and *reliable*. These companies already connected their tools. What they cannot do is tell when those connections break, why, or what state their operations are actually in.
-
-### The project reason
-
-NAIGX is also a demonstration. It exists to show, in public and end-to-end, that a product can be designed from documented market evidence rather than from intuition — that a feature can be traced backward through a hypothesis, an automation opportunity, a business problem, and finally to a specific line in a specific job posting.
-
-That discipline is the point as much as the product. A reader should be able to pick any capability NAIGX eventually builds and follow it back to the evidence that justified it. Where the trail is missing, the capability should not exist.
-
----
-
-## Who Is It Built For?
-
-### Primary user — the systems owner
-
-The person present in all five corpus records: solely accountable for how an organization's software fits together, working without a team, in an organization that has never had this role before.
-
-Their defining characteristics, drawn from the evidence:
-
-| Characteristic | Evidence |
+| Field | Value |
 |---|---|
-| Technically literate but **not primarily a programmer** | Scripting is *preferred* while API/webhook/JSON literacy is *required* in `JD-002`, `JD-003`, `JD-005` |
-| Works across many unfamiliar systems | 30+ distinct tools across the corpus; `JD-003` and `JD-005` face a rotating set of client CRMs |
-| Diagnoses more than they build | 5/5 records require troubleshooting; 4/5 pair "build" with "maintain" |
-| Operates autonomously and remotely | 4/5 require independent ownership; 5/5 are remote |
-| Is the only person who understands the system | Documentation named as standing work in `JD-001`, `JD-002`, `JD-005` — key-person dependency is explicit |
+| Product | NAIGX |
+| Category | Automation Intelligence Platform, powered by artificial intelligence |
+| Core engine | NAIGX Intelligence Engine (NIE) |
+| Document type | Product Vision (canonical) |
+| Source of truth | NAIGX Executive Summary v1.1 (approved) |
+| Governs | All product, engineering, AI, UX, design, and business decisions |
+| Version | 1.1 |
+| Last updated | 2026-08-11 |
 
-**Design consequence:** a capability that requires writing code to use would exclude the majority of this corpus. NAIGX is built for someone who reads payloads and reasons about system behavior, not someone who ships software.
+---
 
-### Secondary user — the operations leader
+## How to read this document
 
-Present in 4/5 records as the person waiting on information. `JD-001` states that reporting requires waiting on a data team; `JD-003` requires regular project updates; `JD-005` requires closed-loop reporting that currently does not exist. This user does not operate NAIGX daily; they consume what it makes visible.
+The Executive Summary establishes *what NAIGX is, what market it serves, and why that market exists*. It is the external argument.
 
-### Observed but not targeted
+This document answers a different question: **why is NAIGX built the way it is?** It is the internal argument — the reasoning behind the constraints, the boundaries drawn deliberately, and the commitments that must survive contact with growth pressure, competitor moves, and revenue temptation.
 
-| Group | Records | Why not primary |
+Three rules govern it:
+
+1. **It is binding.** A feature that violates a principle here does not ship, regardless of demand, competitive parity, or demo quality.
+2. **It is amendable, not ignorable.** If a principle proves wrong, amend it in writing, with the evidence, in Appendix A. Silently routing around a principle is the specific failure this document exists to prevent.
+3. **It settles disputes.** When a decision is contested, the argument is resolved by reference to these principles — not by seniority, recency, or volume.
+
+A note on durability: this document is written to be read in five years by someone who joined last week. It contains no roadmap, no metrics, no feature commitments, and no implementation. Those change. What follows should not.
+
+---
+
+## 1. The Belief System
+
+Six beliefs sit beneath everything else. Every principle in §3 derives from one or more of them.
+
+**Automation should begin with understanding.**
+The industry's default sequence is inverted. Practitioners open a builder, connect two applications, and discover the requirement by building against it. This produces automations that technically function while solving a problem nobody correctly stated. Understanding is not a preliminary phase to be compressed; it is where the outcome is actually determined.
+
+**Architecture should come before implementation.**
+The cost of an architectural error rises sharply with how late it is found. Caught in design, it costs a conversation. Caught in build, a rewrite. Caught in production, an incident and a loss of trust that no rewrite repairs. Every hour spent on structure before construction is bought at a steep discount.
+
+**Reasoning should come before recommendations.**
+A recommendation is a conclusion. A conclusion produced without visible reasoning is indistinguishable — to the person receiving it — from a guess that happens to be well-formatted. The reasoning is not support material for the answer. It *is* the answer; the recommendation is what falls out of it.
+
+**Technology should adapt to people, not the other way around.**
+Most tools require the user to learn the system's model of the world: its vocabulary, its modes, its categories, its idea of how work is organized. That burden is real and it is regressive — it falls hardest on the practitioners with the least experience, who are exactly the people the tool should help most. The system does the adapting.
+
+**Every recommendation should be explainable.**
+Users of NAIGX are accountable to clients, managers, and production systems. They present what they receive and defend it under questioning. Output that cannot be independently understood and defended is not a deliverable — it is a risk transferred to someone who trusted the product.
+
+**Every recommendation should have a clear architectural rationale.**
+Explainability and rationale are not the same thing. A system can explain fluently and still be reasoning from nothing. "Because it fits the pattern" is an explanation; "because the throughput requirement exceeds this platform's sustained rate limit, and the alternative introduces a state dependency the requirement does not tolerate" is a rationale. NAIGX owes the second.
+
+---
+
+## 2. Identity
+
+### 2.1 What NAIGX Is
+
+**NAIGX is the layer where automation decisions are made, reasoned, and recorded.**
+
+Not where automations run. Not where they are assembled. Where it is determined what should exist, why in that shape, on what foundation, and what it will cost to live with.
+
+| NAIGX is… | Meaning |
+|---|---|
+| **A reasoning layer** | It operates on decisions, not executions. Its output is judgment rendered in reviewable form. |
+| **A senior architect available on demand** | It behaves like an experienced practitioner: asks the right questions, surfaces what the user did not know to ask, states its reasoning plainly, and is candid when the answer is unwelcome. |
+| **An intent-driven system** | It infers what is needed from what was provided. Classification is the product's work, never the user's. |
+| **A neutral advisor** | It holds no stake in the outcome beyond the outcome being correct. |
+| **A teaching instrument** | Every interaction transfers judgment, not merely an answer. |
+| **A producer of professional deliverables** | Output is meant to be shown to clients, managers, and reviewers — and to hold up when it is. |
+
+### 2.2 What NAIGX strives to become
+
+The ambition is not scale or feature breadth. It is a change in what practitioners consider normal.
+
+Today, "I'll figure it out as I build" is an accepted way to approach an automation problem. NAIGX succeeds when that reads the way "I'll figure out the schema as I write queries" reads to a competent engineer — as an admission, not a method. The end state is a professional norm: **that automation is designed before it is built, and that the design is written down and defensible.**
+
+The brand carries this. NAIGX is a standalone name with no expansion; its meaning accrues entirely from what the product comes to represent. The objective is for *NAIGX* and *Automation Intelligence* to become interchangeable in a practitioner's vocabulary — the way a category is named after the product that defined it.
+
+### 2.3 What NAIGX Is Not
+
+Each boundary below closes off a real, adjacent, revenue-plausible market. Each would fund itself for a period. Each would dissolve something the product cannot replace.
+
+| NAIGX is not… | Why the boundary exists | What crossing it would cost |
 |---|---|---|
-| Software engineers | `JD-004` only (1/5) | Well-served by existing engineering tooling; `JD-004` already names Cursor and MCP for this |
-| Agencies managing many client stacks | `JD-003` `JD-005` (2/5) | 🔴 at current sample. A promising candidate segment, not yet a supported one — see *Open Questions* |
+| **A workflow builder** | Execution is solved, crowded, and commoditizing. There is no unmet need there and no defensible position to take. | Neutrality. The moment NAIGX runs workflows, every platform recommendation it makes becomes self-interested and therefore worthless. |
+| **A chatbot** | Conversation is an interface choice, not a value proposition. Framing the product as chat sets the expectation of open-ended talk. | Rigor. Chat framing rewards responsiveness over structure and dissolves the professional deliverable into a transcript. |
+| **A low-code platform** | Assembly was never the bottleneck. Making assembly easier addresses a constraint that is not binding. | Focus, and entry into a capital-intensive race against funded incumbents that a reasoning product cannot win. |
+| **An integration marketplace** | Connector breadth is a moat NAIGX will never own, and marketplaces monetize by favoring what is listed. | The entire thesis. A marketplace has a financial stake in which platform is chosen. That is precisely the conflict NAIGX exists to be free of. |
+| **An AI agent that executes autonomously** | Execution without judgment is the industry's existing failure, accelerated. An agent that acts on an unexamined design produces the same broken automations, faster and with less human review. | The user's authority over their own systems — and the accountability structure that makes the output defensible. Elaborated in Principle 6. |
+| **A code generator** | The deliverable is architecture, not implementation. | Positioning. It would move evaluation from reasoning quality to syntax correctness — a different product, judged on a different axis. |
+| **A monitoring or observability tool** | That is a runtime concern, downstream of the decision layer and well served already. | Scope discipline, for a market NAIGX would enter last and weakest. |
+| **A general-purpose assistant** | Breadth is the direct enemy of the depth that distinguishes NAIGX from an undifferentiated model. | Its only durable advantage over general-purpose AI. |
+
+**The pattern to recognize:** every item on this list will look attractive at some point, usually when growth is slow and one of these markets is visibly larger. Adjacency is not strategy. A product that expands into all of its adjacent markets ends up with a position in none of them.
 
 ---
 
-## What Business Problem Does It Solve?
+## 3. Product Principles
 
-**Companies cannot see the operational state of the systems they depend on, and cannot explain those systems' failures without the one person who built them.**
+Seven principles in three tiers. **Tier order is priority order.** When two principles conflict, the higher tier wins; within a tier, the lower number wins.
 
-Decomposed into the problems the corpus actually documents, ranked by frequency:
+- **Tier I — Positional.** Where NAIGX stands in the lifecycle. These are structural; violating them changes what the product is.
+- **Tier II — Epistemic.** How NAIGX reasons and what it owes the user in return for their trust.
+- **Tier III — Relational.** How NAIGX treats the person using it.
 
-| Problem | Frequency | Level |
+---
+
+### Tier I — Positional
+
+#### Principle 1 — Intelligence Before Execution
+
+**NAIGX earns its position by being upstream of the build, and it holds that position only by staying there.**
+
+This is the first principle because it is the one that determines whether the others are even possible. Neutrality, candor, and the freedom to recommend against building at all are downstream of having no stake in execution. Cross this line and the rest of this document becomes decorative.
+
+The pressure to cross it will be constant and will always arrive reasonably: users will ask for one-click deployment, partners will propose execution integrations, and the gap between "here is the design" and "here is the running workflow" will look like an obvious, user-requested convenience. It is not a convenience. It is the boundary that makes the advice worth anything.
+
+**In practice**
+- The product's output is a design. What happens to that design belongs to the user.
+- Features that reduce friction in *handing off* to an execution platform are welcome. Features that absorb execution are not.
+- "The user asked for it" does not override this. Users routinely ask for the thing that would compromise what they came for.
+
+**Drift signals:** any feature that runs, deploys, schedules, or monitors an automation; any revenue that scales with executions.
+
+---
+
+#### Principle 2 — Architecture Before Automation
+
+**The most expensive automation error is discovered after it is built. The cheapest is discovered before.**
+
+NAIGX exists to relocate error detection to the cheapest possible moment. This means the product is judged on whether its designs survive implementation — not on whether they read impressively, and not on how quickly they were produced.
+
+It also means the product must be capable of unwelcome conclusions. *"This should not be automated"* and *"this design is wrong"* are legitimate outputs. A system structurally incapable of reaching them is a sales tool wearing an advisor's clothing.
+
+**In practice**
+- Failure modes, edge cases, and cost of ownership are first-class outputs, not appendices.
+- Depth scales to problem complexity. A three-step workflow that receives a fifteen-section architecture has been failed, not served — over-engineering is a violation of this principle, not an expression of it.
+- Recommending inaction is a success state.
+
+**Drift signals:** output length used as a proxy for value; an inability to produce a negative recommendation; designs that read well and implement badly.
+
+---
+
+#### Principle 3 — Platform Neutrality
+
+**NAIGX's advice is worth exactly as much as its freedom to give bad news about any platform — including a partner's.**
+
+Recommendations follow from fit to requirement and constraint. Never from relationship, revenue, or familiarity. This is the product's structural moat, and it is fragile in exactly one direction: it survives only while NAIGX has no financial interest in which platform wins.
+
+**In practice**
+- Platform recommendations state the criteria applied and the trade-offs of the alternatives rejected.
+- Multi-platform and no-platform outcomes are legitimate results, not failures to converge.
+- Platform-specific constraints — rate limits, pricing behavior, operational quirks — are reported as observed, favorably or otherwise.
+- Neutrality means *unbiased*, not *non-committal*. Refusing to take a position is its own failure; the user came for a decision.
+
+**Business model constraint:** NAIGX does not accept placement fees, referral revenue, or preferential terms that could influence recommendations. If such an arrangement is proposed, the answer is no. This is load-bearing structure, not a preference to be revisited under revenue pressure.
+
+**Drift signals:** revenue tied to which platform is recommended; systematic reluctance to criticize a specific vendor; a default platform chosen from familiarity.
+
+---
+
+### Tier II — Epistemic
+
+#### Principle 4 — Reason Before Recommend
+
+**A recommendation without visible reasoning is a guess with good posture.**
+
+The system must establish understanding before producing output: what problem is being solved, under what constraints, what was stated versus inferred, and what remains genuinely unknown. This ordering is not stylistic. A system that produces the conclusion first and assembles justification afterward will produce confident output on invented premises, and neither the system nor the user will be able to tell.
+
+**In practice**
+- Every substantive output states the problem as understood before proposing a solution.
+- Inferences are labelled as inferences. Assumptions are surfaced, not buried.
+- When input is genuinely insufficient, NAIGX says so and states what would resolve it — rather than inventing the missing context and proceeding.
+- Confidence is expressed proportionally to actual certainty. **False confidence is a defect of the same severity as a wrong answer**, and a more dangerous one, because it is harder to detect.
+
+**Drift signals:** conclusions arriving before context; recommendations untraceable to a stated constraint; uniform confidence across claims of unequal certainty.
+
+---
+
+#### Principle 5 — Explain Every Decision
+
+**Output the user cannot evaluate is output the user must accept on faith. Faith is not a professional standard.**
+
+Where Principle 4 governs how the system reasons, this governs what it owes the user afterward. The test is not whether an explanation exists. It is whether the user can answer, unaided: *"Why this, and not the obvious alternative?"*
+
+**In practice**
+- Rejected alternatives are named when the rejection is informative. What was considered and dismissed is often more valuable than what was chosen.
+- Explanations are calibrated to what is needed to *act and defend* — not padded to appear thorough. Verbosity is not rigor; it is frequently its absence.
+- Transparency has a resolution. Exposing all reasoning is as unhelpful as exposing none: both push filtering onto the user. Depth is layered and available on request, never dumped.
+
+**Drift signals:** unsourced assertions; recommendations that cannot be interrogated; explanations that restate the conclusion rather than support it.
+
+---
+
+### Tier III — Relational
+
+#### Principle 6 — Human-Centered Automation
+
+**The system reasons. The human decides. This division is permanent.**
+
+NAIGX augments expertise; it does not substitute for it. This is not caution about AI capability — it is a position about where accountability lives. The practitioner is answerable to their client, their manager, and their production systems. Accountability cannot be delegated to a system, so neither can the decision.
+
+This is why NAIGX is not an autonomous agent. An agent that executes on an unexamined design does not solve the industry's problem; it industrializes it. It produces the same architecturally unsound automations at greater speed and with less human review — the exact failure mode described in the Executive Summary's problem statement, accelerated.
+
+There is a second reason, quieter and more important over time. A system that acts on the user's behalf removes the user from the reasoning, and a user removed from the reasoning stops developing judgment. The product would be manufacturing the dependency that Principle 7 exists to prevent.
+
+**In practice**
+- The user retains authority over every consequential decision. The system informs; it does not commit.
+- Output is structured for human review, adaptation, and presentation — not for machine handoff.
+- The system adapts to the user's vocabulary, context, and working style. The user is never asked to learn the system's internal model as a precondition to value.
+- Ambiguity is resolved by asking, not by assuming and proceeding.
+
+**Drift signals:** features that act without explicit human authorization; output optimized for automated consumption over human review; interfaces that require the user to understand the system before they can use it.
+
+---
+
+#### Principle 7 — Teach While Solving
+
+**A user who has used NAIGX fifty times should be a better architect — not merely a faster one.**
+
+This principle is stated last because it is the one most easily sacrificed, and stating it last means it is not forgotten first. Dependency is commercially convenient; capability-building is not directly monetizable. Every quarter there will be a defensible argument for withholding a little reasoning to preserve usage.
+
+The argument is wrong on its own terms. **Retention built on dependency is fragile** — it collapses the moment a competitor becomes merely adequate, because the user has no basis for preferring one system they cannot evaluate over another. Retention built on reasoning quality is durable: users return because the reasoning is consistently better than their own on genuinely new problems, which is a standard a competitor must actually meet rather than merely approach.
+
+**In practice**
+- Reasoning is exposed in a form that transfers to the user's next problem, not only this one.
+- Patterns and failure modes are named, so they become recognizable rather than merely handled.
+- Teaching is embedded in the work. Never bolted on as separate educational content the user must opt into.
+- The product does not withhold reasoning to drive repeat usage.
+
+**Drift signals:** users who cannot explain the output they received; usage that grows while user capability does not; educational content separated from the working surface.
+
+---
+
+### Resolving conflicts
+
+| Conflict | Resolution |
+|---|---|
+| Thorough explanation vs. concision | Explain what is needed to act and defend. Cut the rest. |
+| Teaching vs. speed | Teach inside the work, never as a separate step. |
+| Neutrality vs. a clear answer | Take a position; show the criteria. Neutrality is unbiased, not undecided. |
+| Architectural depth vs. a simple input | Scale to the problem. Over-engineering violates Principle 2. |
+| Human authority vs. convenience | Authority wins. Convenience that removes the human is not convenience. |
+| A principle vs. a user request | The principle. Users ask for the thing that would compromise what they came for. |
+
+**Breaking a principle** requires this sequence, in public: name the principle, state the evidence that made it wrong, amend Appendix A, then build. A principle worked around in silence has been abandoned, and everything downstream of it becomes negotiable.
+
+---
+
+## 4. Product Philosophy
+
+Four ideas govern how the product behaves, distinct from what it believes.
+
+**The system thinks before it acts.**
+Every capability is subject to the same ordering the product asks of its users: understand, then reason, then conclude. A product that recommends architectural discipline while behaving impulsively is arguing against itself, and users will notice before the team does.
+
+**Good automation is a consequence of good architecture, never a substitute for it.**
+No amount of execution polish rescues a design that misunderstood the problem. This is why NAIGX invests where it does — the leverage is upstream, and it does not exist downstream at any price.
+
+**The product is measured by what the user can do afterward.**
+Not by what the product produced. A session that generates an impressive artifact and leaves the user unable to explain or defend it has failed, whatever it looked like at the time.
+
+**Augmentation, not replacement.**
+The goal is not to remove the practitioner from automation work. It is to remove the accident from it — the arbitrary dependence of quality on whether this particular person happened to have encountered this particular failure before.
+
+---
+
+## 5. User Experience Philosophy
+
+The intended experience is **working with a senior colleague who is unusually generous with their reasoning.**
+
+Not a tool being operated. Not an oracle being consulted. A collaborator who understands the problem, has seen it before, explains their thinking without being asked, and tells you when you are wrong.
+
+### The six states
+
+| State | What produces it | What destroys it |
 |---|---|---|
-| Systems fail without the failure being detected, diagnosed, or explained quickly | 5/5 broad · 4/5 for workflow-specific failures | 🟡 |
-| Data does not move correctly between systems, and the work is unowned | 5/5 | 🟡 |
-| Operational visibility requires manual assembly | 4/5 | 🟡 |
-| Systems are undocumented, creating key-person dependency | 3/5 | 🟡 |
-| Data quality degrades at the point of entry | 3/5 | 🟡 |
+| **Confident** | Output the user can defend under questioning | Reasoning they cannot reconstruct |
+| **Guided** | Being shown what they did not know to ask | Options presented without a basis for choosing |
+| **In control** | Every consequential decision remaining theirs | The system committing on their behalf |
+| **Professionally supported** | Output ready to present without embarrassment | Casual register, hedging, padding, defensive caveats |
+| **Educated** | Recognizing the pattern next time, unaided | Answers that solve today and teach nothing |
+| **Never overwhelmed** | Structure that makes the next action obvious | Undifferentiated volume; buried conclusions |
 
-The unifying description: **these organizations have operational systems they cannot read.** NAIGX exists to make them readable — and, because reading them is currently a scarce human skill, to make that reading available without the scarce human.
+### The governing test
 
----
+**Every interaction should reduce uncertainty.**
 
-## What Problems Will NAIGX *Not* Solve?
+This is the sharpest available test of an interaction's quality, and it disqualifies several things that otherwise look like value. Output that impresses without clarifying increases uncertainty — the user now holds something they cannot assess. Comprehensive coverage that does not indicate what matters increases uncertainty. Confident output on an ambiguous input increases uncertainty most of all, because it conceals the ambiguity rather than resolving it.
 
-Scope discipline is a product decision, and each exclusion below is argued from evidence rather than preference.
+A user should always leave an interaction knowing more precisely what they are dealing with than when they arrived — including, sometimes, a precise understanding that the problem is harder than they thought.
 
-| Excluded | Why | Evidence |
-|---|---|---|
-| **Replacing systems of record** (CRM, e-commerce, ERP) | Every record intends to keep its core systems. Displacement contradicts the mission and the market. | 5/5 records center a retained system of record |
-| **Becoming another automation platform** | 2/5 records already run Make, n8n, or Zapier and are hiring to *maintain* them, not replace them. Competing here enters a crowded category against incumbents named throughout the corpus. | `JD-003`, `JD-005` |
-| **Acting autonomously on production systems** | No record in the corpus asks for it. Every AI use case ends in human review. Autonomy would be ahead of 100% of current evidence. | 0/5 records |
-| **Authoring code / IDE assistance** | Requested by one record only, which already names dedicated tooling for it. | `JD-004` (1/5) |
-| **Attribution and identity resolution as a core product** | Appears in 2/5 records (🔴) and is genuinely hard. `06-Market-Insights.md` Pattern D flags it as error-prone. Not a foundation to build on at this evidence level. | `JD-001`, `JD-005` |
-| **Deep feature parity with any single vendor** | Stack fragmentation makes vendor depth low-leverage: a HubSpot-specific capability serves at most 3/5 of the corpus; a portable one serves 5/5. | `06-Market-Insights.md`, Recommendation 2 |
-| **Judgment work** — architecture decisions, platform selection, defining quality standards or segmentation strategy | The matrix classifies these as *not automatable* wherever they appear. They are what the human is for. | `JD-004`, `JD-005` automation opportunity tables |
-| **Consulting, staffing, or managed services** | The corpus documents a hiring demand. Meeting it with labor rather than product is a different business. | Structural |
+### The moments that define the product
 
----
+- **First contact.** A messy, incomplete input, understood without a configuration step. This is where the intent-driven promise is kept or broken.
+- **The unwelcome answer.** The design is flawed, the platform is wrong, or automation is unwarranted — delivered directly, with reasoning, without hedging or apology.
+- **The insufficient input.** The system states what it cannot determine and what would resolve it, rather than inventing context and proceeding confidently.
+- **The handoff.** The user presents the output to a client or manager and it holds up. This is where the product is actually evaluated.
 
-## Product Mission
+### The failure to avoid above all
 
-> **Make the operational systems a business already runs legible, reliable, and explainable — without requiring the person who built them.**
-
-### How the mission maps to current evidence
-
-The canonical mission statement for NAIGX is to unify business software, AI, and automation into a single intelligent workspace. Assessed honestly against the corpus, its components are not equally supported:
-
-| Mission component | Evidence support | Status |
-|---|---|---|
-| Operational visibility | Strong — failure diagnosis 5/5, reporting 4/5 | 🟡 Supported |
-| AI-powered insight | Strong **as explanation**; zero support as autonomous decision | 🟡 Supported, scope-constrained |
-| Decision support (human retains authority) | Strong — every AI use case terminates in human review | 🟡 Supported |
-| Workflow automation | Partial — 4/5 already own automation platforms and want them *operated*, not replaced | 🟡 Supported only as operation, not construction |
-| **A single intelligent workspace** | **None — no record in the corpus asks for a unified workspace** | 🔴 Ahead of evidence |
-
-That last row is the most important line in this document. The "single workspace" framing is currently an assumption, not a finding. It is retained as a long-term hypothesis and explicitly marked as untested. If corpus growth continues to produce no demand for consolidation, this part of the mission should be revised rather than defended.
+**Being impressed but unable to verify.** A user who receives sophisticated output they cannot evaluate has not been helped; they have been handed a liability with good production values. Every design decision moves the user toward *understanding* rather than *awe*.
 
 ---
 
-## Product Vision
+## 6. Design Philosophy
 
-> **A business should be able to ask what is happening across its software and receive a true, complete, and comprehensible answer — regardless of how many systems that answer spans, and without depending on the one person who knows.**
+### The language
 
-Today, that answer exists only inside a single person's head. The corpus shows five organizations paying salaries to keep it there, and three of them naming documentation as standing work precisely because they know how fragile that is.
+**Professional. Minimal. Focused. Modern. Fast. Transparent.**
 
-The long-term vision is that operational understanding becomes a property of the organization rather than of an individual — durable, queryable, and available to the people who need to act on it.
+These are not aesthetic preferences. Each is a functional requirement of a reasoning product:
 
----
+| Quality | Why it is functional |
+|---|---|
+| **Professional** | Output is presented to clients and managers. Visual register is part of whether it is taken seriously. |
+| **Minimal** | Every element competes for attention with the reasoning. Decoration is a tax on comprehension. |
+| **Focused** | A reasoning product with a crowded surface signals that it has not decided what matters — the exact failure it exists to correct. |
+| **Modern** | Credibility is assessed within seconds, and dated interfaces read as unmaintained. |
+| **Fast** | Latency breaks reasoning flow. A user waiting is a user context-switching. |
+| **Transparent** | The interface must never obscure what the system concluded or on what basis. |
 
-## Core Principles
+### How simplicity supports reasoning
 
-These govern how NAIGX is built and what it refuses to become.
+**Simplicity is subtraction, not minimalism.** An interface that looks clean while pushing classification onto the user is not simple — it has relocated complexity onto the person least equipped to carry it. Correct simplicity means the system absorbs difficulty and presents a small number of consequential choices.
 
-**1. Evidence before capability.**
-No capability exists without a documented trail to a market problem. A capability that cannot be traced is an assumption, and assumptions are not built. *(Inherited from `00-Market-Discovery.md`.)*
+Measure it by *how much the user must understand to succeed*, not by how few elements are on screen.
 
-**2. Claims must be falsifiable.**
-Every hypothesis is stated so it can be shown wrong. A claim that cannot fail is not a claim.
+The connection to reasoning is direct: reasoning requires working memory, and every interface decision the user must make consumes some of it. A user spending attention on where to click has less available for evaluating whether the recommendation is right — which is the only thing they are actually there to do.
 
-**3. Connect, never replace.**
-NAIGX adds a layer; it does not displace systems of record or automation platforms. Displacement is both off-mission and unsupported by the corpus.
+### Trust is designed in the failure cases
 
-**4. Explain before acting.**
-Explanation is the deliverable. Action, where it eventually appears, is a separate capability requiring separate evidence — of which there is currently none.
+Any system appears trustworthy when it is correct. Trust is established by what happens when input is ambiguous, confidence is low, or the honest answer is unwelcome. **Those paths are designed first and deliberately** — they are where the product's character is decided, and treating them as edge cases is how products end up with none.
 
-**5. The human retains authority.**
-NAIGX informs decisions; the operator makes them. This is not caution for its own sake — it is what 5/5 records describe.
+### Anti-patterns, explicitly rejected
 
-**6. Portability over vendor depth.**
-Capabilities should work across heterogeneous stacks. Vendor-specific depth requires explicit justification against the fragmentation evidence.
-
-**7. Legibility is the product.**
-A system that works but cannot be understood is only temporarily working. The corpus is full of organizations discovering this.
-
-**8. State limitations plainly.**
-Confidence levels, evidence gaps, and known failure modes belong in the product and its documentation, not only in research files. A tool that explains systems must be honest about its own.
-
----
-
-## Design Philosophy
-
-Philosophy, not interface. These shape decisions without specifying solutions.
-
-**Design for the person who is the only one who knows.**
-The primary user is unsupported by definition — no team, no predecessor, often no documentation. Assume no institutional knowledge is available to them.
-
-**Optimize for time-to-understanding, not time-to-build.**
-The corpus values diagnosis over construction (4/5 pair "maintain" with "build"; 2/5 make failure handling a hiring criterion). The metric that matters is how quickly someone understands what happened.
-
-**Treat failure as the primary event worth designing around.**
-Most tools design for the working case and treat failure as an exception. The evidence inverts this: failure handling is what companies are hiring for. Failure is the normal case in a heterogeneous stack.
-
-**Assume the stack is fragmented, partially undocumented, and unfamiliar.**
-This is the normal condition across all five records, not a degraded one. NAIGX should be useful on first contact with a system it has never seen.
-
-**Be useful with partial access.**
-Real environments grant incomplete permissions and expose incomplete data. Usefulness should degrade gracefully rather than requiring complete access to function at all.
-
-**Documentation is a by-product, not a task.**
-Three records name documentation as standing work; none hires *for* it. It is a burden attached to another job, and should be produced as a consequence of understanding rather than as separate labor.
-
-**Trust is earned through correctness of explanation.**
-For a product whose output is an explanation, a confident wrong answer is worse than no answer. This is sharpest in high-consequence domains — `JD-004` operates on financial systems where a missed defect moves money incorrectly.
+- **Configuration as a precondition to value.** Module pickers, mode toggles, and template galleries all demand the classification work the user came to have done.
+- **Confidence as an aesthetic.** Certainty that does not track actual certainty is a defect.
+- **Volume as evidence of effort.** Length is not rigor.
+- **Engagement mechanics.** Streaks, gamification, and manufactured return triggers are inappropriate in a professional instrument and corrode the trust the product runs on.
+- **Feature parity chasing.** Matching competitors on their axes is the standard mechanism by which a differentiated product becomes an undifferentiated one.
 
 ---
 
-## Target Users
+## 7. Decision Framework
 
-| Tier | User | Presence in corpus | Relationship to NAIGX |
-|---|---|---|---|
-| **Primary** | The systems owner — sole accountable operator of an organization's integrated software | 5/5 | Daily operator; the person NAIGX is designed around |
-| **Secondary** | The operations or engineering leader who needs visibility | 4/5 | Consumes what NAIGX makes visible; does not operate it |
-| **Candidate** | Agencies and intermediaries maintaining many client stacks | 2/5 (🔴) | Highest-multiplier user if validated; unconfirmed |
-| **Non-target** | Software engineers seeking development tooling | 1/5 | Adjacent and well-served elsewhere |
-
-Roles observed carrying the primary user's work, all describing the same underlying job: Marketing Automation Lead (`JD-001`), AI Automation Engineer (`JD-002`), Senior Digital & Automations Developer (`JD-003`), Senior QA Automation Engineer (`JD-004`), Automation & Systems Integration Specialist (`JD-005`).
-
----
-
-## Product Positioning
-
-**NAIGX is not another place to build integrations. It is the layer that tells you what your integrations are doing.**
+### The gate
 
 ```mermaid
 flowchart TD
-    subgraph Operator["The systems owner"]
-        U["Needs to know:<br/>what broke, why, and what state things are in"]
-    end
-
-    subgraph NAIGX["NAIGX · operational awareness layer"]
-        N["Observes · Explains · Makes legible"]
-    end
-
-    subgraph Existing["Software the business already runs"]
-        E1["Systems of record<br/>CRM · commerce · ERP"]
-        E2["Automation platforms<br/>Make · n8n · Zapier"]
-        E3["Marketing · analytics · messaging"]
-        E4["Internal services & data"]
-    end
-
-    U <--> N
-    N --> E1
-    N --> E2
-    N --> E3
-    N --> E4
-
-    style NAIGX fill:#e8f0fe,stroke:#4285f4
-    style Existing fill:#f5f5f5,stroke:#9e9e9e
+    A[Proposed feature] --> B{Does it improve<br/>Automation Intelligence?}
+    B -->|No| X[Do not build]
+    B -->|Yes| C{Does it uphold<br/>all seven principles?}
+    C -->|No| X
+    C -->|Yes| D{Does it keep NAIGX<br/>upstream of execution?}
+    D -->|No| X
+    D -->|Yes| E{Is the complexity cost<br/>justified by the gain?}
+    E -->|No| X
+    E -->|Yes| F{Can it be built well<br/>at current capacity?}
+    F -->|No| Y[Defer]
+    F -->|Yes| G[Build]
 ```
 
-*Conceptual positioning only — not an architecture.*
+### The questions, in order
 
-Positioned relative to adjacent categories:
-
-| Category | Their focus | NAIGX's distinction |
+| # | Question | A failing answer means |
 |---|---|---|
-| Automation platforms (Make, n8n, Zapier) | Building and running workflows | NAIGX explains what those workflows are doing. Complementary — the corpus shows companies keeping these tools. |
-| Engineering observability | Application and infrastructure health, for engineers | NAIGX is operator-facing, for the technically-literate non-programmer that 3/5 records describe |
-| Business intelligence | Reporting on business data | NAIGX reports on the operational systems themselves — the plumbing, not the output |
-| Systems of record | Owning the data | NAIGX owns none of it and does not seek to |
+| 1 | Does this improve Automation Intelligence? | No strategic contribution. Do not build. |
+| 2 | Does it strengthen reasoning — quality or access? | The feature is adjacent, not core. Do not build. |
+| 3 | Does it improve architectural quality of what users produce? | It optimizes an activity other than the one that matters. |
+| 4 | Does it help users make better decisions? | It may produce output without producing judgment. |
+| 5 | Does it reinforce trust? | Trust is the product's operating capital. Features that spend it are net-negative regardless of their utility. |
+| 6 | Does it uphold all seven principles? | A principle violation is disqualifying, not a trade-off to be weighed. |
+| 7 | Is the added complexity justified? | Complexity compounds, and features are rarely removed once shipped. |
+| 8 | Can it be built well now? | Defer. A poorly executed correct feature damages trust more than its absence. |
+
+### Standing tie-breakers
+
+- **Depth over breadth.** One reasoning path executed excellently beats five executed adequately.
+- **Correctness over speed.** Wrong output delivered fast is worse than no output.
+- **Explanation over automation.** When forced to choose, keep the explanation.
+- **Human authority over convenience.** Always.
+- **Neutrality over revenue.** Without exception. This is what makes the rest possible.
+- **Subtraction over accumulation.** Removing a weak feature is usually higher-leverage than adding a plausible one.
 
 ---
 
-## Competitive Advantage
+## 8. Long-Term Product Direction
 
-> ⚠️ **This section is a statement of intended differentiation, not a validated claim.**
-> `research/05-Competitor-Research.md` is currently empty. Under the gates defined in `00-Market-Discovery.md`, no opportunity may advance until the competitive map confirms the problem is not already well-solved. **That gate is open.** Existing automation platforms ship execution history and error-handling primitives; the corpus proves companies pay salaries for this work, but not that existing tooling fails at it.
+Direction, not roadmap. Each stage widens *what NAIGX reasons about*. The principles do not change across any of them.
 
-Four intended advantages, each with its dependency stated:
+### Stage 1 — Reasoning credibility
 
-**1. Evidence traceability as a product discipline.**
-Every capability traces to a specific record in the corpus. This is the one advantage that is *verifiable today* — it is a property of how the project is run rather than a claim about the market. It is also the hardest for a conventionally-built competitor to retrofit.
+The only question that matters: **does NAIGX's reasoning survive contact with production?** Not adoption, not input breadth, not feature count. A product trusted on a narrow domain can expand. A product distrusted on a broad one cannot recover, because trust is not regained by adding capability.
 
-**2. Portability across fragmented stacks.**
-Grounded in the corpus's clearest structural fact: 30+ products, one majority tool. *Depends on:* portable capability proving as useful as vendor-deep capability, which is untested.
+### Stage 2 — From isolated decisions to accumulated judgment
 
-**3. Operator-facing rather than engineer-facing.**
-Grounded in 3/5 records requiring API literacy while listing scripting as merely preferred. *Depends on:* that ratio holding as the corpus grows past n=5.
+Reasoning improves with context. NAIGX moves from evaluating each input in isolation toward understanding a user's environment, constraints, and history — so recommendations account for what already exists rather than treating every problem as unprecedented.
 
-**4. Explanation over action.**
-Grounded in 0/5 records requesting autonomy. *Depends on:* this remaining true. If demand for autonomous action appears in future records, this is a limitation rather than an advantage — and should be reclassified without defensiveness.
+*The constraint:* context must improve reasoning quality and must never become lock-in. The moment accumulated context makes output less portable, it has stopped serving the user and started retaining them.
 
----
+### Stage 3 — From individual practice to shared standards
 
-## Long-Term Direction
+The natural expansion trigger is governance. Once an organization's automation footprint outgrows individual oversight, teams need a consistent basis for reviewing designs — and NAIGX becomes the shared standard where automation decisions are reviewed, recorded, and defended.
 
-Direction is expressed as evidence-gated horizons, not a roadmap. Each horizon has an entry condition; a horizon is not entered because the previous one finished, but because its evidence exists.
+*The constraint:* collaboration must not dilute reasoning into consensus-seeking. A design review that converges on the least objectionable answer has reproduced the problem it was meant to solve.
 
-```mermaid
-flowchart LR
-    H0["H0 · Establish evidence<br/>Broaden source types<br/>Close the competitor gate"]
-    H1["H1 · Prove one capability<br/>against the strongest signal"]
-    H2["H2 · Portability<br/>across heterogeneous stacks"]
-    H3["H3 · Operational awareness<br/>spanning the stack"]
-    H4["H4 · Unified workspace<br/>(hypothesis only)"]
+### Stage 4 — From workflows to estates
 
-    H0 --> H1 --> H2 --> H3 -.-> H4
+At sufficient scale, the interesting questions stop being about individual automations: what is duplicated, what is fragile, what depends on what, and where the whole thing breaks. NAIGX extends from designing single solutions to reasoning about entire automation estates.
 
-    style H0 fill:#fef7e0,stroke:#f9ab00
-    style H4 fill:#fce8e6,stroke:#d93025
-```
+*The constraint:* this remains analysis. Never operation. Observing an estate is upstream work; managing one is not, and Principle 1 does not relax at scale.
 
-| Horizon | Direction | Entry condition |
-|---|---|---|
-| **H0 — Establish the evidence** | Broaden beyond a single source type; close the competitive gate | Current position. Blocking everything downstream |
-| **H1 — Prove one capability** | Demonstrate operational explanation against the corpus's strongest signal (system failure diagnosis, 4–5/5) | An insight reaching 🟢 Validated, and competitor research confirming the problem is not well-solved |
-| **H2 — Portability** | Prove the same capability holds across unrelated stacks rather than one vendor | H1 capability demonstrably working on a second, structurally different platform |
-| **H3 — Operational awareness** | Extend from explaining failures to describing operational state across the stack | Evidence that visibility demand (currently 4/5, 🟡) survives at larger sample sizes |
-| **H4 — Unified workspace** | The consolidated intelligent workspace named in the canonical mission | ⚠️ **No supporting evidence exists.** Requires demand for consolidation to appear in the corpus. Until then this remains a hypothesis, and the mission statement should be revised if it never appears |
+### The horizon
 
-**On sequencing:** the research proposes candidate deliverables and a build order in `06-Market-Insights.md`. Those belong to research and design, not to this document. What belongs here is the constraint: **no horizon is entered on schedule; each is entered on evidence.**
+Over a decade, the specific platforms in this document will change. Some will not exist. Models will improve by margins that make today's capabilities look primitive. New execution paradigms will emerge that nobody currently anticipates.
+
+**None of that touches the thesis.** The gap between *what should be built* and *the ability to build it* does not close as building gets easier — it widens, because the cost of building the wrong thing falls while the cost of having chosen wrong stays exactly where it was. Cheaper execution makes reasoning more valuable, not less. NAIGX is positioned to become more necessary as the tools beneath it improve.
+
+### Signals of drift
+
+If any of these appear, the vision is being abandoned regardless of what the metrics say:
+
+- Features justified by competitor parity rather than reasoning gain.
+- Revenue that depends on which platform is recommended.
+- Output growing longer without growing more useful.
+- Users unable to explain the recommendations they received.
+- Retention that depends on lock-in rather than reasoning quality.
+- The system acting where it should have advised.
+- "Just this once" applied to any principle in this document.
 
 ---
 
-## Success Metrics
+## North Star
 
-NAIGX has no customers, no revenue, and no production usage. Metrics that presuppose them are excluded — measuring them would require inventing them.
-
-### Evidence quality — is the foundation sound?
-
-| Metric | Current | Target |
-|---|---|---|
-| Corpus size | 5 records | 20+ (the matrix's own threshold for ranking to exceed noise) |
-| Source types represented | 1 | 2+ (required for any 🟢 Validated Insight) |
-| Insights at 🟢 Validated | 0 | ≥1 before any build commitment |
-| Records with a verifiable employer | 1/5 | Majority — currently blocks the independence principle entirely |
-| Competitive map coverage for active opportunities | 0% | 100% before H1 |
-
-### Product discipline — is the philosophy being honored?
-
-| Metric | Definition |
-|---|---|
-| Feature traceability | % of capabilities linking to a validated insight. Target: 100% |
-| Backward legibility | Can an unfamiliar reader trace any capability to the market problem it solves? |
-| **Rejection rate** | Number of candidate capabilities *stopped* by competitor research or missing evidence. A rate of zero means the gates are decorative |
-| Revision honesty | Instances where a vision claim was revised because evidence contradicted it — including this document |
-
-### Capability quality — does it work, measured without users?
-
-| Metric | Definition |
-|---|---|
-| Explanation correctness | Accuracy of diagnosis against deliberately seeded failures. The primary quality bar, since a confident wrong explanation is worse than none |
-| Portability | Whether a capability holds on a second, unrelated stack without redesign |
-| Graceful degradation | Whether usefulness survives partial access and incomplete data |
-
-### Explicitly not measured at this stage
-
-Revenue, user counts, retention, engagement, NPS, market share. No customers exist; reporting these would be fabrication.
+> **Before building anything, ask: does this help someone make a better automation decision — and understand why it is better?**
+>
+> If yes, it belongs in NAIGX.
+> If it only makes them faster, it belongs somewhere else.
 
 ---
 
-## Guiding Principles for Future Features
+## Appendix A — Amendment Record
 
-Every proposed capability must answer these before work begins. A proposal that cannot is not ready — regardless of how good the idea is.
+| Version | Date | Change | Evidence |
+|---|---|---|---|
+| 1.0 | 2026-08-11 | Initial constitution established | Derived from NAIGX Executive Summary v1.0 |
+| 1.1 | 2026-08-11 | Aligned to Executive Summary v1.1: acronym expansion removed and NAIGX established as a standalone brand; category restated with AI as enabling technology; NAIGX Intelligence Engine (NIE) adopted as the canonical name for the reasoning core. Principles expanded from five to seven with the addition of **Intelligence Before Execution** (Tier I) and **Human-Centered Automation** (Tier III), and restructured into positional, epistemic, and relational tiers to make conflict resolution deterministic. Autonomous agent execution added as an explicit boundary in §2.3. §1 Belief System, §4 Product Philosophy, and the North Star statement added. | Executive Summary v1.1 |
 
-**1. What evidence does this trace to?**
-Name the records. If none, it is not built.
-
-**2. What validation level is the originating insight?**
-Below 🟢, it may be prototyped, but it may not be committed to as product direction.
-
-**3. Has the competitive map been checked?**
-If the problem is already well-solved by tools the user runs, the correct decision is not to build. `00-Market-Discovery.md` treats this gate preventing builds as evidence the process is honest.
-
-**4. Does it require the user to write code?**
-If yes, justify it against the evidence that 3/5 records treat scripting as optional.
-
-**5. Does it act autonomously?**
-If yes, it is ahead of 100% of current evidence and needs its own justification.
-
-**6. Is it portable, or vendor-locked?**
-Vendor-locked capabilities serve at most a minority of the observed market and require explicit argument.
-
-**7. Does it replace something the user already runs?**
-If yes, it contradicts both the mission and the corpus.
-
-**8. Is it falsifiable?**
-State the hypothesis so it can fail. Then state what failure would look like.
-
-**9. What happens when the data is partial or wrong?**
-In a fragmented stack this is the normal case. A capability without an answer here is unfinished.
+Amendments require: the principle affected, the evidence that made it wrong, the revised wording, and the date. Principles are not silently deprecated.
 
 ---
 
-## Open Questions
+## Appendix B — Scope & Provenance
 
-Recorded so they are tested rather than assumed. Each would change this vision if answered unfavorably.
+This document describes intended philosophy and direction for a pre-launch product built by a single operator. It contains no claims of customers, revenue, traction, or team, and no commitments regarding timing or feature delivery.
 
-| # | Question | Why it matters |
-|---|---|---|
-| 1 | Is the "single intelligent workspace" framing supported by anything? | Currently 0/5. If it never appears, the canonical mission statement needs revision |
-| 2 | Is operational failure diagnosis already well-solved by existing platforms? | Would invalidate the leading opportunity. Cheapest and most urgent test available |
-| 3 | Is the agency/intermediary segment real, or an artifact of two similar postings? | Would be the highest-multiplier user segment if confirmed (`JD-003`, `JD-005`) |
-| 4 | Does the operator-not-programmer ratio hold beyond n=5? | Design philosophy and target user both depend on it |
-| 5 | Does demand for autonomous action appear as the corpus grows? | Would reclassify "explanation over action" from advantage to limitation |
-| 6 | Are the corpus's five employers genuinely independent? | Four of five are anonymous; undetected overlap would inflate every frequency in this document |
+**Relationship to the Executive Summary.** Where the two documents cover related ground, the Executive Summary governs external communication and this document governs product decisions. The Executive Summary states positioning for a reader deciding whether NAIGX is worth attention; this document develops that positioning into operative constraints on how it gets built. Material divergence between them should be reconciled rather than left standing.
 
----
-
-## Guiding Principle
-
-NAIGX is not built to showcase technology.
-
-It is built because five organizations, in five unrelated industries, independently described the same unmet need: someone who can tell them what their systems are doing and why they stopped.
-
-If a capability cannot be connected back to that kind of evidence, it should not be built — however interesting it would be to build.
-
----
-
-*This is a living document. It will be revised as the corpus grows, as source types broaden, and as claims here are contradicted. Revisions driven by contrary evidence are a success condition of this project, not a failure of it.*
+**Superseded.** This version replaces Product Vision v1.0, which referenced NAIGX as an acronym and predates the NIE naming. v1.0 should be archived, not maintained in parallel.
