@@ -1,0 +1,166 @@
+case_id: ta-011
+input_type: technical_assessment
+
+content: |
+  Architecture discussion prep — please read before our session on Tuesday
+
+  We are a small agency running automations on behalf of clients. Today each client
+  gets their own workspace on the automation platform, their own connections, and
+  their own copies of what are essentially the same six workflows. We have 28 clients.
+
+  This worked at five clients. At 28 it does not. When we improve a workflow we have
+  to apply the change 28 times, and in practice we apply it to the clients who
+  complained and leave the rest. Three clients are now on versions we would struggle
+  to reconstruct.
+
+  We are considering consolidating onto shared workflows with per-client configuration
+  instead. Before we commit, we want to think properly about what that costs us.
+
+  The things that worry us:
+
+  Blast radius. Today a bad change breaks one client. Shared workflows mean a bad
+  change could break 28.
+
+  Client data separation. Our clients are competitors in some cases. Two have asked
+  in writing whether their data can reach another client's workspace. Today the answer
+  is structurally no. We would want that to stay true.
+
+  Divergence that is legitimate. Some clients genuinely need different behaviour —
+  different approval thresholds, one has a bespoke integration nobody else uses. We
+  do not want configuration to become a second codebase.
+
+  Onboarding. A new client currently takes about two days of setup. We would like that
+  shorter, but not at the cost of the above.
+
+  Bring your thinking on how you would approach the consolidation, what you would keep
+  separate, and what you would want to be true before starting. We will talk it
+  through rather than review a document.
+
+character_count: 1648
+
+expected_classification: technical_assessment
+
+expected_artifact_set:
+  - architecture_recommendation
+  - mermaid_diagram
+  - assessment_feedback
+
+expected_omissions:
+  - artifact_type: business_analysis
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: workflow_recommendation
+    reason: >
+      Not applicable to the assessment path per `AI §9.1`. A running estate is
+      described, but the request is to reason about a proposed consolidation rather
+      than to review the current workflows — see the rationale.
+  - artifact_type: platform_comparison
+    reason: >
+      Not applicable to the assessment path per `AI §9.1`. The platform is given and
+      not in question; the choice is about topology within it.
+  - artifact_type: risk_assessment
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: complexity_score
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: implementation_roadmap
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: edge_cases_and_practices
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: integration_requirements
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: executive_summary
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: skill_gap_analysis
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: portfolio_suggestions
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: interview_guidance
+    reason: Not applicable to the assessment path per `AI §9.1`.
+
+expected_confidence_band: medium
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Near-boundary against `existing_workflow`, and decided on substance. The surface
+    pull is real: a running multi-client estate is described with a stated failure
+    (divergent versions) and a stated cost (28-fold change effort).
+
+    The substance is decisive and forward-looking. The request is to reason about a
+    consolidation the submitter is considering but has not committed to — "before we
+    commit, we want to think properly about what that costs us", "what you would want
+    to be true before starting", "we will talk it through rather than review a
+    document". Nobody is asking for the current workflows to be reviewed; they are
+    asking someone to reason about a topology decision ahead of a discussion. That is
+    evaluation, not diagnosis.
+
+    Contrast `ta-008`, which is the same boundary approached from cost rather than
+    structure, and `ew-003`, where the submitter genuinely had not decided between
+    fixing and replacing and the correct behaviour was to ask.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not applicable to the assessment path (`AI §9.1`) and is
+    omitted under the recorded classification.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not applicable to the assessment path (`AI §9.1`) and is
+    omitted under the recorded classification. The blast-radius and data-separation
+    concerns are scenario content the candidate must reason about.
+
+case_character: central
+special_class: null
+
+rationale: |
+  Materially different by problem class: **multi-tenancy and the isolation/leverage
+  trade-off**. Nothing else in the corpus tests reasoning about serving many clients
+  from shared machinery, and it is a defining problem for the agency segment the
+  research corpus identifies (`JD-003` and `JD-005` in the job-description matrix both
+  describe agencies maintaining per-client integrations).
+
+  Recorded as `central` rather than `near-boundary` on the character axis, while its
+  classification-confidence rationale documents a near-boundary pull. Those are
+  different fields answering different questions: `case_character` records what the
+  case is for, and this case exists to test a problem class, not a classification edge.
+  `technical_assessment` already has two near-boundary cases (`ta-003`, `ta-008`).
+
+  Expected substance. `FR-023` requires trade-off reasoning and a named rejected
+  alternative. This brief is unusually well-suited to that because the submitter has
+  already framed the trade-off honestly: consolidation buys leverage and costs blast
+  radius. A response that recommends consolidation without pricing that cost has
+  answered a question the submitter had already moved past.
+
+  Three stated constraints must shape any defensible answer:
+  - **Structural data separation is currently guaranteed and two clients have asked
+    about it in writing.** That converts an architectural property into a commitment
+    the agency has made. A design that reduces it to a configuration check has
+    materially changed what those clients were told.
+  - **Legitimate divergence exists** — different thresholds, one bespoke integration —
+    with an explicit warning that configuration must not become a second codebase.
+    This is the genuinely hard part, and glossing it is the most likely failure.
+  - **Three clients are on unreconstructable versions.** Consolidation cannot proceed
+    without deciding what happens to them, and a plan that assumes a clean starting
+    point has ignored a stated fact.
+
+  "What you would want to be true before starting" maps directly onto `FR-044` unknowns
+  disclosure and is the deliverable most likely to be skipped.
+
+  Confidence `medium`. CF-1 is moderate: client count, workflow count, onboarding
+  effort, and the four concerns are stated, but the platform is unnamed, what the six
+  workflows do is unspecified, and the nature of the bespoke integration is unstated —
+  all material to how consolidation would actually work. CF-4 is mixed: concrete on
+  counts, absent on the systems themselves. No capping condition applies (`AI §8.3`).
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Deliberately leaves the automation platform unnamed, since
+    the topology question is platform-independent; no real agency or client is
+    described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

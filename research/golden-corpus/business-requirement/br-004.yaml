@@ -1,0 +1,117 @@
+case_id: br-004
+input_type: business_requirement
+
+content: |
+  Send our weekly HubSpot deal report to Slack every Monday morning.
+
+character_count: 66
+
+expected_classification: business_requirement
+
+expected_artifact_set:
+  - business_analysis
+  - architecture_recommendation
+
+expected_omissions:
+  - artifact_type: mermaid_diagram
+    reason: >
+      Disproportionate to a two-system, single-trigger requirement. `FR-017` requires
+      minimal input to yield a minimal artifact set and `PV §3.2` treats
+      over-production as a defect. See ambiguity A-8.
+  - artifact_type: platform_comparison
+    reason: >
+      Structural, not proportional. `AI §9.1` defines this artifact as a
+      "Recommendation with criteria and rejected alternatives", and `FR-034` requires
+      at least one rejected alternative. Both systems are named and fixed by the
+      submitter, so no platform decision exists and no alternative could be rejected.
+  - artifact_type: risk_assessment
+    reason: >
+      `FR-020` scopes risk analysis to non-trivial requirements. See ambiguity A-12.
+  - artifact_type: complexity_score
+    reason: >
+      `FR-020` scopes complexity scoring to non-trivial requirements. See
+      ambiguity A-12.
+  - artifact_type: implementation_roadmap
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-036`)
+  - artifact_type: edge_cases_and_practices
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
+  - artifact_type: integration_requirements
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-035`)
+  - artifact_type: executive_summary
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-038`)
+
+expected_confidence_band: medium
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Short but unambiguous. A desired future capability, stated as an instruction, with
+    no existing automation to review and no hiring context. Brevity reduces analysis
+    confidence, not classification confidence - the two are independent, and this case
+    is the clearest demonstration of that in the corpus.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is omitted for this case on proportionality grounds (see
+    expected_omissions), so there is nothing to score. Determinable, not unknown.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is omitted for this case on proportionality grounds, so there
+    are no risk items to expect. Determinable, not unknown.
+
+case_character: minimal
+special_class: null
+
+rationale: |
+  Why minimal. `docs/11` §2.2 requires cases at or near the 50-character floor
+  (`FR-002`) to exercise proportionality (`FR-017`, `AC-037`). At 66 characters this
+  is the shortest case in the corpus and the direct counterpart to `ta-002`, which
+  tests the same rule from the substantial end.
+
+  Why this is analysable rather than a refusal. The boundary against `insufficient`
+  (`br-005`) matters. This input names both systems, the trigger cadence, and the
+  artifact to be moved. That is enough to describe an approach without inventing
+  anything material. `br-005` by contrast names no system, no volume, and no process.
+  Short is not the same as insufficient, and a system that refuses this input is
+  over-refusing.
+
+  Confidence `medium`, not `high`. CF-1 is low: no volume, no report definition, no
+  recipient channel, no failure expectation. CF-4 is low: no concrete values at all.
+  CF-2 is high - what is stated is stated plainly. Under `AI §8.4` absence lowers and
+  never raises, so a sparse input cannot support `high` even when it is unambiguous.
+  No capping condition applies (`AI §8.3`); this is base confidence, not a cap.
+
+  A `high` band here would be over-confidence of the kind `AI §8.5` classifies as
+  severe - confidently designing from four facts.
+
+  Relationship to `docs/11` §3.1. That rule governs do-not-automate conclusions and
+  does not apply here: this case produces a design, so the artifacts §3.1 excludes as
+  structurally impossible are merely disproportionate. Reviewed against §3.1 on
+  2026-08-12; no change to the artifact set was required.
+
+  The grounds for each omission differ, and the distinction matters:
+  - `platform_comparison` is omitted on structural grounds - both systems are fixed by
+    the submitter, so `FR-034`'s required rejected alternative cannot exist.
+  - `mermaid_diagram`, `risk_assessment` and `complexity_score` are omitted on
+    proportionality grounds alone. All three are constructible here; the argument is
+    that they would be disproportionate, not impossible.
+
+  ⚠️ Ambiguity A-12. Those three omissions rest on `FR-020`'s "non-trivial" qualifier,
+  which the requirements use but never define, and on `FR-017` proportionality, which
+  does not state which artifacts survive a reduction. This is a weaker footing than
+  `br-003`'s structural exclusions and needs owner confirmation before freeze. It
+  affects every future `minimal` case.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Length chosen deliberately just above the `FR-002`
+    50-character floor while remaining a realistic thing a user would paste.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

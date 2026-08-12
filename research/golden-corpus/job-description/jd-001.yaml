@@ -1,0 +1,161 @@
+case_id: jd-001
+input_type: job_description
+
+content: |
+  Automation Engineer (Operations) - Remote, UK
+
+  About the role
+
+  We're a 40-person logistics business and our operations run on too much manual
+  work. We're hiring our first automation engineer to fix that.
+
+  What you'll be doing
+
+  Your first project will be our carrier booking process. At the moment our ops team
+  copies shipment details from our TMS into three different carrier portals by hand,
+  around 300 shipments a week, and re-keys the tracking numbers back into the TMS
+  once the bookings are confirmed. We want this automated end to end, with exception
+  handling when a carrier rejects a booking. After that, there's a similar problem
+  with proof-of-delivery documents arriving by email that need filing against the
+  right shipment record.
+
+  You'll own these projects from design through to running them in production.
+
+  What we're looking for
+
+  - 3+ years building integrations between business systems
+  - Strong with at least one automation platform (we use Make, but n8n or Workato
+    experience transfers fine)
+  - Comfortable with REST APIs, webhooks, and JSON
+  - Able to talk to non-technical ops staff and work out what they actually need
+  - Nice to have: experience in logistics or freight
+  - Nice to have: Python for the cases where a platform isn't enough
+
+  You'll report to the COO and work alongside two ops leads.
+
+character_count: 1315
+
+expected_classification: job_description
+
+expected_artifact_set:
+  - skill_gap_analysis
+  - portfolio_suggestions
+  - interview_guidance
+
+expected_omissions:
+  - artifact_type: business_analysis
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: architecture_recommendation
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: mermaid_diagram
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: platform_comparison
+    reason: >
+      Not applicable to the job description path per `AI §9.1`. The posting names
+      platforms, but as hiring criteria - recommending one would answer a question
+      nobody asked.
+  - artifact_type: risk_assessment
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: complexity_score
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: workflow_recommendation
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: implementation_roadmap
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: edge_cases_and_practices
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: integration_requirements
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: executive_summary
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+
+expected_confidence_band: medium
+
+expected_classification_confidence:
+  bound: below_threshold
+  threshold: 0.6
+  rationale: >
+    This is the expectation the case exists to assert. The document carries strong,
+    genuinely competing signals: a complete automation requirement (named process,
+    300 shipments a week, named systems, explicit end-to-end goal) embedded in an
+    unambiguous job posting (role title, reporting line, years of experience,
+    must-have versus nice-to-have criteria). A correctly calibrated classifier
+    should register that competition as reduced confidence and fall below the
+    `FR-011` 0.6 threshold, triggering the `FR-015` confirmation path.
+
+    A high-confidence classification here would be a calibration failure even if
+    the chosen type were `job_description` — confidently correct for the wrong
+    reason is the over-confidence `AI §8.5` classifies as severe.
+
+    Note this is independent of `expected_confidence_band: medium`, which concerns
+    the analysis rather than the type. This case expects low classification
+    confidence and medium analysis confidence simultaneously.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not applicable to the job description path (`AI §9.1`)
+    and is omitted for this case. Determinable, not unknown.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not applicable to the job description path (`AI §9.1`)
+    and is omitted for this case. Determinable, not unknown.
+
+case_character: ambiguous
+special_class: null
+
+rationale: |
+  Why this is deliberately ambiguous. The posting contains a fully-formed automation
+  requirement embedded inside it - a named process, a volume (300 shipments a week),
+  named systems, an explicit end-to-end goal, and an exception-handling requirement.
+  Read in isolation, that paragraph is a `business_requirement`. The surrounding
+  document is unambiguously a job posting: a role title, reporting line, years of
+  experience, and must-have versus nice-to-have criteria.
+
+  Expected classification is `job_description`. The decisive test is what the
+  submitter is asking for. The document's purpose is to describe a role and its
+  requirements; the process description is context establishing what the hire will
+  work on, not a request to design that automation. A classifier that keys on the
+  richest technical content rather than document purpose will misclassify this, and
+  that is precisely the failure this case is built to catch.
+
+  This is genuinely contestable, and deliberately so. `AI §12.2` requires
+  "deliberately ambiguous cases", and a case whose correct answer is obvious would
+  not be one. The expectation is recorded with its reasoning so a future maintainer
+  can see it was a considered judgement rather than an oversight - and can challenge
+  it under `docs/11` §6.2 if the reasoning turns out to be wrong.
+
+  Artifact set. `FR-022` requires required-skill extraction, skill gap analysis,
+  portfolio recommendations and interview guidance. `AI §9.1` maps the job
+  description path to exactly `skill_gap_analysis`, `portfolio_suggestions` and
+  `interview_guidance`; skill extraction is an input to those rather than a separate
+  catalogue artifact. Every other artifact is omitted on path grounds.
+
+  Expected substance. `FR-022` requires must-have/nice-to-have classification with
+  `stated`/`inferred` labels. The posting states both explicitly, so a correct
+  response should carry them as `stated` rather than inferring. Portfolio suggestions
+  must be specific and buildable, not categories - "build a carrier booking
+  integration with exception handling" rather than "practise API integration".
+
+  Confidence `medium`. CF-2 is the limiting factor: while the posting is detailed,
+  the classification itself rests on an inferred reading of document purpose, and
+  several role expectations are implied rather than stated. No capping condition
+  applies (`AI §8.3`); this is a base-confidence judgement.
+
+  Gap G-3, resolved 2026-08-12. The expectation that classification confidence falls
+  below the `FR-015` threshold - the most important thing to assert about a
+  deliberately ambiguous case - is now recorded explicitly in
+  `expected_classification_confidence` rather than merely implied by the confidence
+  band. See `docs/11` §4.4.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Modelled on the structure of automation-role postings
+    generally; not copied from any real posting, and no real employer is named.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

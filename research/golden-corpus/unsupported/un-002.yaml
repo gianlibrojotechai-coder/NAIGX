@@ -1,0 +1,136 @@
+case_id: un-002
+input_type: unsupported
+
+content: |
+  We're rolling out a new expenses policy across the company and I need help getting
+  people to actually follow it.
+
+  The policy itself is written and signed off by finance. The problem is adoption.
+  Last time we changed a policy about half the team carried on doing it the old way
+  for months, and the managers didn't chase it because they didn't want the
+  conversation. We've got 90 people across three sites and a fairly informal culture.
+
+  I'm thinking about how to communicate it, whether to run training sessions or just
+  send it round, how to get the managers bought in first, and how we handle people who
+  keep ignoring it after a few reminders. There's a bit of a workflow to it - who
+  tells who, in what order, and what happens at each stage if someone doesn't comply.
+
+  How would you approach the rollout?
+
+character_count: 804
+
+expected_classification: unsupported
+
+expected_artifact_set: []
+
+expected_omissions:
+  - artifact_type: business_analysis
+    reason: >
+      Classification determined the input is outside scope (`FR-092`). No reasoning
+      proceeds past classification.
+  - artifact_type: architecture_recommendation
+    reason: Out of scope — no reasoning proceeds past classification (`FR-092`).
+  - artifact_type: mermaid_diagram
+    reason: Out of scope — no reasoning proceeds past classification (`FR-092`).
+  - artifact_type: platform_comparison
+    reason: Out of scope — no reasoning proceeds past classification (`FR-092`).
+  - artifact_type: risk_assessment
+    reason: Out of scope — no reasoning proceeds past classification (`FR-092`).
+  - artifact_type: complexity_score
+    reason: Out of scope — no reasoning proceeds past classification (`FR-092`).
+  - artifact_type: workflow_recommendation
+    reason: >
+      Out of scope. The submitter uses the word "workflow", but describes a human
+      change-management sequence rather than an automation submitted for review
+      (`FR-021`). No system, integration, or automation platform is involved.
+  - artifact_type: skill_gap_analysis
+    reason: Out of scope — no reasoning proceeds past classification (`FR-092`).
+  - artifact_type: portfolio_suggestions
+    reason: Out of scope — no reasoning proceeds past classification (`FR-092`).
+  - artifact_type: interview_guidance
+    reason: Out of scope — no reasoning proceeds past classification (`FR-092`).
+  - artifact_type: assessment_feedback
+    reason: Out of scope — no reasoning proceeds past classification (`FR-092`).
+  - artifact_type: implementation_roadmap
+    reason: Out of scope (`FR-092`); also P1 (`MVP §5.3`, `FR-036`).
+  - artifact_type: edge_cases_and_practices
+    reason: Out of scope (`FR-092`); also P1 (`MVP §5.3`, `FR-037`).
+  - artifact_type: integration_requirements
+    reason: Out of scope (`FR-092`); also P1 (`MVP §5.3`, `FR-035`).
+  - artifact_type: executive_summary
+    reason: Out of scope (`FR-092`); also P1 (`MVP §5.3`, `FR-038`).
+
+expected_confidence_band: low
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Near-boundary, not ambiguous, and the competing type is `business_requirement`.
+    The surface signals pull hard toward scope: the submitter says "there's a bit of a
+    workflow to it", describes a staged sequence with conditional branches ("what
+    happens at each stage if someone doesn't comply"), gives a headcount and a site
+    count, and asks how to approach it. Those are the shapes of an automation
+    requirement.
+
+    The substance is nonetheless decisive and one-directional: every actor is a human,
+    every step is a conversation, and no system, integration, data flow, or automation
+    platform appears anywhere. The problem is organisational adoption, not process
+    automation. A correct classifier should reach `unsupported` without needing
+    `FR-015` confirmation.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not produced. `FR-092` halts at classification.
+    Determinable, not unknown.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not produced. `FR-092` halts at classification.
+    Determinable, not unknown.
+
+case_character: near-boundary
+special_class: unsupported
+
+rationale: |
+  Why this case exists. `un-001` tests confident rejection of something plainly out of
+  scope. This tests the far more dangerous boundary: input that uses the vocabulary of
+  the product's domain while lying outside it. `FR-092`'s decline path is only
+  valuable if it fires on the hard cases, and the hard case is a "workflow" with no
+  system in it.
+
+  The failure modes it guards against run in both directions, and both are real:
+  - **Over-acceptance.** A classifier keying on "workflow", "each stage", and "if
+    someone doesn't comply" produces an architecture for a process that has no
+    software in it. That is a fabricated analysis of the kind `PV §3.4` treats as a
+    defect of the same severity as a wrong answer.
+  - **Over-rejection.** The mirror risk is a classifier that learns to reject anything
+    describing human steps, which would decline genuine requirements whose current
+    process is manual. `br-006` is exactly such a case - a detailed manual process
+    that *is* in scope, because it names systems to automate into. Read together, the
+    two cases define the boundary from both sides.
+
+  Why near-boundary rather than ambiguous. The established distinction applies: this
+  has competing *surface* signals with decisive substance, not two complete competing
+  readings. There is no reading of this input under which a system is being automated,
+  so nothing genuinely competes. Contrast `ew-003`, where both readings are
+  substantively complete and the correct behaviour is to ask.
+
+  Expected behaviour. Decline with an explanation (`FR-092`), naming under `FR-005`
+  what would bring such an input into scope - here, the systems the process would run
+  on. A user in this position is one system away from a valid submission, and a
+  decline that says so is materially more useful than one that does not.
+
+  Confidence `low`, per the `docs/11` A-9 convention. See `un-001`.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Deliberately borrows automation vocabulary - "workflow",
+    staged sequence, conditional escalation - while containing no system of any kind.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

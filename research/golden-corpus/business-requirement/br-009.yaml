@@ -1,0 +1,141 @@
+case_id: br-009
+input_type: business_requirement
+
+content: |
+  Gift Aid claiming and donation reconciliation
+
+  We're a registered charity, about 40 staff, income around £6m a year. Roughly £2.1m
+  of that is individual giving and that's where the problem is.
+
+  Donations come in through four channels: JustGiving, our own website (Stripe),
+  standing orders straight into our bank (Lloyds), and cheques or cash at events. Our
+  CRM is Salesforce NPSP.
+
+  Two jobs run in parallel and both are manual.
+
+  Reconciliation. Someone downloads the JustGiving report and the Stripe payouts,
+  exports the bank statement, and matches everything against donor records in
+  Salesforce. Standing orders are the painful ones - the bank reference is often just
+  a surname, sometimes an old reference from before someone changed banks, and about
+  8% can't be matched without someone phoning the donor. Last month there were 340
+  unmatched transactions out of about 4,100.
+
+  Gift Aid. HMRC lets us claim 25p per pound on donations from UK taxpayers who've
+  given a declaration. We hold declarations in Salesforce but they were migrated from
+  a previous system in 2019 and we know some are missing or unsigned. Someone builds
+  the claim spreadsheet quarterly, checks each donation has a valid declaration and
+  the donor address matches what's on the declaration, and submits through HMRC's
+  Charities Online. The last claim took eleven days of one person's time and we think
+  we're under-claiming because anything doubtful gets dropped rather than chased.
+
+  What we want. The reconciliation matched automatically where it can be, with a
+  worklist for the exceptions rather than a full manual pass. And Gift Aid eligibility
+  determined continuously rather than in a quarterly scramble, so we can see what's
+  claimable and what's blocked by a missing declaration while there's still time to
+  ask the donor.
+
+  Constraints. We're a charity so cost matters - we'd struggle to justify more than
+  about £6,000 a year in tooling to our trustees. HMRC's Charities Online has no API
+  for claim submission that we're aware of, so the final submission may have to stay
+  manual. Donor data is obviously sensitive and we're subject to UK GDPR and the
+  Fundraising Regulator's code.
+
+character_count: 2152
+
+expected_classification: business_requirement
+
+expected_artifact_set:
+  - business_analysis
+  - architecture_recommendation
+  - mermaid_diagram
+  - platform_comparison
+  - risk_assessment
+  - complexity_score
+
+expected_omissions:
+  - artifact_type: implementation_roadmap
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-036`)
+  - artifact_type: edge_cases_and_practices
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
+  - artifact_type: integration_requirements
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-035`)
+  - artifact_type: executive_summary
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-038`)
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    A desired future capability with no competing reading. The current process is
+    described as manual work to be replaced, not as an automation submitted for
+    review, and the "What we want" section is entirely forward-looking.
+
+expected_complexity:
+  status: not_determinable
+  scale_version: complexity-v1
+  reason: >
+    The `complexity_score` artifact is expected. Four ingestion channels, a fuzzy
+    matching problem, and a regulatory eligibility rule are strong signals for several
+    `docs/09` §1.1 factors, but no authoritative rule maps them onto 1-5 factor scores
+    and `docs/09` A-3 records that no calibration data exists.
+
+expected_risk:
+  status: not_determinable
+  scale_version: risk-v1
+  reason: >
+    The `risk_assessment` artifact is expected. Incorrectly claiming Gift Aid is a
+    matter for HMRC rather than an internal inconvenience, and the known-incomplete
+    declaration data is a stated condition - but nothing in `docs/09` §2 maps a stated
+    condition onto a severity or likelihood value.
+
+case_character: central
+special_class: null
+
+rationale: |
+  Materially different from the other requirement-path cases: `br-001` is document
+  capture and approval routing, `br-006` is regulated clinical intake, `br-007` is
+  estimation with irreducible human judgement, `br-008` is exception-only matching at
+  volume. This one is financial reconciliation plus a statutory claim, and its
+  distinguishing feature is that the correct answer is almost certainly a **partial**
+  automation with a manual submission step the submitter has already identified.
+
+  Expected substance. Four things any grounded response must engage, all stated:
+
+  - The 8% unmatched rate and 340 exceptions from 4,100 transactions establish where
+    the value is. As in `br-008`, the asymmetry between the matchable majority and the
+    exception tail determines the design.
+  - Standing order references being unreliable - surnames, stale references - is a
+    data-quality constraint that bounds what automatic matching can achieve. A
+    response promising full automatic reconciliation has ignored it.
+  - The 2019 migration left declarations incomplete. Gift Aid eligibility depends on
+    them, so this is not a peripheral data issue; it is the constraint on the second
+    objective.
+  - The submitter states HMRC submission may have to stay manual. `PV §3.2` treats
+    over-production as a defect, and a design that invents an HMRC integration the
+    submitter has already doubted would be exactly that.
+
+  The £6,000 budget materially narrows `platform_comparison` and must be labelled
+  `stated` under `FR-013`. Salesforce NPSP is fixed, so the comparison is about what
+  connects to it, not whether to replace it.
+
+  Confidence `high`. CF-1 is strong: four named channels, named CRM and bank, income
+  figures, transaction volumes, unmatched rate, claim effort, budget, and regulatory
+  obligations. CF-2 is strong - the constraints are stated rather than inferred. CF-4
+  is strong: £6m, £2.1m, 8%, 340 of 4,100, eleven days, £6,000. No capping condition
+  applies (`AI §8.3`): the objectives are demanding but consistent, and the unknowns
+  named - which declarations are missing - are what the system is being asked to
+  surface rather than obstacles to reasoning.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. JustGiving, Stripe, Salesforce NPSP, Lloyds and HMRC
+    Charities Online are real names used as realistic scenario detail. Gift Aid
+    mechanics are described at the level a submitter would state them; no real charity
+    or donor data is described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

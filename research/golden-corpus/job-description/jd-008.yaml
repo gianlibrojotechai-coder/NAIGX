@@ -1,0 +1,161 @@
+case_id: jd-008
+input_type: job_description
+
+content: |
+  Integration Engineer, Clinical Data — Contract (W2), 12 months, fully remote (US)
+
+  $85–$105/hr depending on experience. Must be authorized to work in the US; we cannot
+  sponsor for this engagement.
+
+  Company
+
+  Series C digital health company. Our platform coordinates care for patients with
+  chronic conditions, and we exchange data with health systems, labs, and payers.
+  Around 400 employees.
+
+  The engagement
+
+  We are consolidating how clinical data enters our platform. Today we have twelve
+  distinct intake paths built over four years by three different teams — a mix of HL7
+  v2 feeds, FHIR R4 APIs, SFTP drops of CSV, and two vendors who send us PDFs. Each
+  path has its own transformation logic and its own error handling, and there is no
+  common view of what failed.
+
+  You would be the engineer on a two-person team consolidating this into one intake
+  pipeline. The other person is our clinical informaticist, who owns the data model
+  and will not be writing code.
+
+  Requirements
+
+  - 5+ years integration engineering, including at least two years with healthcare
+    data standards
+  - Direct experience with HL7 v2 and FHIR. We will ask you specific questions about
+    segment mapping and resource references
+  - Experience operating under HIPAA, including what you can and cannot log
+  - Comfortable owning production on-call for the pipeline you build
+  - Able to work with a clinical SME who is not technical, and translate in both
+    directions
+
+  Preferred
+
+  - Prior work with a health information exchange
+  - Terminology mapping experience (LOINC, SNOMED)
+  - AWS; we run on it but will not disqualify on cloud
+
+  Process and terms
+
+  Screening call, a 90-minute technical conversation with our principal engineer, and
+  a conversation with the informaticist. No take-home. Start date is flexible within
+  six weeks. Extension is possible but not promised — we would rather be honest about
+  that than imply otherwise.
+
+character_count: 1889
+
+expected_classification: job_description
+
+expected_artifact_set:
+  - skill_gap_analysis
+  - portfolio_suggestions
+  - interview_guidance
+
+expected_omissions:
+  - artifact_type: business_analysis
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: architecture_recommendation
+    reason: >
+      Not applicable to the job description path per `AI §9.1`. The consolidation
+      project described would support one, but the document's purpose is hiring.
+  - artifact_type: mermaid_diagram
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: platform_comparison
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: risk_assessment
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: complexity_score
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: workflow_recommendation
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: implementation_roadmap
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: edge_cases_and_practices
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: integration_requirements
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: executive_summary
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Every posting marker present: title, contract terms, rate, work authorisation,
+    company background, requirement split, and a described interview process. The
+    twelve-intake-path description is context establishing what the hire inherits, not
+    a request to design the consolidation — the same relationship as `jd-005`, and
+    unlike `jd-001` where an embedded requirement genuinely competed.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not applicable to the job description path (`AI §9.1`) and
+    is omitted for this case.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not applicable to the job description path (`AI §9.1`) and is
+    omitted for this case. The fragmented intake estate is hiring context, not a risk
+    register entry for this analysis.
+
+case_character: central
+special_class: null
+
+rationale: |
+  Materially different from the other postings on two axes the corpus does not
+  otherwise cover: a **non-UK market** with its own employment vocabulary (W2, hourly
+  rate, work authorisation, no sponsorship), and a **domain with mandatory technical
+  standards** where the required knowledge is specified rather than transferable.
+
+  Why the domain matters for `FR-022`. Every other posting names tools that are broadly
+  substitutable — the corpus already establishes that Make, n8n and Zapier experience
+  transfers. HL7 v2 and FHIR R4 do not work that way: they are standards with specific
+  structures, and the posting says so explicitly ("we will ask you specific questions
+  about segment mapping and resource references"). A skill gap analysis that treats
+  them as interchangeable line items, or suggests adjacent integration experience
+  substitutes, has misread a `stated` requirement.
+
+  Three requirements resist mechanical extraction and carry most of the role's
+  substance:
+  - HIPAA operating experience, qualified as "including what you can and cannot log".
+    That is a specific competence about observability under a regulatory constraint,
+    not a compliance checkbox.
+  - Production on-call ownership for what you build — a working-conditions requirement.
+  - Translating in both directions with a non-technical clinical SME who owns the data
+    model. The division of ownership is stated and shapes what the engineer decides.
+
+  Portfolio suggestions are the hard test here (`FR-022`: specific and buildable, not
+  categories). Clinical data is not something a candidate can practise on freely, and
+  the honest answer may be that public FHIR test servers and synthetic datasets are the
+  realistic route — or that a portfolio project is a weak signal for this role compared
+  with demonstrable standards knowledge. Manufacturing a buildable project that ignores
+  data availability would satisfy the artifact while failing the candidate.
+
+  Confidence `high`. CF-1 is strong: company stage and size, engagement length and
+  terms, rate band, team composition, twelve named intake paths with their formats,
+  requirement split, and interview process. CF-2 is strong — Requirements and Preferred
+  are separated explicitly, so both carry as `stated`. CF-4 is strong: $85–$105/hr,
+  12 months, 400 employees, twelve intake paths, four years, three teams, 5+ years,
+  90 minutes, six weeks. No capping condition applies (`AI §8.3`).
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. HL7 v2, FHIR R4, LOINC, SNOMED, HIPAA and AWS are real
+    standards and product names used as realistic scenario detail; no real employer,
+    engagement, or patient data is described. First non-UK posting in the corpus.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

@@ -1,0 +1,114 @@
+case_id: ew-004
+input_type: existing_workflow
+
+content: |
+  Our Zap that posts new Typeform responses into Slack fires twice for every entry.
+
+character_count: 81
+
+expected_classification: existing_workflow
+
+expected_artifact_set:
+  - workflow_recommendation
+
+expected_omissions:
+  - artifact_type: platform_comparison
+    reason: >
+      Structural. `AI §9.1` defines this artifact as a "Recommendation with criteria
+      and rejected alternatives" and `FR-034` requires at least one rejected
+      alternative. A single reported defect on a named platform presents no platform
+      decision.
+  - artifact_type: risk_assessment
+    reason: >
+      Proportionality. One reported symptom on a two-system workflow does not support
+      a risk register (`FR-017`, `PV §3.2`). See ambiguity A-12.
+  - artifact_type: complexity_score
+    reason: >
+      Proportionality. Scoring a two-step workflow across five factors would produce
+      a number with no decision attached to it (`FR-017`). See ambiguity A-12.
+  - artifact_type: architecture_recommendation
+    reason: Not applicable to the workflow path per `AI §9.1`.
+  - artifact_type: mermaid_diagram
+    reason: Not applicable to the workflow path per `AI §9.1`.
+  - artifact_type: business_analysis
+    reason: Not applicable to the workflow path per `AI §9.1`.
+  - artifact_type: edge_cases_and_practices
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
+  - artifact_type: implementation_roadmap
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-036`; `AI §9.1`)
+  - artifact_type: integration_requirements
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-035`; `AI §9.1`)
+  - artifact_type: executive_summary
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-038`; `AI §9.1`)
+
+expected_confidence_band: low
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Short but unambiguous. A named automation on a named platform, described as
+    running and misbehaving. There is no competing reading. As with `br-004`, brevity
+    reduces analysis confidence without reducing classification confidence - the two
+    are independent.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is omitted for this case on proportionality grounds, so there
+    is nothing to score. Determinable, not unknown.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is omitted for this case on proportionality grounds, so there
+    are no risk items to expect. Determinable, not unknown.
+
+case_character: minimal
+special_class: null
+
+rationale: |
+  Why minimal. Second `minimal` case in the corpus and the first on the workflow path,
+  at 81 characters against `br-004`'s 66. Together they test that proportionality
+  (`FR-017`, `AC-037`) holds across paths rather than only on the requirement path.
+
+  Why this is analysable rather than a refusal. The boundary against `insufficient`
+  (`br-005`) is the same one `br-004` sits on. This input names the trigger system,
+  the destination system, the platform, and the precise symptom. That is enough to
+  discuss plausible causes and what to check. `br-005` by contrast names nothing.
+  A system that refuses this is over-refusing, and over-refusal is a quieter failure
+  than over-production because the user simply leaves.
+
+  Expected substance. `FR-021` requires issues specific to the submitted workflow
+  rather than generic best practice, and requires severity and a concrete remediation
+  per issue. With one symptom and no configuration, a correct response should identify
+  the small set of plausible causes for duplicate firing on this specific integration
+  and say what to inspect - not deliver a general treatise on idempotency.
+
+  `FR-044` is the sharper test here. The configuration needed to diagnose this is
+  absent, so unknowns must be surfaced with what would resolve them. A confident
+  single-cause diagnosis from one sentence would be exactly the invented specificity
+  `FR-044` and rubric criterion C-5 (Honest) exist to catch.
+
+  Confidence `low`, not `medium`. This is the deliberate contrast with `br-004`, which
+  is comparably short but scores `medium`. `br-004` supplies four facts that between
+  them fully specify a simple requirement - two systems, a cadence, and an artifact.
+  Here a single fact is supplied about a system whose configuration determines the
+  answer, so CF-1 is very low and CF-4 near-absent: no trigger configuration, no
+  filter or path setup, no volume, no timing. Under `AI §8.4` absence lowers and never
+  raises. No capping condition applies (`AI §8.3`); `low` is base confidence.
+
+  ⚠️ Ambiguity A-12 applies to the `risk_assessment` and `complexity_score` omissions,
+  as it does in `br-004`. Both are constructible here and are withheld on
+  proportionality grounds alone, which `FR-017` supports in principle without
+  specifying which artifacts survive a reduction.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Length chosen to sit near the `FR-002` floor while
+    remaining a realistic first message from a user with a broken automation.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

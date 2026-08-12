@@ -1,0 +1,148 @@
+case_id: ta-004
+input_type: technical_assessment
+
+content: |
+  We've been asked to put together a design for a client and I want a sanity check on
+  our thinking before it goes out.
+
+  The client is a veterinary group with 22 practices. They want appointment reminders
+  and post-visit follow-ups automated. Currently each practice does its own thing -
+  some use the reminder feature in their practice management system, some send texts
+  manually, two do nothing.
+
+  Their PMS is Provet Cloud, which has a REST API. They use Twilio for SMS at three
+  practices already. Group head office wants consistency and reporting across all 22.
+
+  Our proposed approach: a middleware layer that polls Provet Cloud per practice on a
+  schedule, builds a reminder queue, sends via Twilio, and writes delivery status back
+  as a note on the appointment record. Per-practice configuration for timing and
+  message templates. A reporting database for group-level visibility.
+
+  The bits we're unsure about: whether polling 22 practices is sensible versus asking
+  the client to request webhook access, how to handle practices that opt out of parts
+  of it, and whether the reporting database is over-engineering when the PMS might
+  already expose enough.
+
+  What would you do differently? We've got a week before this goes to the client.
+
+character_count: 1230
+
+expected_classification: technical_assessment
+
+expected_artifact_set:
+  - architecture_recommendation
+  - mermaid_diagram
+  - assessment_feedback
+
+expected_omissions:
+  - artifact_type: business_analysis
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: workflow_recommendation
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: platform_comparison
+    reason: >
+      Not applicable to the assessment path per `AI §9.1`. Provet Cloud and Twilio are
+      given by the client's existing estate rather than open for selection.
+  - artifact_type: risk_assessment
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: complexity_score
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: implementation_roadmap
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: edge_cases_and_practices
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: integration_requirements
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: executive_summary
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: skill_gap_analysis
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: portfolio_suggestions
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: interview_guidance
+    reason: Not applicable to the assessment path per `AI §9.1`.
+
+expected_confidence_band: medium
+
+expected_classification_confidence:
+  bound: below_threshold
+  threshold: 0.6
+  rationale: >
+    Genuinely ambiguous between `technical_assessment` and `business_requirement`, and
+    both readings are substantively complete.
+
+    As `technical_assessment`: a proposed design already exists, three specific
+    uncertainties are named, and the closing question is "what would you do
+    differently?" - a request to evaluate someone's reasoning, which is what the
+    assessment path produces (`assessment_feedback`).
+
+    As `business_requirement`: a client need is stated with volumes, named systems,
+    and constraints. Nothing marks this as an examination - no time limit, no
+    evaluation criteria, no candidate. The submitter is a practitioner doing real work,
+    not a candidate being tested.
+
+    The competition is real because the assessment path in `AI §9.1` does not require
+    an examination context - it produces feedback on a solution architecture with
+    trade-off reasoning, which is exactly what is being asked for. A correctly
+    calibrated classifier should fall below the `FR-011` threshold and trigger
+    `FR-015`.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not applicable to the assessment path (`AI §9.1`) and is
+    omitted under the recorded classification.
+  scale_version: complexity-v1
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not applicable to the assessment path (`AI §9.1`) and is
+    omitted under the recorded classification.
+  scale_version: risk-v1
+
+case_character: ambiguous
+special_class: null
+
+rationale: |
+  Fourth ambiguous case, completing that character for `technical_assessment`. It
+  tests an axis none of the others do: whether "assessment" requires an examination
+  context, or whether any request to critique an existing design belongs on that path.
+
+  Expected classification is `technical_assessment`. The test used throughout the
+  corpus is what the submitter is asking for. They have a design and want it
+  challenged - "what would you do differently" - which is the assessment path's
+  output. Classifying this as `business_requirement` would produce a fresh design that
+  ignores the thinking already done, which is the wrong answer to the question asked.
+
+  This is the most contestable expectation in the corpus and is recorded as such. The
+  consequence of the ambiguity is unusually visible: the two readings produce
+  different artifact sets - `assessment_feedback` versus the full requirement set with
+  `platform_comparison`, `risk_assessment` and `complexity_score`. That makes this the
+  case where an `FR-015` confirmation is most valuable to the user, and where a silent
+  wrong guess costs the most.
+
+  Expected substance. `FR-023` requires at least one rejected alternative named with
+  its reason and stated trade-offs. The three uncertainties the submitter names -
+  polling versus webhooks, partial opt-out, and whether the reporting database is
+  over-engineering - are the substance any useful response must engage. The third is
+  the sharpest test: it invites the system to agree that a component should be
+  removed, and `PV §3.2` treats over-production as a defect, so a response that
+  validates the reporting database without examining whether the PMS already suffices
+  has failed the question.
+
+  Confidence `medium`. CF-1 is moderate: practice count, named systems, current state
+  and the proposed design are all present, but no appointment volume, no reminder
+  timing requirements, and no indication of what the PMS reporting already exposes -
+  which is material to one of the three questions asked. CF-2 is weakened by the
+  unresolved intent. No capping condition applies (`AI §8.3`).
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Provet Cloud and Twilio are real product names used as
+    realistic scenario detail; no real veterinary group or engagement is described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

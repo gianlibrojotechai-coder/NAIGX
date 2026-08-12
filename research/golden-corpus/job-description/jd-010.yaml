@@ -1,0 +1,160 @@
+case_id: jd-010
+input_type: job_description
+
+content: |
+  Solutions Engineer (Pre-Sales) — Workflow Automation Platform
+  Remote (UK) with travel to customers roughly twice a month
+  £70,000 base + £20,000 variable, uncapped
+
+  Us
+
+  We're a Series B workflow automation platform. Around 180 people, selling mid-market
+  and lower enterprise across EMEA. Our buyers are usually operations or IT leaders who
+  have already tried to solve the problem with something else.
+
+  The role
+
+  You sit with account executives and own the technical side of a deal. In practice:
+
+  - Discovery calls where you work out what the prospect is actually trying to do, as
+    distinct from the tool comparison they arrived with
+  - Building proof-of-concept workflows against a prospect's real systems, usually
+    inside a two-week evaluation window
+  - Answering security and architecture questions from the prospect's IT function
+  - Writing the technical sections of RFP responses
+  - Feeding back to Product on what we lost deals over
+
+  You will build, but you will build to persuade rather than to run in production. The
+  POCs you make are usually thrown away.
+
+  What we need
+
+  - You can build a non-trivial integration quickly and explain it while you do
+  - Genuine familiarity with at least two of: iPaaS platforms, RPA, API integration
+    patterns, or ETL. We do not mind which
+  - You can hold a technical conversation with a sceptical engineer and a commercial
+    one with their director, sometimes in the same meeting
+  - Comfortable telling an AE that we are not a fit for a deal
+
+  Nice to have
+
+  - Previous pre-sales or solutions consulting
+  - Experience on the buying side of an automation platform decision
+
+  Not required: quota-carrying sales experience. We will teach the commercial side.
+
+  Process: intro call, a live scenario exercise (we give you a prospect's requirement
+  and 45 minutes), and a panel.
+
+character_count: 1801
+
+expected_classification: job_description
+
+expected_artifact_set:
+  - skill_gap_analysis
+  - portfolio_suggestions
+  - interview_guidance
+
+expected_omissions:
+  - artifact_type: business_analysis
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: architecture_recommendation
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: mermaid_diagram
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: platform_comparison
+    reason: >
+      Not applicable to the job description path per `AI §9.1`. Platform categories are
+      named as candidate experience, not as a selection question.
+  - artifact_type: risk_assessment
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: complexity_score
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: workflow_recommendation
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: implementation_roadmap
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: edge_cases_and_practices
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: integration_requirements
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: executive_summary
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Every posting marker present: title, location, compensation structure, company
+    description, role responsibilities, requirement split, and an interview process.
+    The "live scenario exercise" is described as a stage in that process, not posed to
+    the reader - which keeps this clear of `jd-003`, where an embedded problem created
+    a near-boundary pull toward `technical_assessment`.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not applicable to the job description path (`AI §9.1`) and
+    is omitted for this case.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not applicable to the job description path (`AI §9.1`) and is
+    omitted for this case.
+
+case_character: central
+special_class: null
+
+rationale: |
+  Materially different from every other posting by **function**. All seven others hire
+  someone to build or own automation for their own organisation or its clients. This
+  hires someone to sell an automation platform. It is a genuinely common role in this
+  market and it inverts several assumptions the other cases share.
+
+  Why that matters for `FR-022`. Two stated facts change what a correct skill gap
+  analysis looks like:
+  - **The output is disposable.** "You will build to persuade rather than to run in
+    production. The POCs you make are usually thrown away." Production-grade concerns -
+    error handling, idempotency, observability - which every other posting in the
+    corpus treats as central, are explicitly not what this role is judged on. An
+    extraction that imports them anyway has pattern-matched on "automation" rather
+    than reading the posting.
+  - **Platform experience is explicitly fungible.** "at least two of: iPaaS platforms,
+    RPA, API integration patterns, or ETL. We do not mind which." A skill gap analysis
+    that names specific products has contradicted a stated requirement.
+
+  The genuinely required competencies are communication-shaped and all `stated`:
+  building while explaining, holding technical and commercial conversations in one
+  meeting, and telling an account executive a deal is not a fit. That last one is the
+  third posting in the corpus to require refusal as a skill - alongside `jd-006` and
+  `jd-009` - which is a recurrence worth noting given `PV §3.2` treats the same
+  judgement as a product principle.
+
+  Interview guidance has unusually direct evidence to work from: the process includes a
+  45-minute live scenario exercise against a prospect requirement, which tells a
+  candidate exactly what will be tested.
+
+  Portfolio suggestions (`FR-022`: specific and buildable) are awkward here in an
+  instructive way. The role's defining skill is performing under time pressure while
+  narrating, which a portfolio artifact captures poorly. An honest response may say the
+  useful preparation is a rehearsed build-and-explain rather than a built thing.
+
+  Confidence `high`. CF-1 is strong: company stage and size, market, buyer profile,
+  responsibilities, compensation structure, travel expectation, requirement split, and
+  interview stages. CF-2 is strong - requirements are stated, including what is
+  explicitly not required. CF-4 is strong: 180 people, £70,000 + £20,000, two-week
+  evaluations, 45 minutes, twice monthly travel. No capping condition applies
+  (`AI §8.3`).
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Modelled on the structure of pre-sales solutions
+    engineering postings generally; no real vendor, employer, or vacancy is described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

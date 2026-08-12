@@ -1,0 +1,152 @@
+case_id: ew-010
+input_type: existing_workflow
+
+content: |
+  Could someone look over our commission calculation script? It's Google Apps Script
+  bound to a Sheet and it decides what our sales team gets paid, which is why I'd like
+  another pair of eyes.
+
+  What it does, in order:
+
+  onOpen() adds a custom menu with "Run Commission".
+
+  runCommission() does the following:
+  - reads the "Closed Deals" sheet, which is populated by a Zapier Zap from HubSpot
+    whenever a deal moves to Closed Won
+  - for each row, looks up the rep in a "Rates" sheet to get their tier percentage
+  - applies an accelerator if the rep is over quota, which it works out by summing
+    their closed deals for the quarter from the same sheet
+  - writes the calculated commission into a "Commission Run" sheet with a timestamp
+  - sends a summary email to finance using MailApp
+
+  Volume is about 180 deals a quarter across 14 reps.
+
+  What concerns me:
+
+  It's run manually by whoever remembers, usually our sales ops person. If she's on
+  leave it doesn't happen until someone notices.
+
+  There's no guard against running it twice. We did once, in January, and finance
+  paid two reps twice before catching it. The Commission Run sheet just got a second
+  set of rows with a later timestamp.
+
+  The quota accelerator reads the same "Closed Deals" sheet it's iterating over. If
+  the Zap adds a row mid-run, some reps are evaluated against a different total than
+  others. I don't know whether that's actually happened but it worries me.
+
+  Rates are edited directly in the Sheet by two people. There's no history of what a
+  rate was when a commission was calculated.
+
+  We're not looking to move off Sheets - it's what finance wants to work in.
+
+character_count: 1617
+
+expected_classification: existing_workflow
+
+expected_artifact_set:
+  - workflow_recommendation
+  - platform_comparison
+  - risk_assessment
+  - complexity_score
+
+expected_omissions:
+  - artifact_type: architecture_recommendation
+    reason: Not applicable to the workflow path per `AI §9.1`.
+  - artifact_type: mermaid_diagram
+    reason: Not applicable to the workflow path per `AI §9.1`.
+  - artifact_type: business_analysis
+    reason: Not applicable to the workflow path per `AI §9.1`.
+  - artifact_type: edge_cases_and_practices
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
+  - artifact_type: implementation_roadmap
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-036`; `AI §9.1`)
+  - artifact_type: integration_requirements
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-035`; `AI §9.1`)
+  - artifact_type: executive_summary
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-038`; `AI §9.1`)
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    A running automation submitted for review, described at function level with named
+    sheets, a named trigger mechanism, and observed production failures. No competing
+    reading despite the informal opening.
+
+expected_complexity:
+  status: not_determinable
+  scale_version: complexity-v1
+  reason: >
+    The `complexity_score` artifact is expected. A read-during-write hazard, a manual
+    trigger, and an unversioned rate table are concrete signals for Error / Failure
+    Risk and Operational Complexity, but no authoritative rule maps them onto 1-5
+    factor scores and `docs/09` A-3 records that no calibration data exists.
+
+expected_risk:
+  status: not_determinable
+  scale_version: risk-v1
+  reason: >
+    The `risk_assessment` artifact is expected, and the input describes a realised
+    double payment. Nothing in `docs/09` §2 maps a realised incident onto a severity or
+    likelihood value. Note also that one concern - the mid-run read hazard - is stated
+    as suspected rather than observed, which the analysis must not silently promote to
+    a confirmed defect.
+
+case_character: central
+special_class: null
+
+rationale: |
+  Materially different by execution model and by consequence class. The other
+  workflow-path cases move data between systems; this one **computes money**. Google
+  Apps Script bound to a Sheet is a distinct and very common automation form in this
+  market - `jd-006` names it explicitly as something an agency encounters - and it has
+  failure modes the iPaaS cases do not: manual invocation, no run history, and a
+  spreadsheet as both input and mutable configuration.
+
+  Expected substance. `FR-021` requires issues specific to the submitted workflow with
+  severity and concrete remediation. Four diagnosable defects, all evidenced:
+
+  - **No idempotency guard**, with a realised double payment in January. The mechanism
+    is stated precisely - a second set of rows with a later timestamp - so this is
+    diagnosable rather than speculative.
+  - **Manual invocation with a single point of dependence.** A payroll-adjacent process
+    that runs when someone remembers is an availability defect regardless of the code.
+  - **Read-during-write hazard.** The accelerator sums the same sheet being iterated
+    while a Zap may append to it. This is the most technically interesting finding.
+  - **Unversioned rates.** Two people edit rates directly with no history, so a past
+    commission cannot be reconstructed or defended.
+
+  The unversioned-rate finding is the one most likely to be under-weighted. Nothing has
+  visibly failed because of it, but it means the business cannot answer "why was this
+  rep paid that" - which for commission is the question that eventually gets asked.
+
+  `FR-044` and rubric criterion C-5 (Honest) apply sharply to the third defect. The
+  submitter is explicit: "I don't know whether that's actually happened but it worries
+  me." A response asserting that reps have been mis-evaluated has invented a fact; a
+  response that dismisses it because no incident is reported has understated a real
+  hazard. The correct handling is to confirm the hazard is real, state that occurrence
+  is unevidenced, and say what would establish it.
+
+  The stated constraint - staying on Sheets because finance wants to work there -
+  bounds `platform_comparison`, which remains on the path per `AI §9.1`. A response
+  recommending migration off Sheets has ignored a stated constraint (rubric criterion
+  C-1, Grounded).
+
+  Confidence `high`. CF-1 is strong: function-level description, named sheets, trigger
+  mechanism, volumes, headcount, and a dated incident with its mechanism. CF-4 is
+  strong: 180 deals, 14 reps, quarterly. CF-7 is a mild downward pressure - one concern
+  is unverified - but it is not material to the analysis as a whole, since three of the
+  four defects are independently evidenced. No capping condition applies (`AI §8.3`).
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Google Apps Script, HubSpot and Zapier are real product
+    names used as realistic scenario detail; no real company, script, or compensation
+    data is described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

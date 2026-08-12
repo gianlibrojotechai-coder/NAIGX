@@ -1,0 +1,167 @@
+case_id: ew-005
+input_type: existing_workflow
+
+content: |
+  Review request: order-to-cash automation, Make.com
+
+  Context. We're a B2B print supplier. This scenario has been live for 14 months and
+  now handles about 1,100 orders a month. It was built in stages by three different
+  people and nobody has reviewed it as a whole.
+
+  Scenario structure, as it currently stands:
+
+  Trigger: Webhook from our Shopify Plus store on order creation.
+
+  Module 1 - Router with four routes, filtered on order tags:
+    Route A: tag "trade" - accounts customers with credit terms
+    Route B: tag "proof" - orders requiring artwork approval before production
+    Route C: tag "reorder" - repeat orders referencing a previous job number
+    Route D: fallback - everything else
+
+  Route A: looks up the customer in Xero, checks credit limit via a custom API call,
+  then either creates a sales order in our MIS (Tharstern) or, if over limit, sends an
+  email to accounts and stops.
+
+  Route B: uploads artwork files from the Shopify order to Dropbox, creates a proofing
+  task in Asana, and waits. There's a second scenario that watches Asana for task
+  completion and re-enters this flow via a webhook. The two scenarios pass a job
+  reference to each other as a query parameter.
+
+  Route C: searches Tharstern for the previous job number, copies its specification,
+  and creates a new job. If the previous job isn't found it falls through to Route D
+  silently.
+
+  Route D: creates a generic job in Tharstern with a flag for manual review.
+
+  All routes: append a row to a Google Sheet used for daily production planning, then
+  post a summary into a Slack channel.
+
+  What we know is wrong. Route B breaks if a customer replies to the proofing email
+  instead of completing the Asana task - the job sits indefinitely and we only find it
+  when the customer chases. We had 23 of those last quarter. The Google Sheet has
+  passed 40,000 rows and appends now take several seconds each. Route C's silent
+  fallthrough means we've produced reorders against the wrong specification twice.
+
+  What we don't know. Whether the credit check in Route A is actually being applied
+  consistently - we've had two orders ship to over-limit accounts and can't tell from
+  the logs whether the check failed or was bypassed. Nobody understands why the
+  scenario occasionally runs twice for the same order; it happens perhaps once a week.
+
+  Constraints. Tharstern's API is read-heavy and slow, around two seconds a call.
+  We're staying on Make.com - the team knows it and a migration isn't on the table
+  this year. Order volume is expected to roughly double when we onboard a large
+  contract in Q3.
+
+character_count: 2543
+
+expected_classification: existing_workflow
+
+expected_artifact_set:
+  - workflow_recommendation
+  - platform_comparison
+  - risk_assessment
+  - complexity_score
+
+expected_omissions:
+  - artifact_type: architecture_recommendation
+    reason: >
+      Not applicable to the workflow path per `AI §9.1`. Note the constraint recorded
+      as ambiguity A-10 applies: no target design can be produced on this path.
+  - artifact_type: mermaid_diagram
+    reason: Not applicable to the workflow path per `AI §9.1`.
+  - artifact_type: business_analysis
+    reason: Not applicable to the workflow path per `AI §9.1`.
+  - artifact_type: edge_cases_and_practices
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
+  - artifact_type: implementation_roadmap
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-036`; `AI §9.1`)
+  - artifact_type: integration_requirements
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-035`; `AI §9.1`)
+  - artifact_type: executive_summary
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-038`; `AI §9.1`)
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Self-identifying from the first line - "Review request" - followed by route-level
+    structure, named modules, and observed production behaviour. No competing reading.
+
+expected_complexity:
+  status: not_determinable
+  scale_version: complexity-v1
+  reason: >
+    The `complexity_score` artifact is expected. This case supplies the strongest
+    signals in the corpus for several `docs/09` §1.1 factors - four routes with
+    conditional logic, six integrated systems, cross-scenario handoff, and an unstable
+    failure profile - but no authoritative rule maps route counts or integration
+    counts onto 1-5 factor scores, and `docs/09` A-3 records that no calibration data
+    exists. Corpus-wide deterministic assertions (`docs/11` §4.5) still apply.
+
+expected_risk:
+  status: not_determinable
+  scale_version: risk-v1
+  reason: >
+    The `risk_assessment` artifact is expected, and this case describes realised harm
+    with quantities - 23 stalled jobs, two wrong-specification production runs, two
+    over-limit shipments. Even so, nothing in `docs/09` §2 maps a realised incident
+    onto a severity or likelihood value. Asserting one would invent scoring guidance.
+
+case_character: substantial
+special_class: null
+
+rationale: |
+  Why substantial. First substantial case on the workflow path, completing that
+  character for `existing_workflow`. It is the workflow-path counterpart to `br-006`
+  and `ta-002`, and the opposite pole from `ew-004`.
+
+  Expected substance. `FR-021` requires issues specific to the submitted workflow,
+  each with severity and a concrete remediation. This case deliberately separates what
+  the submitter knows from what they do not, and a good response must handle both
+  differently:
+
+  Stated defects, diagnosable from the text:
+  - Route B's dependency on a human completing an Asana task, with no timeout or
+    escalation - 23 stalled jobs is the realised cost.
+  - Route C's silent fallthrough, which converts a lookup miss into a wrong
+    specification rather than an error. Two production runs is the realised cost.
+  - A Google Sheet used as an operational datastore past 40,000 rows, degrading on
+    every route.
+  - Cross-scenario state passed as a query parameter, with no correlation guarantee.
+
+  Stated unknowns, which must be surfaced rather than resolved by assumption
+  (`FR-044`): whether the Route A credit check is applied consistently, and the cause
+  of weekly duplicate runs. The logs cannot distinguish failure from bypass - so a
+  confident diagnosis of either is invented, and rubric criterion C-5 (Honest)
+  requires saying so. This is the sharpest test in the corpus of whether unknowns are
+  disclosed or filled with plausible defaults.
+
+  The Q3 volume doubling is material to every remediation and easy to read past. A
+  review that fixes the Sheet append without noting it fails at twice the volume has
+  missed a stated constraint (rubric criterion C-4, Complete).
+
+  `platform_comparison` remains in the expected set per `AI §9.1`, but the submitter
+  states migration is off the table this year. A response recommending a platform
+  change has ignored a stated constraint - the artifact should compare within the
+  constraint, not against it.
+
+  Confidence `high`. CF-1 is strong: route-level structure, six named systems, volume,
+  age, incident counts, API latency, and a stated growth expectation. CF-4 is strong -
+  1,100 orders a month, 23 incidents, 40,000 rows, two seconds per call. CF-7 is the
+  one downward pressure, since two unknowns are stated. They are not capping, however:
+  both concern diagnosis of specific defects rather than the analysis as a whole, and
+  most of the review does not depend on resolving them. `AI §8.3` caps on *material*
+  unknowns - material to the conclusion, not merely present.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Make.com, Shopify Plus, Xero, Tharstern, Asana and
+    Dropbox are real product names used as realistic scenario detail; no real supplier
+    or scenario export is described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

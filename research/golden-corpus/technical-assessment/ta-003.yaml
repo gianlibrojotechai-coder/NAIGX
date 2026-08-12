@@ -1,0 +1,128 @@
+case_id: ta-003
+input_type: technical_assessment
+
+content: |
+  Here's the problem we'd like you to work through before we speak again.
+
+  A subscription business sends usage-based invoices monthly. Usage is metered by an
+  internal service that emits one event per API call - about 12 million events a
+  month across 4,000 customers. Billing runs on the 1st of each month and must
+  produce a single invoice per customer in Stripe, priced according to a tiered
+  rate card that changes at most twice a year.
+
+  Two things make this harder than it looks. Events can arrive up to 72 hours late
+  because some customers run batched integrations. And a small number of customers
+  have negotiated custom rate cards that override the standard tiers.
+
+  Sketch out how you would approach this. We're interested in where you'd put the
+  boundaries, how you'd handle the late-arriving events, and what you'd do about the
+  custom rate cards without special-casing them into the billing logic.
+
+  You can assume the metering service and Stripe are both reliable and that you have
+  whatever infrastructure you need. Don't worry about writing code - a diagram and
+  some notes are fine. We'll talk through your reasoning on the call and we're as
+  interested in the options you discarded as the one you chose.
+
+character_count: 1206
+
+expected_classification: technical_assessment
+
+expected_artifact_set:
+  - architecture_recommendation
+  - mermaid_diagram
+  - assessment_feedback
+
+expected_omissions:
+  - artifact_type: business_analysis
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: workflow_recommendation
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: platform_comparison
+    reason: >
+      Not applicable to the assessment path per `AI §9.1`. Stripe is given rather
+      than open for selection.
+  - artifact_type: risk_assessment
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: complexity_score
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: implementation_roadmap
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: edge_cases_and_practices
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: integration_requirements
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: executive_summary
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: skill_gap_analysis
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: portfolio_suggestions
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: interview_guidance
+    reason: Not applicable to the assessment path per `AI §9.1`.
+
+expected_confidence_band: medium
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Near-boundary, not ambiguous. The document carries no assessment title, no stated
+    duration, and no numbered deliverables - surface features that make it read like
+    a business requirement. The substance is nonetheless decisive: "before we speak
+    again", "we'll talk through your reasoning on the call", permission to assume
+    infrastructure away, an explicit instruction not to write code, and interest in
+    "the options you discarded". Those are evaluation signals, not procurement
+    signals. A correct classifier should reach `technical_assessment` without needing
+    `FR-015` confirmation. If a future run falls below threshold here, that is a
+    classifier weakness this case exists to expose, not an expectation to relax.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not applicable to the assessment path (`AI §9.1`) and is
+    omitted for this case.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not applicable to the assessment path (`AI §9.1`) and is
+    omitted for this case.
+
+case_character: near-boundary
+special_class: null
+
+rationale: |
+  Why near-boundary rather than ambiguous. The distinction established by `ew-001`
+  and `jd-001` applies. Near-boundary means competing *surface* signals with decisive
+  substance; ambiguous means genuinely competing substance. Here the informal,
+  untitled framing is surface, while the conversational evaluation markers are
+  substantive and one-directional. Nobody asks a vendor what options they discarded
+  before a call in order to procure a system - they ask that to assess someone.
+
+  Contrast with `jd-001`, where a complete automation requirement genuinely competes
+  with a complete job posting inside one document. There is no such competition here.
+
+  Artifact set. Assessment path per `AI §9.1`, unchanged.
+
+  Expected substance. `FR-023` requires a named rejected alternative, which the brief
+  requests directly. The two stated complications - 72-hour late arrival and
+  contract-specific rate cards - are the substance any defensible answer must engage,
+  and the brief's explicit constraint against "special-casing them into the billing
+  logic" is a design instruction rather than a preference.
+
+  Confidence `medium`. CF-1 is moderate. Volumes and cadence are concrete (12 million
+  events, 4,000 customers, monthly on the 1st, 72-hour lateness), but the tiered rate
+  card structure is referenced without being specified, and "a small number" of custom
+  rate cards is unquantified - both material to a billing design. CF-4 is therefore
+  mixed. No capping condition applies (`AI §8.3`); this is a base-confidence judgement
+  reflecting genuinely partial evidence, not a cap.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Deliberately withholds the structural markers that make
+    `ta-001` and `ta-002` self-identifying, so classification must rest on substance.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

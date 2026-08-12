@@ -1,0 +1,164 @@
+case_id: jd-009
+input_type: job_description
+
+content: |
+  RPA Developer - Financial Services
+  Edinburgh, hybrid (2 days on site) · £52,000 - £62,000
+
+  About the team
+
+  We're the intelligent automation function inside a UK life and pensions business.
+  Around 2,200 staff overall; our team is nine people - six developers, a business
+  analyst, and two on the control side.
+
+  We run an estate of roughly 70 UiPath processes in production, mostly in operations:
+  policy administration, claims indexing, and a large amount of work that involves
+  reading from systems that have no API and never will.
+
+  The role
+
+  You'd own a portfolio of processes end to end - build, hypercare, and ongoing
+  support. Realistically that means half your time maintaining what exists and half
+  building new.
+
+  Some honesty about the estate: a lot of it is screen-scraping green-screen terminals
+  and a mainframe front end. It is not glamorous and it breaks when the underlying
+  system changes. We are gradually replacing the worst of it where APIs become
+  available, but that is a multi-year direction, not a current project.
+
+  Requirements
+
+  - Three or more years building production RPA, UiPath specifically
+  - Experience with attended and unattended orchestration, and with queue-based
+    process design
+  - Exception handling that a support team can actually action - we care about this
+    more than elegant happy paths
+  - Understanding of why a regulated business needs an audit trail on an automated
+    decision, and what that means for how you build
+  - Comfortable saying that a process should not be automated
+
+  Desirable
+
+  - Financial services, ideally life and pensions
+  - Exposure to process mining
+  - Any experience of migrating an RPA process to an API-based integration
+
+  Working here
+
+  This is a controlled environment. Changes go through CAB, you will write
+  documentation, and there is a segregation of duties between build and production
+  access. If that sounds like friction, it will be.
+
+character_count: 1890
+
+expected_classification: job_description
+
+expected_artifact_set:
+  - skill_gap_analysis
+  - portfolio_suggestions
+  - interview_guidance
+
+expected_omissions:
+  - artifact_type: business_analysis
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: architecture_recommendation
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: mermaid_diagram
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: platform_comparison
+    reason: >
+      Not applicable to the job description path per `AI §9.1`. UiPath is the estate a
+      hire would work in, not a selection question.
+  - artifact_type: risk_assessment
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: complexity_score
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: workflow_recommendation
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: implementation_roadmap
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: edge_cases_and_practices
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: integration_requirements
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: executive_summary
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Every posting marker present: title, location, salary band, team description, role
+    scope, requirement split, and working conditions. The estate description is context
+    establishing what a hire inherits, not a request for analysis.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not applicable to the job description path (`AI §9.1`) and
+    is omitted for this case.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not applicable to the job description path (`AI §9.1`) and is
+    omitted for this case.
+
+case_character: central
+special_class: null
+
+rationale: |
+  Materially different from the other postings by **automation tradition**. Every other
+  posting in the corpus is iPaaS, CRM-native, or bespoke integration. This is RPA -
+  UiPath, orchestration, queues, screen-scraping - which is a distinct discipline with
+  its own vocabulary and its own reasons for existing. `AI-042` and the corpus's
+  platform-neutrality posture matter here: a system that treats RPA as an inferior form
+  of automation would misread this posting, when in fact the estate exists precisely
+  because the underlying systems have no APIs.
+
+  Expected substance. `FR-022` requires must-have/nice-to-have classification labelled
+  `stated` or `inferred`. Requirements and Desirable are separated explicitly, so both
+  carry as `stated`.
+
+  Three requirements carry the posting's real substance and resist tool-list
+  extraction:
+  - **Actionable exception handling**, stated as valued above "elegant happy paths".
+    That is a design philosophy, not a skill, and it is the clearest statement of what
+    this employer wants.
+  - **Audit trail on an automated decision in a regulated business**, qualified with
+    "and what that means for how you build". As in `jd-008`'s HIPAA logging
+    requirement, this is a competence about building under constraint rather than a
+    compliance checkbox.
+  - **Willingness to say a process should not be automated** - the same judgement
+    `jd-006` names and `PV §3.2` treats as a product principle.
+
+  The posting's candour is itself information. "It is not glamorous and it breaks when
+  the underlying system changes" and "if that sounds like friction, it will be" are
+  stated working conditions that should surface in interview guidance. A response that
+  presents this as a greenfield automation role has ignored what the employer went out
+  of its way to say.
+
+  Portfolio suggestions are constrained in a way worth noting (`FR-022`: specific and
+  buildable). UiPath has a community edition, so building is possible - but
+  demonstrating queue-based orchestration or a controlled-environment change process is
+  not something a candidate can readily replicate, and an honest answer may say so
+  rather than manufacture a project.
+
+  Confidence `high`. CF-1 is strong: company size, team composition, estate size,
+  process domains, technology, salary band, requirement split, and working conditions.
+  CF-2 is strong - requirements are stated with their reasoning attached. CF-4 is
+  strong: 2,200 staff, nine people, 70 processes, three-plus years, two days on site.
+  No capping condition applies (`AI §8.3`).
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. UiPath and CAB (change advisory board) are real names and
+    concepts used as realistic scenario detail; no real employer or vacancy is
+    described. First RPA-focused posting in the corpus.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

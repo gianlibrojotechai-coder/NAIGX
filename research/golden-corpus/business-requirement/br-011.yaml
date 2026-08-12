@@ -1,0 +1,140 @@
+case_id: br-011
+input_type: business_requirement
+
+content: |
+  Compliance certificate tracking for our lettings portfolio
+
+  We manage 1,400 tenancies across the North West on behalf of about 300 landlords.
+  Every property needs a set of certificates kept current, and getting this wrong is
+  not a paperwork problem - it can invalidate a Section 21 notice and in the worst
+  case it is a criminal offence for the landlord.
+
+  What we track per property: Gas Safety Record (annual), EICR (five-yearly), EPC
+  (ten-yearly), and where applicable a legionella risk assessment and an HMO licence
+  with its own expiry.
+
+  How it works now. Certificates live as PDFs in a folder structure on SharePoint,
+  named inconsistently. Expiry dates are typed into a column in our property management
+  system (Reapit). A property manager runs a report every Monday filtered on the next
+  60 days, emails the landlord to request booking, and chases weekly. When the
+  certificate comes back they file the PDF and update the date by hand.
+
+  Where it goes wrong. The Monday report only catches what was typed in correctly -
+  we found 40 properties last year with a blank expiry field, which means they were
+  never chased at all. Landlords ignore emails; there is no escalation beyond the
+  property manager remembering. And when a certificate is renewed, nothing checks that
+  the PDF filed actually matches the property or the date entered.
+
+  What we want. Expiry tracked reliably rather than by data entry, escalating chase
+  sequences that do not depend on someone remembering, and a check that a filed
+  certificate corresponds to the property and date recorded against it. A dashboard
+  showing exposure by landlord would help us have better conversations with them.
+
+  Constraints. Reapit is fixed - it is the system of record and we are not changing it.
+  It has an API but our licence tier limits us to read access without an upgrade we
+  have not costed. Contractors who issue certificates send them by email as PDFs, in
+  whatever format they like, and we cannot dictate that. Our team is six property
+  managers and one office manager; there is no IT function.
+
+character_count: 2045
+
+expected_classification: business_requirement
+
+expected_artifact_set:
+  - business_analysis
+  - architecture_recommendation
+  - mermaid_diagram
+  - platform_comparison
+  - risk_assessment
+  - complexity_score
+
+expected_omissions:
+  - artifact_type: implementation_roadmap
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-036`)
+  - artifact_type: edge_cases_and_practices
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
+  - artifact_type: integration_requirements
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-035`)
+  - artifact_type: executive_summary
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-038`)
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    A desired future capability under an explicit "What we want" heading. The current
+    process is described as manual work to be replaced rather than as an automation
+    submitted for review, and no hiring or assessment framing appears.
+
+expected_complexity:
+  status: not_determinable
+  scale_version: complexity-v1
+  reason: >
+    The `complexity_score` artifact is expected. A read-only API tier, unstructured
+    inbound PDFs, and five certificate types with different periodicities are strong
+    signals for Integration Complexity and Data Transformation, but no authoritative
+    rule maps them onto 1-5 factor scores and `docs/09` A-3 records that no calibration
+    data exists.
+
+expected_risk:
+  status: not_determinable
+  scale_version: risk-v1
+  reason: >
+    The `risk_assessment` artifact is expected, and the stated consequences are
+    unusually severe - an invalidated Section 21 notice, or criminal liability for a
+    landlord. Nothing in `docs/09` §2 maps a stated consequence onto a severity or
+    likelihood value, so asserting one would invent scoring guidance.
+
+case_character: central
+special_class: null
+
+rationale: |
+  Materially different from the other requirement-path cases by the shape of the
+  problem: this is **deadline-driven compliance chasing**, where the automation's job
+  is to notice that something has not happened rather than to process something that
+  has. `br-001` routes documents that arrive, `br-008` matches confirmations that
+  arrive, `br-009` reconciles payments that arrive. Here the failure is silence -
+  40 properties never chased because a field was blank.
+
+  Expected substance. Four things any grounded response must engage, all stated:
+
+  - **The blank-field failure is the core problem.** Expiry tracking that depends on
+    correct data entry cannot detect its own gaps. This is the same class of defect as
+    `ew-007`'s missing dealer file - absence read as "nothing to do" - and a response
+    that improves the chase sequence without addressing detection has fixed the
+    visible half.
+  - **Read-only API access.** The submitter states their Reapit licence tier permits
+    read only, and that the upgrade is uncosted. Any design that writes expiry dates
+    back into Reapit contradicts a stated constraint, and `platform_comparison` must
+    work within it. This is the constraint most likely to be read past.
+  - **Uncontrollable inbound format.** Contractors send PDFs "in whatever format they
+    like" and the submitter states they cannot dictate otherwise. Extraction is
+    therefore a fixed requirement, not a design choice.
+  - **No IT function.** Six property managers and one office manager. As in `br-001`
+    and `br-008`, this materially narrows what is maintainable and must be labelled
+    `stated` under `FR-013`.
+
+  The verification requirement - checking a filed certificate matches the property and
+  date recorded - is the hardest part and the easiest to skip. It is not document
+  routing; it is a correctness check against the record, and a design that files PDFs
+  without it has answered two of the three requests.
+
+  Confidence `high`. CF-1 is strong: portfolio size, landlord count, certificate types
+  with periodicities, current process, a quantified failure, team size, and named
+  system with its access limitation. CF-2 is strong - constraints are stated rather
+  than inferred. CF-4 is strong: 1,400, 300, 60 days, 40 properties, six plus one.
+  No capping condition applies (`AI §8.3`); the constraints are restrictive but
+  mutually consistent.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Reapit, Section 21, EICR, EPC and HMO licensing are real
+    UK lettings concepts and product names used as realistic scenario detail; no real
+    agency, landlord, or property data is described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

@@ -1,0 +1,154 @@
+case_id: ew-009
+input_type: existing_workflow
+
+content: |
+  Review of our Airtable production tracking automations
+
+  We're a video production company. Everything runs out of one Airtable base and it's
+  grown well past what it was designed for.
+
+  The base: a Projects table (about 900 records), a Shoots table, a Deliverables table
+  (roughly 11,000 records), a Freelancers table, and a Clients table.
+
+  The automations, as configured:
+
+  1. When a Project record's Status changes to "Confirmed", a script action creates
+     Shoot records from a template and generates Deliverable records - typically 8 to
+     20 per project depending on the package field.
+
+  2. When a Deliverable's Status changes to "Ready for Review", an automation sends a
+     Slack message to the assigned producer and starts a 48-hour countdown by writing
+     a Due field.
+
+  3. A scheduled automation runs hourly, finds Deliverables past their Due field still
+     in "Ready for Review", and posts an escalation to a #chasing channel.
+
+  4. When a Freelancer record is linked to a Shoot, an automation sends them a booking
+     confirmation email through a Gmail action and writes the rate into a Costs field
+     by looking up their day rate.
+
+  Problems we've hit:
+
+  The script in automation 1 hits Airtable's execution time limit on larger packages.
+  When it does, it has already created some Deliverables but not all, and there is no
+  indication which - we find out when a producer notices a missing deliverable weeks
+  later.
+
+  Automation 3 posts the same escalation every hour until someone acts. Producers
+  have muted the channel.
+
+  Automation 4 reads the day rate at the moment of linking. If we renegotiate a
+  freelancer's rate afterwards, historical Costs are correct but anything booked in
+  advance silently carries the old rate. Finance found a £4,000 discrepancy in Q2.
+
+  We're also close to the automation run limit on our plan and nobody knows which
+  automation is consuming it.
+
+character_count: 1868
+
+expected_classification: existing_workflow
+
+expected_artifact_set:
+  - workflow_recommendation
+  - platform_comparison
+  - risk_assessment
+  - complexity_score
+
+expected_omissions:
+  - artifact_type: architecture_recommendation
+    reason: Not applicable to the workflow path per `AI §9.1`.
+  - artifact_type: mermaid_diagram
+    reason: Not applicable to the workflow path per `AI §9.1`.
+  - artifact_type: business_analysis
+    reason: Not applicable to the workflow path per `AI §9.1`.
+  - artifact_type: edge_cases_and_practices
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
+  - artifact_type: implementation_roadmap
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-036`; `AI §9.1`)
+  - artifact_type: integration_requirements
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-035`; `AI §9.1`)
+  - artifact_type: executive_summary
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-038`; `AI §9.1`)
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Self-identifying from the title - "Review of our Airtable production tracking
+    automations" - followed by numbered automation configurations, table record
+    counts, and observed production failures. No competing reading.
+
+expected_complexity:
+  status: not_determinable
+  scale_version: complexity-v1
+  reason: >
+    The `complexity_score` artifact is expected. Four interacting automations, a
+    scripting action against a platform execution limit, and a linked-record data model
+    are concrete signals, but no authoritative rule maps them onto 1-5 factor scores and
+    `docs/09` A-3 records that no calibration data exists.
+
+expected_risk:
+  status: not_determinable
+  scale_version: risk-v1
+  reason: >
+    The `risk_assessment` artifact is expected, and the input describes a realised
+    financial discrepancy of £4,000 alongside silent partial creation. Nothing in
+    `docs/09` §2 maps a realised incident onto a severity or likelihood value.
+
+case_character: central
+special_class: null
+
+rationale: |
+  Materially different from the other workflow-path cases by platform class. `ew-002`,
+  `ew-003`, `ew-005` and `ew-006` are iPaaS or workflow tools sitting *between* systems;
+  `ew-007` is scripts and cron; `ew-008` is CRM-native. This is a **database-native
+  automation estate** where the automations live inside the datastore itself, and the
+  binding constraints are the platform's own execution and run limits rather than any
+  integration boundary.
+
+  Expected substance. `FR-021` requires issues specific to the submitted workflow with
+  severity and concrete remediation. Four independently diagnosable defects, all
+  evidenced in the text:
+
+  - **Silent partial creation.** The script hits an execution time limit mid-run,
+    leaving an unknown subset of Deliverables created. This is the most consequential
+    finding: the failure is not that it errors, but that the partial result is
+    indistinguishable from a complete one. The same shape as `ew-007`'s missing dealer
+    file and `br-011`'s blank expiry field - absence that reads as normal.
+  - **Alert fatigue by construction.** Hourly repetition until someone acts, and the
+    producers have muted the channel. As in `ew-002`, the detection control exists and
+    has been rendered inert - here by design rather than by noise.
+  - **Point-in-time rate capture** with no revaluation for future bookings, producing
+    the £4,000 discrepancy. This is a data-semantics defect, not a reliability one, and
+    is the subtlest of the four.
+  - **Unattributed run consumption** against a plan limit, with no visibility into
+    which automation is responsible.
+
+  The rate-capture issue deserves care in review. It is not straightforwardly a bug -
+  capturing the rate at booking time is defensible for historical accuracy, and the
+  submitter says as much. The defect is that advance bookings inherit stale rates
+  silently. A review that recommends always reading the live rate would break the
+  historical correctness the current design gets right, so this is a genuine trade-off
+  rather than a fix, and rubric criterion C-6 (Defensible) applies.
+
+  `platform_comparison` remains on the path per `AI §9.1`. No platform constraint is
+  stated - unlike `ew-005` and `ew-006` - and the run-limit pressure makes the
+  comparison genuinely live.
+
+  Confidence `high`. CF-1 is strong: table record counts, four automations described at
+  configuration level, three failures with mechanisms, and a quantified financial
+  impact. CF-4 is strong: 900, 11,000, 8-20, 48 hours, hourly, £4,000. No capping
+  condition applies (`AI §8.3`).
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Airtable automation concepts - script actions, scheduled
+    automations, linked records, run limits - are used as realistic scenario detail;
+    no real production company or base is described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

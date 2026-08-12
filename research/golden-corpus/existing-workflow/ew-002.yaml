@@ -1,0 +1,140 @@
+case_id: ew-002
+input_type: existing_workflow
+
+content: |
+  Can you review this n8n workflow? It runs our nightly inventory sync.
+
+  Nodes, in order:
+
+  1. Schedule Trigger - cron 0 2 * * * (02:00 daily)
+  2. HTTP Request - GET https://supplier-a.example/api/v2/stock
+     Authentication: header auth, no timeout set, retryOnFail: false
+  3. HTTP Request - GET https://supplier-b.example/api/stock.json
+     Authentication: query parameter API key, no timeout set, retryOnFail: false
+  4. Merge - mode: append
+  5. Code (JavaScript) - normalises both payloads to {sku, qty, updated_at}
+  6. Loop Over Items - batchSize: 1
+  7. Shopify - "Update Inventory Level" node, one call per item
+  8. IF - checks whether qty is 0
+     true branch -> Slack "Send Message" to #ops saying the SKU is out of stock
+     false branch -> NoOp
+
+  Notes on how it behaves in practice. We have about 4,200 SKUs across the two
+  suppliers. The workflow takes between 40 minutes and just over two hours to finish,
+  and we have never worked out why the variance is so wide. Twice this quarter it was
+  still running when staff arrived at 08:00.
+
+  Supplier B changed a field name from quantity_available to qty_available in March
+  without telling us. The Code node did not error - it just produced undefined for
+  every SKU from that supplier, and step 7 wrote zeros into Shopify. We oversold
+  about 40 lines before anyone noticed, because step 8 dutifully posted every one of
+  them to Slack and the channel was already noisy enough that nobody read it.
+
+  We would like to know what we should fix and in what order.
+
+character_count: 1491
+
+expected_classification: existing_workflow
+
+expected_artifact_set:
+  - workflow_recommendation
+  - platform_comparison
+  - risk_assessment
+  - complexity_score
+
+expected_omissions:
+  - artifact_type: architecture_recommendation
+    reason: >
+      Not applicable to the workflow path per `AI §9.1`; `workflow_recommendation`
+      is the workflow-path equivalent.
+  - artifact_type: mermaid_diagram
+    reason: Not applicable to the workflow path per `AI §9.1`.
+  - artifact_type: business_analysis
+    reason: Not applicable to the workflow path per `AI §9.1`.
+  - artifact_type: edge_cases_and_practices
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
+  - artifact_type: implementation_roadmap
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-036`; `AI §9.1`)
+  - artifact_type: integration_requirements
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-035`; `AI §9.1`)
+  - artifact_type: executive_summary
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-038`; `AI §9.1`)
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Explicitly self-identifying: opens "Can you review this n8n workflow", then lists
+    named nodes with configuration values. No competing signal. This is the
+    workflow-path counterpart to `ta-001` - the case where every signal agrees, read
+    against which `ew-001`'s prose framing is legible as near-boundary.
+
+expected_complexity:
+  status: not_determinable
+  scale_version: complexity-v1
+  reason: >
+    The `complexity_score` artifact is expected. The node list gives an unusually
+    concrete basis for Workflow Complexity and Integration Complexity, but no
+    authoritative rule maps a node count or integration count onto a 1-5 factor score,
+    and `docs/09` A-3 records that no calibration data exists.
+
+expected_risk:
+  status: not_determinable
+  scale_version: risk-v1
+  reason: >
+    The `risk_assessment` artifact is expected, and this input describes a realised
+    financial loss rather than a hypothetical exposure. Even so, nothing in
+    `docs/09` §2 maps a described incident onto a severity or likelihood value.
+    Asserting "severity 4" because overselling occurred would be inventing scoring
+    guidance the specifications do not provide.
+
+case_character: central
+special_class: null
+
+rationale: |
+  Classification. A running automation submitted for review, with configuration and
+  observed behaviour. Unambiguously `FR-021`.
+
+  Artifact set. Workflow path per `AI §9.1`, identical to `ew-001`. Requirement-path
+  artifacts are omitted on path grounds, P1 artifacts on priority grounds - the
+  omission reasons preserve that distinction.
+
+  Expected substance. `FR-021` requires issues specific to the submitted workflow and
+  each issue to carry severity and a concrete remediation. This input contains five
+  independently diagnosable defects, all evidenced in the text rather than inferred:
+
+  - No timeout and `retryOnFail: false` on both HTTP nodes (steps 2-3), so a slow or
+    failing supplier stalls or drops the run.
+  - `batchSize: 1` with a per-item Shopify call across 4,200 SKUs (steps 6-7), which
+    is the most plausible explanation for the 40-minute-to-two-hour variance.
+  - No schema validation between the Code node and the write (steps 5-7), which is
+    the direct cause of the zero-quantity incident.
+  - Writing `undefined` as zero rather than failing closed - a data-integrity defect
+    distinct from the missing validation.
+  - Alerting into a channel already too noisy to read (step 8), so the detection
+    control that existed did not function.
+
+  The last is the one most likely to be missed, and the most valuable: the workflow
+  did alert, and the alert was useless. A review that lists "add alerting" as a
+  remediation has misread the evidence.
+
+  `FR-021` also requires that a sound workflow yield an explicit statement that no
+  material issues were found rather than manufactured criticism. This case cannot
+  test that - it is deliberately unsound. A sound-workflow case remains unauthored
+  and is recorded in the coverage gaps.
+
+  Confidence `high`. CF-1 and CF-4 are strong: node-level configuration, SKU count,
+  runtime range, a dated regression with its cause, and a quantified consequence.
+  No capping condition applies (`AI §8.3`).
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Node types and parameter names follow n8n conventions;
+    supplier hostnames use the reserved example.com domain. No real workflow export.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

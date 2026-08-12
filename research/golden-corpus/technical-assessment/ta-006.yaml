@@ -1,0 +1,149 @@
+case_id: ta-006
+input_type: technical_assessment
+
+content: |
+  Architecture Exercise - Data Migration and Cutover
+
+  Please spend no more than four hours. A written design is what we're after.
+
+  The situation
+
+  A logistics client is replacing their warehouse management system. The old system
+  (in-house, SQL Server, 14 years old) and the new one (a SaaS WMS with a REST API)
+  must both operate during a transition period of roughly eight weeks, because the
+  client will not accept a big-bang cutover across their six sites.
+
+  During transition, sites move over one at a time. A site that has moved uses the new
+  system. Sites that have not still use the old one. But stock is transferred between
+  sites daily, and the finance team needs a single consolidated inventory position
+  every night regardless of which system a site is on.
+
+  Some numbers: 6 sites, about 90,000 SKUs, roughly 12,000 stock movements a day
+  across the estate. The old system's database can be read directly but the vendor who
+  built it is gone and there is no documentation. The new system's API is documented
+  and rate-limited at 5,000 requests per hour.
+
+  What we'd like
+
+  1. How you would keep both systems coherent during the eight weeks.
+  2. How the nightly consolidated position is produced.
+  3. What you would do about the undocumented legacy schema.
+  4. How you would know, during transition, that the two systems disagree - and what
+     you would do when they do.
+  5. One approach you considered and rejected, with your reasoning.
+  6. What would make you recommend delaying the cutover.
+
+  Assume you have the client's cooperation and a reasonable budget. We are interested
+  in how you reason about a problem where being partially wrong is normal.
+
+character_count: 1641
+
+expected_classification: technical_assessment
+
+expected_artifact_set:
+  - architecture_recommendation
+  - mermaid_diagram
+  - assessment_feedback
+
+expected_omissions:
+  - artifact_type: business_analysis
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: workflow_recommendation
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: platform_comparison
+    reason: >
+      Not applicable to the assessment path per `AI §9.1`. Both systems are fixed by
+      the scenario; the replacement WMS has already been selected.
+  - artifact_type: risk_assessment
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: complexity_score
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: implementation_roadmap
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: edge_cases_and_practices
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: integration_requirements
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: executive_summary
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: skill_gap_analysis
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: portfolio_suggestions
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: interview_guidance
+    reason: Not applicable to the assessment path per `AI §9.1`.
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Explicitly self-identifying: titled "Architecture Exercise", with a time budget, a
+    stated deliverable form, numbered requirements, permitted assumptions, and a
+    statement of what is being evaluated. No competing signal.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not applicable to the assessment path (`AI §9.1`) and is
+    omitted for this case.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not applicable to the assessment path (`AI §9.1`) and is
+    omitted for this case. Deliverable 6 asks the candidate to reason about delaying
+    cutover, which is scenario content rather than a NAIGX risk register.
+
+case_character: central
+special_class: null
+
+rationale: |
+  Materially different from the other assessment cases by problem class. `ta-001` is
+  multi-source ingestion, `ta-002` a constrained legacy estate, `ta-003` usage billing
+  with late arrivals, `ta-004` a design critique, `ta-005` a single-pattern question.
+  This is **dual-run migration**, where the defining property is that two systems are
+  simultaneously authoritative for different parts of the same dataset and must be
+  reconciled while both are moving.
+
+  Expected substance. `FR-023` requires a solution architecture with explicit trade-off
+  reasoning, a diagram, and at least one rejected alternative. The brief asks for the
+  rejected alternative directly, so that criterion is cleanly testable.
+
+  Four genuine tensions any defensible answer must engage, all stated:
+  - Split authority during transition, with inter-site stock movement crossing the
+    boundary daily. This is the core difficulty and cannot be designed around.
+  - A nightly consolidated position spanning both systems while the split is live.
+  - An undocumented legacy schema with no vendor and no author.
+  - A 5,000 requests/hour rate limit against 12,000 daily movements — which is the
+    kind of arithmetic a shallow answer skips. The limit is not obviously binding, and
+    working out whether it is, is part of the exercise.
+
+  Deliverable 4 is the most valuable and the easiest to answer badly: how would you
+  know the two systems disagree. That is a request for a reconciliation and detection
+  design, not a data-flow diagram, and a response that describes only the happy path
+  has not answered it.
+
+  Deliverable 6 — what would make you recommend delaying — pairs with the closing line
+  about a problem "where being partially wrong is normal". Together they invite the
+  candidate to state conditions under which the plan should not proceed, which maps
+  onto `FR-044` unknowns disclosure and rubric criterion C-5 (Honest). A response that
+  cannot name a delay condition has misjudged the brief.
+
+  Confidence `high`. CF-1 is strong: site count, SKU count, daily movement volume,
+  transition duration, both systems' interfaces, the rate limit, and stated permitted
+  assumptions. CF-4 is strong: 6, 90,000, 12,000, eight weeks, 14 years, 5,000/hour.
+  No capping condition applies (`AI §8.3`) — the constraints are difficult but
+  consistent, and the undocumented schema is a stated condition the brief asks the
+  candidate to address rather than an unknown blocking analysis.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Modelled on the structure of architecture take-home
+    exercises generally; no real client, vendor, or migration is described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

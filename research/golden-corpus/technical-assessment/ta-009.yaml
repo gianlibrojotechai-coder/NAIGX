@@ -1,0 +1,149 @@
+case_id: ta-009
+input_type: technical_assessment
+
+content: |
+  Interview question we'd like you to think about beforehand.
+
+  A client's automation currently polls a supplier's REST API every five minutes for
+  new orders. The supplier has just offered to send webhooks instead. Order volume is
+  around 300 a day, arriving unevenly - most between 9am and 11am.
+
+  Would you switch to webhooks, stay on polling, or do both? We want your reasoning
+  and what would change your answer, not a design. Five minutes of discussion, not a
+  written submission.
+
+character_count: 478
+
+expected_classification: technical_assessment
+
+expected_artifact_set:
+  - architecture_recommendation
+  - mermaid_diagram
+  - assessment_feedback
+
+expected_omissions:
+  - artifact_type: business_analysis
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: workflow_recommendation
+    reason: >
+      Not applicable to the assessment path per `AI §9.1`. An existing automation is
+      referenced, but as the scenario for a judgement question rather than as a
+      workflow submitted for review.
+  - artifact_type: platform_comparison
+    reason: >
+      Not applicable to the assessment path per `AI §9.1`. The choice is between two
+      integration mechanisms, not between platforms.
+  - artifact_type: risk_assessment
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: complexity_score
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: implementation_roadmap
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: edge_cases_and_practices
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: integration_requirements
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: executive_summary
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: skill_gap_analysis
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: portfolio_suggestions
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: interview_guidance
+    reason: Not applicable to the assessment path per `AI §9.1`.
+
+expected_confidence_band: medium
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Self-identifying - "Interview question we'd like you to think about beforehand" -
+    with a stated discussion format and an explicit instruction that no design is
+    wanted. No competing reading. The referenced client automation is scenario
+    context, not a system submitted for review, which keeps it clear of the
+    `existing_workflow` boundary that `ta-008` tests.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not applicable to the assessment path (`AI §9.1`) and is
+    omitted for this case.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not applicable to the assessment path (`AI §9.1`) and is
+    omitted for this case.
+
+case_character: central
+special_class: null
+
+rationale: |
+  ⚠️ Expectation corrected 2026-08-12 under `docs/11` §6.2. Recorded in full because
+  the freeze rules require it.
+
+  **What changed.** `case_character` was `minimal`; `expected_artifact_set` was
+  `assessment_feedback` alone. It is now `central`, with the full `FR-023` set.
+  **The input content is unchanged.**
+
+  **Why the original was wrong** - not merely different from output, which §6.2 does
+  not accept as grounds. `FR-023` states without qualification that inputs classified
+  `technical_assessment` "must produce a solution architecture with explicit trade-off
+  reasoning and a diagram". The original single-artifact expectation contradicted that
+  requirement directly. The contrast with `FR-020`, which carries "subject to
+  orchestration" and a "non-trivial" carve-out that `FR-023` conspicuously lacks,
+  settles that `FR-023` is unconditional (`docs/11` §2.4).
+
+  **Why `central`.** The document is explicitly self-identifying - "Interview question
+  we'd like you to think about beforehand" - with a stated discussion format. There is
+  no competing reading, which is what `central` means. It is brief, but brevity is not
+  a characteristic (§2.3). `near-boundary` and `ambiguous` would both misdescribe it,
+  and `substantial` plainly does not apply.
+
+  **Why no replacement minimal case was authored.** `docs/11` §2.4 exempts
+  `technical_assessment` from the `minimal` characteristic, because `FR-023` makes it
+  unsatisfiable. The exemption is the resolution; manufacturing another case would
+  reintroduce the same contradiction.
+
+  **An observation worth recording, not a deviation.** The submitter asks for reasoning
+  "not a design", yet `FR-023` requires a design regardless. The corpus records what
+  the specification requires, so the expectation follows `FR-023`. That the requirement
+  overrides an explicit user instruction is a genuine property of `FR-023` as written,
+  and is noted here in case it informs a future review of that requirement. It is not
+  grounds for deviating from it here.
+
+  Expected substance. The two stated facts are what any grounded answer must turn on:
+  300 orders a day is low, and the arrival pattern is bursty between 9am and 11am.
+  Together they mean five-minute polling is already cheap and adequate, while webhooks
+  would improve latency during the burst at the cost of delivery guarantees. The
+  question "what would change your answer" maps onto `FR-044` unknowns disclosure -
+  volume growth, latency requirements, and whether the supplier retries failed
+  deliveries are all absent and all decisive.
+
+  The corpus already establishes in `ew-004` that webhooks cannot detect their own
+  absence, and a response recommending webhooks without a reconciling fallback would
+  contradict reasoning the corpus expects elsewhere - a `C-7 Consistent` test.
+
+  Confidence `medium`. CF-1 is moderate: volume and arrival pattern are stated, but no
+  latency requirement, no retry semantics from the supplier, no growth expectation, and
+  no indication of what the orders feed. CF-4 is partial - two concrete values, both
+  relevant, but not enough to settle the question. Under `AI §8.4` absence lowers and
+  never raises. No capping condition applies (`AI §8.3`).
+
+  Ambiguity A-14, resolved 2026-08-12 (`docs/11` §2.4, Option 1). This case surfaced
+  the conflict between §2.3 and `FR-023`. The resolution exempts `technical_assessment`
+  from the `minimal` characteristic rather than weakening either requirement, and this
+  case's expectations were corrected to the `FR-023` set accordingly.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus as a bounded comparative-judgement assessment. Originally
+    recorded as a `minimal` case; reclassified `central` with its artifact set corrected
+    to the `FR-023` set on 2026-08-12 (`docs/11` §2.4, §6.2). Input content unchanged
+    since authoring.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

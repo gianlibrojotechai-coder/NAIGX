@@ -1,0 +1,138 @@
+case_id: br-008
+input_type: business_requirement
+
+content: |
+  Automation Engineer - what we'd want you to build
+
+  We're a wholesale food distributor, 200 staff, and we're hiring someone to own
+  automation. Before we advertise the role I want to be clear in my own head about
+  what the first six months would actually involve, so I've written up the main
+  project.
+
+  The project: purchase order confirmations. Suppliers send us order confirmations by
+  email - some as PDF attachments, some as text in the body, a handful through a
+  portal we have to log into. Someone in purchasing opens each one, checks the
+  confirmed quantities and delivery dates against what we ordered in our ERP
+  (Microsoft Dynamics 365 Business Central), and flags discrepancies to a buyer.
+
+  About 700 confirmations a week. Roughly one in nine has a discrepancy - short
+  quantity, changed date, or a substituted product code. Those are the ones that
+  matter; the other eight are pure clerical checking.
+
+  What we'd want built: automatic capture and matching, so purchasing only sees the
+  exceptions. The eight-in-nine clean confirmations should reconcile themselves.
+
+  Skills we think this needs: Business Central integration, document extraction, and
+  whatever automation platform makes sense - we don't have a preference and we don't
+  have developers, so something maintainable by a non-programmer would be better.
+
+  Is this a sensible first project for someone, and is it the right shape? I'd rather
+  know now than after we've hired.
+
+character_count: 1429
+
+expected_classification: business_requirement
+
+expected_artifact_set:
+  - business_analysis
+  - architecture_recommendation
+  - mermaid_diagram
+  - platform_comparison
+  - risk_assessment
+  - complexity_score
+
+expected_omissions:
+  - artifact_type: implementation_roadmap
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-036`)
+  - artifact_type: edge_cases_and_practices
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
+  - artifact_type: integration_requirements
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-035`)
+  - artifact_type: executive_summary
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-038`)
+
+expected_confidence_band: medium
+
+expected_classification_confidence:
+  bound: below_threshold
+  threshold: 0.6
+  rationale: >
+    Genuinely ambiguous, and the axis is the inverse of `jd-001`. There, a complete
+    automation requirement sat inside a document whose purpose was hiring. Here a
+    hiring frame wraps a document whose purpose is arguably the requirement itself:
+    the title is a role, the closing question asks whether this is "a sensible first
+    project for someone", and a skills list appears - all `job_description` signals.
+    But no salary, location, application route, experience level, or employment terms
+    appear, and the bulk of the text is a specified automation with volumes,
+    exception rates, systems, and a stated constraint on maintainability.
+
+    Both readings are substantively complete, which is what distinguishes ambiguity
+    from near-boundary. A correctly calibrated classifier should fall below the
+    `FR-011` threshold and trigger `FR-015`, letting the submitter say whether they
+    want the project analysed or the role scoped.
+
+expected_complexity:
+  status: not_determinable
+  scale_version: complexity-v1
+  reason: >
+    The `complexity_score` artifact is expected under the recorded classification, but
+    factor scoring is a reasoning output and no calibration data exists (`docs/09`
+    A-3).
+
+expected_risk:
+  status: not_determinable
+  scale_version: risk-v1
+  reason: >
+    The `risk_assessment` artifact is expected. Mixed-format document capture and
+    product-code substitution are stated conditions warranting risks, but no rule maps
+    them onto severity or likelihood values.
+
+case_character: ambiguous
+special_class: null
+
+rationale: |
+  Third ambiguous case, completing that character for `business_requirement`. Each
+  tests a different axis, deliberately: `jd-001` a requirement inside a posting,
+  `ew-003` two intents for one subject, and this one a posting frame around a
+  requirement.
+
+  Expected classification is `business_requirement`. The test used throughout the
+  corpus is what the submitter is asking for. The closing question - "is this the
+  right shape?" - asks for the project to be evaluated, not for a role to be scoped.
+  The hiring context explains *why* they are asking; it is not what they are asking.
+  The skills paragraph is the strongest counter-signal, and it is genuinely a
+  counter-signal rather than noise, which is why this is ambiguous rather than
+  near-boundary.
+
+  Contestable and recorded as such, per the discipline established in `jd-001`. If a
+  user corrects it, `FR-014` and `API §7.5` provide resubmission with
+  `classification_override` producing a new analysis without mutating this one.
+
+  Expected substance. The exception rate is the load-bearing fact: one in nine
+  confirmations carries a discrepancy, so eight in nine are clerical. Any grounded
+  response must engage with the asymmetry, because it determines whether the value is
+  in extraction accuracy or exception routing. A response treating all 700 weekly
+  confirmations as equivalent has missed the point the submitter made explicitly.
+
+  The stated constraint - no developers, prefer something maintainable by a
+  non-programmer - materially narrows `platform_comparison` and must be labelled
+  `stated` under `FR-013`. It is also the constraint most likely to be quietly
+  dropped in favour of a technically superior but unmaintainable recommendation,
+  which would fail rubric criterion C-1 (Grounded).
+
+  Confidence `medium`. CF-1 is moderate-to-strong: volume, exception rate, ERP, and
+  team capability are stated, but the portal is unnamed, no discrepancy-tolerance
+  rules are given, and what "flags to a buyer" involves downstream is unspecified.
+  CF-2 is weakened by the unresolved intent - if the submitter actually wants role
+  scoping, much of the extracted context is beside the point. No capping condition
+  applies (`AI §8.3`); this is a base-confidence judgement.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Dynamics 365 Business Central is a real product name used
+    as realistic scenario detail; no real distributor or vacancy is described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

@@ -1,0 +1,118 @@
+case_id: br-005
+input_type: business_requirement
+
+content: |
+  We want to use AI and automation to make the business more efficient.
+
+  Things have got messy as we've grown and there's a lot of manual work everywhere.
+  Different teams do things their own way and nobody really has the full picture.
+  Leadership wants us to modernise and I've been asked to look into what we could
+  automate.
+
+  What would you recommend we do?
+
+character_count: 355
+
+expected_classification: business_requirement
+
+expected_artifact_set: []
+
+expected_omissions:
+  - artifact_type: business_analysis
+    reason: >
+      Refusal. Stage 3 determines that any analysis would be substantially invented
+      (`AI §5.4`). No artifact is generated; the response states what is missing and
+      what would resolve it (`FR-044`).
+  - artifact_type: architecture_recommendation
+    reason: Refusal — no reasoning proceeds past context extraction (`AI §5.4`).
+  - artifact_type: mermaid_diagram
+    reason: Refusal — no architecture exists to diagram.
+  - artifact_type: platform_comparison
+    reason: Refusal — no requirement exists against which to compare platforms.
+  - artifact_type: risk_assessment
+    reason: >
+      Refusal — no design exists, and `FR-032` requires every risk to name an
+      affected component.
+  - artifact_type: complexity_score
+    reason: Refusal — no solution exists to score (`docs/09` §1).
+  - artifact_type: implementation_roadmap
+    reason: Refusal; also P1 (`MVP §5.3`, `FR-036`).
+  - artifact_type: edge_cases_and_practices
+    reason: Refusal; also P1 (`MVP §5.3`, `FR-037`).
+  - artifact_type: integration_requirements
+    reason: Refusal; also P1 (`MVP §5.3`, `FR-035`).
+  - artifact_type: executive_summary
+    reason: Refusal; also P1 (`MVP §5.3`, `FR-038`).
+
+expected_confidence_band: low
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Classification succeeds even though analysis does not. The input is clearly a
+    request about a desired future capability, so stage 1 should classify it
+    `business_requirement` with confidence at or above threshold. The refusal happens
+    at stage 3, on context sufficiency, not at stage 1 on type. `FR-015` confirmation
+    should not trigger - asking the user to confirm the type would misdirect them from
+    the actual problem, which is that no analysable content was supplied.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not produced. Refusal precedes artifact generation entirely
+    (`AI §5.4`). Determinable, not unknown.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not produced. Refusal precedes artifact generation entirely.
+    Determinable, not unknown.
+
+case_character: central
+special_class: insufficient
+
+rationale: |
+  Why `insufficient` and not `do-not-automate`. The `docs/11` §3 distinction is
+  strict and this case sits on the opposite side of it from `br-003`. `br-003` is
+  complete - frequency, volume, effort and systems are all stated - and the system
+  reasons its way to a negative conclusion. This input states no system, no process,
+  no volume, no frequency, and no constraint. There is nothing to reason about.
+  Concluding "do not automate" here would be as invented as concluding "automate
+  this": both would be fabricated from absence.
+
+  Expected behaviour. Refusal, per `AI §5.4` and `AI §11.7`, which treat graceful
+  refusal as a quality behaviour rather than a failure. `API §9.3` classes this as
+  `insufficient_context` 422 - explicitly "not a failure": the request was
+  well-formed and processed correctly, and the content cannot be analysed. `FR-044`
+  requires the response to name what is missing and what would resolve it - here,
+  at minimum a specific process, the systems it touches, and its volume or frequency.
+  `PV §5` identifies this as a defining product moment, so a generic decline would
+  waste the most valuable thing the system determined.
+
+  This is the corpus case most likely to regress quietly. The failure mode is not a
+  crash but a plausible, confident, entirely invented analysis of a business the
+  system knows nothing about - which is exactly what a general-purpose assistant
+  would produce and what `PV §3.4` classifies as a defect of the same severity as a
+  wrong answer.
+
+  Confidence `low`. CF-7 unknown materiality is at its maximum: the unknowns are not
+  peripheral, they are the entire content of any possible analysis. `AI §8.3` makes
+  material unknowns a capping condition, so the band cannot exceed `medium`; `low` is
+  the correct value because low confidence is precisely the reason the system refuses.
+
+  ⚠️ Ambiguity A-9. No authoritative document states whether a refused analysis
+  carries a confidence band at all, and `docs/11` §4.1 makes `expected_confidence_band`
+  required with no not-applicable option. `low` is recorded as the most defensible
+  value rather than as a quoted requirement.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Deliberately composed of business-sounding language that
+    carries no extractable context - the shape of input most likely to elicit a
+    fabricated analysis.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

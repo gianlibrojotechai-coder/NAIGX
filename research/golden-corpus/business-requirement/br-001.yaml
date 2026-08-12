@@ -1,0 +1,118 @@
+case_id: br-001
+input_type: business_requirement
+
+content: |
+  We need to automate our supplier invoice approval process.
+
+  Right now invoices arrive as PDF attachments to accounts@ourcompany.com. Someone
+  in finance downloads each one, keys the supplier name, invoice number, date, line
+  items and total into our accounting system (Xero), then emails the relevant
+  department head for approval. Once the department head replies "approved", finance
+  marks it approved in Xero and schedules payment on the next payment run.
+
+  Volumes: roughly 400-500 invoices per month, from about 90 active suppliers.
+  Around 60% come from the same 15 suppliers with consistent formats.
+
+  Current problems:
+  - Data entry takes one person roughly 3 days per week.
+  - Approval emails get lost in inboxes. We have no view of what is waiting on whom.
+  - We miss early payment discounts (2% on about a third of our suppliers) because
+    approval takes 5-9 days on average when the discount window is 10 days.
+  - Duplicate invoices have been paid twice on three occasions in the last year.
+
+  What we want: invoices captured automatically, routed to the right approver based
+  on department and amount, with reminders when someone sits on an approval, and a
+  dashboard showing what is pending. Approvals over £10,000 need the finance director
+  as a second approver. Anything over £50,000 needs two directors.
+
+  Constraints: we must keep Xero as the system of record - our accountant requires it.
+  We are a UK company, so we need to handle UK VAT correctly on the captured data.
+  Budget is up to about £400/month for tooling. We have no developers in-house; our
+  IT is one person who is comfortable with tools like Zapier but does not write code.
+
+character_count: 1637
+
+expected_classification: business_requirement
+
+expected_artifact_set:
+  - business_analysis
+  - architecture_recommendation
+  - mermaid_diagram
+  - platform_comparison
+  - risk_assessment
+  - complexity_score
+
+expected_omissions:
+  - artifact_type: implementation_roadmap
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-036`)
+  - artifact_type: edge_cases_and_practices
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
+  - artifact_type: integration_requirements
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-035`)
+  - artifact_type: executive_summary
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-038`)
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    No competing classification signal. The input describes a desired future
+    capability throughout, with no existing automation to review and no hiring
+    context. `FR-015` confirmation should not trigger.
+
+expected_complexity:
+  status: not_determinable
+  scale_version: complexity-v1
+  reason: >
+    The `complexity_score` artifact is expected, but assigning the five `docs/09`
+    §1.1 factor scores is a reasoning output, not a value the specification
+    determines from the input. `docs/09` A-3 records that no calibration data
+    exists. Corpus-wide deterministic assertions (`docs/11` §4.5) still apply.
+
+expected_risk:
+  status: not_determinable
+  scale_version: risk-v1
+  reason: >
+    The `risk_assessment` artifact is expected, but which risks are identified and
+    how they are scored are reasoning outputs. Structural invariants — every risk
+    names a component and carries a mitigation (`FR-032`) — are asserted
+    corpus-wide rather than per case.
+
+case_character: central
+special_class: null
+
+rationale: |
+  Classification. The input describes a desired future capability, not an existing
+  automation to review and not a hiring artifact. It is squarely `business_requirement`
+  with no competing signal.
+
+  Artifact set. `FR-020` requires business analysis, architecture, platform
+  recommendation, risk analysis and complexity score for a non-trivial requirement.
+  `AI §9.1` lists `mermaid_diagram` as applicable to the requirement path, and
+  `FR-031` makes it P0. The four P1 artifacts are omitted per `MVP §5.3`.
+
+  Confidence `high`. Assessed against the `AI §8.2` factors:
+  - CF-1 input completeness: high. Volumes, systems, constraints, approval
+    thresholds, budget and team capability are all present.
+  - CF-2 requirement clarity: high. Nearly every context element is `stated`
+    rather than `inferred`.
+  - CF-3 conflicting information: none. No requirement contradicts another.
+  - CF-4 evidence quality: high. Concrete values throughout - 400-500 invoices,
+    £10,000 and £50,000 thresholds, 5-9 day approval times, £400/month budget.
+  - CF-7 unknown materiality: no material unknown blocks a recommendation.
+  With no capping condition present (`AI §8.3`), `high` is the correct band.
+
+  This case is the baseline. If it does not produce a full, confident, grounded
+  analysis, nothing else in the corpus will.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Not derived from any real customer, employer or
+    third-party confidential material (`docs/11` §4.3).
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

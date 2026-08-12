@@ -1,0 +1,149 @@
+case_id: jd-007
+input_type: job_description
+
+content: |
+  Operations Analyst (Automation) - entry level
+
+  Leeds, 4 days on site · £26,000 - £29,000 · No prior commercial experience required
+
+  We're a 300-person insurance intermediary. Our operations team processes policy
+  documentation, and a lot of what they do could be automated. We've decided to build
+  that capability internally rather than hire it in, which means training someone.
+
+  This is a genuine entry-level role. We will teach you the tooling. What we can't
+  teach easily is the mindset, so that's what we're recruiting for.
+
+  What you'd actually do in year one
+
+  Six months shadowing and working in the operations team itself - processing renewals,
+  handling document requests, doing the job. We're serious about this. Every automation
+  we've seen fail here was built by someone who didn't understand the work.
+
+  Then six months building, supported by our two existing automation developers. Small
+  things first: a document routing rule, a status notification, a reconciliation
+  report. You'd own something small end to end by month nine.
+
+  What we're looking for
+
+  - Evidence you notice when something is done inefficiently, and that it bothers you
+  - Comfortable with spreadsheets beyond the basics - lookups, pivot tables
+  - Able to write clearly. You'll document what you build
+  - Willing to spend six months doing the operational job before automating it
+
+  You do not need: a degree, a programming background, or any experience with
+  automation platforms.
+
+  What we offer
+
+  Structured training budget, day release for a relevant qualification if you want one,
+  and a defined progression to Automation Developer at 18-24 months with a salary band
+  attached to it.
+
+  We hire for this role twice a year. Applications through our careers page.
+
+character_count: 1726
+
+expected_classification: job_description
+
+expected_artifact_set:
+  - skill_gap_analysis
+  - portfolio_suggestions
+  - interview_guidance
+
+expected_omissions:
+  - artifact_type: business_analysis
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: architecture_recommendation
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: mermaid_diagram
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: platform_comparison
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: risk_assessment
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: complexity_score
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: workflow_recommendation
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: implementation_roadmap
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: edge_cases_and_practices
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: integration_requirements
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: executive_summary
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+
+expected_confidence_band: medium
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Every posting marker present - title, location, salary band, company description,
+    role progression, requirements, benefits, and an application route. Nothing
+    competes. The absence of technical content does not weaken classification; it is a
+    posting for a role that is deliberately non-technical at entry.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not applicable to the job description path (`AI §9.1`) and
+    is omitted for this case.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not applicable to the job description path (`AI §9.1`) and is
+    omitted for this case.
+
+case_character: central
+special_class: null
+
+rationale: |
+  Materially different from every other posting on one axis the corpus does not
+  otherwise test: **seniority at the bottom of the range.** `jd-005` is a £75-85k
+  functional head, `jd-002` and `jd-006` are experienced practitioners, `jd-003` a
+  contractor, `jd-004` a freelance advert. This is entry level with no prior
+  experience required and no platform named anywhere.
+
+  Why it matters. `FR-022` requires skill gap analysis, portfolio recommendations and
+  interview guidance. Every other posting supplies named tools that make those outputs
+  easy to generate and easy to generate badly - by listing products. This posting names
+  **no automation platform at all** and states outright that none is needed. An
+  extraction that returns an empty or near-empty skill set has read the posting as a
+  tool list; the requirements are real and stated, they are simply not technical:
+  noticing inefficiency, intermediate spreadsheet ability, clear writing, and
+  willingness to do the operational job first.
+
+  The strongest signal is one a naive reading would drop entirely: six months working
+  in operations before building anything, justified by "every automation we've seen fail
+  here was built by someone who didn't understand the work". That is the posting's
+  central requirement, it is `stated` under `FR-013`, and it should shape interview
+  guidance more than any tool would.
+
+  Portfolio suggestions are the interesting test. `FR-022` requires them "specific and
+  buildable, not generic project categories". For a candidate with no programming
+  background, buildable means something quite different from `jd-006`'s consultant -
+  and a response that suggests building an n8n integration has ignored both the stated
+  candidate profile and the employer's explicit "you do not need... any experience with
+  automation platforms".
+
+  Confidence `medium`, not `high`. CF-1 is moderate: company size, sector, salary,
+  location, year-one structure, progression timeline and requirements are all stated,
+  but no system, tool, volume, or process detail appears anywhere - by design. CF-2 is
+  strong; what is stated is stated plainly. CF-4 is weak: the concrete values present
+  are employment terms rather than anything about the work. Under `AI §8.4` absence
+  lowers and never raises, and a posting this deliberately non-technical supports less
+  confident extraction than `jd-002` or `jd-006`. No capping condition applies
+  (`AI §8.3`).
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Deliberately names no automation platform, to test whether
+    skill extraction depends on product names. No real employer or vacancy described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

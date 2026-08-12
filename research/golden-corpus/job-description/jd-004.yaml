@@ -1,0 +1,120 @@
+case_id: jd-004
+input_type: job_description
+
+content: |
+  Wanted: Zapier and Make specialist, part-time, remote. Must know HubSpot. £250/day.
+
+character_count: 83
+
+expected_classification: job_description
+
+expected_artifact_set:
+  - skill_gap_analysis
+
+expected_omissions:
+  - artifact_type: portfolio_suggestions
+    reason: >
+      Proportionality. `FR-022` requires portfolio recommendations to be "specific and
+      buildable, not generic project categories". With no process, industry, or
+      problem described, only categories could be produced - which `FR-022` names as
+      the failure mode. See ambiguity A-12.
+  - artifact_type: interview_guidance
+    reason: >
+      Proportionality. `FR-022` requires guidance addressing "the architectural
+      competencies the posting implies". This posting implies none beyond the three
+      named tools. See ambiguity A-12.
+  - artifact_type: business_analysis
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: architecture_recommendation
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: mermaid_diagram
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: platform_comparison
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: risk_assessment
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: complexity_score
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: workflow_recommendation
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: implementation_roadmap
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: edge_cases_and_practices
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: integration_requirements
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: executive_summary
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+
+expected_confidence_band: low
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Short but unambiguous. "Wanted", a role description, employment terms, and a day
+    rate are all posting markers, and nothing competes with them. Brevity reduces
+    analysis confidence, not classification confidence.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not applicable to the job description path (`AI §9.1`) and
+    is omitted for this case.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not applicable to the job description path (`AI §9.1`) and is
+    omitted for this case.
+
+case_character: minimal
+special_class: null
+
+rationale: |
+  Why minimal. Third `minimal` case, completing that character for `job_description`.
+  At 83 characters it sits alongside `br-004` (66) and `ew-004` (81), and the three
+  together establish that proportionality holds across three paths.
+
+  Why the reduction goes further here than on other paths. `FR-022` names four
+  outputs, and two of them carry explicit quality bars that this input cannot clear:
+  portfolio recommendations must be "specific and buildable, not generic project
+  categories", and interview guidance must address "the architectural competencies the
+  posting implies". Producing either from three tool names would mean producing
+  exactly what `FR-022` prohibits. The omission is therefore closer to structural than
+  most proportionality reductions - the artifacts are not merely disproportionate, they
+  would violate their own acceptance criteria.
+
+  `skill_gap_analysis` survives because required-skill extraction is possible: three
+  named tools, a rate, and part-time remote terms are all extractable and all `stated`.
+
+  Expected substance. `FR-022` requires must-have/nice-to-have classification labelled
+  `stated` or `inferred`. Only "must know HubSpot" is explicitly a must-have; whether
+  Zapier and Make are both required or alternatives is genuinely unclear from "Zapier
+  and Make specialist", and that ambiguity should be surfaced rather than resolved.
+  `FR-022` also requires that where a posting is vague the output says so rather than
+  inventing specificity - this is the corpus's strongest test of that clause, since
+  almost everything a candidate would want to know is absent.
+
+  Confidence `low`. CF-1 is very low: no company, industry, team, seniority, scope,
+  contract length, or description of the work. CF-4 is near-absent - the day rate is
+  the only concrete value. Under `AI §8.4` absence lowers and never raises. No capping
+  condition applies (`AI §8.3`); `low` is base confidence.
+
+  This case and `jd-002` are the same path at opposite extremes of input density, and
+  the expected difference between them - full artifact set with `high` confidence
+  versus a single artifact with `low` - is what `AC-037` proportionality means in
+  practice.
+
+  ⚠️ Ambiguity A-12 applies. Both omissions rest on `FR-017` proportionality and on
+  `FR-022`'s quality bars rather than on structural impossibility.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Modelled on the terse postings common on freelance
+    marketplaces; no real employer or engagement is described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

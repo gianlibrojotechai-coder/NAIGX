@@ -1,0 +1,139 @@
+case_id: ew-006
+input_type: existing_workflow
+
+content: |
+  Power Automate flow review - purchase requisition approvals
+
+  This flow has been running for about two years and IT inherited it when the person
+  who built it left. It's business-critical and we're nervous about it.
+
+  How it works: a form submission in Microsoft Forms starts the flow. The flow reads
+  the requisition amount and requester's department from the form, looks up the
+  approver in a SharePoint list called "Approval Matrix", and sends an approval
+  request through the Approvals connector. If approved it writes a row to a SharePoint
+  list called "Approved Requisitions" and emails procurement. If rejected it emails
+  the requester. Over £5,000 it sends a second approval to the department head, in
+  sequence, not parallel.
+
+  Volume is around 400 requisitions a month.
+
+  Our concerns:
+
+  The flow runs under the leaver's account. It still works because their account was
+  converted to a shared mailbox rather than deleted, but nobody is comfortable with
+  that and our licensing review flagged it.
+
+  The Approval Matrix list has 260 rows and is maintained by hand. When someone
+  changes role, procurement usually remembers to update it, but we found three
+  requisitions last year that went to someone who'd moved teams eight months earlier.
+
+  There's no timeout on the approval steps. We have requisitions sitting in approval
+  since March. The requesters assume they've been rejected and raise new ones, which
+  is why the numbers don't reconcile.
+
+  Retries are on the default. When SharePoint throttled us during a tenant migration
+  in January, about 30 flow runs failed and we only found out from the run history
+  three weeks later.
+
+  We can't move off the Microsoft stack - it's a group IT policy decision, not ours.
+
+character_count: 1703
+
+expected_classification: existing_workflow
+
+expected_artifact_set:
+  - workflow_recommendation
+  - platform_comparison
+  - risk_assessment
+  - complexity_score
+
+expected_omissions:
+  - artifact_type: architecture_recommendation
+    reason: Not applicable to the workflow path per `AI §9.1`.
+  - artifact_type: mermaid_diagram
+    reason: Not applicable to the workflow path per `AI §9.1`.
+  - artifact_type: business_analysis
+    reason: Not applicable to the workflow path per `AI §9.1`.
+  - artifact_type: edge_cases_and_practices
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
+  - artifact_type: implementation_roadmap
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-036`; `AI §9.1`)
+  - artifact_type: integration_requirements
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-035`; `AI §9.1`)
+  - artifact_type: executive_summary
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-038`; `AI §9.1`)
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Self-identifying from the title - "Power Automate flow review" - followed by
+    step-level structure, named connectors and lists, and observed production
+    behaviour. No competing reading.
+
+expected_complexity:
+  status: not_determinable
+  scale_version: complexity-v1
+  reason: >
+    The `complexity_score` artifact is expected. Step count, conditional approval
+    tiers, and the connector estate are concrete, but no authoritative rule maps them
+    onto 1-5 factor scores and `docs/09` A-3 records that no calibration data exists.
+
+expected_risk:
+  status: not_determinable
+  scale_version: risk-v1
+  reason: >
+    The `risk_assessment` artifact is expected, and this case describes realised harm
+    with quantities - three misrouted approvals, 30 silent run failures, requisitions
+    stalled since March. Nothing in `docs/09` §2 maps a realised incident onto a
+    severity or likelihood value.
+
+case_character: central
+special_class: null
+
+rationale: |
+  Materially different from the other workflow-path cases by platform and by failure
+  class. `ew-002` is n8n with a data-integrity failure, `ew-005` is Make with routing
+  and scale failures, `ew-003` is Zapier with an unresolved fix-or-replace intent.
+  This is Microsoft-native automation, where the dominant failures are **governance**
+  rather than engineering: identity, ownership, and a hand-maintained lookup table.
+  A corpus containing only iPaaS cases would miss that class entirely.
+
+  Expected substance. `FR-021` requires issues specific to the submitted workflow with
+  severity and concrete remediation. Four independently diagnosable defects, all
+  evidenced:
+
+  - The flow runs under a leaver's account, kept alive by a shared-mailbox conversion.
+    This is the highest-consequence finding and is not a workflow-logic defect at all -
+    it is an ownership and identity problem that would survive any redesign.
+  - A 260-row hand-maintained Approval Matrix with a known stale-entry failure. The
+    remediation is a data-ownership question, not a flow change.
+  - No timeout on approval steps, producing indefinitely stalled requisitions and the
+    duplicate-submission behaviour that explains the reconciliation discrepancy. The
+    submitter has already connected the symptom to its cause; a response that reports
+    the discrepancy as a separate problem has read carelessly.
+  - Default retry configuration with silent failure under throttling, discovered three
+    weeks late.
+
+  The stated constraint - Microsoft stack, group IT policy, not the submitter's
+  decision - bounds `platform_comparison` to comparison within the estate. A response
+  recommending migration has ignored a stated constraint and fails rubric criterion
+  C-1 (Grounded).
+
+  Confidence `high`. CF-1 is strong: step-level structure, named connectors and lists,
+  volume, approval threshold, list size, and four incidents with dates or counts.
+  CF-4 is strong: 400 a month, £5,000 threshold, 260 rows, three misroutes, 30 failed
+  runs. No capping condition applies (`AI §8.3`).
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Microsoft Forms, Power Automate, SharePoint and the
+    Approvals connector are real product names used as realistic scenario detail;
+    no real organisation or flow export is described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

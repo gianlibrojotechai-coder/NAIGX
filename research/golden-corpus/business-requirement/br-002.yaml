@@ -1,0 +1,122 @@
+case_id: br-002
+input_type: business_requirement
+
+content: |
+  We want to automate customer refund processing for our online store.
+
+  When a customer requests a refund through our support inbox, we currently check
+  the order in Shopify, verify the return has been received by the warehouse, then
+  issue the refund through Stripe and email the customer.
+
+  Requirements:
+
+  1. Refunds must be fully automated end to end with no human involvement. Our
+     support team is overloaded and we need this to run without anyone touching it.
+
+  2. Every refund must be reviewed and approved by a member of the finance team
+     before the money leaves our account. This is a hard control requirement from
+     our auditors and cannot be waived.
+
+  3. Refunds must be issued within 60 seconds of the customer's request so we can
+     advertise instant refunds as a differentiator against our competitors.
+
+  4. Finance reviews refunds in a batch once per day at 4pm. That is when the
+     finance manager is in the office and it is not going to change.
+
+  5. We process about 200 refunds a week, average value £45, occasionally up to
+     £2,000 for bulk orders.
+
+  We are on Shopify and Stripe. Support uses Zendesk. Warehouse confirmations come
+  in as a daily CSV from our 3PL.
+
+character_count: 1177
+
+expected_classification: business_requirement
+
+expected_artifact_set:
+  - business_analysis
+  - architecture_recommendation
+  - mermaid_diagram
+  - platform_comparison
+  - risk_assessment
+  - complexity_score
+
+expected_omissions:
+  - artifact_type: implementation_roadmap
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-036`)
+  - artifact_type: edge_cases_and_practices
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
+  - artifact_type: integration_requirements
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-035`)
+  - artifact_type: executive_summary
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-038`)
+
+expected_confidence_band: medium
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    The contradictions are between stated requirements, not about what kind of
+    document this is. Classification is unambiguous, so `FR-015` confirmation
+    should not trigger. This case is the clearest demonstration that the two
+    confidence quantities are independent: classification confidence is expected
+    at or above threshold while the analysis band is capped to `medium` by CF-3.
+
+expected_complexity:
+  status: not_determinable
+  scale_version: complexity-v1
+  reason: >
+    The `complexity_score` artifact is expected, but factor scoring is a reasoning
+    output. The unresolved contradictions arguably raise Error / Failure Risk and
+    Workflow Complexity, but "arguably" is not a defensible expected value.
+
+expected_risk:
+  status: not_determinable
+  scale_version: risk-v1
+  reason: >
+    The `risk_assessment` artifact is expected. It is tempting to assert that the
+    approval-control contradiction yields a high-severity risk, but neither
+    `docs/09` §2 nor `FR-032` provides a rule mapping a stated contradiction onto
+    a severity or likelihood value. Asserting one would invent scoring guidance.
+
+case_character: central
+special_class: contradiction
+
+rationale: |
+  Classification. A desired future capability, unambiguously `business_requirement`.
+
+  The contradictions. Two irreconcilable pairs are stated, both explicitly and both
+  defended by the submitter:
+  - Requirement 1 (no human involvement) against requirement 2 (mandatory finance
+    approval before funds move). Both are stated as hard.
+  - Requirement 3 (refund within 60 seconds) against requirement 4 (finance reviews
+    once daily at 4pm, and this will not change). A 60-second guarantee is
+    unreachable through a once-daily approval gate.
+
+  The correct behaviour is to surface both conflicts rather than silently resolving
+  them - for instance by quietly assuming approval can be automated for low values,
+  which is a design decision the submitter did not authorise. Silent resolution is
+  the failure mode this case exists to detect.
+
+  Confidence `medium` - and this is the load-bearing expectation. `AI §8.3` makes
+  conflicting information (CF-3) a capping condition, not a weighted contribution:
+  confidence "cannot exceed Medium". Every other factor here is strong - volumes,
+  values, systems and cadence are all concrete, which would otherwise support `high`.
+  The cap is what forces `medium`.
+
+  A `high` band on this case is a calibration failure of the exact kind `AI §8.5`
+  classifies as severe over-confidence.
+
+  Artifact set is unchanged from `br-001`. A contradiction constrains confidence and
+  must be surfaced; it does not by itself reduce what is produced.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Contradictions are deliberate and mutually exclusive
+    as stated, not merely in tension.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

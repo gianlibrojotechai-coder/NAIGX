@@ -1,0 +1,170 @@
+case_id: ta-002
+input_type: technical_assessment
+
+content: |
+  Platform Engineering Exercise - Automation Team
+
+  Please read the whole brief before starting. We expect this to take four to six
+  hours. Submit a design document; working code is explicitly not required and will
+  not earn extra credit.
+
+  Background
+
+  You are joining a team that runs automation for a mid-sized insurance broker. The
+  broker has 180 staff across four offices and handles roughly 40,000 policy events
+  per year - new business, renewals, mid-term adjustments, and cancellations.
+
+  The current estate
+
+  Policy data lives in a legacy system called Acturis, accessible only through a
+  SOAP API with a published WSDL. It is stable but slow: a single policy read
+  averages 1.2 seconds and the vendor enforces a hard cap of 10 concurrent
+  connections across the whole company.
+
+  Customer communications go out through a marketing platform that exposes a modern
+  REST API with generous limits. Documents are stored in SharePoint Online.
+  Finance reconciliation happens in a nightly batch that reads a CSV drop from
+  Acturis and loads it into Power BI.
+
+  There is an existing set of 30 or so Power Automate flows built over three years
+  by various people. Roughly a third are known to be broken or disabled. Nobody has
+  a complete inventory. There is no test environment for Acturis.
+
+  The problem
+
+  When a policy is amended mid-term, four things must happen: the customer receives
+  an updated schedule document, the marketing platform's segmentation is refreshed,
+  the finance reconciliation must pick up the premium change, and if the amendment
+  reduces cover below a regulatory minimum a compliance alert must be raised within
+  one working day.
+
+  Today this is partly manual. Amendments are processed in Acturis, and an
+  administrator then triggers the document generation by hand and emails compliance
+  if they notice a cover reduction. Two compliance breaches in the last year were
+  traced to amendments nobody flagged.
+
+  What we would like from you
+
+  1. A target design for handling mid-term amendments end to end.
+  2. How you would work within the Acturis concurrency and latency constraints.
+  3. Your approach to the existing undocumented Power Automate estate - specifically
+     whether you would migrate, replace, or leave it, and why.
+  4. How you would make the compliance alerting reliable enough to depend on, given
+     that a missed alert is a regulatory matter rather than an inconvenience.
+  5. At least one approach you considered and rejected, with your reasoning.
+  6. What you would need to know before committing to this design, and how you would
+     find it out.
+
+  Evaluation
+
+  We are assessing your reasoning, your handling of constraints you cannot remove,
+  and your judgement about what to leave alone. A design that ignores the Acturis
+  limits or assumes the legacy estate away will not score well. We would rather see
+  a smaller design you can defend than a comprehensive one you cannot.
+
+character_count: 2875
+
+expected_classification: technical_assessment
+
+expected_artifact_set:
+  - architecture_recommendation
+  - mermaid_diagram
+  - assessment_feedback
+
+expected_omissions:
+  - artifact_type: business_analysis
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: workflow_recommendation
+    reason: >
+      Not applicable to the assessment path per `AI §9.1`. The brief describes an
+      existing estate, but as a constraint on the candidate's design rather than as
+      a workflow submitted for review.
+  - artifact_type: platform_comparison
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: risk_assessment
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: complexity_score
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: implementation_roadmap
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: edge_cases_and_practices
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: integration_requirements
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: executive_summary
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: skill_gap_analysis
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: portfolio_suggestions
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: interview_guidance
+    reason: Not applicable to the assessment path per `AI §9.1`.
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Self-identifying as an exercise, with an estimated duration, an explicit
+    statement that code is not required, numbered deliverables, and a stated
+    evaluation rubric. The embedded operational detail is scenario material, not a
+    request for the submitter's own business.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not applicable to the assessment path (`AI §9.1`) and is
+    omitted for this case.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not applicable to the assessment path (`AI §9.1`) and is
+    omitted for this case. Note that the compliance-breach exposure described in the
+    brief is scenario content the candidate must address, not a NAIGX risk register
+    entry.
+
+case_character: substantial
+special_class: null
+
+rationale: |
+  Why substantial. `docs/11` §2.2 requires long, detailed input that exercises depth
+  without over-production. This brief carries hard constraints (10 concurrent
+  connections, 1.2s per read), an undocumented legacy estate, a regulatory deadline,
+  and an explicit instruction preferring a smaller defensible design over a
+  comprehensive one. It tests whether depth scales with input without the response
+  sprawling - the counterpart to `br-004`, which tests the same proportionality rule
+  from the minimal end.
+
+  Classification. Unambiguously an assessment despite substantial operational detail.
+  Deliverable 3 asks what the candidate would leave alone, which no real requirement
+  submitter would ask of a vendor.
+
+  Artifact set. Identical to `ta-001` - `AI §9.1` scopes the assessment path to three
+  artifacts regardless of input length. Length changes depth, not membership, which
+  is the proportionality distinction `AC-037` tests.
+
+  Expected substance. `FR-023` requires at least one rejected alternative and stated
+  trade-offs. The brief supplies three constraints that must shape any defensible
+  answer: Acturis concurrency, the absence of a test environment, and the regulatory
+  consequence of a missed compliance alert. Deliverable 6 asks what the candidate
+  would need to know - which maps directly onto `FR-044` unknowns disclosure, making
+  this case a test of whether unknowns are surfaced with what would resolve them
+  rather than filled with plausible defaults.
+
+  Confidence `high`. CF-1 and CF-4 are strong throughout: staff count, event volume,
+  concurrency cap, read latency, estate size and breach history are all concrete.
+  No capping condition applies (`AI §8.3`) - the constraints are difficult but not
+  contradictory, and the unknowns the brief names are ones it asks the candidate to
+  identify rather than ones blocking the analysis.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Acturis is a real product name used as realistic
+    scenario detail; no real broker, assessment, or employer is described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

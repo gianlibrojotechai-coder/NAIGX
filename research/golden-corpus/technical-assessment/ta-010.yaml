@@ -1,0 +1,159 @@
+case_id: ta-010
+input_type: technical_assessment
+
+content: |
+  Design Exercise — Knowing When Automation Has Failed
+
+  Timebox: three hours. Written design and a diagram. We are not looking for code.
+
+  Context
+
+  You are joining a team that operates around 120 automations for internal business
+  functions at a mid-sized insurer. They run across three platforms — a large Power
+  Automate estate, about 20 scenarios in Make, and a dozen bespoke scheduled jobs on
+  a VM.
+
+  There is no common view of whether any of it is working. Each platform has its own
+  run history. The bespoke jobs log to files on the VM. Failures are usually reported
+  by the business, sometimes weeks after they start, and the team has no way of
+  knowing how much is broken right now.
+
+  Two failure patterns matter most to the business:
+
+  A run that fails loudly. The platform records an error. Someone could see it if they
+  were looking, and nobody is.
+
+  A run that succeeds while doing the wrong thing — an integration returns an empty
+  result set and the automation faithfully processes nothing, or writes a default
+  value where real data should have been. These are the ones that surface weeks later
+  and cost the most to unwind.
+
+  What we would like
+
+  1. How you would establish a single view of automation health across three
+     heterogeneous platforms.
+  2. How you would detect the second failure pattern, given that by definition nothing
+     reports an error.
+  3. What you would alert on, to whom, and how you would keep the signal usable over
+     time.
+  4. What you would deliberately not monitor, and why.
+  5. One approach you considered and rejected, with your reasoning.
+
+  Assume you can get read access to each platform's run history and that a modest
+  budget for tooling exists. Assume you cannot modify the 120 automations in bulk.
+
+character_count: 1726
+
+expected_classification: technical_assessment
+
+expected_artifact_set:
+  - architecture_recommendation
+  - mermaid_diagram
+  - assessment_feedback
+
+expected_omissions:
+  - artifact_type: business_analysis
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: workflow_recommendation
+    reason: >
+      Not applicable to the assessment path per `AI §9.1`. An estate of running
+      automations is described, but as the scenario a candidate designs against rather
+      than as a workflow submitted for review.
+  - artifact_type: platform_comparison
+    reason: >
+      Not applicable to the assessment path per `AI §9.1`. The three platforms are
+      given by the scenario and explicitly cannot be changed in bulk.
+  - artifact_type: risk_assessment
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: complexity_score
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: implementation_roadmap
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: edge_cases_and_practices
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: integration_requirements
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: executive_summary
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: skill_gap_analysis
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: portfolio_suggestions
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: interview_guidance
+    reason: Not applicable to the assessment path per `AI §9.1`.
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Explicitly self-identifying: titled "Design Exercise", with a timebox, a stated
+    deliverable form, numbered requirements, and stated permitted assumptions. No
+    competing signal.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not applicable to the assessment path (`AI §9.1`) and is
+    omitted for this case.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not applicable to the assessment path (`AI §9.1`) and is
+    omitted for this case. The failure patterns described are scenario content the
+    candidate must design against.
+
+case_character: central
+special_class: null
+
+rationale: |
+  Materially different from the other assessment cases by subject: this is an
+  **observability** design rather than a data-movement one. `ta-001`, `ta-006` and
+  `ta-007` design pipelines; this designs the means of knowing whether pipelines work.
+
+  The case is notable for a second reason worth recording plainly. The problem it poses
+  — silent failure across a heterogeneous automation estate — is the same problem the
+  NAIGX research corpus identifies as the market's most frequent, and the same one this
+  product's own reliability thesis addresses. That does not make the expectations
+  self-serving: the corpus records what a *correct analysis* looks like, not what NAIGX
+  would build. But a reviewer should be alert to the risk of grading this case
+  generously because its subject flatters the product.
+
+  Expected substance. `FR-023` requires trade-off reasoning, a diagram, and a named
+  rejected alternative, which deliverable 5 requests directly.
+
+  Deliverable 2 is the difficult one and the reason the case exists: detecting runs
+  that succeed while doing the wrong thing, where by definition nothing reports an
+  error. Any serious answer has to move from run status to some assertion about
+  outcomes — expected volumes, freshness, distributional checks — and a response that
+  only aggregates run histories has answered deliverable 1 twice and deliverable 2 not
+  at all. The corpus already contains three realised instances of this exact failure
+  class (`ew-002` writing zeros, `ew-007` treating missing files as unchanged, `ew-009`
+  partial record creation), which makes it a `C-7 Consistent` test as well.
+
+  Deliverable 4 — what you would deliberately not monitor — pairs with the alert-fatigue
+  problem the corpus has recorded twice (`ew-002`, `ew-009` muted channels). A design
+  that alerts on everything has recreated the failure it was meant to fix, and `PV §3.2`
+  treats over-production as a defect in exactly this spirit.
+
+  The stated constraint that 120 automations cannot be modified in bulk is the binding
+  one. It rules out instrumenting each automation and forces the design outward to
+  platform run histories and external assertions. A response that assumes per-automation
+  instrumentation has ignored a stated assumption (rubric criterion C-1, Grounded).
+
+  Confidence `high`. CF-1 is strong: estate size, platform split, current logging
+  positions, both failure patterns characterised, and explicit permitted assumptions.
+  CF-4 is strong: 120 automations, 20 scenarios, a dozen jobs, three hours. No capping
+  condition applies (`AI §8.3`).
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Power Automate and Make are real product names used as
+    realistic scenario detail; no real insurer or estate is described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

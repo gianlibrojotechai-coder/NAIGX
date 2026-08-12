@@ -1,0 +1,149 @@
+case_id: ta-008
+input_type: technical_assessment
+
+content: |
+  Something for you to look at ahead of Thursday.
+
+  We run a document processing pipeline for a client. Scanned supplier invoices arrive
+  by email, an OCR service extracts line items, a matching step reconciles them against
+  purchase orders in the client's ERP, and anything that doesn't match cleanly goes to
+  a review queue.
+
+  It works. The problem is what it costs. We're processing about 240,000 documents a
+  year and the run rate has reached roughly £71,000 annually, which is more than the
+  client is saving. The OCR service is the bulk of it - it's priced per page and we
+  send every page of every document. Documents average nine pages but the line items
+  are almost always on pages two and three.
+
+  We also re-process the whole document when a match fails and a reviewer corrects
+  something, because that was simpler to build than partial reprocessing.
+
+  The client has asked us to get this under £30,000 without reducing accuracy. They've
+  been clear that accuracy is not negotiable - a missed invoice line becomes a payment
+  dispute.
+
+  Have a think about where you'd take the cost out and what you'd be trading away.
+  We're as interested in what you'd refuse to change as what you would. Bring it
+  Thursday and we'll talk it through - nothing written needed.
+
+character_count: 1250
+
+expected_classification: technical_assessment
+
+expected_artifact_set:
+  - architecture_recommendation
+  - mermaid_diagram
+  - assessment_feedback
+
+expected_omissions:
+  - artifact_type: business_analysis
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: workflow_recommendation
+    reason: >
+      Not applicable to the assessment path per `AI §9.1`. A running pipeline is
+      described, but as the subject of a design exercise rather than as an automation
+      submitted for review — see the rationale.
+  - artifact_type: platform_comparison
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: risk_assessment
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: complexity_score
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: implementation_roadmap
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: edge_cases_and_practices
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: integration_requirements
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: executive_summary
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: skill_gap_analysis
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: portfolio_suggestions
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: interview_guidance
+    reason: Not applicable to the assessment path per `AI §9.1`.
+
+expected_confidence_band: medium
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Near-boundary, and the competing type is `existing_workflow` — an axis no other
+    assessment case tests. The surface pull is strong: a running production pipeline is
+    described step by step, with a stated defect (cost) and known causes.
+
+    The substance is decisive. Every marker is evaluative rather than diagnostic:
+    "something for you to look at ahead of Thursday", "have a think about", "we're as
+    interested in what you'd refuse to change", "bring it Thursday and we'll talk it
+    through", "nothing written needed". The submitter already knows where the cost is —
+    per-page pricing on nine-page documents — so they are not asking for diagnosis.
+    They are assessing how the reader reasons about a trade-off.
+
+    Contrast `ew-008`, where a running system is described and the submitter genuinely
+    wants it fixed. Here nobody is asking for a fix; they are asking what the reader
+    would do, before a conversation.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not applicable to the assessment path (`AI §9.1`) and is
+    omitted under the recorded classification.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not applicable to the assessment path (`AI §9.1`) and is
+    omitted under the recorded classification.
+
+case_character: near-boundary
+special_class: null
+
+rationale: |
+  Fifth near-boundary case, testing an axis none of the others do: an informal
+  assessment about an **existing production system**. `ta-003` was informal framing
+  against evaluation substance with a greenfield problem; this adds a real running
+  pipeline, which pulls much harder toward `FR-021`.
+
+  It is also the only case in the corpus where the driving constraint is **cost** rather
+  than correctness, latency, or disclosure. That matters: `docs/09` §1 scores complexity
+  and `FR-032` handles risk, but neither addresses unit economics, and a market that
+  automates document processing meets this constraint constantly.
+
+  Expected substance. `FR-023` requires trade-off reasoning and at least one rejected
+  alternative — and the brief asks for the second directly, in an unusual form: "what
+  you'd refuse to change". That inverts the normal request and is the sharpest test
+  here, because the obvious cost reductions all trade against the one thing declared
+  non-negotiable.
+
+  Three tensions any defensible answer must engage, all stated:
+  - Per-page pricing against nine-page documents where line items sit on pages two and
+    three. Page selection is the obvious lever and it directly risks accuracy — which
+    is precisely the trade the brief wants reasoned about, not assumed away.
+  - Full reprocessing on reviewer correction, acknowledged as a build-time shortcut.
+  - A stated target of £30,000 against a £71,000 run rate. The arithmetic constrains
+    which levers are sufficient, and a response that proposes savings without checking
+    them against the target has not answered the question.
+
+  The accuracy constraint is `stated` and absolute — "a missed invoice line becomes a
+  payment dispute". A response that reduces cost by accepting lower extraction accuracy
+  has failed rubric criterion C-1 (Grounded) regardless of how well-argued it is.
+
+  Confidence `medium`. CF-1 is moderate: volumes, annual cost, page counts, target and
+  the accuracy constraint are stated, but the OCR vendor is unnamed, per-page pricing is
+  not given, the match failure rate is absent, and review-queue volume is unknown —
+  all material to sizing any proposed saving. CF-4 is mixed: strong on totals, absent on
+  the unit economics the question turns on. No capping condition applies (`AI §8.3`);
+  this is base confidence reflecting genuinely partial evidence.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Deliberately a cost-constrained brief about a running
+    system, testing both the assessment/workflow boundary and an economic constraint
+    the other cases do not carry. No real client or pipeline is described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

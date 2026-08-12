@@ -1,0 +1,127 @@
+case_id: un-001
+input_type: unsupported
+
+content: |
+  Hi, I'm putting together a business plan for a coffee shop I want to open next year
+  in Leeds. I've got a rough idea of the numbers but I'd like a second opinion.
+
+  Rent on the unit I'm looking at is £2,200 a month plus business rates. I reckon on
+  two full-time staff plus myself, and I'm budgeting about £45,000 for the fit-out
+  including the espresso machine and seating. My accountant thinks I need six months
+  of running costs in reserve before I sign anything.
+
+  What I'd really like to know is whether the numbers stack up, and whether I'd be
+  better off going for the smaller unit on the side street at £1,400 a month even
+  though the footfall is much lower.
+
+character_count: 658
+
+expected_classification: unsupported
+
+expected_artifact_set: []
+
+expected_omissions:
+  - artifact_type: business_analysis
+    reason: >
+      Classification determined the input is outside scope (`FR-092`). No reasoning
+      proceeds past classification, so no artifact is generated.
+  - artifact_type: architecture_recommendation
+    reason: Out of scope — no reasoning proceeds past classification (`FR-092`).
+  - artifact_type: mermaid_diagram
+    reason: Out of scope — no reasoning proceeds past classification (`FR-092`).
+  - artifact_type: platform_comparison
+    reason: Out of scope — no reasoning proceeds past classification (`FR-092`).
+  - artifact_type: risk_assessment
+    reason: Out of scope — no reasoning proceeds past classification (`FR-092`).
+  - artifact_type: complexity_score
+    reason: Out of scope — no reasoning proceeds past classification (`FR-092`).
+  - artifact_type: workflow_recommendation
+    reason: Out of scope — no reasoning proceeds past classification (`FR-092`).
+  - artifact_type: skill_gap_analysis
+    reason: Out of scope — no reasoning proceeds past classification (`FR-092`).
+  - artifact_type: portfolio_suggestions
+    reason: Out of scope — no reasoning proceeds past classification (`FR-092`).
+  - artifact_type: interview_guidance
+    reason: Out of scope — no reasoning proceeds past classification (`FR-092`).
+  - artifact_type: assessment_feedback
+    reason: Out of scope — no reasoning proceeds past classification (`FR-092`).
+  - artifact_type: implementation_roadmap
+    reason: Out of scope (`FR-092`); also P1 (`MVP §5.3`, `FR-036`).
+  - artifact_type: edge_cases_and_practices
+    reason: Out of scope (`FR-092`); also P1 (`MVP §5.3`, `FR-037`).
+  - artifact_type: integration_requirements
+    reason: Out of scope (`FR-092`); also P1 (`MVP §5.3`, `FR-035`).
+  - artifact_type: executive_summary
+    reason: Out of scope (`FR-092`); also P1 (`MVP §5.3`, `FR-038`).
+
+expected_confidence_band: low
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Confidently out of scope. The input is a coherent, well-specified business
+    question with no automation, workflow, integration, system, or hiring dimension
+    whatsoever. Classification should be certain, which is what makes this the
+    central `unsupported` case. `FR-015` confirmation should not trigger - asking the
+    user to confirm the type would imply the system might analyse it after all.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not produced. `FR-092` halts at classification, before any
+    artifact generation. Determinable, not unknown.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not produced. `FR-092` halts at classification, before any
+    artifact generation. Determinable, not unknown.
+
+case_character: central
+special_class: unsupported
+
+rationale: |
+  First case in the `unsupported/` directory, authored under the `un-` convention
+  approved 2026-08-12 (`docs/11` §5, ambiguity A-11).
+
+  Classification. `FR-011` lists `unsupported` as one of five classification values,
+  and `FR-092` requires that it trigger an explained decline without proceeding to
+  reasoning. `API §9.3` classes this as `unsupported_input_type` 422 and states
+  explicitly that it is **not a failure**: the request was well-formed and processed
+  correctly, and the content is outside what the product analyses.
+
+  Why this input and not something obviously absurd. A nonsense or empty input would
+  test nothing interesting - any classifier rejects it. This input is articulate,
+  detailed, quantified, and genuinely answerable by a general-purpose assistant. That
+  is precisely what makes it the right test: the failure mode is not misclassifying
+  gibberish, it is a system that helpfully answers a question outside its competence
+  because the question was well-posed. `PV §3.1` scopes NAIGX to automation and
+  workflow intelligence; a comparative unit-economics opinion is not that.
+
+  It also carries surface vocabulary that could pull a weak classifier toward
+  `business_requirement` - "business plan", numbers, a comparison between options, an
+  explicit request for a recommendation. The distinguishing signal is that nothing is
+  being automated and no system is involved.
+
+  Expected behaviour. Decline with an explanation (`FR-092`). Under `FR-005` the
+  decline must name what would make an input analysable rather than saying only that
+  it cannot help - "invalid input" is explicitly unacceptable, and the same standard
+  applies here.
+
+  Confidence `low`. Recorded per the `docs/11` A-9 corpus convention: no analysis was
+  produced, so no confident recommendation exists. Note the deliberate asymmetry with
+  classification confidence, which is at or above threshold - the system is certain
+  about the type and produces nothing. A-9 remains open by owner decision; `low` is a
+  convention, not a requirement.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Deliberately well-formed and answerable by a
+    general-purpose assistant, so the case tests scope discipline rather than
+    input quality.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

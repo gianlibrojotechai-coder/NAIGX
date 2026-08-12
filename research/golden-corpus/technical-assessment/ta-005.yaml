@@ -1,0 +1,120 @@
+case_id: ta-005
+input_type: technical_assessment
+
+content: |
+  Interview task: design an idempotent webhook receiver. Diagram plus notes, no code.
+
+character_count: 83
+
+expected_classification: technical_assessment
+
+expected_artifact_set:
+  - architecture_recommendation
+  - mermaid_diagram
+
+expected_omissions:
+  - artifact_type: assessment_feedback
+    reason: >
+      Proportionality. `AI §9.1` gives this artifact the schema-critical property
+      "at least one rejected alternative named", and `FR-023` requires trade-offs
+      accepted by the proposed approach to be stated. With no scale, no source system,
+      no delivery guarantees and no consistency requirements given, any named
+      alternative would be rejected on invented grounds. See ambiguity A-12.
+  - artifact_type: business_analysis
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: workflow_recommendation
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: platform_comparison
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: risk_assessment
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: complexity_score
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: implementation_roadmap
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: edge_cases_and_practices
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: integration_requirements
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: executive_summary
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: skill_gap_analysis
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: portfolio_suggestions
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: interview_guidance
+    reason: Not applicable to the assessment path per `AI §9.1`.
+
+expected_confidence_band: low
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Short but unambiguous. "Interview task" is explicit, and the deliverable
+    instruction - diagram plus notes, no code - is an assessment convention. Nothing
+    competes. As with `br-004`, `ew-004` and `jd-004`, brevity reduces analysis
+    confidence without reducing classification confidence.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not applicable to the assessment path (`AI §9.1`) and is
+    omitted for this case.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not applicable to the assessment path (`AI §9.1`) and is
+    omitted for this case.
+
+case_character: minimal
+special_class: null
+
+rationale: |
+  Fourth and final `minimal` case, completing that character for
+  `technical_assessment`. With `br-004` (66), `ew-004` (81) and `jd-004` (83), all four
+  analysable paths now have a case near the `FR-002` floor, which is what makes
+  proportionality (`FR-017`, `AC-037`) testable per path rather than only in aggregate.
+
+  Why the reduction stops where it does. `mermaid_diagram` is retained where the other
+  minimal cases dropped their diagram, because the input explicitly requests one -
+  "diagram plus notes". Omitting it on proportionality grounds would ignore a stated
+  instruction, which no proportionality rule licenses. `architecture_recommendation` is
+  retained because a design is what was asked for. `assessment_feedback` is dropped
+  because its own acceptance criteria cannot be met from this input.
+
+  That last point is the interesting one. `FR-023` requires a named rejected
+  alternative and stated trade-offs, but the choice between idempotency strategies
+  turns entirely on facts this input does not supply - volume, whether the source
+  guarantees at-least-once delivery, whether duplicates arrive within seconds or days,
+  and what consistency the downstream requires. Naming a rejected alternative here
+  would mean inventing the grounds for rejecting it, which is precisely what rubric
+  criterion C-5 (Honest) and `FR-044` prohibit.
+
+  Expected substance. The correct response almost certainly states its assumptions
+  explicitly and surfaces the unknowns that would change the design (`FR-044`). A
+  confident single design presented without them would be the failure mode - and it is
+  a likely one, because "idempotent webhook receiver" is a well-known problem with
+  well-known textbook answers. The temptation is to answer from the pattern rather than
+  from the input, which is exactly what rubric criterion C-1 (Grounded) catches.
+
+  Confidence `low`. CF-1 is very low: no volume, no source system, no delivery
+  semantics, no consistency requirement, no latency budget. CF-4 is absent - no
+  concrete value appears anywhere. Under `AI §8.4` absence lowers and never raises.
+  No capping condition applies (`AI §8.3`); `low` is base confidence.
+
+  ⚠️ Ambiguity A-12 applies to the `assessment_feedback` omission. It rests on the
+  artifact's own acceptance criteria being unmeetable rather than on structural
+  impossibility, which is the same weaker footing as `br-004` and `jd-004`.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. A deliberately generic, well-known problem statement, so
+    the case tests whether the response is grounded in the input or recited from the
+    pattern.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

@@ -1,0 +1,143 @@
+case_id: ew-001
+input_type: existing_workflow
+
+content: |
+  Here's how our lead handoff currently runs. I want to know what's wrong with it.
+
+  A form submission on our marketing site fires a webhook into a Make.com scenario.
+  The scenario does the following, in order:
+
+  Step 1 takes the webhook payload and looks up the email address in HubSpot to see
+  if the contact already exists.
+
+  Step 2 branches. If the contact exists, it updates the lifecycle stage to MQL and
+  writes the form fields onto the existing record. If not, it creates a new contact.
+
+  Step 3 calls an enrichment API to get company size and industry, then writes those
+  two fields back onto the contact.
+
+  Step 4 runs a router with three branches based on company size - under 50, 50 to
+  500, and over 500 - and assigns an owner from a hardcoded list of three sales reps,
+  one per branch.
+
+  Step 5 posts a message into a Slack channel saying a new lead came in, with the
+  contact name and the assigned owner.
+
+  Step 6 adds the contact to a HubSpot list that triggers a welcome email sequence.
+
+  It mostly works. But we've had leads land with no owner, we've seen the same lead
+  posted into Slack twice within a minute or so, and when the enrichment API had an
+  outage last month the whole scenario stopped and about 40 submissions never made
+  it into HubSpot at all. We only found out when a customer asked why nobody had
+  called them back.
+
+  Roughly 250 submissions a month. Two of the three reps have left since we built
+  this, so the hardcoded list is out of date.
+
+character_count: 1455
+
+expected_classification: existing_workflow
+
+expected_artifact_set:
+  - workflow_recommendation
+  - platform_comparison
+  - risk_assessment
+  - complexity_score
+
+expected_omissions:
+  - artifact_type: architecture_recommendation
+    reason: >
+      Not applicable to the workflow path. `AI §9.1` scopes
+      `architecture_recommendation` to requirement and assessment paths;
+      `workflow_recommendation` is the workflow-path equivalent.
+  - artifact_type: mermaid_diagram
+    reason: >
+      Not applicable to the workflow path per `AI §9.1` (requirement and assessment
+      only).
+  - artifact_type: business_analysis
+    reason: Not applicable to the workflow path per `AI §9.1` (requirement only).
+  - artifact_type: edge_cases_and_practices
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
+  - artifact_type: implementation_roadmap
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-036`; `AI §9.1`)
+  - artifact_type: integration_requirements
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-035`; `AI §9.1`)
+  - artifact_type: executive_summary
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-038`; `AI §9.1`)
+
+expected_confidence_band: medium
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Near-boundary is not the same as low-confidence. The prose format carries
+    surface signals of a `business_requirement`, but the substance — a running
+    system with observed production failures — is decisive and abundant. A correct
+    classifier should reach `existing_workflow` without needing user confirmation.
+    If a future run shows classification confidence below threshold here, that is
+    a classifier weakness this case is designed to expose, not an expectation to
+    be revised to match.
+
+expected_complexity:
+  status: not_determinable
+  scale_version: complexity-v1
+  reason: >
+    The `complexity_score` artifact is expected, but factor scoring is a reasoning
+    output. The input also omits the retry, error-handling and deduplication
+    configuration that Error / Failure Risk would turn on.
+
+expected_risk:
+  status: not_determinable
+  scale_version: risk-v1
+  reason: >
+    The `risk_assessment` artifact is expected. Three concrete defects are stated
+    (no error handling on the enrichment step, apparent duplicate execution, stale
+    owner list), but no authoritative rule maps a described symptom onto a severity
+    or likelihood value.
+
+case_character: near-boundary
+special_class: null
+
+rationale: |
+  Why this is near-boundary. The input is written in prose rather than pasted as an
+  export or configuration, opens with a request ("I want to know what's wrong with
+  it"), and describes desired outcomes implicitly through its complaints. Those are
+  surface features of a `business_requirement`. The decisive signal is that it
+  describes a system that already exists and is running in production, with observed
+  failures - which is `existing_workflow` under `FR-021`. A classifier keying on
+  format rather than substance would misclassify this, which is exactly what a
+  near-boundary case is for.
+
+  Artifact set. `FR-021` requires architecture review, risk analysis, edge cases and
+  optimization recommendations. `AI §9.1` maps the workflow path to
+  `workflow_recommendation`, `platform_comparison`, `risk_assessment`,
+  `complexity_score` and `edge_cases_and_practices`; the last is P1 and omitted.
+  Note that requirement-path artifacts are omitted on path grounds, not priority
+  grounds - a distinction the omission reasons preserve.
+
+  Expected substance. `FR-021` requires issues specific to the submitted workflow,
+  not generic best practice. The input contains three concrete, diagnosable defects:
+  no error handling at step 3 causing total scenario failure on an upstream outage,
+  an apparent duplicate-execution problem at step 5, and a hardcoded owner list that
+  is now stale. A response describing generic webhook hygiene without naming these
+  fails `FR-021` and rubric criterion C-2 (Specific).
+
+  Confidence `medium`. CF-1 is moderate: step sequence and volumes are stated, but
+  no retry configuration, error-handling settings, or deduplication logic is given -
+  and those are the details the reported failures turn on. CF-4 is mixed: concrete
+  where numbers appear, vague where behaviour is described ("posted twice within a
+  minute or so"). No capping condition applies, so this is a base-confidence
+  judgement rather than a capped one - `medium` reflects genuinely partial evidence
+  about the failure modes being diagnosed.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Failure symptoms are described as a user would report
+    them, without naming root causes, so the case tests diagnosis rather than
+    restatement.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

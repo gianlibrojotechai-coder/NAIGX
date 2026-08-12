@@ -1,0 +1,132 @@
+case_id: br-003
+input_type: business_requirement
+
+content: |
+  I'd like to automate our annual insurance renewal review.
+
+  Once a year, in October, our office manager pulls together our current policies
+  (employers' liability, public liability, contents, and professional indemnity),
+  gets renewal quotes from our broker, and sits down with the two directors for
+  about an hour to decide whether to renew, switch, or adjust cover levels.
+
+  The broker sends everything as PDFs by email. The office manager puts the key
+  numbers into a spreadsheet so the directors can compare year on year - premium,
+  excess, cover limit, and any exclusions that changed. That takes maybe 90 minutes.
+  Then the meeting happens, a decision is made, and the office manager emails the
+  broker to confirm.
+
+  It's four policies, one broker, once a year. But it feels manual and I keep
+  reading that we should be automating this kind of admin, so I wanted to ask what
+  an automated version would look like.
+
+  We use Google Workspace and Xero. No other systems really.
+
+character_count: 967
+
+expected_classification: business_requirement
+
+expected_artifact_set:
+  - business_analysis
+
+expected_omissions:
+  - artifact_type: architecture_recommendation
+    reason: >
+      Automation is unwarranted. `FR-020` acceptance requires that where the correct
+      conclusion is that automation is unwarranted, the system states this rather
+      than producing a design. See gap G-2.
+  - artifact_type: mermaid_diagram
+    reason: No architecture is produced, so there is nothing to diagram.
+  - artifact_type: platform_comparison
+    reason: No platform is being recommended; a comparison would imply a build.
+  - artifact_type: risk_assessment
+    reason: >
+      No proposed design exists to carry risks. `FR-032` requires every risk to name
+      an affected component (`RISK_ITEM.component_id` non-nullable, `DB §4.3`), and
+      no components exist. See gap G-2.
+  - artifact_type: complexity_score
+    reason: >
+      Complexity scores a proposed solution (`docs/09` §1). With no solution
+      proposed, there is nothing to score. See gap G-2.
+  - artifact_type: implementation_roadmap
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-036`)
+  - artifact_type: edge_cases_and_practices
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
+  - artifact_type: integration_requirements
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-035`)
+  - artifact_type: executive_summary
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-038`)
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Unambiguously a request about a desired future capability. That the correct
+    conclusion is negative does not make the classification uncertain — the two are
+    independent. `FR-015` confirmation should not trigger.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is omitted for this case (see expected_omissions). Complexity
+    scores a proposed solution (`docs/09` §1); no solution is proposed, so there is
+    nothing to score. This is a determinable expectation, not an unknown.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is omitted for this case. `FR-032` and `RISK_ITEM`
+    (`DB §4.3`) require every risk to name an affected component, and no components
+    exist because no design was produced. Determinable, not unknown.
+
+case_character: central
+special_class: do-not-automate
+
+rationale: |
+  Classification. A desired future capability, `business_requirement`. The submitter
+  is asking what an automated version would look like, which is a requirement even
+  though the correct answer is that it should not be built.
+
+  Why `do-not-automate` and not `insufficient`. The distinction in `docs/11` §3 is
+  strict. This input is not insufficient - it is complete. Frequency (annual),
+  volume (four policies, one broker), effort (90 minutes plus a one-hour meeting),
+  and systems are all stated. The system has everything it needs to reason, and the
+  reasoning concludes that the economics do not justify automation: roughly 2.5
+  hours of effort once a year, against building and maintaining an integration.
+  A refusal here would be wrong - the correct behaviour is a confident negative
+  conclusion, not a refusal to answer.
+
+  The judgement itself is grounded in the submitter's own numbers, not in a
+  general preference. `PV §3.2` treats over-production as a defect, and `FR-020`
+  requires the system to state that automation is unwarranted rather than produce
+  a design.
+
+  Confidence `high`. No capping condition applies (`AI §8.3`): no contradictions,
+  no material unknowns. CF-1 and CF-4 are strong - the numbers needed to reach the
+  conclusion are all stated. High confidence in a negative conclusion is the correct
+  outcome, and hedging it would misrepresent how well-supported it is.
+
+  Artifact set governed by `docs/11` §3.1, which resolves former ambiguities A-6 and
+  A-8. The rule turns on whether an artifact presupposes a design: `business_analysis`
+  explains the requirement and carries the negative conclusion, while the five omitted
+  design artifacts cannot be constructed without the design `FR-020` requires the
+  system to withhold. Four of the five exclusions are structural rather than
+  editorial - `mermaid_diagram` requires nodes matching architecture components,
+  `risk_assessment` requires a non-nullable `component_id` (`DB §4.3`),
+  `complexity_score` scores a proposed solution (`docs/09` §1), and
+  `platform_comparison` would recommend a platform on which to build.
+
+  This case's artifact set was reviewed against §3.1 on 2026-08-12 and required no
+  change.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Frequency and effort figures chosen so the negative
+    conclusion follows from stated evidence rather than from judgement about the
+    domain.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

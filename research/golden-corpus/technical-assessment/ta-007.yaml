@@ -1,0 +1,157 @@
+case_id: ta-007
+input_type: technical_assessment
+
+content: |
+  Take-home: designing an integration that handles personal data
+
+  Time guidance: three hours. Written design and a diagram. No code.
+
+  Brief
+
+  A recruitment business wants candidate data to flow from their applicant tracking
+  system (Greenhouse) into three places: a background-check provider, a payroll system
+  for successful hires, and an internal analytics warehouse used for diversity
+  reporting.
+
+  Each destination needs a different subset of the data.
+
+  The background-check provider needs identity details - full name, date of birth,
+  address history, right-to-work documentation. It does not need salary, interview
+  notes, or anything about other candidates.
+
+  Payroll needs identity plus bank details and salary, but only for candidates who
+  have accepted an offer. It must never receive data about candidates who did not.
+
+  The analytics warehouse needs aggregate diversity reporting. It must not be able to
+  identify individuals, and the business is clear that "we just won't query it that
+  way" is not an acceptable control.
+
+  Constraints. UK GDPR applies. The business has had one near-miss already, where a
+  test integration sent live candidate records to a sandbox environment that
+  contractors could access. That is why they are being careful this time.
+
+  Please cover
+
+  1. Your design, including how data reaches each destination.
+  2. How each destination is prevented from receiving data it should not have -
+     structurally, not by convention.
+  3. How the analytics requirement is met without individual identification.
+  4. What you would log, and what you would deliberately not log.
+  5. An approach you rejected and why.
+
+  We are evaluating how you reason about a design where the failure mode is disclosure
+  rather than downtime.
+
+character_count: 1724
+
+expected_classification: technical_assessment
+
+expected_artifact_set:
+  - architecture_recommendation
+  - mermaid_diagram
+  - assessment_feedback
+
+expected_omissions:
+  - artifact_type: business_analysis
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: workflow_recommendation
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: platform_comparison
+    reason: >
+      Not applicable to the assessment path per `AI §9.1`. Greenhouse and the
+      destination categories are given by the scenario.
+  - artifact_type: risk_assessment
+    reason: >
+      Not applicable to the assessment path per `AI §9.1`. The disclosure exposure is
+      the subject of the exercise, addressed within the design rather than as a
+      separate NAIGX risk register.
+  - artifact_type: complexity_score
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: implementation_roadmap
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: edge_cases_and_practices
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: integration_requirements
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: executive_summary
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: skill_gap_analysis
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: portfolio_suggestions
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: interview_guidance
+    reason: Not applicable to the assessment path per `AI §9.1`.
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Explicitly self-identifying: titled "Take-home", with time guidance, a stated
+    deliverable form, numbered requirements, and a closing statement of evaluation
+    criteria. No competing signal.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not applicable to the assessment path (`AI §9.1`) and is
+    omitted for this case.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not applicable to the assessment path (`AI §9.1`) and is
+    omitted for this case.
+
+case_character: central
+special_class: null
+
+rationale: |
+  Materially different from the other assessment cases by **failure mode**. `ta-001`,
+  `ta-002`, `ta-003` and `ta-006` all concern correctness or availability — data
+  arriving wrong, late, or not at all. Here the brief states the axis explicitly: "the
+  failure mode is disclosure rather than downtime". Nothing else in the corpus tests
+  reasoning about data minimisation and access boundaries, and it is a routine concern
+  in the market this product serves — `br-006` and `jd-008` both carry regulatory data
+  constraints from the requirement and hiring sides.
+
+  Expected substance. `FR-023` requires trade-off reasoning, a diagram, and a named
+  rejected alternative, which deliverable 5 requests directly.
+
+  Three requirements make this genuinely hard and are all stated:
+  - **Structural rather than conventional control.** Deliverable 2 asks how each
+    destination is *prevented* from receiving what it should not, "structurally, not by
+    convention". A design that routes correctly but could route incorrectly has not
+    answered the question — the distinction between "does not" and "cannot" is the
+    exercise.
+  - **The analytics requirement forecloses the easy answer.** The business explicitly
+    rejects "we just won't query it that way", so access-control-only designs fail.
+    This is the sharpest test: it demands reasoning about what leaves the boundary
+    rather than who reads it afterwards.
+  - **Conditional data flow.** Payroll must receive accepted candidates only and must
+    never see the rest, which is a state-dependent authorisation, not a static
+    subsetting rule.
+
+  Deliverable 4 — what you would log and deliberately not log — is the one most likely
+  to be answered thinly. It connects directly to the stated near-miss and to the same
+  discipline `jd-008` names as a hiring requirement. A response that treats logging as
+  an afterthought has missed that observability is where minimisation designs usually
+  leak.
+
+  Confidence `high`. CF-1 is strong: named source system, three destinations with their
+  precise data requirements, a stated regulatory regime, a described prior incident,
+  and explicit evaluation criteria. CF-2 is strong — the constraints are stated,
+  including the one the business pre-emptively rules out. No capping condition applies
+  (`AI §8.3`).
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Greenhouse is a real product name used as realistic
+    scenario detail; no real recruitment business, incident, or candidate data is
+    described. Contains no personal data.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

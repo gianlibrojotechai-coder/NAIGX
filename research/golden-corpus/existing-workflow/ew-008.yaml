@@ -1,0 +1,145 @@
+case_id: ew-008
+input_type: existing_workflow
+
+content: |
+  Our HubSpot lead nurture is doing something odd and I want to sort it out before we
+  scale spend next quarter.
+
+  Setup as it stands. A form fill sets Lifecycle Stage to Lead and enrols the contact
+  in a workflow called "Nurture - Top of Funnel". That workflow has a five-email
+  sequence with two-day delays, and a branch at step three: if the contact has visited
+  the pricing page it exits and enrols them in "Nurture - Considering" instead. A
+  separate workflow, "MQL Handoff", is triggered by a score threshold and creates a
+  task for the owner plus a Slack notification.
+
+  There's also a re-engagement workflow that enrols anyone with no activity in 90
+  days, and a suppression list for customers and open opportunities.
+
+  The odd behaviour. Some contacts are getting emails from both nurture workflows in
+  the same week. We've had two complaints. Also, a handful of existing customers
+  received the top-of-funnel sequence, which is embarrassing - they're on the
+  suppression list, so either the list isn't being applied or they were enrolled
+  before being added to it.
+
+  We're spending about £14,000 a month on paid acquisition feeding this, and roughly
+  1,800 new contacts a month come through it.
+
+  Beyond fixing what's broken, I'd like a view on whether this structure holds up. We
+  want to add two more segments next quarter and I suspect bolting them onto what we
+  have will make it worse.
+
+character_count: 1379
+
+expected_classification: existing_workflow
+
+expected_artifact_set:
+  - workflow_recommendation
+  - platform_comparison
+  - risk_assessment
+  - complexity_score
+
+expected_omissions:
+  - artifact_type: architecture_recommendation
+    reason: >
+      Not applicable to the workflow path per `AI §9.1`. Ambiguity A-10 applies: the
+      forward-looking segment question invites structural design that this path cannot
+      produce.
+  - artifact_type: mermaid_diagram
+    reason: Not applicable to the workflow path per `AI §9.1`.
+  - artifact_type: business_analysis
+    reason: Not applicable to the workflow path per `AI §9.1`.
+  - artifact_type: edge_cases_and_practices
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
+  - artifact_type: implementation_roadmap
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-036`; `AI §9.1`)
+  - artifact_type: integration_requirements
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-035`; `AI §9.1`)
+  - artifact_type: executive_summary
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-038`; `AI §9.1`)
+
+expected_confidence_band: medium
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Near-boundary, and the competing axis is one no other case tests: whether in-app
+    CRM automation counts as an `existing_workflow`. The surface pull is toward
+    `business_requirement` because of the closing paragraph - two new segments next
+    quarter, and a suspicion that the current structure will not hold.
+
+    The substance is decisive. `FR-021` covers an existing automation submitted for
+    review, and this is one: named workflows, an enrolment structure, a branch
+    condition, a suppression list, and two reported misbehaviours with complaints
+    attached. The forward-looking paragraph asks whether the reviewed structure will
+    scale, which is a review question, not a request for a new design. Unlike `ew-003`,
+    the submitter is not undecided between fixing and replacing - they want it fixed
+    and want to know if it will hold.
+
+expected_complexity:
+  status: not_determinable
+  scale_version: complexity-v1
+  reason: >
+    The `complexity_score` artifact is expected. Multiple interacting workflows with
+    enrolment and exit conditions are a strong Workflow Complexity signal, but no
+    authoritative rule maps workflow interaction onto a 1-5 score and `docs/09` A-3
+    records that no calibration data exists.
+
+expected_risk:
+  status: not_determinable
+  scale_version: risk-v1
+  reason: >
+    The `risk_assessment` artifact is expected. Customers receiving prospect email is a
+    stated, realised reputational incident, but nothing in `docs/09` §2 maps it onto a
+    severity or likelihood value.
+
+case_character: near-boundary
+special_class: null
+
+rationale: |
+  Fourth near-boundary case, and deliberately a different axis from the other three.
+  `ew-001` tested prose framing against running-system substance, `ta-003` informal
+  framing against evaluation substance, `jd-003` an embedded problem against posting
+  substance. This tests whether **native CRM automation** registers as a workflow at
+  all, when no automation platform is named and the vocabulary is marketing-operations
+  rather than engineering.
+
+  That matters for the market this product serves. `JD-001` and `JD-003` in the
+  research corpus both describe HubSpot workflow ownership as the job; a classifier
+  that only recognises iPaaS tools as "workflows" would misclassify a large share of
+  real submissions.
+
+  Expected substance. `FR-021` requires issues specific to the submitted workflow.
+  Two reported symptoms with distinct and diagnosable causes:
+
+  - Contacts receiving both nurture sequences in one week. The stated exit-and-enrol
+    branch at step three is the obvious place to look, and the question is whether
+    exit criteria are actually set or only assumed.
+  - Customers receiving the top-of-funnel sequence. The submitter has already framed
+    the correct diagnostic fork - suppression not applied, versus enrolled before
+    suppression - and a useful response should resolve which rather than restate both.
+
+  The forward-looking question must be answered within the path constraint. The
+  submitter suspects that adding two segments to the current structure will make things
+  worse, and `FR-021`'s "optimization recommendations" cover exactly that. Ambiguity
+  A-10 is live here: a structural recommendation is warranted, but
+  `architecture_recommendation` is off-path.
+
+  Confidence `medium`. CF-1 is moderate: workflow names, sequence shape, branch
+  condition, volumes and spend are stated, but no enrolment trigger configuration, no
+  exit criteria settings, no suppression list mechanics, and no score threshold
+  definition - and those are precisely what the two defects turn on. CF-4 is mixed:
+  strong on business figures (£14,000, 1,800 contacts), absent on configuration. No
+  capping condition applies (`AI §8.3`); this is base confidence reflecting genuinely
+  partial evidence about the failures being diagnosed.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. HubSpot workflow concepts - lifecycle stage, enrolment,
+    suppression lists - are used as realistic scenario detail; no real account or
+    export is described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

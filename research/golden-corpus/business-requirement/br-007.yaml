@@ -1,0 +1,130 @@
+case_id: br-007
+input_type: business_requirement
+
+content: |
+  Quote turnaround is killing us and I want to fix it properly this time.
+
+  We manufacture bespoke steel fabrications. A quote request arrives by email with
+  drawings attached, usually PDF but sometimes DWG. An estimator opens the drawing,
+  works out material volumes, looks up current steel prices in a spreadsheet our
+  buyer maintains, adds labour hours from a rate card, applies a margin, and writes
+  the quote in Word from a template. Then it goes to a director for approval if it's
+  over £25,000.
+
+  We do about 60 quote requests a month. Turnaround averages six working days and
+  we've lost at least four jobs this year to competitors who came back inside two.
+
+  I've tried to solve this twice. Once with a quoting module our ERP vendor sold us,
+  which we abandoned because it couldn't handle bespoke work - it assumes a catalogue.
+  And once by hiring a second estimator, which helped for about four months until
+  volume grew again.
+
+  So I'm not looking for another tool recommendation on its own. I want to understand
+  where the six days actually goes, which parts of that are the estimator's judgement
+  and which parts are just data being moved around by hand, and then what could
+  realistically be automated given that the drawing interpretation genuinely does need
+  an experienced person.
+
+  Systems: Microsoft 365, Sage 200 for the ERP, and the buyer's price spreadsheet
+  which lives on SharePoint and gets updated weekly.
+
+character_count: 1410
+
+expected_classification: business_requirement
+
+expected_artifact_set:
+  - business_analysis
+  - architecture_recommendation
+  - mermaid_diagram
+  - platform_comparison
+  - risk_assessment
+  - complexity_score
+
+expected_omissions:
+  - artifact_type: implementation_roadmap
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-036`)
+  - artifact_type: edge_cases_and_practices
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
+  - artifact_type: integration_requirements
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-035`)
+  - artifact_type: executive_summary
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-038`)
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Near-boundary, not ambiguous, and the competing type is `existing_workflow`. The
+    surface signals lean that way: a current process described step by step, two prior
+    solution attempts recounted, and an explicit request to understand "where the six
+    days actually goes" - which reads as a review request.
+
+    The substance is decisive. `FR-021` covers an existing *automation* submitted for
+    review; every step described here is manual, and there is no automation to
+    evaluate. The submitter's request is forward-looking - what could realistically be
+    automated - which is `FR-020`. A classifier should reach `business_requirement`
+    without `FR-015` confirmation.
+
+expected_complexity:
+  status: not_determinable
+  scale_version: complexity-v1
+  reason: >
+    The `complexity_score` artifact is expected, but factor scoring is a reasoning
+    output and no calibration data exists (`docs/09` A-3). The stated boundary between
+    judgement work and data movement would inform Workflow Complexity, but no
+    authoritative rule maps it onto a 1-5 score.
+
+expected_risk:
+  status: not_determinable
+  scale_version: risk-v1
+  reason: >
+    The `risk_assessment` artifact is expected. Two failed prior attempts and a
+    weekly-updated price spreadsheet are stated conditions plainly warranting risks,
+    but nothing in `docs/09` §2 maps a stated condition onto severity or likelihood.
+
+case_character: near-boundary
+special_class: null
+
+rationale: |
+  First `near-boundary` case on the requirement path, completing that character for
+  `business_requirement`. It tests the mirror of `ew-001`: there, prose framing made a
+  running system look like a requirement; here, a detailed current-state narrative
+  makes a requirement look like a workflow review.
+
+  Why not `do-not-automate` despite the constraint. The submitter states plainly that
+  drawing interpretation needs an experienced person. A weak reading might treat that
+  as grounds for a negative conclusion. It is not: the submitter is asking which parts
+  are judgement and which are data movement, which is a request for partial
+  automation. `docs/11` §3.1 governs conclusions that no automation is warranted -
+  this input explicitly expects some.
+
+  Expected substance. The distinguishing feature is that this submitter has already
+  rejected two approaches and says outright they are "not looking for another tool
+  recommendation on its own". A response that leads with a platform recommendation has
+  failed rubric criterion C-6 (Defensible) by not answering the question asked, and
+  arguably C-1 (Grounded) by ignoring stated context. `platform_comparison` remains in
+  the expected set - `FR-020` and `AI §9.1` place it on the requirement path - but a
+  grounded response must subordinate it to the process analysis the submitter
+  actually requested.
+
+  The failed ERP quoting module is material context under `FR-013`: it establishes
+  that catalogue-based approaches do not fit bespoke work, which constrains any
+  recommendation. Marking it `stated` rather than inferring around it is the test.
+
+  Confidence `high`. CF-1 is strong: volume, turnaround, systems, approval threshold,
+  quantified business loss, and two prior attempts with their failure reasons. CF-2 is
+  strong - almost everything is stated. CF-4 is strong: 60 requests a month, six days,
+  four lost jobs, £25,000 threshold. No capping condition applies (`AI §8.3`); the
+  constraint on drawing interpretation is a stated boundary, not a contradiction.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Sage 200 and Microsoft 365 are real product names used as
+    realistic scenario detail; no real manufacturer is described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

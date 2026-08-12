@@ -1,0 +1,145 @@
+case_id: ew-007
+input_type: existing_workflow
+
+content: |
+  We have a nightly job that syncs our dealer network's stock positions and I'd like
+  someone to look at it properly. It predates everyone currently here.
+
+  It's a bash script on a Linux VM, run by cron at 01:15. Roughly what it does:
+
+  - curl to pull a CSV from each of 34 dealer SFTP endpoints, in a for loop, sequential
+  - a Python script (Python 2.7) that concatenates them, deduplicates on part number,
+    and writes a combined CSV
+  - psql to truncate a staging table and COPY the combined file in
+  - a stored procedure that merges staging into the live stock table
+  - mailx to send a one-line "sync complete" to an internal distribution list
+
+  Things we know:
+
+  The Python 2.7 dependency is why nobody has touched the VM. It's on CentOS 7, also
+  end of life. Any OS patching has been deferred for two years because we're afraid of
+  breaking it.
+
+  If a dealer's SFTP is down, curl fails, that dealer's file is missing, and the
+  concatenation just proceeds with 33 files. The merge then treats that dealer's
+  entire stock as unchanged - not zero, unchanged - so the live table keeps yesterday's
+  numbers indefinitely. We found one dealer whose stock hadn't updated for six weeks.
+
+  The "sync complete" email sends whether or not anything worked. It's been sending
+  successfully every night for four years, including the six weeks above.
+
+  Runtime has grown from about 20 minutes to just under three hours as dealers were
+  added. It now sometimes overlaps the 06:00 reporting extract.
+
+  We're not asking whether to rebuild it - we know we need to. We want to understand
+  what it actually guarantees today so we don't lose a behaviour we didn't know we
+  depended on.
+
+character_count: 1643
+
+expected_classification: existing_workflow
+
+expected_artifact_set:
+  - workflow_recommendation
+  - platform_comparison
+  - risk_assessment
+  - complexity_score
+
+expected_omissions:
+  - artifact_type: architecture_recommendation
+    reason: >
+      Not applicable to the workflow path per `AI §9.1`. Ambiguity A-10 is relevant:
+      the submitter is explicit that they already intend to rebuild, yet no target
+      design can be produced on this path.
+  - artifact_type: mermaid_diagram
+    reason: Not applicable to the workflow path per `AI §9.1`.
+  - artifact_type: business_analysis
+    reason: Not applicable to the workflow path per `AI §9.1`.
+  - artifact_type: edge_cases_and_practices
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
+  - artifact_type: implementation_roadmap
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-036`; `AI §9.1`)
+  - artifact_type: integration_requirements
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-035`; `AI §9.1`)
+  - artifact_type: executive_summary
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-038`; `AI §9.1`)
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    A running system submitted for review, described at command level with observed
+    production behaviour. No competing reading despite the stated rebuild intent -
+    unlike `ew-003`, the submitter is explicit that they are not asking what to build,
+    only what the current system guarantees.
+
+expected_complexity:
+  status: not_determinable
+  scale_version: complexity-v1
+  reason: >
+    The `complexity_score` artifact is expected. Sequential fan-in across 34 endpoints,
+    an end-of-life runtime, and a stored-procedure merge are strong factor signals, but
+    no authoritative rule maps them onto 1-5 scores and `docs/09` A-3 records that no
+    calibration data exists.
+
+expected_risk:
+  status: not_determinable
+  scale_version: risk-v1
+  reason: >
+    The `risk_assessment` artifact is expected, and this case describes realised harm -
+    six weeks of stale stock for one dealer, undetected. Nothing in `docs/09` §2 maps a
+    realised incident onto a severity or likelihood value.
+
+case_character: central
+special_class: null
+
+rationale: |
+  Materially different from every other workflow-path case: this is not an automation
+  platform at all. `ew-002` (n8n), `ew-003` (Zapier), `ew-005` (Make) and `ew-006`
+  (Power Automate) are all vendor tools with run histories and error surfaces. This is
+  cron, bash, and a stored procedure. A corpus that only contains iPaaS workflows would
+  encode an assumption that `FR-021` review means reading a vendor's node graph, and
+  a great deal of real integration in this market looks like this.
+
+  Expected substance. `FR-021` requires issues specific to the submitted workflow.
+  Five diagnosable defects, all evidenced:
+
+  - **Silent partial success.** A missing dealer file produces "unchanged" rather than
+    an error, so absence of data is indistinguishable from no change. This is the most
+    consequential finding and is the mechanism behind the six-week incident.
+  - **A success signal that cannot fail.** The "sync complete" email sent throughout the
+    six weeks. As in `ew-002`, the detection control existed and did not function -
+    but here it is worse, because the email is unconditional by construction.
+  - **Sequential fan-in** across 34 endpoints, with runtime growth from 20 minutes to
+    three hours and a collision with the 06:00 extract.
+  - **End-of-life runtime and OS**, with patching deferred two years - a security and
+    operability finding rather than a logic defect.
+  - **Truncate-then-load staging** with no evident guard if the load fails partway.
+
+  The submitter's actual question is unusual and must be answered as asked: what does
+  the current system *guarantee*? That is a request to characterise behaviour, including
+  behaviour they may be depending on unknowingly - not a request for improvements.
+  `FR-021` requires issues specific to the submitted workflow, and a response that
+  supplies a modernisation plan instead of an honest account of current guarantees has
+  answered a question that was explicitly not asked.
+
+  `platform_comparison` remains on the path per `AI §9.1`. No platform constraint is
+  stated here, unlike `ew-005` and `ew-006`, so the comparison is genuinely open.
+
+  Confidence `high`. CF-1 is strong: command-level structure, endpoint count, runtime
+  versions, schedule, observed runtime growth, and a quantified incident. CF-4 is
+  strong: 34 endpoints, 01:15, Python 2.7, CentOS 7, six weeks, 20 minutes to three
+  hours, 06:00. No capping condition applies (`AI §8.3`).
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Deliberately a script-and-cron integration rather than an
+    automation platform, so the corpus does not encode iPaaS as a precondition for
+    `FR-021` review. No real dealer network or script is described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

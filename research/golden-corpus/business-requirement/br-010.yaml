@@ -1,0 +1,133 @@
+case_id: br-010
+input_type: business_requirement
+
+content: |
+  I'm meeting three automation suppliers next month and I want to be clear about what
+  I'm actually asking them for before I do.
+
+  The problem is our new-starter setup. When someone joins, HR emails IT, IT creates
+  the accounts, facilities sorts the desk and pass, and payroll gets told separately.
+  Things get missed. Last month someone started with no laptop.
+
+  I don't want you to design the solution - the suppliers will pitch their own and I'd
+  rather not anchor them. What I want is the requirement written down properly, so all
+  three are quoting for the same thing and I can compare like with like.
+
+  About 60 new starters a year across two offices.
+
+character_count: 647
+
+expected_classification: business_requirement
+
+expected_artifact_set:
+  - business_analysis
+
+expected_omissions:
+  - artifact_type: architecture_recommendation
+    reason: >
+      Explicitly not requested, and requesting it is declined by the submitter - "I
+      don't want you to design the solution". `FR-017` requires the artifact set to be
+      proportionate to what the input supports, and `PV §3.2` treats over-production as
+      a defect. Producing a design here would also defeat the submitter's stated
+      purpose of not anchoring the suppliers.
+  - artifact_type: mermaid_diagram
+    reason: >
+      `AI §9.1` defines this as a "Renderable architecture diagram" whose nodes match
+      architecture components. No architecture is produced, so there is nothing to
+      render.
+  - artifact_type: platform_comparison
+    reason: >
+      Structural and stated. The submitter is running their own supplier comparison
+      next month; recommending a platform would pre-empt the exercise they described.
+  - artifact_type: risk_assessment
+    reason: >
+      `FR-032` and `RISK_ITEM` (`DB §4.3`) require every risk to name an affected
+      component. No components exist, because no design was produced.
+  - artifact_type: complexity_score
+    reason: >
+      `docs/09` §1 scores a proposed solution. No solution is proposed, so there is
+      nothing to score.
+  - artifact_type: implementation_roadmap
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-036`)
+  - artifact_type: edge_cases_and_practices
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
+  - artifact_type: integration_requirements
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-035`)
+  - artifact_type: executive_summary
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-038`)
+
+expected_confidence_band: medium
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    A desired future capability described by someone seeking to have it automated,
+    with no existing automation to review and no hiring context. That the submitter
+    declines a design does not change what kind of input this is - `FR-020` covers
+    requirements, not only requests for designs. `FR-015` confirmation should not
+    trigger.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is omitted for this case, so there is nothing to score.
+    Determinable, not unknown.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is omitted for this case, so there are no risk items to expect.
+    Determinable, not unknown.
+
+case_character: minimal
+special_class: null
+
+rationale: |
+  Authored specifically to satisfy `docs/11` §2.3, which `br-004` does not. Verified
+  mechanically against both conditions:
+
+  1. **Exactly one primary artifact.** `business_analysis` - `AI §9.1` defines it as
+     "Problem as understood, objectives, constraints", which is precisely what was
+     asked for.
+  2. **No downstream design required.** The submitter declines a design in the input
+     itself. Every omitted artifact either is a design, renders one, or presupposes
+     one.
+  3. **Proportionate.** The artifact answers the request exactly, adding nothing.
+  4. **Genuinely minimal in scope, not merely short.** At 596 characters this is not
+     the shortest case in the corpus - `br-004` (66) and `ew-004` (81) are far shorter.
+     Minimality here is a property of what is *asked for*: a single well-formed
+     statement of a requirement. This is the case that demonstrates §2.3's central
+     claim that length is metadata rather than the test.
+  5. **A legitimate `business_requirement`.** `FR-020` covers inputs classified as
+     `business_requirement`; nothing in it requires that a design be wanted.
+
+  Distinction from `br-003`, which has the same artifact set for a different reason.
+  In `br-003` the system *withholds* a design because automation is unwarranted
+  (`docs/11` §3.1). Here the submitter *declines* a design because they intend to
+  gather three of them from suppliers. Same output, opposite causes - and the
+  reasoning inside `business_analysis` should differ accordingly: `br-003` explains
+  why not to build, this explains what to build without saying how.
+
+  Expected substance. `FR-020` requires that the problem as understood be stated
+  before any solution artifact (`PV §3.4`) - here it is the whole deliverable. Four
+  actors and a stated failure (someone started with no laptop) give the objectives and
+  the constraint. The output must be usable as a comparable brief for three suppliers,
+  which is a stated purpose and should shape how it is written.
+
+  Confidence `medium`. CF-1 is moderate: the process, actors, volume and a concrete
+  failure are stated, but no systems are named anywhere - no HR system, no directory,
+  no payroll platform - and no timing or approval requirements are given. CF-2 is
+  strong; what is stated is stated plainly. Under `AI §8.4` absence lowers and never
+  raises. No capping condition applies (`AI §8.3`); this is base confidence.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus as a conforming `minimal` business_requirement case under
+    `docs/11` §2.3. Length chosen deliberately well above the `FR-002` floor to
+    demonstrate that minimality is about requested scope, not character count.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

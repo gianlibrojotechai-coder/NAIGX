@@ -1,0 +1,143 @@
+case_id: jd-002
+input_type: job_description
+
+content: |
+  RevOps Automation Specialist
+
+  Salford, UK - hybrid, 3 days on site
+  £45,000 - £52,000 depending on experience
+
+  We're a B2B SaaS company selling into UK manufacturing. Around 120 staff, Series B,
+  growing fast enough that our revenue operations have started creaking.
+
+  The role
+
+  You'll own the systems that sit between marketing, sales and customer success. That
+  means Salesforce as the system of record, Marketo for campaigns, Gong for call
+  recording, and a fairly sprawling set of integrations that have grown up around
+  them without much of a plan.
+
+  Day to day you'll be building and maintaining those integrations, keeping the data
+  clean enough that leadership can trust the pipeline reporting, and working with the
+  three team leads to turn their process changes into working automations.
+
+  Requirements
+
+  - Demonstrable experience administering Salesforce in a commercial environment
+  - Experience with a marketing automation platform - Marketo ideally, but HubSpot
+    or Pardot experience transfers
+  - Confident building integrations against REST APIs
+  - Able to write SQL well enough to answer your own reporting questions
+  - Comfortable pushing back when a requested automation is a bad idea
+
+  Desirable
+
+  - Experience in a Series A to C SaaS environment
+  - Exposure to CPQ
+  - Any scripting language
+
+  What we offer
+
+  25 days holiday plus bank holidays, private medical, £1,500 annual training budget,
+  and a genuine say in how the stack evolves - we are not looking for someone to
+  administer decisions other people have already made.
+
+  To apply, send a CV to careers at our domain. No agencies.
+
+character_count: 1584
+
+expected_classification: job_description
+
+expected_artifact_set:
+  - skill_gap_analysis
+  - portfolio_suggestions
+  - interview_guidance
+
+expected_omissions:
+  - artifact_type: business_analysis
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: architecture_recommendation
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: mermaid_diagram
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: platform_comparison
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: risk_assessment
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: complexity_score
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: workflow_recommendation
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: implementation_roadmap
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: edge_cases_and_practices
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: integration_requirements
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: executive_summary
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Every structural marker of a posting is present and none of a requirement: job
+    title, location, salary band, company description, requirements split into
+    required and desirable, benefits, and application instructions. No embedded
+    automation brief competes for the reading, which is what distinguishes this from
+    `jd-001`.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not applicable to the job description path (`AI §9.1`) and
+    is omitted for this case.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not applicable to the job description path (`AI §9.1`) and
+    is omitted for this case.
+
+case_character: central
+special_class: null
+
+rationale: |
+  Classification. Unambiguously a posting. This is the job-description-path baseline,
+  read against which `jd-001`'s ambiguity and `jd-003`'s near-boundary framing are
+  legible as departures from the norm.
+
+  Artifact set. Job description path per `AI §9.1`, per `FR-022`.
+
+  Expected substance. `FR-022` requires requirements extracted with
+  `must-have`/`nice-to-have` classification, labelled `stated` or `inferred`. This
+  posting separates "Requirements" from "Desirable" explicitly, so a correct response
+  carries both as `stated` - inferring a split that the document already states would
+  be a provenance error under `FR-013`.
+
+  Two items resist mechanical extraction and are the more interesting test. "Comfortable
+  pushing back when a requested automation is a bad idea" is a stated requirement that
+  is not a tool skill, and "a genuine say in how the stack evolves" implies seniority
+  the title does not convey. A skill gap analysis that lists only platforms has read
+  the posting too literally.
+
+  Portfolio suggestions must be specific and buildable rather than categories
+  (`FR-022`) - grounded here in the named stack, so "a Salesforce-to-Marketo lead
+  lifecycle sync with data quality checks" rather than "practise CRM integration".
+
+  Confidence `high`. CF-1 is strong: named systems, company size and stage, team
+  structure, explicit requirement split, and salary band. CF-2 is strong - the
+  requirements are stated, not implied. CF-4 is strong: concrete named platforms
+  rather than generic categories. No capping condition applies (`AI §8.3`).
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Modelled on the structure of UK RevOps postings
+    generally; no real employer, salary offer, or vacancy is described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

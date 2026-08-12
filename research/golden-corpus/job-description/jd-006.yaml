@@ -1,0 +1,143 @@
+case_id: jd-006
+input_type: job_description
+
+content: |
+  Automation Consultant (client-facing)
+  Manchester or remote · £48,000 - £58,000 + bonus
+
+  We're a 25-person consultancy. We build automation for mid-market clients - mostly
+  professional services, some logistics, occasionally manufacturing. Engagements run
+  from a two-week discovery to nine-month builds.
+
+  This is not an internal role. You'd be in front of clients from week one.
+
+  A typical month
+
+  You might spend a week mapping a claims process with an insurance broker's ops team,
+  a week building in Make or n8n, a few days writing up a discovery for a prospect,
+  and a day helping a colleague debug something in a client's Power Automate estate.
+  You'd usually have two or three engagements live at once.
+
+  We work in whatever the client already has. Last year that was Make, n8n, Zapier,
+  Power Automate, one Workato tenant we inherited, and a surprising amount of Google
+  Apps Script. We don't have a house platform and we don't sell one.
+
+  What we need
+
+  - You can build. Three-plus years hands-on with at least two automation platforms,
+    and enough API and scripting ability to handle what platforms can't
+  - You can discover. Sitting with someone who does a job and working out what actually
+    happens, as opposed to what the process document says
+  - You can say no. A meaningful share of what clients ask for shouldn't be built, and
+    we'd rather you tell them that in week one than in month four
+  - You can write. Our deliverables are documents. If a client can't follow your
+    reasoning, the engagement hasn't landed
+
+  Nice to have: exposure to regulated industries, or a background in operations rather
+  than IT.
+
+  We won't ask you to sell, but we will ask you to spot the next problem worth solving
+  while you're in there.
+
+character_count: 1719
+
+expected_classification: job_description
+
+expected_artifact_set:
+  - skill_gap_analysis
+  - portfolio_suggestions
+  - interview_guidance
+
+expected_omissions:
+  - artifact_type: business_analysis
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: architecture_recommendation
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: mermaid_diagram
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: platform_comparison
+    reason: >
+      Not applicable to the job description path per `AI §9.1`. Several platforms are
+      named, but as the estate a hire would work across rather than as a selection
+      question.
+  - artifact_type: risk_assessment
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: complexity_score
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: workflow_recommendation
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: implementation_roadmap
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: edge_cases_and_practices
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: integration_requirements
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: executive_summary
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Every posting marker present: title, location, salary band, company description,
+    role shape, requirements, and nice-to-haves. The "typical month" narrative
+    describes client work generically rather than posing a specific problem, which is
+    what keeps it clear of `jd-001`'s ambiguity and `jd-003`'s embedded brief.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not applicable to the job description path (`AI §9.1`) and
+    is omitted for this case.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not applicable to the job description path (`AI §9.1`) and is
+    omitted for this case.
+
+case_character: central
+special_class: null
+
+rationale: |
+  Materially different from the other postings by employment context. `jd-002` is an
+  in-house practitioner role at a single company on a fixed stack, `jd-005` is a senior
+  in-house leadership role, `jd-003` a contract role at one client, `jd-004` a terse
+  freelance advert. This is consultancy: many clients, no house platform, and
+  deliberate breadth over depth.
+
+  Why that changes the expected output. `FR-022` requires portfolio recommendations
+  that are "specific and buildable" and interview guidance addressing "the
+  architectural competencies the posting implies". For an in-house role those follow
+  from the named stack. Here the stack is explicitly plural and inherited - "we work in
+  whatever the client already has" - so a skill gap analysis that returns a tool list
+  has missed the posting's actual claim, which is that platform-agnostic capability is
+  the requirement. This is the corpus's test of whether extraction follows the
+  posting's own logic rather than pattern-matching on product names.
+
+  Three requirements are stated but non-technical, and are the substance of the role:
+  discovery ("what actually happens, as opposed to what the process document says"),
+  refusal ("a meaningful share of what clients ask for shouldn't be built"), and
+  written communication ("our deliverables are documents"). All three must be labelled
+  `stated` under `FR-013`. The refusal requirement is notable because it mirrors
+  `PV §3.2` - the employer is hiring for the same judgement the product claims to
+  exercise.
+
+  Confidence `high`. CF-1 is strong: company size, client sectors, engagement lengths,
+  concurrency, named platforms, salary band, and an explicit requirement list. CF-2 is
+  strong - the requirements are stated with their reasoning attached. CF-4 is strong:
+  25 people, £48,000-£58,000, three-plus years, two or three concurrent engagements.
+  No capping condition applies (`AI §8.3`).
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Make, n8n, Zapier, Power Automate, Workato and Google
+    Apps Script are real product names used as realistic scenario detail; no real
+    consultancy or vacancy is described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

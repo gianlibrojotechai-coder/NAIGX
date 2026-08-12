@@ -1,0 +1,173 @@
+case_id: jd-005
+input_type: job_description
+
+content: |
+  Head of Business Systems
+  Bristol / hybrid (2 days on site) · £75,000 - £85,000 + car allowance + bonus
+
+  About us
+
+  We're a family-owned building products manufacturer, founded 1974, with four
+  manufacturing sites in the UK and a distribution arm serving around 3,000 trade
+  customers. Turnover is £140m and we employ 620 people. We were majority
+  family-controlled until a private equity investment in 2024, and the new board has
+  set a three-year plan that depends heavily on operational efficiency.
+
+  Why this role exists
+
+  We have grown by acquisition. Three of our four sites came in through acquisitions
+  between 2016 and 2022, and each arrived with its own systems. We currently run two
+  ERPs (Epicor at the two original sites, Infor at the others), three separate WMS
+  installations, a CRM nobody trusts, and an unknown quantity of Access databases and
+  spreadsheets that individual teams rely on. Month-end close takes eleven working
+  days. The finance director describes the reporting position as "three versions of
+  the truth and no way to reconcile them".
+
+  This role is new. You would be the first person accountable for the systems estate
+  as a whole rather than for one site or one function.
+
+  What you would own
+
+  - The systems roadmap, including the ERP consolidation decision. That decision has
+    not been made and we are not assuming it must be Epicor.
+  - Integration between whatever remains, including the interim state during any
+    consolidation, which we expect to last two to three years.
+  - A team of six: two business analysts, three developers, and one data analyst.
+  - The automation agenda. There is appetite but no strategy - individual teams have
+    built things in Power Automate and one site uses Zapier without IT's knowledge.
+  - Vendor relationships and the associated budget, currently around £1.8m annually.
+
+  What we are looking for
+
+  Essential:
+  - Experience owning a multi-site systems estate in manufacturing or distribution
+  - Direct experience of an ERP consolidation or major migration, including the
+    interim integration period
+  - Credible with a board - you will present to ours quarterly
+  - Track record of building capability in a team rather than delivering personally
+  - Comfortable making a decision with incomplete information and defending it
+
+  Desirable:
+  - Exposure to private equity ownership and its reporting expectations
+  - Familiarity with Epicor or Infor specifically
+  - Data governance experience
+
+  What we will not ask you to do
+
+  We are not looking for someone to rip everything out in year one. The board's plan
+  depends on the business continuing to operate through whatever change happens. If
+  your instinct is a big-bang replacement, we are probably not the right fit.
+
+  Process
+
+  Two stages, plus a half-day on site meeting the team. We will pay for travel. We are
+  working with one recruitment partner and applications direct to us are welcome.
+
+character_count: 2874
+
+expected_classification: job_description
+
+expected_artifact_set:
+  - skill_gap_analysis
+  - portfolio_suggestions
+  - interview_guidance
+
+expected_omissions:
+  - artifact_type: business_analysis
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: architecture_recommendation
+    reason: >
+      Not applicable to the job description path per `AI §9.1`. The estate described
+      would support one, but the document's purpose is hiring.
+  - artifact_type: mermaid_diagram
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: platform_comparison
+    reason: >
+      Not applicable to the job description path per `AI §9.1`. The ERP consolidation
+      decision is named as the hire's responsibility, not as a question posed to the
+      reader.
+  - artifact_type: risk_assessment
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: complexity_score
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: workflow_recommendation
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: implementation_roadmap
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: edge_cases_and_practices
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: integration_requirements
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: executive_summary
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Every posting marker present and unambiguous: title, location, salary band,
+    company background, reason the role exists, ownership scope, essential and
+    desirable criteria, and an interview process. The substantial operational detail
+    is context establishing what the hire inherits, not a request for analysis - which
+    distinguishes this from `jd-001`, where an embedded requirement genuinely competed.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not applicable to the job description path (`AI §9.1`) and
+    is omitted for this case.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not applicable to the job description path (`AI §9.1`) and is
+    omitted for this case. The estate problems described are hiring context, not risk
+    register entries for this analysis.
+
+case_character: substantial
+special_class: null
+
+rationale: |
+  Why substantial. Completes the `substantial` character for `job_description`, and is
+  the densest posting in the corpus - the opposite pole from `jd-004` on the same path.
+  It is also deliberately senior, where the corpus's other postings are practitioner
+  roles, because `FR-022`'s outputs behave differently when the competencies implied
+  are organisational rather than technical.
+
+  Expected substance. `FR-022` requires must-have/nice-to-have classification labelled
+  `stated` or `inferred`. This posting splits Essential from Desirable explicitly, so
+  both carry as `stated` - as in `jd-002` and unlike `jd-003`.
+
+  The more interesting test is what the posting implies but never states. Three
+  requirements are organisational rather than technical - board credibility, building
+  team capability rather than delivering personally, and defending decisions under
+  incomplete information - and a skill gap analysis that returns only Epicor, Infor
+  and Power Automate has read the posting as if it were `jd-004`. The "What we will
+  not ask you to do" section is a stated constraint that reveals what the employer
+  fears, and it should surface in interview guidance: a candidate whose instinct is
+  big-bang replacement is explicitly disqualified.
+
+  Portfolio suggestions must be specific and buildable (`FR-022`). At this seniority
+  the honest response may be that a portfolio project is a poor fit for demonstrating
+  multi-site estate ownership - and saying so would be better than manufacturing a
+  buildable project to satisfy the artifact. Whether the system does that is worth
+  observing; `FR-022` does not require an artifact to pretend its output is useful.
+
+  Confidence `high`. CF-1 is strong: company background, turnover, headcount, site
+  count, named systems, team composition, budget, ownership change, and an explicit
+  reason the role exists. CF-2 is strong - the requirement split is stated. CF-4 is
+  strong: £140m, 620 people, 3,000 customers, eleven-day close, £1.8m budget, six
+  reports. No capping condition applies (`AI §8.3`).
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Epicor, Infor, Power Automate and Zapier are real product
+    names used as realistic scenario detail; no real manufacturer, investor, or
+    vacancy is described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

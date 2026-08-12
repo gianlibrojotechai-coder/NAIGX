@@ -1,0 +1,154 @@
+case_id: jd-003
+input_type: job_description
+
+content: |
+  Integration Engineer - contract, 6 months, outside IR35
+
+  We need someone to sit with our operations team and untangle the integration layer
+  between our ERP and everything else.
+
+  The situation you'd be walking into: Business Central on the ERP side, a Magento
+  storefront, a 3PL that only speaks flat-file over SFTP, and a middleware layer
+  someone built in Azure Logic Apps that has grown to 60-odd workflows with no
+  documentation and no environments other than production.
+
+  A problem to think about
+
+  Stock levels are shared between Business Central and Magento. Today a Logic App
+  polls Business Central every 15 minutes and pushes the full catalogue to Magento -
+  about 11,000 SKUs - which takes 9 minutes and occasionally overlaps with the next
+  run. Magento's API throttles at 1,000 requests per minute. During Black Friday we
+  oversold on 300 lines because stock was up to 15 minutes stale.
+
+  How would you approach that? We're not looking for a full design, just how you'd
+  frame it and what you'd want to know. Happy to talk it through rather than have
+  you write it up.
+
+  What we need from you
+
+  - Strong Business Central integration experience, ideally including the OData and
+    SOAP surfaces
+  - Logic Apps or comparable iPaaS
+  - Comfortable working without a test environment, because you won't have one for
+    the first few weeks
+  - Available at short notice
+
+  Rate is negotiable and depends on experience. We'd want you starting within three
+  weeks. Send availability and rate expectations.
+
+character_count: 1485
+
+expected_classification: job_description
+
+expected_artifact_set:
+  - skill_gap_analysis
+  - portfolio_suggestions
+  - interview_guidance
+
+expected_omissions:
+  - artifact_type: business_analysis
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: architecture_recommendation
+    reason: >
+      Not applicable to the job description path per `AI §9.1`. The stock-sync problem
+      invites a design, but the document's purpose is hiring - see the rationale.
+  - artifact_type: mermaid_diagram
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: platform_comparison
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: risk_assessment
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: complexity_score
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: workflow_recommendation
+    reason: Not applicable to the job description path per `AI §9.1`.
+  - artifact_type: implementation_roadmap
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: edge_cases_and_practices
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: integration_requirements
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+  - artifact_type: executive_summary
+    reason: Not applicable to the job description path per `AI §9.1`; also P1.
+
+expected_confidence_band: medium
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Near-boundary, not ambiguous, and the competing type here is `technical_assessment`
+    rather than `business_requirement`. The "A problem to think about" section reads
+    like an assessment brief - a scenario with concrete constraints and an invitation
+    to explain an approach. But the surrounding document is decisively a contract
+    posting: engagement length, IR35 status, required experience, availability, rate
+    negotiation, and a start date. The problem section is a screening device embedded
+    in a posting, not the document's purpose.
+
+    Distinguishing this from `jd-001` matters. There, a complete automation requirement
+    genuinely competed with a complete posting on substance. Here the embedded problem
+    is explicitly framed as conversational - "not looking for a full design", "happy to
+    talk it through" - which subordinates it to the hiring purpose rather than
+    competing with it. Substance is decisive, so confidence should stay at or above
+    threshold.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not applicable to the job description path (`AI §9.1`) and
+    is omitted for this case.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not applicable to the job description path (`AI §9.1`) and
+    is omitted for this case. The overselling incident is scenario context, not a risk
+    register entry for this analysis.
+
+case_character: near-boundary
+special_class: null
+
+rationale: |
+  Why near-boundary. Third case testing the near-boundary/ambiguous distinction, and
+  the first where the competing type is `technical_assessment`. `ew-001` tested prose
+  framing against running-system substance; `ta-003` tested informal framing against
+  evaluation substance; this tests an embedded assessment-style problem against
+  posting substance. Together they establish that the distinction is about which
+  signals are decisive, not about how strong the competing signal feels.
+
+  Artifact set. Job description path per `AI §9.1`, unchanged.
+
+  Expected substance. `FR-022` requires must-have/nice-to-have classification with
+  `stated`/`inferred` labels. This posting does not split them, unlike `jd-002`, so
+  the split must be inferred and labelled `inferred` under `FR-013` - which makes this
+  the corpus's test that provenance labelling reflects what the document actually
+  states rather than defaulting to `stated`.
+
+  Two requirements are stated but easy to under-weight. "Comfortable working without a
+  test environment" is a working-conditions requirement, not a skill, and the
+  undocumented 60-workflow estate implies discovery and reverse-engineering capability
+  the posting never names. `FR-022` requires that where a posting is vague the output
+  says so rather than inventing specificity - relevant here, since the rate is
+  unstated and the seniority is implied only by the situation described.
+
+  Interview guidance should address the architectural competencies the posting implies
+  (`FR-022`), and the embedded stock-sync problem is direct evidence of what this
+  employer will probe: incremental versus full-catalogue sync, throttling, overlapping
+  runs, and staleness tolerance.
+
+  Confidence `medium`. CF-1 is moderate: the technical estate is described concretely,
+  but the role's scope beyond the first problem, the reporting line, and the rate are
+  all absent. CF-2 is weakened by the unstated requirement split. CF-4 is mixed -
+  strong on the scenario (11,000 SKUs, 15-minute polling, 9-minute run, 1,000 rpm
+  throttle, 300 oversold lines), sparse on the role itself. No capping condition
+  applies (`AI §8.3`).
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Business Central, Magento and Logic Apps are real product
+    names used as realistic scenario detail; no real employer or vacancy is described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

@@ -1,0 +1,160 @@
+case_id: br-006
+input_type: business_requirement
+
+content: |
+  Patient referral intake automation - requirements
+
+  Background
+
+  We are a private diagnostic imaging provider with six clinics in the north of
+  England. Referrals reach us from three sources: NHS trusts via the national
+  e-Referral Service, private GPs who email or fax a referral letter, and self-pay
+  patients who book through our website.
+
+  Volumes last year were 31,400 referrals: about 62% e-Referral, 26% private GP,
+  and 12% self-pay. Referral volume is growing roughly 15% year on year.
+
+  Current process
+
+  A team of five referral coordinators works through a shared Outlook mailbox. For
+  each referral they: read the letter, identify the referring clinician, extract
+  patient demographics and NHS number, determine which scan is being requested,
+  check whether the requested scan matches our clinical protocols, check insurer or
+  self-pay status, and then create the record in our RIS (Radiology Information
+  System, which is Soliton) and book an appointment slot.
+
+  Coordinators handle around 30 referrals per person per day. The e-Referral ones are
+  structured and take about four minutes. The emailed GP letters are unstructured PDFs
+  or scans and take twelve to twenty minutes, sometimes longer if handwriting is
+  involved or the NHS number is missing and has to be looked up.
+
+  What we need
+
+  We want the structured e-Referral intake automated end to end - matched to a
+  patient record, protocol-checked, and booked without a coordinator touching it,
+  with anything failing a check routed to a human queue with the reason attached.
+
+  For the unstructured GP letters we want the extraction done automatically and
+  presented to a coordinator for confirmation rather than booked directly. We are not
+  comfortable with unattended booking from a document we have not validated.
+
+  Constraints
+
+  Soliton exposes an HL7 v2 interface and a limited REST API added in 2023. The REST
+  API covers patient lookup and appointment booking but not protocol rules, which are
+  held in a separate configuration table our RIS vendor manages.
+
+  Patient data must remain within the UK. We are subject to UK GDPR and NHS Digital's
+  Data Security and Protection Toolkit. Any processor must be covered by a data
+  processing agreement, and we cannot send identifiable patient data to a service
+  without one.
+
+  We have an internal development capability of two people, both of whom are already
+  committed to a patient portal project until at least the end of the year.
+
+  Success would be coordinators spending their time on the exception queue rather than
+  on structured referrals, and same-day booking for e-Referral intake instead of the
+  current one-to-two working day lag.
+
+character_count: 2624
+
+expected_classification: business_requirement
+
+expected_artifact_set:
+  - business_analysis
+  - architecture_recommendation
+  - mermaid_diagram
+  - platform_comparison
+  - risk_assessment
+  - complexity_score
+
+expected_omissions:
+  - artifact_type: implementation_roadmap
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-036`)
+  - artifact_type: edge_cases_and_practices
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
+  - artifact_type: integration_requirements
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-035`)
+  - artifact_type: executive_summary
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-038`)
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    A desired future capability throughout, structured under an explicit
+    "requirements" heading. The current-process section describes today's manual
+    work as context for what should change, not as an automation submitted for
+    review - which distinguishes this from the `existing_workflow` path.
+
+expected_complexity:
+  status: not_determinable
+  scale_version: complexity-v1
+  reason: >
+    The `complexity_score` artifact is expected, and this input supplies unusually
+    strong signals for several `docs/09` §1.1 factors - two intake modes, HL7 plus a
+    partial REST API, protocol rules outside the API surface, and a regulatory
+    boundary. But no authoritative rule maps those characteristics onto factor scores
+    on the 1-5 scale, and `docs/09` A-3 records that no calibration data exists.
+    Asserting values would be guessing. Corpus-wide deterministic assertions
+    (`docs/11` §4.5) still apply.
+
+expected_risk:
+  status: not_determinable
+  scale_version: risk-v1
+  reason: >
+    The `risk_assessment` artifact is expected. The input names conditions that
+    plainly warrant risks - unattended clinical booking, extraction from handwritten
+    documents, data residency - but nothing in `docs/09` §2 or `FR-032` maps a stated
+    condition onto a severity or likelihood value.
+
+case_character: substantial
+special_class: null
+
+rationale: |
+  Why substantial. Long, structured, and detailed across background, volumes, current
+  process, requirements, constraints and success criteria. It is the requirement-path
+  counterpart to `ta-002` and the opposite pole from `br-004`, and the three together
+  are what make proportionality (`FR-017`, `AC-037`) testable across the range.
+
+  Why this is not `existing_workflow`. Worth stating because the current-process
+  section is detailed enough to invite misclassification. `FR-021` covers inputs
+  submitting an existing automation for review; this describes manual work being
+  replaced. The decisive signal is the "What we need" section, which is entirely
+  forward-looking.
+
+  Artifact set. Full P0 requirement-path set per `FR-020` and `AI §9.1`. Unlike
+  `br-004`, this is unambiguously "non-trivial" in `FR-020`'s sense, so no
+  proportionality reduction applies.
+
+  Expected substance. Three things any grounded response must engage, all stated:
+  the deliberate asymmetry between unattended structured intake and human-confirmed
+  unstructured intake; the protocol rules sitting outside the REST API, which
+  constrains any design that assumes full API coverage; and the UK data residency and
+  DPA requirement, which constrains processor selection and therefore
+  `platform_comparison`. A response recommending a platform without addressing the
+  DPA constraint fails rubric criterion C-1 (Grounded).
+
+  The stated development capacity - two people, both committed until year end - is
+  material to any recommendation and is the kind of constraint that is easy to read
+  past. `FR-013` provenance labelling should mark it `stated`.
+
+  Confidence `high`. CF-1 is strong: volumes, per-referral timings, staffing, systems,
+  interfaces, regulatory obligations and success criteria are all present. CF-2 is
+  strong - nearly everything is stated rather than inferred. CF-4 is strong: 31,400
+  referrals, 62/26/12 split, 15% growth, 30 per person per day, four versus twelve to
+  twenty minutes. No capping condition applies (`AI §8.3`): the requirements are
+  demanding but mutually consistent, and no material unknown blocks a recommendation.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Soliton, NHS e-Referral Service and the DSP Toolkit are
+    real names used as realistic scenario detail; no real provider, trust, or patient
+    data is described. Contains no personal data of any kind.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

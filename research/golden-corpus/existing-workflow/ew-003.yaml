@@ -1,0 +1,145 @@
+case_id: ew-003
+input_type: existing_workflow
+
+content: |
+  Our client onboarding runs on a Zapier setup a contractor built for us two years
+  ago. He's long gone and nobody here fully understands it.
+
+  What happens now: a signed proposal in PandaDoc triggers a Zap that creates a
+  client folder in Google Drive from a template, adds a row to a Google Sheet we use
+  as a client tracker, creates a project in Asana from a template, and sends a
+  welcome email through Gmail. There's a second Zap that watches the Sheet and posts
+  into Slack when the status column changes to "kickoff booked".
+
+  It works about 80% of the time. The Asana project sometimes gets created twice.
+  The Drive folder occasionally comes out with the wrong client name - we think it
+  picks up the previous record, but we've never proven it. When something fails
+  halfway there's no way to resume, so someone recreates the missing pieces manually
+  and we lose track of which bits were done.
+
+  We're moving to HubSpot next quarter and the Sheet needs to go. We're also taking
+  on about three times the client volume after an acquisition completes.
+
+  So the question is really whether we fix what we've got or start again with
+  something that will hold up at the new volume. We'd want the same outcomes -
+  folder, tracker, project, welcome email, kickoff notification - but we're not
+  attached to how it happens.
+
+character_count: 1303
+
+expected_classification: existing_workflow
+
+expected_artifact_set:
+  - workflow_recommendation
+  - platform_comparison
+  - risk_assessment
+  - complexity_score
+
+expected_omissions:
+  - artifact_type: architecture_recommendation
+    reason: >
+      Not applicable to the workflow path per `AI §9.1`. Note this is a path
+      constraint, not a judgement that no target design is warranted - see the
+      rationale and ambiguity A-10.
+  - artifact_type: mermaid_diagram
+    reason: Not applicable to the workflow path per `AI §9.1`.
+  - artifact_type: business_analysis
+    reason: Not applicable to the workflow path per `AI §9.1`.
+  - artifact_type: edge_cases_and_practices
+    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
+  - artifact_type: implementation_roadmap
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-036`; `AI §9.1`)
+  - artifact_type: integration_requirements
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-035`; `AI §9.1`)
+  - artifact_type: executive_summary
+    reason: P1 and requirement-path only (`MVP §5.3`, `FR-038`; `AI §9.1`)
+
+expected_confidence_band: medium
+
+expected_classification_confidence:
+  bound: below_threshold
+  threshold: 0.6
+  rationale: >
+    Genuinely ambiguous, not merely near-boundary. Both readings are substantively
+    complete. As `existing_workflow`: a running automation is described at step level
+    with observed failure modes and an explicit request to evaluate it. As
+    `business_requirement`: the submitter states a target outcome set, a platform
+    migration, a threefold volume increase, and says outright they are "not attached
+    to how it happens" - which is a requirement framing, not a review framing. The
+    closing sentence poses both readings as the actual question.
+
+    Unlike `ew-001`, where prose format was surface and running-system substance was
+    decisive, here the competition is between two complete substantive readings. A
+    correctly calibrated classifier should fall below the `FR-011` threshold and
+    trigger the `FR-015` confirmation path, letting the user say which they want.
+
+expected_complexity:
+  status: not_determinable
+  scale_version: complexity-v1
+  reason: >
+    The `complexity_score` artifact is expected under the recorded classification, but
+    factor scoring is a reasoning output and no calibration data exists (`docs/09`
+    A-3).
+
+expected_risk:
+  status: not_determinable
+  scale_version: risk-v1
+  reason: >
+    The `risk_assessment` artifact is expected. Duplicate project creation, wrong-name
+    folders, and unresumable partial failure are stated conditions, but no rule maps
+    them onto severity or likelihood values.
+
+case_character: ambiguous
+special_class: null
+
+rationale: |
+  Why ambiguous rather than near-boundary. This is the second ambiguous case in the
+  corpus and deliberately tests a different axis from `jd-001`. There the competition
+  was between document *types* - a job posting containing a complete automation
+  requirement. Here it is between *intents* for the same subject matter: evaluate
+  what exists, or specify what should replace it. The submitter has not decided,
+  which is precisely why the correct behaviour is to ask rather than to pick.
+
+  Expected classification is `existing_workflow`. The recorded expectation follows
+  the same test used in `jd-001`: what is the submitter asking for? A concrete system
+  is described and its failures enumerated, and any useful answer must start from
+  that system. "Fix or replace" is a question about an existing thing. `FR-014`
+  supports correction: if the user confirms they want a requirement analysis instead,
+  resubmission with `classification_override` produces a new analysis without
+  mutating this one (`API §7.5`).
+
+  This expectation is contestable and recorded as such, per the same discipline as
+  `jd-001`.
+
+  Artifact set. Workflow path per `AI §9.1`.
+
+  Expected substance. Three stated defects must be engaged specifically (`FR-021`):
+  duplicate Asana project creation, wrong client name on the Drive folder, and no
+  resumability after partial failure. The two forward-looking constraints - the
+  HubSpot migration retiring the Sheet, and the threefold volume increase - are
+  material to any recommendation and are exactly what `FR-021`'s "optimization
+  recommendations" should address. A review that evaluates the current Zaps without
+  reference to either fails rubric criterion C-4 (Complete).
+
+  Confidence `medium`. CF-1 is moderate: the step sequence and failure symptoms are
+  stated, but no Zap configuration, error handling, or trigger detail is given, and
+  the wrong-name defect is explicitly unproven ("we think... but we've never proven
+  it"). CF-2 is weakened by the unresolved intent. No capping condition applies
+  (`AI §8.3`); this is a base-confidence judgement.
+
+  ⚠️ Ambiguity A-10. `AI §9.1` scopes `architecture_recommendation` to the requirement
+  and assessment paths, so a workflow-path analysis cannot produce a target design
+  even when the submitter explicitly asks whether to start again. Whether
+  `workflow_recommendation` is expected to carry replacement-design content, or
+  whether such inputs are expected to be resubmitted under `classification_override`,
+  is not stated in any authoritative document. Recorded, not decided.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Product names are real and used as realistic scenario
+    detail; no real client, contractor, or acquisition is described.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1

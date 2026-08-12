@@ -1,0 +1,131 @@
+case_id: ta-001
+input_type: technical_assessment
+
+content: |
+  Technical Assessment - Integration Engineer
+
+  Estimated time: 3-4 hours. Please submit a written design; no code is required.
+
+  Scenario
+
+  Our company receives order events from three e-commerce channels: our own Shopify
+  store, an Amazon Seller Central account, and a wholesale portal that exposes a
+  REST API with a 60-requests-per-minute rate limit.
+
+  Each channel represents the same underlying concept - an order - with different
+  field names, different currency handling, and different timing. Shopify pushes
+  webhooks in near real time. Amazon reports are available on a 15-minute polling
+  cycle. The wholesale portal must be polled and has no change-detection endpoint,
+  so you must work out which orders are new.
+
+  Orders must land in our warehouse management system, which accepts a single
+  normalised order format over HTTP and rejects duplicates by external order ID.
+
+  Please describe
+
+  1. Your proposed design, including how data moves between the systems.
+  2. How you would handle the differing delivery mechanisms.
+  3. What happens when the warehouse system is unavailable for 30 minutes.
+  4. At least one alternative approach you considered and why you rejected it.
+  5. Any assumptions you are making.
+
+  You may assume credentials are available and that infrastructure cost is not a
+  constraint. We are more interested in your reasoning than in completeness.
+
+character_count: 1355
+
+expected_classification: technical_assessment
+
+expected_artifact_set:
+  - architecture_recommendation
+  - mermaid_diagram
+  - assessment_feedback
+
+expected_omissions:
+  - artifact_type: business_analysis
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: workflow_recommendation
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: platform_comparison
+    reason: >
+      Not applicable to the assessment path per `AI §9.1`. Platform selection is not
+      the question being assessed; the systems are given.
+  - artifact_type: risk_assessment
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: complexity_score
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: implementation_roadmap
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: edge_cases_and_practices
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: integration_requirements
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: executive_summary
+    reason: Not applicable to the assessment path per `AI §9.1`; also P1.
+  - artifact_type: skill_gap_analysis
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: portfolio_suggestions
+    reason: Not applicable to the assessment path per `AI §9.1`.
+  - artifact_type: interview_guidance
+    reason: Not applicable to the assessment path per `AI §9.1`.
+
+expected_confidence_band: high
+
+expected_classification_confidence:
+  bound: at_or_above_threshold
+  threshold: 0.6
+  rationale: >
+    Explicitly self-identifying: titled "Technical Assessment", carries an estimated
+    time, a numbered list of things to describe, permitted assumptions, and a
+    statement of what is being evaluated. No competing signal. `FR-015` confirmation
+    should not trigger.
+
+expected_complexity:
+  status: not_applicable
+  reason: >
+    `complexity_score` is not applicable to the assessment path (`AI §9.1`) and is
+    omitted for this case. Determinable, not unknown.
+
+expected_risk:
+  status: not_applicable
+  reason: >
+    `risk_assessment` is not applicable to the assessment path (`AI §9.1`) and is
+    omitted for this case. Determinable, not unknown.
+
+case_character: central
+special_class: null
+
+rationale: |
+  Classification. The document assesses a candidate rather than requesting work for
+  the submitter's own business. Every surface and substantive signal agrees.
+
+  Artifact set. `FR-023` requires a solution architecture with explicit trade-off
+  reasoning and a diagram. `AI §9.1` maps the assessment path to exactly
+  `architecture_recommendation`, `mermaid_diagram` and `assessment_feedback`.
+
+  Expected substance. `FR-023` requires at least one rejected alternative named with
+  its reason - which this brief also asks for directly, making it a clean test of
+  that acceptance criterion. Output must be structured for the candidate to
+  understand and defend, not to submit verbatim (`FR-023`).
+
+  The brief contains three genuine design tensions worth surfacing: mixed push and
+  poll delivery, change detection against an API with no change endpoint, and
+  idempotency against a downstream system that dedupes on external order ID. A
+  response that does not engage with all three is generic (rubric criterion C-2).
+
+  Confidence `high`. CF-1 and CF-4 are strong: three named systems, a stated rate
+  limit, a stated polling cadence, an explicit failure scenario, and stated
+  permitted assumptions. No capping condition applies (`AI §8.3`).
+
+  This is the assessment-path counterpart to `br-001` - the baseline against which
+  the other assessment cases are read.
+
+provenance:
+  origin: synthetic
+  notes: >
+    Authored for the corpus. Modelled on the structure of integration take-home
+    briefs generally; not copied from any real assessment.
+
+added: 2026-08-12
+frozen_at: 2026-08-12T07:52:30Z
+corpus_version: corpus-v1
