@@ -13,6 +13,7 @@ import type { FastifyInstance } from "fastify";
 
 import type { AppConfig } from "./config/env.js";
 import type { Database } from "./db/client.js";
+import { registerErrorHandler } from "./http/error-handler.js";
 import {
   generateRequestId,
   registerRequestContext,
@@ -38,6 +39,10 @@ export async function buildApp({
   // Applied to the root instance, before routes, so every route context
   // inherits it and every response carries the correlation headers.
   registerRequestContext(app);
+
+  // Registered after the request context so error responses can read the
+  // correlation identifiers it establishes.
+  registerErrorHandler(app);
 
   await app.register(cors, {
     origin: config.corsOrigin,
