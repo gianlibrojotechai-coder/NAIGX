@@ -1,0 +1,104 @@
+name: CI
+
+# `Roadmap §7.1` — `main` is always deployable, protected, and CI-gated.
+# `SA` Appendix A — the eight boundary checks are verified on every build;
+# a failure blocks the build.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "24"
+
+jobs:
+  boundary-checks:
+    name: Boundary checks (SA Appendix A)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # Zero dependencies by design — no install step, no network.
+      - name: Run the eight boundary checks
+        run: node tools/boundary-checks/check.mjs
+
+  backend:
+    name: Backend (typecheck + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      # The generated Prisma client is gitignored, so it must be produced
+      # before typecheck. `prisma generate` reads the schema only and needs
+      # no database and no network.
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      # Step order follows the `Roadmap §8.1` pipeline:
+      # lint + format → type check → tests → build.
+      # Every one of these is a non-bypassable merge gate (`Roadmap §8.3`).
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Unit, integration and contract layers (`Roadmap §6.1`).
+      # No database, no network, no credentials.
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  frontend:
+    name: Frontend (lint + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
