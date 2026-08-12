@@ -15,7 +15,12 @@
 
 import type { FastifyInstance } from "fastify";
 
-import { internalError, isAppError, notFoundError, AppError } from "./errors.js";
+import {
+  internalError,
+  isAppError,
+  notFoundError,
+  AppError,
+} from "./errors.js";
 import { sendError } from "./responses.js";
 
 /** Fastify surfaces its own errors as `unknown`; narrow before inspecting. */

@@ -1,0 +1,11 @@
+{
+  // Typechecks tests alongside sources without emitting them.
+  // The main tsconfig deliberately includes only `src/**/*`, so `dist/`
+  // contains no test code and `npm start` is unaffected.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "."
+  },
+  "include": ["src/**/*", "tests/**/*"]
+}

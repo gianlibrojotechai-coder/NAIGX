@@ -86,7 +86,11 @@ export class AppError extends Error {
   readonly field: string | undefined;
   readonly details: Readonly<Record<string, unknown>> | undefined;
 
-  constructor(code: ApiErrorCode, message: string, options: AppErrorOptions = {}) {
+  constructor(
+    code: ApiErrorCode,
+    message: string,
+    options: AppErrorOptions = {},
+  ) {
     super(
       message,
       options.cause !== undefined ? { cause: options.cause } : undefined,
