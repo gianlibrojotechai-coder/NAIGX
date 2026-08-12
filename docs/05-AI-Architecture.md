@@ -688,7 +688,7 @@ Each module must be able to produce a negative result:
 
 ### 7.5 Reasoning quality criteria
 
-Applied by the review rubric (`PRD O-1`, `MVP` Sprint 0):
+Applied by the review rubric (`PRD O-1`, `MVP` Sprint 0). **Operationalized in `docs/10-Reasoning-Quality-Rubric.md`**, which reproduces the table below verbatim and adds scoring, evidence, and review procedure. This section remains the owner of the criteria; a change here is a change to the rubric.
 
 | Criterion | Failing looks like |
 |---|---|
@@ -1076,6 +1076,28 @@ The foundation. Established in `MVP` Sprint 0.
 
 **Open question `SA AQ-6` applies here:** whether the suite runs against live providers or recorded responses. Recorded is affordable on every change but blind to model drift (`SA AR-41`); live catches drift but costs on every commit. The likely resolution is a split — recorded on every change, live on a schedule — but this is a decision, not a default.
 
+#### Execution policy — resolved
+
+✅ **Decided 2026-08-12.** Resolves `SA AQ-6` and `AIQ-5`. The split anticipated above is adopted.
+
+| Mode | Trigger | Provider | Purpose |
+|---|---|---|---|
+| **Recorded** | **Every code change.** Mandatory pass before merge (`NFR-043`) | Frozen/recorded expected results; no live provider call | Fast, affordable, deterministic. Detects regressions introduced by code |
+| **Live** | **Scheduled**, not per-change | Live provider | Detects provider and model drift (`SA AR-41`) |
+
+**Live-provider regression is not required for any individual code change.** A change may merge on a passing recorded run alone.
+
+| Property | Detail |
+|---|---|
+| What recorded mode detects | Regressions caused by fragment, stage, generator, or code changes — measured against frozen expectations from the golden corpus (`docs/11`) |
+| What recorded mode cannot detect | Provider-side model drift. Nothing changed locally, so a recorded run cannot observe it |
+| What live mode adds | Drift detection — the failure mode `SA AR-41` names, which is invisible to recorded runs by construction |
+| Divergence handling | Unchanged from the table above: deterministic assertions are hard pass/fail; non-deterministic content is compared to baseline and flagged for human review, not auto-failed |
+
+**Why the asymmetry is correct.** Code changes are frequent and locally caused, so their check must be cheap enough to run every time. Drift is infrequent and externally caused, so its check must run on a clock rather than on a commit — a commit is not the event that causes drift, and gating merges on it would spend provider cost to detect something no merge introduced.
+
+**Open sub-question.** The live schedule interval is not set here, and baseline capture and refresh under recorded mode remain unspecified (`docs/11` A-4). Both belong with the Sprint 2 regression implementation.
+
 ### 12.4 Prompt version testing
 
 | Test | Purpose |
@@ -1110,7 +1132,16 @@ Mechanical checks verify structure. They cannot verify whether reasoning is *goo
 | Volume | ≥20 analyses per input type before v1.0 (`PRD §14.1`) |
 | Independent viability check | ≥5 architectures reviewed by someone other than the author |
 
-**The known limitation, restated:** `PRD O-1` remains open. Until the rubric exists and is validated for inter-reviewer agreement, quality assessment is single-reviewer judgment and must be reported as such. This is the largest methodological weakness in the v1.0 quality apparatus, and it is a documentation gap, not an engineering one.
+~~**The known limitation, restated:** `PRD O-1` remains open. Until the rubric exists and is validated for inter-reviewer agreement, quality assessment is single-reviewer judgment and must be reported as such. This is the largest methodological weakness in the v1.0 quality apparatus, and it is a documentation gap, not an engineering one.~~
+
+✅ **Updated 2026-08-12.** `PRD O-1` is resolved by **`docs/10-Reasoning-Quality-Rubric.md`**, which operationalizes the §7.5 criteria as seven pass/fail criteria with mandatory recorded evidence, requires at least one independent human reviewer who did not create the original assessment, and defines percentage agreement per criterion plus a disagreement log.
+
+**The limitation is reduced, not eliminated.** Two residuals stand:
+
+- The independent reviewer is **not yet named** (`docs/10` A-1). Until one is, reviews remain single-reviewer and must still be reported as such.
+- **No agreement target is set** (`docs/10` A-2). Agreement is measured but has no pass threshold.
+
+`docs/10` §4.3 records one hard constraint: an AI reviewer may not be counted as the independent reviewer, for any criterion.
 
 ### 12.7 Benchmarking
 
@@ -1265,16 +1296,16 @@ Twelve-stage pipeline, five stages fully deterministic. Composable versioned pro
 
 ## Appendix B — Open AI Engineering Questions
 
-| # | Question | Decide by | Constraint on the answer |
-|---|---|---|---|
-| AIQ-1 | Reasoning quality rubric definition | `MVP` Sprint 0 | Must achieve inter-reviewer agreement; blocks `M-8`, `M-9`, and the `PRD §14.3` release gate (`PRD O-1`) |
-| AIQ-2 | Complexity factor set and weights | Sprint 0 | Must be itemized and reconstructible by the user (`FR-033`, `PRD O-2`) |
-| AIQ-3 | Risk severity and likelihood scales | Sprint 0 | Consistent and applicable across paths (`FR-032`, `PRD O-3`) |
-| AIQ-4 | Confidence factor weights | Sprint 2 | Must be calibratable; conflicts and material unknowns must cap, not merely reduce |
-| AIQ-5 | Regression against live providers vs. recorded responses | Sprint 2 | Must detect model drift (`SA AR-41`) while remaining affordable per change (`SA AQ-6`) |
-| AIQ-6 | Whether stage-level model routing is exposed as configuration in v1.0 | Sprint 2 | Must not become user-facing configurability (`MVP §10`) |
-| AIQ-7 | Depth-level granularity — how many levels, defined how | Sprint 2 | Must make `AC-037` proportionality testable |
-| AIQ-8 | Platform knowledge source and update cadence | Sprint 3 | Must be neutral (`PV §3.3`); staleness disclosed, never concealed (`PRD O-4`) |
+| # | Question | Decide by | Constraint on the answer | Status |
+|---|---|---|---|---|
+| AIQ-1 | Reasoning quality rubric definition | `MVP` Sprint 0 | Must achieve inter-reviewer agreement; blocks `M-8`, `M-9`, and the `PRD §14.3` release gate (`PRD O-1`) | ✅ **Resolved 2026-08-12** — `docs/10-Reasoning-Quality-Rubric.md`, operationalizing the §7.5 criteria |
+| AIQ-2 | Complexity factor set and weights | Sprint 0 | Must be itemized and reconstructible by the user (`FR-033`, `PRD O-2`) | ✅ **Resolved 2026-08-12** — `docs/09-Scoring-Scales.md` §1 |
+| AIQ-3 | Risk severity and likelihood scales | Sprint 0 | Consistent and applicable across paths (`FR-032`, `PRD O-3`) | ✅ **Resolved 2026-08-12** — `docs/09-Scoring-Scales.md` §2 |
+| AIQ-4 | Confidence factor weights | Sprint 2 | Must be calibratable; conflicts and material unknowns must cap, not merely reduce | ⏳ Open — Sprint 2 |
+| AIQ-5 | Regression against live providers vs. recorded responses | Sprint 2 | Must detect model drift (`SA AR-41`) while remaining affordable per change (`SA AQ-6`) | ✅ **Resolved 2026-08-12** — §12.3 "Execution policy". Recorded every change; live on a schedule |
+| AIQ-6 | Whether stage-level model routing is exposed as configuration in v1.0 | Sprint 2 | Must not become user-facing configurability (`MVP §10`) | ⏳ Open — Sprint 2 |
+| AIQ-7 | Depth-level granularity — how many levels, defined how | Sprint 2 | Must make `AC-037` proportionality testable | ⏳ Open — Sprint 2 |
+| AIQ-8 | Platform knowledge source and update cadence | Sprint 3 | Must be neutral (`PV §3.3`); staleness disclosed, never concealed (`PRD O-4`) | ⏳ Open — Sprint 3 (`PRD O-4`) |
 
 ---
 

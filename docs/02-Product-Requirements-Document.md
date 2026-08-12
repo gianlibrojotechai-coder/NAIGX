@@ -1234,14 +1234,14 @@ Direction only. **Nothing in this section is committed to MVP or to any release.
 
 Items requiring resolution before or during implementation. Recorded rather than concealed.
 
-| # | Item | Blocks | Owner action |
-|---|---|---|---|
-| O-1 | **No operational definition of reasoning quality.** M-8, M-9, and the §14.3 release gate all depend on single-reviewer judgment. | Quality governance, not implementation | Develop a review rubric specific enough for two reviewers to agree. First post-v1.0 documentation priority. |
-| O-2 | **Complexity scoring scale undefined.** FR-033 requires an itemized basis but does not define the factors or their weights. | FR-033 implementation | Define the factor set and weighting before FR-033 is built. |
-| O-3 | **Risk severity and likelihood scales undefined.** FR-032 requires a consistent scale; the scale does not yet exist. | FR-032 implementation | Define before FR-032 is built. |
-| O-4 | **Platform knowledge currency.** FR-035 requires stating platform constraints, which change. No update mechanism is specified. | FR-035 quality | Decide between disclosure-of-uncertainty only (MVP-appropriate) and a maintained knowledge source (post-MVP). |
-| O-5 | **Trace retention period unset.** NFR-034 requires a defined period; the value is not set. | NFR-033, NFR-034 | Set before launch; must appear in the published data policy. |
-| O-6 | **Evidence linkage to market research.** Personas and segment prioritization in §4 and §5 are not yet traced to sourced job-market evidence under the project's own validation standard. | External credibility | Trace §4 and §5 claims through the JD Matrix before this document circulates externally. |
+| # | Item | Blocks | Owner action | Status |
+|---|---|---|---|---|
+| O-1 | **No operational definition of reasoning quality.** M-8, M-9, and the §14.3 release gate all depend on single-reviewer judgment. | Quality governance, not implementation | Develop a review rubric specific enough for two reviewers to agree. First post-v1.0 documentation priority. | ✅ **Resolved 2026-08-12** — `docs/10-Reasoning-Quality-Rubric.md`. Operationalizes the `AI §7.5` criteria as seven pass/fail criteria with recorded evidence (§2–§3), an independent human reviewer requirement (§4.3), and per-criterion agreement measurement with a disagreement log (§5). Residual: the independent reviewer is not yet named (`docs/10` A-1). |
+| O-2 | **Complexity scoring scale undefined.** FR-033 requires an itemized basis but does not define the factors or their weights. | FR-033 implementation | Define the factor set and weighting before FR-033 is built. | ✅ **Resolved 2026-08-12** — `docs/09-Scoring-Scales.md` §1. Five factors scored 1–5, weights 25/20/20/20/15, weighted score ×20 to a 0–100 scale. Unblocks `DBQ-4` / `COMPLEXITY_ASSESSMENT`. |
+| O-3 | **Risk severity and likelihood scales undefined.** FR-032 requires a consistent scale; the scale does not yet exist. | FR-032 implementation | Define before FR-032 is built. | ✅ **Resolved 2026-08-12** — `docs/09-Scoring-Scales.md` §2. Severity and likelihood 1–5, Risk Score = S × L, five bands. Unblocks `DBQ-3` / `RISK_ITEM`. |
+| O-4 | **Platform knowledge currency.** FR-035 requires stating platform constraints, which change. No update mechanism is specified. | FR-035 quality | Decide between disclosure-of-uncertainty only (MVP-appropriate) and a maintained knowledge source (post-MVP). | ⏳ **Open** — Sprint 3 (`AIQ-8`). Not a Sprint 0 item. |
+| O-5 | **Trace retention period unset.** NFR-034 requires a defined period; the value is not set. | NFR-033, NFR-034 | Set before launch; must appear in the published data policy. | ✅ **Resolved 2026-08-12** — `docs/06-Database-Design.md` §8.3. StageTrace 7 days; ProviderInvocation 30 days; ValidationEvent 30 days, as v1 policy values subject to revision. Still to do: publish in the data policy (`NFR-031`). |
+| O-6 | **Evidence linkage to market research.** Personas and segment prioritization in §4 and §5 are not yet traced to sourced job-market evidence under the project's own validation standard. | External credibility | Trace §4 and §5 claims through the JD Matrix before this document circulates externally. | ⏳ **Open** — not a Sprint 0 item. |
 
 ---
 

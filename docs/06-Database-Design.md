@@ -518,7 +518,9 @@ erDiagram
 
 **Design note.** Non-nullable `component_id` is the schema enforcement of "no generic risks." A risk that cannot name what it affects cannot be stored.
 
-**Blocked on `PRD O-3`:** the severity and likelihood scales are undefined. This entity cannot be implemented until Sprint 0 closes that item.
+~~**Blocked on `PRD O-3`:** the severity and likelihood scales are undefined. This entity cannot be implemented until Sprint 0 closes that item.~~
+
+✅ **Unblocked 2026-08-12.** `PRD O-3` is resolved by `docs/09-Scoring-Scales.md` §2. `severity` and `likelihood` are integers 1–5 per §2.1 and §2.2; the risk score and band are derived, not stored (`09` §2.7).
 
 ---
 
@@ -539,7 +541,7 @@ erDiagram
 
 - Storing the factor breakdown, not just the score, is what makes `FR-033` ("a user can reconstruct how the score was reached") satisfiable from storage.
 - `scale_version` matters because the factor set will evolve. Without it, scores from different scale versions would be silently compared.
-- **Blocked on `PRD O-2`:** the factor set and weights are undefined.
+- ~~**Blocked on `PRD O-2`:** the factor set and weights are undefined.~~ ✅ **Unblocked 2026-08-12.** `PRD O-2` is resolved by `docs/09-Scoring-Scales.md` §1. `scale_version` for v1 is `complexity-v1`; `factor_breakdown` carries five rows per `09` §1.7; the reconstruction constraint is verified as Σ contributions × 20 = `score`.
 
 ---
 
@@ -1021,13 +1023,27 @@ erDiagram
 
 The single most important design property of the trace store: **three different retention periods, because the entities have different sensitivity.**
 
-| Entity | Content sensitivity | Retention |
-|---|---|---|
-| StageTrace | **High** — full user business content | Short, fixed (`NFR-034`) |
-| ProviderInvocation | **None** — metrics only | Extended |
-| ValidationEvent | **None** — structural outcomes only | Extended |
+| Entity | Content sensitivity | Retention | v1 policy value |
+|---|---|---|---|
+| StageTrace | **High** — full user business content | Short, fixed (`NFR-034`) | **7 days** |
+| ProviderInvocation | **None** — metrics only | Extended | **30 days** |
+| ValidationEvent | **None** — structural outcomes only | Extended | **30 days** |
 
 This is why the trace store is three entities rather than one document per analysis. A monolithic trace record would force the entire trace to expire on the most restrictive schedule, discarding the cost and quality history that carries no privacy cost and has long-term analytical value.
+
+#### Retention policy — v1 values
+
+Resolves `PRD O-5` and `DBQ-2`. Set 2026-08-12.
+
+| Entity | Period | Rationale |
+|---|---|---|
+| StageTrace | 7 days | Contains full user business content. The shortest period that still supports diagnosing a reported problem within a working week (`EV-3`, `FR-100`) |
+| ProviderInvocation | 30 days | Metrics only, no content. Long enough for cost and latency trend analysis (`NFR-083`) |
+| ValidationEvent | 30 days | Structural outcomes only. Supports the schema-validation failure rate that `SA §12.3` names the leading quality indicator |
+
+> **These are v1 policy values, explicitly subject to revision.** They are set so `NFR-033` and `NFR-034` are satisfiable and the data policy is publishable. They are expected to be revisited as operational, privacy, and cost requirements become clearer with real usage — particularly the 7-day StageTrace window, which trades diagnostic reach against content exposure and has no usage data behind it yet.
+
+**Outstanding obligation.** `NFR-031` requires the data handling policy to be accessible before first submission, and `DBQ-2` requires these periods to appear in it. Setting the values here does not discharge that obligation — the published policy is a separate deliverable.
 
 ### 8.4 Access control
 
@@ -1442,17 +1458,17 @@ Not built in v1.0 (§12.3). If required:
 
 ## Appendix B — Open Database Questions
 
-| # | Question | Decide by | Constraint on the answer |
-|---|---|---|---|
-| DBQ-1 | Trace store technology — relational, document, or object storage | Sprint 1 | Must support tiered retention (§8.3) and operator query without production data access (`SA AQ-1`) |
-| DBQ-2 | Trace content retention period | Before launch | Must appear in the published data policy (`NFR-031`, `PRD O-5`) |
-| DBQ-3 | Risk severity and likelihood scales | Sprint 0 | **Blocks RISK_ITEM implementation** (`PRD O-3`) |
-| DBQ-4 | Complexity factor set and weights | Sprint 0 | **Blocks COMPLEXITY_ASSESSMENT implementation** (`PRD O-2`) |
-| DBQ-5 | Fragment content storage location — repository assets vs. database | Sprint 1 | Must permit rollback without code deploy (`AI-014`, `SA AQ-5`) |
-| DBQ-6 | Anonymous analysis expiry period | Sprint 5 | Must be disclosed at submission; no indefinite retention of unowned content |
-| DBQ-7 | Backup retention window vs. deletion promise | Before launch | Must be disclosed in the data policy (§12.4); silence is a broken promise |
-| DBQ-8 | Application-level encryption scope — which fields beyond the three named | Sprint 1 | Must not prevent the history-listing and quality queries the schema exists to serve |
-| DBQ-9 | Partition granularity for ANALYSIS and STAGE_TRACE | Sprint 5 | Must make trace expiry a partition drop rather than a mass delete |
+| # | Question | Decide by | Constraint on the answer | Status |
+|---|---|---|---|---|
+| DBQ-1 | Trace store technology — relational, document, or object storage | Sprint 1 | Must support tiered retention (§8.3) and operator query without production data access (`SA AQ-1`) | ⏳ Open — Sprint 1 |
+| DBQ-2 | Trace content retention period | Before launch | Must appear in the published data policy (`NFR-031`, `PRD O-5`) | ✅ **Values set 2026-08-12** — §8.3. Publication in the data policy still outstanding |
+| DBQ-3 | Risk severity and likelihood scales | Sprint 0 | **Blocks RISK_ITEM implementation** (`PRD O-3`) | ✅ **Resolved 2026-08-12** — `docs/09-Scoring-Scales.md` §2. `RISK_ITEM` unblocked |
+| DBQ-4 | Complexity factor set and weights | Sprint 0 | **Blocks COMPLEXITY_ASSESSMENT implementation** (`PRD O-2`) | ✅ **Resolved 2026-08-12** — `docs/09-Scoring-Scales.md` §1. `COMPLEXITY_ASSESSMENT` unblocked |
+| DBQ-5 | Fragment content storage location — repository assets vs. database | Sprint 1 | Must permit rollback without code deploy (`AI-014`, `SA AQ-5`) | ⏳ Open — Sprint 1 |
+| DBQ-6 | Anonymous analysis expiry period | Sprint 5 | Must be disclosed at submission; no indefinite retention of unowned content | ⏳ Open — Sprint 5 |
+| DBQ-7 | Backup retention window vs. deletion promise | Before launch | Must be disclosed in the data policy (§12.4); silence is a broken promise | ⏳ Open — before launch |
+| DBQ-8 | Application-level encryption scope — which fields beyond the three named | Sprint 1 | Must not prevent the history-listing and quality queries the schema exists to serve | ⏳ Open — Sprint 1 |
+| DBQ-9 | Partition granularity for ANALYSIS and STAGE_TRACE | Sprint 5 | Must make trace expiry a partition drop rather than a mass delete | ⏳ Open — Sprint 5 |
 
 ---
 

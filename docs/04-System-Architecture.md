@@ -1235,14 +1235,14 @@ Verified in CI on every build. A failure blocks the build.
 
 Recorded rather than resolved prematurely. Each has a decision point.
 
-| # | Question | Decide by | Constraint on the answer |
-|---|---|---|---|
-| AQ-1 | Trace store technology — relational, document, or object storage | Sprint 1 | Must support independent retention (`NFR-034`) and operator query without production data access |
-| AQ-2 | SSE versus polling as the primary result channel | Sprint 3 | Must meet the `FR-041` first-artifact target; polling fallback required regardless |
-| AQ-3 | PDF rendering approach — server-side headless render versus document library | Sprint 4 | Must render Mermaid diagrams and preserve provenance treatment (`FR-050`) |
-| AQ-4 | Whether stage-to-model routing is exposed as configuration in v1.0 or fixed | Sprint 2 | Must not become user-facing configurability (`MVP §10`, non-goal) |
-| AQ-5 | Template storage — repository assets versus a runtime store | Sprint 1 | Must permit rollback without code deploy (`AI-014`) |
-| AQ-6 | Whether the regression suite runs against live providers or recorded responses | Sprint 2 | Must detect model drift (`AR-41`) while remaining affordable to run on every change |
+| # | Question | Decide by | Constraint on the answer | Status |
+|---|---|---|---|---|
+| AQ-1 | Trace store technology — relational, document, or object storage | Sprint 1 | Must support independent retention (`NFR-034`) and operator query without production data access | ⏳ Open — Sprint 1 |
+| AQ-2 | SSE versus polling as the primary result channel | Sprint 3 | Must meet the `FR-041` first-artifact target; polling fallback required regardless | ⏳ Open — Sprint 3 |
+| AQ-3 | PDF rendering approach — server-side headless render versus document library | Sprint 4 | Must render Mermaid diagrams and preserve provenance treatment (`FR-050`) | ⏳ Open — Sprint 4 |
+| AQ-4 | Whether stage-to-model routing is exposed as configuration in v1.0 or fixed | Sprint 2 | Must not become user-facing configurability (`MVP §10`, non-goal) | ⏳ Open — Sprint 2 |
+| AQ-5 | Template storage — repository assets versus a runtime store | Sprint 1 | Must permit rollback without code deploy (`AI-014`) | ⏳ Open — Sprint 1 |
+| AQ-6 | Whether the regression suite runs against live providers or recorded responses | Sprint 2 | Must detect model drift (`AR-41`) while remaining affordable to run on every change | ✅ **Resolved 2026-08-12** — `AI §12.3` "Execution policy": recorded results on every code change, live-provider regression on a schedule. Live runs are not required per change |
 
 ---
 
