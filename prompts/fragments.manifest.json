@@ -1,0 +1,17 @@
+{
+  "version": "fragments-v1",
+  "fragments": {
+    "foundation.neutrality_constraints": "cdc1a7b66f15aebaef5d136937a89de20439946228971d88f3d18b04a8ad5e68",
+    "foundation.provenance_rules": "772d3b64e3b9002d7788772f0f5f7b8f191f70a074ac78461a34204ac4c8d8f1",
+    "foundation.refusal_and_uncertainty": "1b831dfd08387bf32dba1aa7cd779a770797691237b48c818c9207148b1be1ee",
+    "foundation.system_frame": "edb12036b2a442bce7f98cd5b5679a4e476fb4d6ffd727950c7aebadbc88c7a5",
+    "stage.architecture_analysis": "4701b3116d33e73b20d8b86eeacd841d31f7d87d2883b6b8cf785e9dd243bfe8",
+    "stage.classification": "ac804ead6e335362a77ce68dcdd9551731ef6e2788f2fe95a09b4dd284cc1caf",
+    "stage.context_extraction": "93c528fc2332fc3f8104a3bf512a7240aee4ed88a9db7f3d0e618a8ab761c1de",
+    "stage.intent": "0aa42cc75dd7e8ee593dca8dbece0e5abd9fbf47b994d94598dd4e241e416ad5",
+    "type.assessment": "ce2a8a3dfc485788aa90f1e39290249c3111a30067ae5445ef49c5a20fb14222",
+    "type.business_requirement": "24bc232708a8f3744bff60642f3d1ab491d7f03cdb48f0ad2f423cc17b21cf2a",
+    "type.job_description": "e6f005cb64f6c2ec53f5339d19dd2d7d9749974b0f29ef77c232ecc8bf849afb",
+    "type.workflow": "32997218ce7fccea59d4cb634570c14be8ccfb325b7288fc7ca8d852bdc757aa"
+  }
+}

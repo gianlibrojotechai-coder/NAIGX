@@ -1,0 +1,11 @@
+-- NAIGX trace store database.
+--
+-- `DB §1.4` requires the trace store to be a separate database, not a schema
+-- inside the primary one: independent retention, operator-only access, volume
+-- asymmetry, and blast radius. Separation is what makes the §8.4 access
+-- boundary enforceable rather than a policy claim.
+--
+-- Runs only on first initialisation of an empty Postgres volume. For an
+-- already-initialised volume, run:
+--   docker exec naigx-postgres psql -U naigx -d postgres -c "CREATE DATABASE naigx_trace;"
+CREATE DATABASE naigx_trace;

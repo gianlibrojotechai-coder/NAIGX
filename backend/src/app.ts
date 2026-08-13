@@ -18,16 +18,25 @@ import {
   generateRequestId,
   registerRequestContext,
 } from "./http/request-context.js";
-import { healthRoutes } from "./routes/health.js";
+import { healthRoutes, type HealthCheck } from "./routes/health.js";
 
 export interface AppDependencies {
   readonly config: AppConfig;
   readonly database: Database;
+  /**
+   * Readiness probes for the dependencies the API layer does not own
+   * (`API-060`). Supplied by the composition root so this layer names no
+   * provider and reaches no fragment store itself.
+   */
+  readonly checkProvider?: HealthCheck;
+  readonly checkTemplates?: HealthCheck;
 }
 
 export async function buildApp({
   config,
   database,
+  checkProvider,
+  checkTemplates,
 }: AppDependencies): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
@@ -55,6 +64,8 @@ export async function buildApp({
 
   await app.register(healthRoutes, {
     prisma: database.prisma,
+    ...(checkProvider !== undefined ? { checkProvider } : {}),
+    ...(checkTemplates !== undefined ? { checkTemplates } : {}),
   });
 
   return app;

@@ -28,6 +28,13 @@ const P = {
   frontendSrc: "frontend/src",
   generated: "backend/src/generated",
   providerAdapters: "backend/src/provider/adapters",
+  nieStages: "backend/src/nie/stages",
+  nieStageRegistry: "backend/src/nie/stages.ts",
+  niePipeline: "backend/src/nie/pipeline.ts",
+  artifactSchemas: "backend/schemas",
+  fragmentManifest: "prompts/fragments.manifest.json",
+  fragmentGateTest: "backend/tests/unit/fragment-gate.test.ts",
+  providerConformanceTest: "backend/tests/contract/provider-conformance.test.ts",
   nie: "backend/src/nie",
   prompts: "prompts",
   backendPkg: "backend/package.json",
@@ -62,13 +69,16 @@ const NIE_FORBIDDEN = {
 // Dependency direction, outermost (0) → innermost (SA §5.3).
 // A module may import inward or sideways, never outward.
 const LAYERS = [
-  { rank: 0, name: "composition root", match: (r) => r === "backend/src/index.ts" },
+  { rank: 0, name: "composition root", match: (r) => r === "backend/src/index.ts" || r.startsWith("backend/src/harness/") },
   { rank: 1, name: "api", match: (r) => r === "backend/src/app.ts" || r.startsWith("backend/src/routes/") || r.startsWith("backend/src/http/") },
   { rank: 2, name: "orchestrator", match: (r) => r.startsWith("backend/src/orchestrator/") },
   { rank: 3, name: "persistence", match: (r) => r.startsWith("backend/src/db/") },
   { rank: 4, name: "nie", match: (r) => r.startsWith("backend/src/nie/") },
   { rank: 5, name: "provider interface", match: (r) => r.startsWith("backend/src/provider/") },
   { rank: 6, name: "config", match: (r) => r.startsWith("backend/src/config/") },
+  // Static reasoning assets read from `prompts/`. Innermost: depends on nothing
+  // in the application and is depended upon by persistence when publishing.
+  { rank: 6, name: "fragment source", match: (r) => r.startsWith("backend/src/fragments/") },
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -242,50 +252,198 @@ define(4, "Dependency direction inward only", "AP-1", () => {
 define(5, "Every artifact type has a registered schema", "FR-039, AD-08", () => {
   if (!exists(P.nie))
     return { state: "inactive", violations: [], note: `No artifact generation exists (${P.nie}/ absent). Activates with the Sprint 1 NIE.` };
+
+  // Artifact types are declared by the stage that produces them, in the stage
+  // registry. Each must have a repository-authored JSON Schema (docs/12 D-1),
+  // which is the source published to ARTIFACT_SCHEMA.definition (DB §4.4).
+  if (!exists(P.nieStageRegistry))
+    return {
+      state: "fail",
+      violations: [`${P.nie}/ exists but ${P.nieStageRegistry} does not — no artifact-type source to check`],
+      note: "FAIL-SAFE: the artifact-type declaration must live in the stage registry.",
+    };
+
+  const registry = read(P.nieStageRegistry);
+  if (!/producesArtifactTypes/.test(registry))
+    return {
+      state: "fail",
+      violations: [`${P.nieStageRegistry} declares no producesArtifactTypes field`],
+      note: "FAIL-SAFE: without a declared artifact-type field this check cannot enforce FR-039.",
+    };
+
+  const declared = [];
+  for (const m of registry.matchAll(/producesArtifactTypes:\s*\[([^\]]*)\]/g))
+    for (const q of m[1].matchAll(/["']([^"']+)["']/g)) declared.push(q[1]);
+
+  const unique = [...new Set(declared)];
+  const violations = [];
+  for (const type of unique) {
+    const schema = `${P.artifactSchemas}/${type}.schema.json`;
+    if (!exists(schema)) violations.push(`artifact type '${type}' has no registered schema at ${schema}`);
+  }
+
+  if (violations.length)
+    return { state: "fail", violations, note: "ARMED: FR-039/AD-08 — an artifact type without a schema cannot be deterministically validated." };
+
   return {
-    state: "fail",
-    violations: [`${P.nie}/ exists but no artifact-type registry is wired into this checker`],
-    note: "FAIL-SAFE: once the NIE exists this check demands wiring rather than passing silently. Register the artifact-type/schema source here.",
+    state: "pass",
+    violations: [],
+    note:
+      unique.length === 0
+        ? `0 artifact types declared across ${(registry.match(/stageKey:/g) || []).length - 1} stages — artifact generation is Stage 9 (Sprint 2). Wired and enforcing: the first declared type demands a schema in ${P.artifactSchemas}/.`
+        : `${unique.length} artifact type(s) declared, each with a registered schema.`,
   };
 });
 
 define(6, "Every pipeline stage emits a trace event", "AP-8, FR-100", () => {
   if (!exists(P.nie))
     return { state: "inactive", violations: [], note: `No pipeline stages exist (${P.nie}/ absent). Activates with the Sprint 1 NIE.` };
+
+  const stageFiles = walk(P.nieStages);
+  if (stageFiles.length === 0)
+    return {
+      state: "fail",
+      violations: [`${P.nie}/ exists but ${P.nieStages}/ holds no stage modules`],
+      note: "FAIL-SAFE: stages must live in one directory so trace emission is checkable.",
+    };
+
+  if (!exists(P.niePipeline))
+    return {
+      state: "fail",
+      violations: [`stage modules exist but ${P.niePipeline} does not — nothing emits their traces`],
+      note: "FAIL-SAFE: AP-8/FR-100 require every stage to emit a trace event.",
+    };
+
+  const pipeline = read(P.niePipeline);
+  const violations = [];
+
+  // The runner must actually emit. Trace emission is a port call, so the
+  // structural evidence is that the runner holds a trace sink and records to it.
+  if (!/traceSink/.test(pipeline) || !/\.record\(/.test(pipeline))
+    violations.push(`${P.niePipeline} does not record to a stage trace sink`);
+
+  // Every stage module must be reachable from the runner...
+  for (const f of stageFiles) {
+    const moduleName = f.split("/").pop().replace(/\.[cm]?ts$/, "");
+    if (!pipeline.includes(moduleName))
+      violations.push(`stage module '${moduleName}' is not invoked by ${P.niePipeline} — its executions would emit no trace`);
+  }
+
+  // ...and unreachable from anywhere else, or a caller could run a stage
+  // outside the tracing path. Tests are excluded: they assert stage behaviour
+  // directly and perform no traced run.
+  for (const f of backendFiles()) {
+    if (f === P.niePipeline || f.startsWith(P.nieStages)) continue;
+    for (const { spec, line } of importsOf(f)) {
+      const local = resolveLocal(f, spec);
+      if (local && local.startsWith(P.nieStages + "/"))
+        violations.push(`${f}:${line} imports stage module '${spec}' directly — stages may only be invoked through ${P.niePipeline}`);
+    }
+  }
+
+  if (violations.length)
+    return { state: "fail", violations, note: "ARMED: AP-8/FR-100 — a stage executed outside the runner emits no trace." };
+
   return {
-    state: "fail",
-    violations: [`${P.nie}/ exists but no stage/trace-emission source is wired into this checker`],
-    note: "FAIL-SAFE: once the NIE exists this check demands wiring rather than passing silently.",
+    state: "pass",
+    violations: [],
+    note: `${stageFiles.length} stage module(s), each invoked only through ${P.niePipeline}, which records a trace per stage on both success and failure.`,
   };
 });
 
 define(7, "Regression suite passes before any template change merges", "NFR-043, AD-14", () => {
   const templates = exists(P.prompts)
-    ? walk(P.prompts, [".md", ".txt", ".yaml", ".yml", ".json", ".hbs", ".mustache"]).filter((f) => !/README/i.test(f))
+    ? walk(P.prompts, [".md", ".txt", ".yaml", ".yml", ".json", ".hbs", ".mustache"])
+        // README documents the fragments; the manifest is the gate's own record
+        // of them. Neither is a reasoning template.
+        .filter((f) => !/README/i.test(f) && !/fragments\.manifest\.json$/.test(f))
     : [];
   if (templates.length === 0)
     return { state: "inactive", violations: [], note: `No reasoning templates exist under ${P.prompts}/. Arms automatically on the first template.` };
+
+  const violations = [];
+
+  // 1. The gate must exist as a runnable suite, not a documented intention.
+  if (!exists(P.fragmentManifest))
+    violations.push(`${templates.length} template(s) exist but ${P.fragmentManifest} does not — no record of what was reviewed`);
+  if (!exists(P.fragmentGateTest))
+    violations.push(`${templates.length} template(s) exist but ${P.fragmentGateTest} does not — the gate never runs`);
+
+  // 2. It must cover every template. A fragment outside the manifest could be
+  //    changed without the change being recorded, which is the whole point.
+  if (exists(P.fragmentManifest)) {
+    let recorded = {};
+    try {
+      recorded = JSON.parse(read(P.fragmentManifest)).fragments ?? {};
+    } catch {
+      violations.push(`${P.fragmentManifest} is not valid JSON`);
+    }
+    for (const template of templates) {
+      const m = /^prompts\/([^/]+)\/(.+)\.md$/.exec(template);
+      if (!m) {
+        violations.push(`${template} does not follow prompts/<class>/<name>.md — it cannot be keyed or gated`);
+        continue;
+      }
+      const key = `${m[1]}.${m[2]}`;
+      if (!(key in recorded)) violations.push(`fragment '${key}' is not recorded in ${P.fragmentManifest}`);
+    }
+  }
+
+  if (violations.length)
+    return { state: "fail", violations, note: "ARMED: NFR-043/AD-14 — templates may not exist without the gate that governs their change." };
+
   return {
-    state: "fail",
-    violations: [`${templates.length} template(s) exist under ${P.prompts}/ but no regression suite is configured`],
-    note: "ARMED: templates may not exist without the regression gate that governs their change (NFR-043, AD-14). Wire the regression runner here.",
+    state: "pass",
+    violations: [],
+    note:
+      `${templates.length} fragment(s), each recorded in ${P.fragmentManifest} and verified by ${P.fragmentGateTest}. ` +
+      "This is the change gate: a fragment edit fails the build until it is recorded and reviewed. Output regression against the golden corpus is a Sprint 2 deliverable (docs/12 D-14).",
   };
 });
 
 define(8, "Second-provider test passes", "AI-005, AR-43", () => {
-  const adapters = exists(P.providerAdapters)
-    ? fs.readdirSync(abs(P.providerAdapters), { withFileTypes: true }).filter((e) => e.name !== "index.ts" && !/\.d\.ts$/.test(e.name)).length
-    : 0;
-  if (adapters < 2)
+  const adapterNames = exists(P.providerAdapters)
+    ? fs.readdirSync(abs(P.providerAdapters), { withFileTypes: true })
+        .filter((e) => e.isFile() && e.name !== "index.ts" && !/\.d\.ts$/.test(e.name) && /\.[cm]?ts$/.test(e.name))
+        .map((e) => e.name.replace(/\.[cm]?ts$/, ""))
+    : [];
+
+  if (adapterNames.length < 2)
     return {
       state: "inactive",
       violations: [],
-      note: `${adapters} provider adapter(s) present. Arms at the second adapter — the Engineering Roadmap places "second adapter with passing automated test" in Sprint 1, after the Sprint 0 stub provider.`,
+      note: `${adapterNames.length} provider adapter(s) present. Arms at the second adapter — the Engineering Roadmap places "second adapter with passing automated test" in Sprint 1, after the Sprint 0 stub provider.`,
     };
+
+  // This checker runs with no dependencies installed (CI runs it before any
+  // `npm ci`), so it cannot execute the suite. It verifies instead that the
+  // conformance test exists, drives adapters through the abstraction rather
+  // than directly, and names every adapter present — so a third adapter cannot
+  // be added without being covered. Execution is the `backend` job's test gate.
+  if (!exists(P.providerConformanceTest))
+    return {
+      state: "fail",
+      violations: [`${adapterNames.length} provider adapters exist but ${P.providerConformanceTest} is missing`],
+      note: "ARMED: AR-43 — an abstraction assumed to work is never exercised.",
+    };
+
+  const src = read(P.providerConformanceTest);
+  const violations = [];
+
+  if (!src.includes("createProviderInvoker"))
+    violations.push(`${P.providerConformanceTest} does not invoke through createProviderInvoker — testing adapters directly proves nothing about substitution (AI-005)`);
+
+  const uncovered = adapterNames.filter((name) => !src.includes(name));
+  if (uncovered.length)
+    violations.push(`adapter(s) not exercised by the conformance test: ${uncovered.join(", ")}`);
+
+  if (violations.length)
+    return { state: "fail", violations, note: "ARMED: AI-005 requires the second provider be tested, not merely possible." };
+
   return {
-    state: "fail",
-    violations: [`${adapters} provider adapters exist but no second-provider test is configured`],
-    note: "ARMED: AR-43 — an abstraction assumed to work is never exercised. Wire the second-provider test here.",
+    state: "pass",
+    violations: [],
+    note: `${adapterNames.length} adapters (${adapterNames.join(", ")}), each exercised through the abstraction by ${P.providerConformanceTest}. The suite itself runs in the backend test gate.`,
   };
 });
 

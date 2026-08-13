@@ -1306,6 +1306,8 @@ Twelve-stage pipeline, five stages fully deterministic. Composable versioned pro
 | AIQ-6 | Whether stage-level model routing is exposed as configuration in v1.0 | Sprint 2 | Must not become user-facing configurability (`MVP §10`) | ⏳ Open — Sprint 2 |
 | AIQ-7 | Depth-level granularity — how many levels, defined how | Sprint 2 | Must make `AC-037` proportionality testable | ⏳ Open — Sprint 2 |
 | AIQ-8 | Platform knowledge source and update cadence | Sprint 3 | Must be neutral (`PV §3.3`); staleness disclosed, never concealed (`PRD O-4`) | ⏳ Open — Sprint 3 (`PRD O-4`) |
+| AIQ-9 | **Classification taxonomy conflict** — §4.1 enumerates six values incl. `mixed`; `FR-011` enumerates five | Before Sprint 2 | Reconciling requires amending §4.1 or `FR-011`; neither may be changed in passing. Frozen `corpus-v1` holds zero `mixed` cases | 📌 **Recorded 2026-08-12** — implementation interpretation set in `docs/12` D-6: `mixed` is intermediate, never terminal. Source documents unchanged |
+| AIQ-10 | **Stage-count conflict** — §3.3, §14, `AID-02`, App. A and `Roadmap M-05` state twelve; `MVP §5.1` and `TM-3` state six | Before Sprint 2 | `MVP Scope` is the outlier; App. A carries the numbered inventory Sprint 1 is written against (stage 6 = `FR-030`) | 📌 **Recorded 2026-08-12** — implementation proceeds on twelve (`docs/12` D-7). `MVP §5.1`/`TM-3` require correction |
 
 ---
 

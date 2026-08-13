@@ -47,6 +47,7 @@ const digestOf = (request: CapabilityRequest): string =>
       JSON.stringify([
         request.task,
         request.input,
+        request.instructions ?? null,
         request.outputContract ?? null,
         request.preferLowVariance,
       ]),

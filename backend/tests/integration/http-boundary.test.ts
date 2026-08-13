@@ -20,6 +20,8 @@ import type { Database } from "../../src/db/client.js";
 
 const config: AppConfig = {
   databaseUrl: "postgresql://unused",
+  traceDatabaseUrl: "postgresql://unused-trace",
+  provider: {},
   port: 0,
   corsOrigin: "http://localhost:5173",
   logLevel: "silent",

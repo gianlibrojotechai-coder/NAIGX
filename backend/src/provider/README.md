@@ -56,9 +56,9 @@ Flagged rather than invented. Each is typed as loosely as possible so Sprint 1 c
 |---|---|---|---|
 | 1 | **Output contract representation** | `AI §10.2` lists "output contract" as a request dimension; AD-08 establishes schema-validated output; `AI §9.3` has one schema drive generation and validation | No format for the value crossing this boundary. Typed `string \| undefined` |
 | 2 | **Cost/latency tier vocabulary** | `AI §10.2` requires routing "to the closest available tier"; `AI §10.3` makes tier a routing dimension | No tier names, no ordering. Typed as an opaque `string`, not an invented enum |
-| 3 | **Cost unit** | `SA §3.5` requires cost recorded per call; `NFR-083` names cost a provider metric | No currency, unit, or precision. **Omitted entirely** — a number without a unit is worse than no number |
+| 3 | ~~**Cost unit**~~ | `SA §3.5` requires cost recorded per call; `NFR-083` names cost a provider metric | ✅ **Resolved 2026-08-13** — `docs/12` D-4: USD, 8 decimal places, computed from tokens against a configured rate in `cost.ts`. Where the rate is configured remains open (D-10 item 5) |
 | 4 | **Task vocabulary** | `AI §10.2` expresses requests in domain terms including "reasoning task" | The task set belongs to the NIE stages (`AI §3`), which do not exist. Opaque `string` |
-| 5 | **Degradation record vocabulary** | `AI §10.2` and `§10.4` require *recording* that a fallback was used | No vocabulary or structure. Free-text `string[]` |
+| 5 | **Degradation record vocabulary** | `AI §10.2` and `§10.4` require *recording* that a fallback was used | Still free-text `string[]`. The abstraction layer now records the *fact* of a degradation as `ProviderInvocation.fallback_used`, which is what `§10.4` asks for; the vocabulary itself stays open |
 | 6 | **Determinism preference scale** | `AI §10.2` names "determinism preference"; capability is "low-variance sampling" | No scale. Modelled as `boolean`, mapping one-to-one onto the declared capability rather than inventing a range |
 | 7 | **Provider/model configuration surface** | `AI-002` requires configuration without code deploy | Where it lives and its format. Deferred to Sprint 1 with routing; Sprint 0 uses a defaulted argument, adding no env var for an unused capability |
 

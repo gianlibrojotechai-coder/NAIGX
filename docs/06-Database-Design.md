@@ -658,7 +658,7 @@ It also makes `AC-037` proportionality testable by query: artifact-set size agai
 
 - `regression_pass_reference` makes the `NFR-043` gate a **data constraint**: a fragment version cannot become active without a recorded passing regression run. The quality gate is enforced by the schema, not by process discipline.
 - `content_hash` allows detection of an unauthorized content change even though the row is append-only.
-- Fragment *content* storage location is `AIQ-5`/`SA AQ-5`, open. This entity holds the version metadata regardless of where content lives.
+- Fragment *content* storage location was `SA AQ-5`/`DBQ-5`, **resolved 2026-08-12** (`docs/12` D-3): authored in `prompts/`, published to `content` here, resolved from the database at runtime. `content_hash` detects divergence from the reviewed source. (The prior `AIQ-5` citation was stale — `AIQ-5` is the regression-execution question.)
 
 ---
 
@@ -785,6 +785,8 @@ It also makes `AC-037` proportionality testable by query: artifact-set size agai
 
 **Design note.** Because this entity holds no content, it may outlive stage traces. This matters: cost and reliability analysis over a long window is valuable, and it should not require retaining user business content to obtain (`TV-4`, `SA AR-22`).
 
+> 📌 **Two recorded conflicts — `DBQ-10` and `DBQ-11` (2026-08-13).** Outliving the stage trace has two consequences this specification does not yet carry. First, no timestamp is listed above, so the §8.3 30-day period has nothing to expire on — implemented as `recorded_at`. Second, `stage_trace_id` is annotated `(FK)`, but no referential action survives the parent being deleted 23 days earlier — implemented as an identifier reference with no constraint. Rationale and the minimum amendment: `docs/12` D-8 and D-9. **Neither requirement above is amended here.**
+
 ---
 
 #### VALIDATION_EVENT
@@ -801,6 +803,8 @@ It also makes `AC-037` proportionality testable by query: artifact-set size agai
 | **Lifecycle** | Written at validation; immutable |
 
 **Design note.** Retaining these beyond trace expiry is deliberate. Schema validation failure rate is the earliest warning of a bad fragment release (`AI §13.2`), and detecting a slow trend requires a longer window than content retention permits.
+
+> 📌 **`DBQ-10` and `DBQ-11` apply identically here (2026-08-13).** Retaining these beyond trace expiry requires a timestamp this entity does not specify, and makes the `(FK)` on `stage_trace_id` unsatisfiable. Implemented as `recorded_at` and an unconstrained identifier reference; see `docs/12` D-8 and D-9. **Neither requirement above is amended here.**
 
 ---
 
@@ -1460,15 +1464,17 @@ Not built in v1.0 (§12.3). If required:
 
 | # | Question | Decide by | Constraint on the answer | Status |
 |---|---|---|---|---|
-| DBQ-1 | Trace store technology — relational, document, or object storage | Sprint 1 | Must support tiered retention (§8.3) and operator query without production data access (`SA AQ-1`) | ⏳ Open — Sprint 1 |
+| DBQ-1 | ~~Trace store technology — relational, document, or object storage~~ | Sprint 1 | Must support tiered retention (§8.3) and operator query without production data access (`SA AQ-1`) | ✅ **Resolved 2026-08-12** — PostgreSQL, separate database (`docs/12` D-2) |
 | DBQ-2 | Trace content retention period | Before launch | Must appear in the published data policy (`NFR-031`, `PRD O-5`) | ✅ **Values set 2026-08-12** — §8.3. Publication in the data policy still outstanding |
 | DBQ-3 | Risk severity and likelihood scales | Sprint 0 | **Blocks RISK_ITEM implementation** (`PRD O-3`) | ✅ **Resolved 2026-08-12** — `docs/09-Scoring-Scales.md` §2. `RISK_ITEM` unblocked |
 | DBQ-4 | Complexity factor set and weights | Sprint 0 | **Blocks COMPLEXITY_ASSESSMENT implementation** (`PRD O-2`) | ✅ **Resolved 2026-08-12** — `docs/09-Scoring-Scales.md` §1. `COMPLEXITY_ASSESSMENT` unblocked |
-| DBQ-5 | Fragment content storage location — repository assets vs. database | Sprint 1 | Must permit rollback without code deploy (`AI-014`, `SA AQ-5`) | ⏳ Open — Sprint 1 |
+| DBQ-5 | ~~Fragment content storage location — repository assets vs. database~~ | Sprint 1 | Must permit rollback without code deploy (`AI-014`, `SA AQ-5`) | ✅ **Resolved 2026-08-12** — authored in `prompts/`, published to `PROMPT_FRAGMENT_VERSION.content`; runtime resolves from the database (`docs/12` D-3) |
 | DBQ-6 | Anonymous analysis expiry period | Sprint 5 | Must be disclosed at submission; no indefinite retention of unowned content | ⏳ Open — Sprint 5 |
 | DBQ-7 | Backup retention window vs. deletion promise | Before launch | Must be disclosed in the data policy (§12.4); silence is a broken promise | ⏳ Open — before launch |
-| DBQ-8 | Application-level encryption scope — which fields beyond the three named | Sprint 1 | Must not prevent the history-listing and quality queries the schema exists to serve | ⏳ Open — Sprint 1 |
+| DBQ-8 | Application-level encryption scope — which fields beyond the three named | Before production data | Must not prevent the history-listing and quality queries the schema exists to serve | ⏸️ **Deferred with rationale 2026-08-12** — §13.2 already classifies every Sprint 1 field; only Confidential business requires app-level. No additional field blocks the schema (`docs/12` D-5) |
 | DBQ-9 | Partition granularity for ANALYSIS and STAGE_TRACE | Sprint 5 | Must make trace expiry a partition drop rather than a mass delete | ⏳ Open — Sprint 5 |
+| DBQ-10 | **§4.7 specifies no timestamp for `PROVIDER_INVOCATION` or `VALIDATION_EVENT`**, so their §8.3 30-day retention is unimplementable — they cannot borrow `STAGE_TRACE.started_at`, which is deleted 23 days earlier | Before Sprint 2 | Ratification must not alter the §8.3 retention values, which are correct and are what expose the gap | 📌 **Recorded 2026-08-13** — implemented as `recorded_at` (indexed) on both (`docs/12` D-8). Minimum amendment: add the attribute and its expiry index to both §4.7 entities |
+| DBQ-11 | **`stage_trace_id` is annotated `(FK)` in §4.7, which no referential action can satisfy** — CASCADE destroys the 30-day tiers, RESTRICT blocks the 7-day content purge, SET NULL mutates an entity §4.7 declares immutable | Before Sprint 2 | Ratification must not weaken §8.3 tiering, §4.7 immutability, or the §1.4 identifier-linkage rule | 📌 **Recorded 2026-08-13** — implemented as an indexed identifier reference with no constraint (`docs/12` D-9); the trace store holds zero foreign keys. Minimum amendment: change the two `(FK)` annotations to "identifier reference, no FK" |
 
 ---
 

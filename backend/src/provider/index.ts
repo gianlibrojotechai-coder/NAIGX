@@ -5,9 +5,13 @@
  * with a response and cannot leak upward (`AI-006`).
  *
  * Scope. This is a registry, not the routing layer. `AI §10.3` routing —
- * per-stage selection, capability-based selection, cost tiers, failover — is a
- * Sprint 1 deliverable and is deliberately absent. So is the retry, backoff,
- * normalization and usage-accounting machinery of `AI §10.1`.
+ * per-stage selection, capability-based selection, cost tiers, failover — is
+ * deferred to Sprint 2 by `docs/12` D-4 (`AIQ-6`/`AQ-4`) and remains absent.
+ *
+ * The `AI §10.1` mechanisms — retry and backoff, response normalization, usage
+ * accounting — now exist in `retry.ts`, `normalization.ts`, `cost.ts` and
+ * `invoke.ts`. Compose them with `createProviderInvoker`; call an adapter
+ * directly only in tests of the adapter itself.
  *
  * `AI-002` requires provider and model be configurable without a code deploy.
  * That configuration surface is Sprint 1's, alongside routing. Sprint 0 needs
@@ -16,12 +20,18 @@
  * a capability nothing consumes yet would be speculative.
  */
 
+import { createReplayProvider } from "./adapters/replay.js";
 import { createStubProvider } from "./adapters/stub.js";
 import type { ProviderAdapter } from "./capability.js";
 
 /** Adapters available in this build. */
 const REGISTRY = {
   stub: createStubProvider,
+  // `AI-005` / `AI §10.5` step 3, registration only — routing is Sprint 2.
+  // Constructed with no fixtures by default: a replay provider that has been
+  // handed no recording legitimately answers nothing, and pre-loading one here
+  // would make the registry own test data.
+  replay: () => createReplayProvider(),
 } as const satisfies Record<string, () => ProviderAdapter>;
 
 export type ProviderId = keyof typeof REGISTRY;
@@ -40,6 +50,52 @@ export function createProvider(
 ): ProviderAdapter {
   return REGISTRY[id]();
 }
+
+export {
+  createProviderInvoker,
+  type InvocationContext,
+  type ProviderInvocationRecord,
+  type ProviderInvocationRecorder,
+  type ProviderInvoker,
+  type ProviderInvokerDependencies,
+} from "./invoke.js";
+export {
+  COST_SCALE,
+  computeEstimatedCostUsd,
+  formatUsd,
+  parseUsd,
+  rateFor,
+  type TokenRate,
+  type TokenRateTable,
+  type TokenUsage,
+} from "./cost.js";
+export { normalizeError, normalizeResponse } from "./normalization.js";
+// The real adapter is NOT in the registry: it needs a credential and a model,
+// which the zero-argument registry signature cannot supply. `AI-002` configurability
+// is unaffected — the composition root selects and constructs it. Adding it to
+// the registry would mean either a partially-constructed adapter or the
+// registry reading the environment, and both are worse.
+export {
+  createAnthropicProvider,
+  classifyAnthropicError,
+  type AnthropicAdapterOptions,
+  type AnthropicMessagesClient,
+} from "./adapters/anthropic.js";
+export {
+  createReplayProvider,
+  replayKeyFor,
+  type ReplayFixture,
+  type ReplayOptions,
+} from "./adapters/replay.js";
+export { createStubProvider } from "./adapters/stub.js";
+export {
+  backoffDelayMs,
+  executeWithRetry,
+  MALFORMED_RESPONSE_MAX_ATTEMPTS,
+  maxAttemptsFor,
+  PROVISIONAL_TRANSIENT_RETRY_POLICY,
+  type RetryPolicy,
+} from "./retry.js";
 
 export type {
   CapabilityRequest,

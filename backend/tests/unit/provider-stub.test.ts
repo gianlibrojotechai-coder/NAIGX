@@ -24,8 +24,13 @@ const request: CapabilityRequest = {
 };
 
 test("registry exposes the stub and defaults to it", () => {
+  // The default stays the stub so local development and every test remain
+  // offline with no credentials (`Roadmap` Sprint 0). The registry itself is no
+  // longer single-entry — `AI-005` added a second adapter — so this asserts
+  // membership and the default, not exclusivity. Registry composition is
+  // covered by `tests/contract/provider-conformance.test.ts`.
   assert.equal(DEFAULT_PROVIDER_ID, "stub");
-  assert.deepEqual([...availableProviders()], ["stub"]);
+  assert.ok(availableProviders().includes("stub"));
 });
 
 test("declares all four AI §10.2 capabilities explicitly", () => {

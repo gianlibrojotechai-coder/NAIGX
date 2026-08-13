@@ -1,15 +1,15 @@
 /**
- * Contract — `GET /health` (`Roadmap §6.1`: "API request/response").
+ * Contract — `GET /health` (`API-060`, `API §6.7`).
  *
- * The frontend consumes this endpoint's exact shape, so these assertions exist
- * to make an accidental change to it fail loudly rather than reach a client.
+ * These assertions pinned the pre-`API-060` body until now; the endpoint has
+ * since been brought to the specified contract, so they pin that instead.
  *
- * ⚠️ This endpoint deliberately does **not** use the `API §10.1` envelope. It
- * predates the envelope and its body is depended upon; `API-060` conformance
- * (the `?check=liveness|readiness` parameter, and removing internal detail from
- * an unauthenticated response) is recorded as deferred in
- * `src/routes/health.ts`. These tests pin the contract as it stands today, not
- * as `API-060` will eventually require.
+ * `API-060` acceptance: "Readiness includes database reachability, provider
+ * reachability, and template loadability — an instance that cannot reason must
+ * not receive traffic. Liveness never depends on external services. No internal
+ * detail, version, or provider name exposed on an unauthenticated endpoint."
+ *
+ * No network, no credential, no database: every probe is injected.
  */
 
 import { test } from "node:test";
@@ -21,76 +21,203 @@ import type { Database } from "../../src/db/client.js";
 
 const config: AppConfig = {
   databaseUrl: "postgresql://unused",
+  traceDatabaseUrl: "postgresql://unused-trace",
+  provider: {},
   port: 0,
   corsOrigin: "http://localhost:5173",
   logLevel: "silent",
 };
 
-const build = async (findFirst: () => Promise<unknown>) =>
+const ok = () => Promise.resolve();
+const fail = (why: string) => () => Promise.reject(new Error(why));
+
+const build = async (
+  overrides: {
+    findFirst?: () => Promise<unknown>;
+    checkProvider?: () => Promise<void>;
+    checkTemplates?: () => Promise<void>;
+  } = {},
+) =>
   buildApp({
     config,
     database: {
-      prisma: { healthCheck: { findFirst } },
+      prisma: {
+        healthCheck: {
+          findFirst: overrides.findFirst ?? (() => Promise.resolve(null)),
+        },
+      },
       disconnect: () => Promise.resolve(),
     } as unknown as Database,
+    checkProvider: overrides.checkProvider ?? ok,
+    checkTemplates: overrides.checkTemplates ?? ok,
   });
 
-test("returns the exact documented body when the database is reachable", async () => {
-  const app = await build(() => Promise.resolve(null));
-  const res = await app.inject({ method: "GET", url: "/health" });
+// --- readiness -----------------------------------------------------------
+
+test("readiness reports all three dependencies when healthy", async () => {
+  const app = await build();
+  const res = await app.inject({
+    method: "GET",
+    url: "/health?check=readiness",
+  });
 
   assert.equal(res.statusCode, 200);
   assert.deepEqual(JSON.parse(res.body), {
     status: "ok",
-    app: "NAIGX",
-    version: "0.1.0",
     database: "connected",
+    dependencies: {
+      database: "available",
+      provider: "available",
+      templates: "available",
+    },
   });
   await app.close();
 });
 
-test("returns 503 with the exact documented body when the database is unreachable", async () => {
-  const app = await build(() => Promise.reject(new Error("ECONNREFUSED")));
+test("readiness is the default when no check is named", async () => {
+  const app = await build();
   const res = await app.inject({ method: "GET", url: "/health" });
+  assert.equal(res.statusCode, 200);
+  assert.equal(JSON.parse(res.body).dependencies.provider, "available");
+  // The existing client reads this field; keeping it is compatible with
+  // `API-060`, which forbids a version, an app name and a provider name.
+  assert.equal(JSON.parse(res.body).database, "connected");
+  await app.close();
+});
+
+test("an unreachable provider makes the instance not ready (503)", async () => {
+  // The requirement this task exists for: "an instance that cannot reason must
+  // not receive traffic".
+  const app = await build({ checkProvider: fail("connect ECONNREFUSED") });
+  const res = await app.inject({
+    method: "GET",
+    url: "/health?check=readiness",
+  });
 
   assert.equal(res.statusCode, 503);
-  assert.deepEqual(JSON.parse(res.body), {
-    status: "error",
-    app: "NAIGX",
-    version: "0.1.0",
-    database: "disconnected",
+  const body = JSON.parse(res.body);
+  assert.equal(body.status, "error");
+  assert.equal(body.dependencies.provider, "unavailable");
+  assert.equal(body.dependencies.database, "available");
+  await app.close();
+});
+
+test("an unconfigured provider is not ready either", async () => {
+  // No probe supplied means nothing is configured to reason with.
+  const app = await buildApp({
+    config,
+    database: {
+      prisma: { healthCheck: { findFirst: () => Promise.resolve(null) } },
+      disconnect: () => Promise.resolve(),
+    } as unknown as Database,
+    checkTemplates: ok,
   });
+  const res = await app.inject({
+    method: "GET",
+    url: "/health?check=readiness",
+  });
+  assert.equal(res.statusCode, 503);
+  assert.equal(JSON.parse(res.body).dependencies.provider, "unavailable");
+  await app.close();
+});
+
+test("unloadable templates make the instance not ready", async () => {
+  const app = await build({ checkTemplates: fail("no active version") });
+  const res = await app.inject({
+    method: "GET",
+    url: "/health?check=readiness",
+  });
+  assert.equal(res.statusCode, 503);
+  assert.equal(JSON.parse(res.body).dependencies.templates, "unavailable");
+  await app.close();
+});
+
+test("an unreachable database still makes the instance not ready", async () => {
+  const app = await build({
+    findFirst: () => Promise.reject(new Error("ECONNREFUSED")),
+  });
+  const res = await app.inject({
+    method: "GET",
+    url: "/health?check=readiness",
+  });
+  assert.equal(res.statusCode, 503);
+  assert.equal(JSON.parse(res.body).dependencies.database, "unavailable");
+  await app.close();
+});
+
+// --- liveness ------------------------------------------------------------
+
+test("liveness never depends on an external service", async () => {
+  // Every dependency is broken. Liveness must still answer 200: a liveness
+  // probe that consults them would restart a healthy instance during an outage.
+  const app = await build({
+    findFirst: () => Promise.reject(new Error("ECONNREFUSED")),
+    checkProvider: fail("unreachable"),
+    checkTemplates: fail("unreachable"),
+  });
+  const res = await app.inject({
+    method: "GET",
+    url: "/health?check=liveness",
+  });
+
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(JSON.parse(res.body), { status: "ok" });
+  await app.close();
+});
+
+// --- disclosure ----------------------------------------------------------
+
+test("no version, app name or provider identity is exposed", async () => {
+  // `API-060`: "No internal detail, version, or provider name exposed on an
+  // unauthenticated endpoint." The `app` and `version` fields this endpoint
+  // used to return are gone for exactly this reason.
+  for (const url of [
+    "/health",
+    "/health?check=liveness",
+    "/health?check=readiness",
+  ]) {
+    const app = await build();
+    const res = await app.inject({ method: "GET", url });
+    const body = res.body.toLowerCase();
+
+    for (const leak of ["version", "0.1.0", "naigx", "anthropic", "claude"]) {
+      assert.ok(!body.includes(leak), `${url} must not expose "${leak}"`);
+    }
+    await app.close();
+  }
+});
+
+test("a failing dependency reports its role, never the reason", async () => {
+  // The underlying error goes to the log; the unauthenticated body says only
+  // that a dependency is unavailable (`AI-006`, `FR-093`).
+  const app = await build({
+    checkProvider: fail("anthropic: 401 invalid key sk-ant-EXAMPLE"),
+  });
+  const res = await app.inject({
+    method: "GET",
+    url: "/health?check=readiness",
+  });
+
+  assert.equal(res.statusCode, 503);
+  const body = res.body.toLowerCase();
+  for (const leak of ["anthropic", "sk-ant", "401", "invalid key"]) {
+    assert.ok(!body.includes(leak), `the body must not contain "${leak}"`);
+  }
+  assert.equal(JSON.parse(res.body).dependencies.provider, "unavailable");
   await app.close();
 });
 
 test("the 503 path is not rewritten by the centralized error handler", async () => {
-  const app = await build(() => Promise.reject(new Error("boom")));
+  const app = await build({
+    findFirst: () => Promise.reject(new Error("boom")),
+  });
   const body = JSON.parse(
     (await app.inject({ method: "GET", url: "/health" })).body,
   );
-
-  assert.ok(!("error" in body), "health must not adopt the error envelope");
-  assert.ok(!("meta" in body));
-  await app.close();
-});
-
-test("the database failure reason never reaches the client", async () => {
-  const app = await build(() =>
-    Promise.reject(new Error("connect ECONNREFUSED 127.0.0.1:5432 pw=hunter2")),
+  assert.equal(body.status, "error");
+  assert.ok(
+    body.dependencies,
+    "the health body survives, not an error envelope",
   );
-  const res = await app.inject({ method: "GET", url: "/health" });
-
-  assert.ok(!res.body.includes("hunter2"));
-  assert.ok(!res.body.includes("5432"));
-  await app.close();
-});
-
-test("the frontend's required fields are all present and typed as strings", async () => {
-  const app = await build(() => Promise.resolve(null));
-  const body = JSON.parse((await app.inject({ url: "/health" })).body);
-
-  for (const field of ["status", "app", "version", "database"]) {
-    assert.equal(typeof body[field], "string", `${field} must be a string`);
-  }
   await app.close();
 });

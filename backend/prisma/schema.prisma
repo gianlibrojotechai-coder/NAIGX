@@ -1,3 +1,20 @@
+// NAIGX primary store — `DB §4` primary domains.
+//
+// Scope: Identity (§4.1), Analysis (§4.2), Reasoning (§4.3), Configuration (§4.5).
+// ArtifactSchema is included because `DB §3.1` places it in the Configuration domain.
+//
+// Deliberately NOT here:
+//   · Trace Store (§4.7)      — separate PostgreSQL database (`docs/12` D-2).
+//                               No foreign key crosses the store boundary (§1.4).
+//   · Artifact domain (§4.4)  — Artifact, ArtifactPlanEntry, Export.
+//   · Operational (§4.6)      — Feedback, AuditEvent.
+//   · ApiKey / Role (§10.1)   — no entity specification exists; §10.4 says role and
+//                               permission tables are deliberately not built.
+//
+// Physical names follow the snake_case names used by `DB §4`. Nullability follows
+// the specification, except where §6.2 progressive persistence requires a column to
+// be absent at `queued` time — those are marked below.
+
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -7,7 +24,588 @@ datasource db {
   provider = "postgresql"
 }
 
+// Sprint 0 liveness probe. Unrelated to the domain model; left exactly as it was.
 model HealthCheck {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Enumerations
+//
+// Only closed sets that an authoritative document actually enumerates appear
+// here. Vocabularies the documents leave undefined are typed `String` rather
+// than guessed — see the report accompanying this schema.
+// ---------------------------------------------------------------------------
+
+/// `DB §4.2` ANALYSIS.
+enum AnalysisStatus {
+  queued
+  running
+  completed
+  failed
+  timed_out
+
+  @@map("analysis_status")
+}
+
+/// `DB §4.2` ANALYSIS_INPUT.
+enum SourceType {
+  paste
+  file
+
+  @@map("source_type")
+}
+
+/// `FR-011`. Five values, not the six of `AI §4.1`: `docs/12` D-6 establishes
+/// `mixed` as an internal Stage 1 detection state that resolves to a dominant
+/// type before the stage completes, never a terminal persisted value.
+/// The `AI §4.1` / `FR-011` divergence is recorded as `AIQ-9`, unresolved.
+enum ClassificationType {
+  business_requirement
+  existing_workflow
+  job_description
+  technical_assessment
+  unsupported
+
+  @@map("classification_type")
+}
+
+/// `DB §4.2` CONTEXT_ELEMENT.
+enum ContextProvenance {
+  stated
+  inferred
+  unknown
+
+  @@map("context_provenance")
+}
+
+/// `AI §8.4` — bands, not scores.
+enum ConfidenceBand {
+  high
+  medium
+  low
+
+  @@map("confidence_band")
+}
+
+/// `AI §5.4`.
+enum SufficiencyLevel {
+  sufficient
+  thin
+  insufficient
+
+  @@map("sufficiency_level")
+}
+
+/// `DB §4.5` PROMPT_FRAGMENT.
+enum FragmentClass {
+  foundation
+  stage
+  type_modifier
+  artifact
+  output_contract
+
+  @@map("fragment_class")
+}
+
+/// `DB §4.3` CONTEXT_REFERENCE — "a closed set with the discriminator required".
+/// The two members are the two targets its Relationships row names.
+enum ReferencingType {
+  recommendation
+  architecture_component
+
+  @@map("referencing_type")
+}
+
+/// `DB §4.4` EXPORT.format. Referenced here only by UserSettings.
+enum ExportFormat {
+  markdown
+  pdf
+
+  @@map("export_format")
+}
+
+// ---------------------------------------------------------------------------
+// §4.1 Identity Domain
+// ---------------------------------------------------------------------------
+
+/// Identity and ownership anchor for all user data.
+model User {
+  userId          String    @id @default(uuid()) @map("user_id") @db.Uuid
+  /// Classified PII (§13.2) — encrypted at rest, never logged.
+  email           String    @unique
+  /// Classified Credential (§13.2) — hashed, irreversible, never exported.
+  /// Nullable so that "never null for active accounts" is expressible; a CHECK
+  /// constraint in the migration ties nullability to `deleted_at`.
+  credentialHash  String?   @map("credential_hash")
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  deletedAt       DateTime? @map("deleted_at")
+  /// `NFR-030` — defaults false; requires an explicit affirmative act to set.
+  trainingConsent Boolean   @default(false) @map("training_consent")
+
+  sessions Session[]
+  settings UserSettings?
+  analyses Analysis[]
+
+  @@index([deletedAt])
+  @@map("user")
+}
+
+/// Authenticated session state.
+model Session {
+  sessionId      String    @id @default(uuid()) @map("session_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  /// Classified Credential (§13.2) — stored hashed, never raw.
+  tokenHash      String    @map("token_hash")
+  issuedAt       DateTime  @default(now()) @map("issued_at")
+  expiresAt      DateTime  @map("expires_at")
+  revokedAt      DateTime? @map("revoked_at")
+  /// Pseudonymous (§13.2). Raw IP is never persisted (`NFR-025`).
+  userAgentClass String    @map("user_agent_class")
+  ipHash         String    @map("ip_hash")
+
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("session")
+}
+
+/// User preferences. Deliberately minimal (`FR-071`); growth here is drift.
+model UserSettings {
+  userId              String       @id @map("user_id") @db.Uuid
+  /// §4.1 requires every setting to carry a non-null default, but no document
+  /// names which format that default is. Left without a database default
+  /// rather than inventing one — see the accompanying report.
+  defaultExportFormat ExportFormat @map("default_export_format")
+  updatedAt           DateTime     @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+// ---------------------------------------------------------------------------
+// §4.2 Analysis Domain
+// ---------------------------------------------------------------------------
+
+/// The root record of one reasoning run. The unit of ownership, retrieval,
+/// deletion, and export. Immutable once `status` is terminal (DP-3) — enforced
+/// by the application, not by the schema.
+model Analysis {
+  analysisId            String            @id @default(uuid()) @map("analysis_id") @db.Uuid
+  /// Nullable for anonymous analyses (`FR-004`).
+  userId                String?           @map("user_id") @db.Uuid
+  anonymousTokenHash    String?           @map("anonymous_token_hash")
+  status                AnalysisStatus
+  createdAt             DateTime          @default(now()) @map("created_at")
+  completedAt           DateTime?         @map("completed_at")
+  /// Written once a title can be derived; absent at `queued` (§6.2).
+  derivedTitle          String?           @map("derived_title")
+  /// Absent at `queued` — no model has been invoked yet (§6.1, §6.2).
+  modelVersionId        String?           @map("model_version_id") @db.Uuid
+  /// Written at Stage 11 (§6.1).
+  overallConfidenceBand ConfidenceBand?   @map("overall_confidence_band")
+  /// Written at Stage 3 (`AI §5.4`).
+  sufficiencyLevel      SufficiencyLevel? @map("sufficiency_level")
+  degradationFlag       Boolean           @default(false) @map("degradation_flag")
+  timeoutFlag           Boolean           @default(false) @map("timeout_flag")
+  /// `FR-064` re-analysis lineage; the original is preserved (DP-3).
+  supersedesAnalysisId  String?           @map("supersedes_analysis_id") @db.Uuid
+
+  user         User?         @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  /// §5.3 — RESTRICT. A model version referenced by history is never deletable;
+  /// it is deactivated instead (DP-7). Prisma would default an optional relation
+  /// to SET NULL, which would silently erase drift attribution (`AI-004`).
+  modelVersion ModelVersion? @relation(fields: [modelVersionId], references: [modelVersionId], onDelete: Restrict)
+  supersedes   Analysis?     @relation("AnalysisSupersedes", fields: [supersedesAnalysisId], references: [analysisId])
+  supersededBy Analysis[]    @relation("AnalysisSupersedes")
+
+  input                AnalysisInput?
+  classification       Classification?
+  intentRecord         IntentRecord?
+  contextElements      ContextElement[]
+  architectureModel    ArchitectureModel?
+  recommendations      Recommendation[]
+  riskItems            RiskItem[]
+  complexityAssessment ComplexityAssessment?
+  fragmentUsages       FragmentUsage[]
+
+  /// `FR-061` history listing.
+  @@index([userId, createdAt(sort: Desc)])
+  /// Job recovery.
+  @@index([status])
+  @@index([anonymousTokenHash])
+  @@map("analysis")
+}
+
+/// The exact submitted content, preserved verbatim. Separated 1:1 from Analysis
+/// because `raw_content` is the most sensitive field in the schema — separation
+/// keeps the hot path narrow and makes encryption targetable (§4.2, `docs/12` D-5).
+model AnalysisInput {
+  analysisId       String     @id @map("analysis_id") @db.Uuid
+  /// Classified Confidential business (§13.2) — application-level encryption,
+  /// never logged, never in telemetry. `DBQ-8` governs the mechanism.
+  rawContent       String     @map("raw_content")
+  contentHash      String     @map("content_hash")
+  /// `FR-002` bounds: 50–50,000. Enforced by CHECK in the migration.
+  characterCount   Int        @map("character_count")
+  sourceType       SourceType @map("source_type")
+  originalFilename String?    @map("original_filename")
+
+  analysis Analysis @relation(fields: [analysisId], references: [analysisId], onDelete: Cascade)
+
+  /// Duplicate detection and regression-corpus matching.
+  @@index([contentHash])
+  @@map("analysis_input")
+}
+
+/// Stage 1 output, including override history. The system's determination and
+/// the user's override are stored separately — overwriting would destroy `M-6`.
+model Classification {
+  analysisId       String               @id @map("analysis_id") @db.Uuid
+  determinedType   ClassificationType   @map("determined_type")
+  /// `FR-011` — in [0,1]. Enforced by CHECK in the migration.
+  confidence       Float
+  /// Ordered set. Carries the secondary type when Stage 1 detected a mixed
+  /// input (`docs/12` D-6); `AI §4.3` discloses the secondary, `API §4.2`
+  /// defers a first-class `secondary_classification` field to a later version.
+  candidateTypes   ClassificationType[] @map("candidate_types")
+  wasLowConfidence Boolean              @map("was_low_confidence")
+  userOverrideType ClassificationType?  @map("user_override_type")
+  overriddenAt     DateTime?            @map("overridden_at")
+
+  analysis Analysis @relation(fields: [analysisId], references: [analysisId], onDelete: Cascade)
+
+  @@index([determinedType])
+  @@index([userOverrideType])
+  @@map("classification")
+}
+
+/// Stage 2 output.
+model IntentRecord {
+  intentId            String @id @default(uuid()) @map("intent_id") @db.Uuid
+  analysisId          String @unique @map("analysis_id") @db.Uuid
+  primaryObjective    String @map("primary_objective")
+  /// Multi-valued; §4.2 specifies no child entity, so both this and the
+  /// per-element provenance required by its Constraints row are documents.
+  secondaryObjectives Json   @map("secondary_objectives")
+  inferredScope       String @map("inferred_scope")
+  /// Every objective element carries provenance ∈ {stated, inferred} (§4.2).
+  objectiveProvenance Json   @map("objective_provenance")
+
+  analysis Analysis @relation(fields: [analysisId], references: [analysisId], onDelete: Cascade)
+
+  @@map("intent_record")
+}
+
+/// Stage 3 output. The grounding layer for the entire traceability chain.
+model ContextElement {
+  contextElementId String            @id @default(uuid()) @map("context_element_id") @db.Uuid
+  analysisId       String            @map("analysis_id") @db.Uuid
+  content          String
+  /// Vocabulary undefined by every authoritative document — typed as text.
+  category         String
+  provenance       ContextProvenance
+  sourceSpanStart  Int?              @map("source_span_start")
+  sourceSpanEnd    Int?              @map("source_span_end")
+  inferenceBasis   String?           @map("inference_basis")
+  resolutionHint   String?           @map("resolution_hint")
+  /// Feeds confidence factor CF-4 (`AI §8.2`). Scale undefined.
+  specificityScore Float             @map("specificity_score")
+  /// Feeds CF-3.
+  conflictsWithId  String?           @map("conflicts_with_id") @db.Uuid
+
+  analysis      Analysis           @relation(fields: [analysisId], references: [analysisId], onDelete: Cascade)
+  conflictsWith ContextElement?    @relation("ContextElementConflict", fields: [conflictsWithId], references: [contextElementId])
+  conflictedBy  ContextElement[]   @relation("ContextElementConflict")
+  references    ContextReference[]
+
+  @@index([analysisId, provenance])
+  @@index([conflictsWithId])
+  @@map("context_element")
+}
+
+// ---------------------------------------------------------------------------
+// §4.3 Reasoning Domain
+// ---------------------------------------------------------------------------
+
+/// Stage 6 output — the design root. Present only for architecture-producing
+/// paths (`AI §4.1`), hence 1:0..1 from Analysis.
+model ArchitectureModel {
+  architectureId      String   @id @default(uuid()) @map("architecture_id") @db.Uuid
+  analysisId          String   @unique @map("analysis_id") @db.Uuid
+  summary             String
+  dataFlowDescription String   @map("data_flow_description")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  analysis   Analysis                @relation(fields: [analysisId], references: [analysisId], onDelete: Cascade)
+  components ArchitectureComponent[]
+
+  @@map("architecture_model")
+}
+
+/// An individual component with its justification. `FR-030` requires at least
+/// one context reference per component; because references are polymorphic,
+/// that is a validation-time rule (Stage 10), not a schema constraint.
+model ArchitectureComponent {
+  componentId          String  @id @default(uuid()) @map("component_id") @db.Uuid
+  architectureId       String  @map("architecture_id") @db.Uuid
+  name                 String
+  responsibility       String
+  inputs               String
+  outputs              String
+  failureHandling      String  @map("failure_handling")
+  integrationDirection String? @map("integration_direction")
+  externalSystem       String? @map("external_system")
+  ordinal              Int
+
+  architecture ArchitectureModel @relation(fields: [architectureId], references: [architectureId], onDelete: Cascade)
+  riskItems    RiskItem[]
+
+  @@unique([architectureId, name])
+  @@index([architectureId])
+  @@map("architecture_component")
+}
+
+/// Stage 7 output. `rationale` and `criteria_applied` are non-nullable and
+/// non-empty so that an unexplained recommendation cannot be represented
+/// (`AIP-4`) — the database is the enforcement point.
+model Recommendation {
+  recommendationId     String         @id @default(uuid()) @map("recommendation_id") @db.Uuid
+  analysisId           String         @map("analysis_id") @db.Uuid
+  /// Vocabulary undefined by every authoritative document — typed as text.
+  recommendationType   String         @map("recommendation_type")
+  conclusion           String
+  rationale            String
+  criteriaApplied      String         @map("criteria_applied")
+  limits               String
+  confidenceBand       ConfidenceBand @map("confidence_band")
+  /// Below `high` requires non-empty factors (`FR-018`, `FR-045`).
+  confidenceFactors    Json           @map("confidence_factors")
+  /// Stored explicitly so `AC-013` is verifiable by query.
+  isNegativeConclusion Boolean        @map("is_negative_conclusion")
+
+  analysis               Analysis                    @relation(fields: [analysisId], references: [analysisId], onDelete: Cascade)
+  alternatives           RecommendationAlternative[]
+  platformRecommendation PlatformRecommendation?
+
+  @@index([analysisId])
+  @@index([isNegativeConclusion])
+  @@map("recommendation")
+}
+
+/// What was considered and rejected (`AI-031`). Modelled as a relation so that
+/// `FR-034` — at least one named rejected alternative — is countable.
+model RecommendationAlternative {
+  alternativeId    String @id @default(uuid()) @map("alternative_id") @db.Uuid
+  recommendationId String @map("recommendation_id") @db.Uuid
+  alternative      String
+  rejectionReason  String @map("rejection_reason")
+  ordinal          Int
+
+  recommendation Recommendation @relation(fields: [recommendationId], references: [recommendationId], onDelete: Cascade)
+
+  @@index([recommendationId])
+  @@map("recommendation_alternative")
+}
+
+/// The traceability join. Polymorphic to Recommendation or ArchitectureComponent
+/// via `referencing_type`; only the ContextElement side is a foreign key, so the
+/// §5.3 cascade from Recommendation is an application-side responsibility.
+model ContextReference {
+  referenceId      String          @id @default(uuid()) @map("reference_id") @db.Uuid
+  contextElementId String          @map("context_element_id") @db.Uuid
+  referencingType  ReferencingType @map("referencing_type")
+  referencingId    String          @map("referencing_id") @db.Uuid
+  /// Vocabulary undefined by every authoritative document — typed as text.
+  relevance        String
+
+  contextElement ContextElement @relation(fields: [contextElementId], references: [contextElementId], onDelete: Cascade)
+
+  @@index([contextElementId])
+  @@index([referencingType, referencingId])
+  @@map("context_reference")
+}
+
+/// Platform-selection specialization. Neutrality is enforced by absence: there
+/// is no column for a commercial relationship, ranking weight, or partner
+/// status, and none may be added (`PV §3.3`).
+model PlatformRecommendation {
+  platformRecommendationId String  @id @default(uuid()) @map("platform_recommendation_id") @db.Uuid
+  recommendationId         String  @unique @map("recommendation_id") @db.Uuid
+  /// Null means no platform / do not automate — valid and meaningful (`FR-034`).
+  recommendedPlatform      String? @map("recommended_platform")
+  selectionCriteria        String  @map("selection_criteria")
+  knowledgeCurrencyNote    String  @map("knowledge_currency_note")
+
+  recommendation Recommendation @relation(fields: [recommendationId], references: [recommendationId], onDelete: Cascade)
+
+  /// Neutrality auditing (`AC-032`).
+  @@index([recommendedPlatform])
+  @@map("platform_recommendation")
+}
+
+/// Risk register entries (`FR-032`). Non-nullable `component_id` is the schema
+/// enforcement of "no generic risks" — a risk that cannot name what it affects
+/// cannot be stored. Severity and likelihood are the 1–5 integer scales of
+/// `docs/09-Scoring-Scales.md` §2; score and band are derived, never stored.
+model RiskItem {
+  riskId      String @id @default(uuid()) @map("risk_id") @db.Uuid
+  analysisId  String @map("analysis_id") @db.Uuid
+  componentId String @map("component_id") @db.Uuid
+  description String
+  severity    Int
+  likelihood  Int
+  mitigation  String
+
+  analysis  Analysis              @relation(fields: [analysisId], references: [analysisId], onDelete: Cascade)
+  component ArchitectureComponent @relation(fields: [componentId], references: [componentId], onDelete: Cascade)
+
+  @@index([analysisId])
+  @@index([severity, likelihood])
+  @@map("risk_item")
+}
+
+/// Complexity score with reconstructible basis (`FR-033`). Storing the factor
+/// breakdown — not just the score — is what makes the score reconstructible
+/// from storage. `scale_version` prevents silent comparison across scale
+/// revisions; v1 is `complexity-v1` (`docs/09` §1).
+model ComplexityAssessment {
+  assessmentId    String @id @default(uuid()) @map("assessment_id") @db.Uuid
+  analysisId      String @unique @map("analysis_id") @db.Uuid
+  score           Int
+  /// Rows of (factor, value, weight, contribution). Σ contributions × 20 = score.
+  factorBreakdown Json   @map("factor_breakdown")
+  scaleVersion    String @map("scale_version")
+
+  analysis Analysis @relation(fields: [analysisId], references: [analysisId], onDelete: Cascade)
+
+  @@map("complexity_assessment")
+}
+
+// ---------------------------------------------------------------------------
+// §4.5 Configuration Domain
+// ---------------------------------------------------------------------------
+
+/// Identity of a composable prompt fragment (`AI §6.2`). Created once, never
+/// deleted.
+model PromptFragment {
+  fragmentId    String        @id @default(uuid()) @map("fragment_id") @db.Uuid
+  fragmentKey   String        @unique @map("fragment_key")
+  fragmentClass FragmentClass @map("fragment_class")
+  /// Vocabulary undefined by every authoritative document — typed as text.
+  ownerClass    String        @map("owner_class")
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  versions PromptFragmentVersion[]
+
+  @@map("prompt_fragment")
+}
+
+/// An immutable version of a fragment. Append-only, never updated (DP-4).
+///
+/// `docs/12` D-3: fragments are authored in `prompts/` under Git review and
+/// published here; the runtime resolves `content` from this table, which is what
+/// makes rollback without a code deploy possible (`AI-014`). `content_hash`
+/// detects divergence between the reviewed source and the published row.
+model PromptFragmentVersion {
+  fragmentVersionId       String    @id @default(uuid()) @map("fragment_version_id") @db.Uuid
+  fragmentId              String    @map("fragment_id") @db.Uuid
+  version                 String
+  /// The published fragment text — the attribute §4.5 left open pending `DBQ-5`.
+  content                 String
+  contentHash             String    @map("content_hash")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  activatedAt             DateTime? @map("activated_at")
+  deprecatedAt            DateTime? @map("deprecated_at")
+  /// `NFR-043` is a data constraint, not process discipline: activation without
+  /// a recorded passing regression run is rejected by CHECK in the migration.
+  regressionPassReference String?   @map("regression_pass_reference")
+
+  fragment PromptFragment  @relation(fields: [fragmentId], references: [fragmentId])
+  usages   FragmentUsage[]
+
+  @@unique([fragmentId, version])
+  @@index([activatedAt])
+  @@map("prompt_fragment_version")
+}
+
+/// The exact fragment composition used by one analysis (`AI-013`). Records the
+/// resolved composition, not current configuration (DP-5) — this is the join
+/// that makes quality attribution possible.
+model FragmentUsage {
+  usageId           String @id @default(uuid()) @map("usage_id") @db.Uuid
+  analysisId        String @map("analysis_id") @db.Uuid
+  fragmentVersionId String @map("fragment_version_id") @db.Uuid
+  /// Stage key. The stage vocabulary is unsettled while `AIQ-10` is open.
+  stage             String
+  ordinal           Int
+
+  analysis        Analysis              @relation(fields: [analysisId], references: [analysisId], onDelete: Cascade)
+  fragmentVersion PromptFragmentVersion @relation(fields: [fragmentVersionId], references: [fragmentVersionId], onDelete: Restrict)
+
+  @@index([analysisId])
+  /// Impact analysis: which analyses used a suspect fragment version.
+  @@index([fragmentVersionId])
+  @@map("fragment_usage")
+}
+
+/// Reference data for model providers. Providers are rows, not schema (DP-6) —
+/// adding a provider is a data operation (`docs/12` D-4). `declared_capabilities`
+/// backs the `AI §10.2` capability-detection model: the abstraction layer reads
+/// declarations rather than assuming. Never exposed in output or export (`AI-006`).
+model Provider {
+  providerId           String   @id @default(uuid()) @map("provider_id") @db.Uuid
+  providerKey          String   @unique @map("provider_key")
+  declaredCapabilities Json     @map("declared_capabilities")
+  active               Boolean
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  modelVersions ModelVersion[]
+
+  @@map("provider")
+}
+
+/// A specific model version, for drift attribution (`AI-004`). Its existence is
+/// what makes `SA AR-41` — silent model drift — detectable. Append-only (DP-4);
+/// deactivated, never deleted (DP-7).
+model ModelVersion {
+  modelVersionId String   @id @default(uuid()) @map("model_version_id") @db.Uuid
+  providerId     String   @map("provider_id") @db.Uuid
+  modelKey       String   @map("model_key")
+  versionLabel   String   @map("version_label")
+  firstSeenAt    DateTime @default(now()) @map("first_seen_at")
+  active         Boolean
+
+  provider Provider   @relation(fields: [providerId], references: [providerId], onDelete: Restrict)
+  analyses Analysis[]
+
+  @@unique([providerId, modelKey, versionLabel])
+  @@map("model_version")
+}
+
+/// Versioned artifact schema definitions. Append-only (DP-4); never hard-deleted
+/// while referenced.
+///
+/// `docs/12` D-1: `definition` holds a JSON Schema draft 2020-12 document. The
+/// same document is injected into the Output Contract prompt fragment (`AI §6.1`)
+/// and drives deterministic validation (`FR-039`) — `AI §9.3` requires that
+/// generation guidance and validation cannot disagree, which is only possible
+/// when both read one stored document. Typed `Json`, not text, for that reason.
+///
+/// The Artifact side of its 1:N relationship lives in the excluded Artifact
+/// domain and arrives with that domain.
+model ArtifactSchema {
+  schemaId      String    @id @default(uuid()) @map("schema_id") @db.Uuid
+  artifactType  String    @map("artifact_type")
+  version       String
+  definition    Json
+  effectiveFrom DateTime  @map("effective_from")
+  deprecatedAt  DateTime? @map("deprecated_at")
+
+  @@unique([artifactType, version])
+  @@map("artifact_schema")
 }

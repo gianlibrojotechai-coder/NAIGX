@@ -11,13 +11,49 @@ import "dotenv/config";
 import { buildApp } from "./app.js";
 import { loadConfig } from "./config/env.js";
 import { createDatabase } from "./db/client.js";
+import { createTraceDatabase } from "./db/trace-client.js";
+import { createFragmentResolver } from "./db/fragment-resolver.js";
+import { createAnthropicProvider } from "./provider/adapters/anthropic.js";
+import { FOUNDATION_FRAGMENT_KEYS } from "./nie/prompt.js";
 
 const HOST = "0.0.0.0";
 
 const main = async (): Promise<void> => {
   const config = loadConfig();
   const database = createDatabase(config);
-  const app = await buildApp({ config, database });
+  // A separate store with an independent lifecycle (`DB §1.4`). Both pools are
+  // lazy, so constructing it here costs no connection until something writes.
+  const traceDatabase = createTraceDatabase(config);
+  // `API-060` readiness probes. Built here, in the only module that already
+  // knows which provider is configured, so the API layer names none (`AI-006`).
+  //
+  // Provider reachability is a *configuration* probe, not a model call: a
+  // readiness endpoint is polled continuously, and billing a token for every
+  // poll would be a defect. It verifies the instance is capable of reasoning —
+  // a credential and a model are present and an adapter constructs.
+  const checkProvider = (): Promise<void> => {
+    const { apiKey, model } = config.provider;
+    if (apiKey === undefined || model === undefined) {
+      return Promise.reject(new Error("No provider is configured"));
+    }
+    createAnthropicProvider({ apiKey, model });
+    return Promise.resolve();
+  };
+
+  // Template loadability: the shared foundation fragments resolve to published,
+  // active versions. Without them no stage can compose a prompt.
+  const checkTemplates = async (): Promise<void> => {
+    await createFragmentResolver(database.prisma).resolve([
+      ...FOUNDATION_FRAGMENT_KEYS,
+    ]);
+  };
+
+  const app = await buildApp({
+    config,
+    database,
+    checkProvider,
+    checkTemplates,
+  });
 
   let shuttingDown = false;
 
@@ -33,6 +69,7 @@ const main = async (): Promise<void> => {
       // Stop accepting requests before releasing the resources they depend on.
       await app.close();
       await database.disconnect();
+      await traceDatabase.disconnect();
       process.exit(0);
     } catch (error) {
       app.log.error(error, "Error during shutdown");

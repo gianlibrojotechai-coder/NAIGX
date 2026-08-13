@@ -1,0 +1,157 @@
+// NAIGX trace store — `DB §4.7` entities, `DB §8` storage model.
+//
+// A SEPARATE PostgreSQL database from the primary store, resolved by `docs/12`
+// D-2 and required by `DB §1.4`. It is not a second schema inside the primary
+// database: §1.4 lists independent retention, a write-once operator-only access
+// pattern, volume asymmetry, and blast radius as the reasons, and separation is
+// what makes the §8.4 operator-only boundary "enforceable rather than a policy
+// claim".
+//
+// TWO PROPERTIES ARE ENFORCED BY ABSENCE HERE:
+//
+//   1. No foreign key crosses the store boundary (§1.4). `analysis_id` and
+//      `model_version_id` are identifier references with no constraint, so
+//      trace expiry can never affect a stored analysis and analysis deletion
+//      can never block on trace state.
+//
+//   2. No provider identity is stored (§4.7, `AI-006`). There is no
+//      `provider_id`, no `provider_key`, no model name — only
+//      `model_version_id`, which resolves in the primary store and is
+//      operator-only. A provider name has no column to occupy.
+//
+// Retention is tiered, not uniform — see `src/db/trace-retention.ts`.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../../src/generated/prisma-trace"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// `AI §3.2` Stage 10 validation classes — the closed set §4.7 requires
+/// `validation_class` to be drawn from.
+enum ValidationClass {
+  schema
+  rationale_completeness
+  reference_integrity
+  provenance_integrity
+  unsupported_claim_detection
+  internal_consistency
+
+  @@map("validation_class")
+}
+
+/// `AI §10.4` failure taxonomy, matching `ProviderFailureClass` in
+/// `src/provider/capability.ts` so the trace records the same normalized class
+/// the abstraction layer raises.
+enum ProviderErrorClass {
+  transient
+  persistent
+  capability_mismatch
+  malformed_response
+
+  @@map("provider_error_class")
+}
+
+/// Per-stage execution record (`FR-100`). Contains full user business content,
+/// classified Confidential business (§13.2) — never logged, never in telemetry,
+/// operator-only (§8.4).
+///
+/// RETENTION: 7 days (§8.3). The shortest tier, because this is the only trace
+/// entity holding user content.
+model StageTrace {
+  stageTraceId     String   @id @default(uuid()) @map("stage_trace_id") @db.Uuid
+  /// Identifier reference to the primary store. Deliberately NOT a foreign key
+  /// (§1.4). Deletion of an analysis enqueues an asynchronous purge (§5.4).
+  analysisId       String   @map("analysis_id") @db.Uuid
+  stageNumber      Int      @map("stage_number")
+  /// Stage key. The stage vocabulary is unsettled while `AIQ-10` is open.
+  stageKey         String   @map("stage_key")
+  structuredInput  Json     @map("structured_input")
+  /// Absent when the stage failed before producing output.
+  structuredOutput Json?    @map("structured_output")
+  startedAt        DateTime @default(now()) @map("started_at")
+  durationMs       Int      @map("duration_ms")
+  /// Vocabulary undefined by every authoritative document — typed as text.
+  outcome          String
+  /// Present only on failure.
+  failureReason    String?  @map("failure_reason")
+  retryCount       Int      @map("retry_count")
+
+  @@index([analysisId])
+  @@index([stageKey, outcome])
+  /// Expiry sweep (§4.7, §8.3).
+  @@index([startedAt])
+  @@map("stage_trace")
+}
+
+/// Per-call provider record — economics and reliability. Holds no user content,
+/// which is precisely why it may outlive stage traces: cost and reliability
+/// analysis over a long window should not require retaining business content
+/// to obtain (`TV-4`, `SA AR-22`).
+///
+/// RETENTION: 30 days (§8.3).
+model ProviderInvocation {
+  invocationId   String              @id @default(uuid()) @map("invocation_id") @db.Uuid
+  /// Identifier reference, not a foreign key: this row outlives its stage trace
+  /// by 23 days, so a constraint of any referential action would either block
+  /// the 7-day purge, cascade this row away with it, or mutate an entity §4.7
+  /// declares immutable. See the accompanying report.
+  stageTraceId   String              @map("stage_trace_id") @db.Uuid
+  /// Cross-store identifier reference (§3.3). Resolves in the primary store's
+  /// `model_version` table; enables `AI-004` drift attribution.
+  modelVersionId String              @map("model_version_id") @db.Uuid
+  latencyMs      Int                 @map("latency_ms")
+  inputTokens    Int                 @map("input_tokens")
+  outputTokens   Int                 @map("output_tokens")
+  /// USD, per `docs/12` D-4 — computed from token counts and a configured rate,
+  /// never returned by a provider. Operational class (§13.2): never in a
+  /// client-facing response (`API §10.3`).
+  estimatedCost  Decimal             @map("estimated_cost") @db.Decimal(18, 8)
+  /// Vocabulary undefined by every authoritative document — typed as text.
+  outcome        String
+  /// Present only on failure.
+  errorClass     ProviderErrorClass? @map("error_class")
+  attemptNumber  Int                 @map("attempt_number")
+  fallbackUsed   Boolean             @map("fallback_used")
+  /// Required by the §8.3 30-day tier: this row outlives its stage trace, so it
+  /// cannot borrow `started_at` to expire on. §4.7 specifies no timestamp for
+  /// this entity — see the accompanying report.
+  recordedAt     DateTime            @default(now()) @map("recorded_at")
+
+  @@index([stageTraceId])
+  @@index([modelVersionId, outcome])
+  /// Expiry sweep (§8.3).
+  @@index([recordedAt])
+  @@map("provider_invocation")
+}
+
+/// Validation outcome record (`FR-039`), source of the `NFR-084` leading
+/// indicator. Retaining these beyond trace expiry is deliberate: schema
+/// validation failure rate is the earliest warning of a bad fragment release
+/// (`AI §13.2`), and detecting a slow trend needs a longer window than content
+/// retention permits.
+///
+/// RETENTION: 30 days (§8.3).
+model ValidationEvent {
+  validationEventId     String          @id @default(uuid()) @map("validation_event_id") @db.Uuid
+  /// Identifier reference, not a foreign key — same reasoning as
+  /// `ProviderInvocation.stageTraceId`.
+  stageTraceId          String          @map("stage_trace_id") @db.Uuid
+  artifactType          String          @map("artifact_type")
+  validationClass       ValidationClass @map("validation_class")
+  passed                Boolean
+  /// Present only when `passed` is false.
+  failureDetail         String?         @map("failure_detail")
+  regenerationTriggered Boolean         @map("regeneration_triggered")
+  /// Required by the §8.3 30-day tier — see `ProviderInvocation.recordedAt`.
+  recordedAt            DateTime        @default(now()) @map("recorded_at")
+
+  @@index([validationClass, passed])
+  @@index([artifactType])
+  /// Expiry sweep (§8.3).
+  @@index([recordedAt])
+  @@map("validation_event")
+}

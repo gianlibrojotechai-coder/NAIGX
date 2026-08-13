@@ -60,6 +60,21 @@ export interface CapabilityRequest {
   readonly input: string;
 
   /**
+   * The composed instruction prompt for this stage.
+   *
+   * `AI §6.1` composes prompts in the NIE from versioned fragments, and
+   * `AI §10.6` forbids "prompt phrasing tuned to one provider" — so the
+   * composition cannot live in an adapter. `AI §10.2` nonetheless lists only
+   * four request dimensions and names no field to carry it.
+   *
+   * ⚠️ ADDED, NOT SPECIFIED (`docs/12` D-12). Optional so that a caller with no
+   * composition (the Sprint 0 tests, a bare adapter probe) is still valid. The
+   * text is fragment-composed and provider-neutral; an adapter may frame it
+   * however its API requires but must not rewrite it.
+   */
+  readonly instructions?: string;
+
+  /**
    * The output contract the response must satisfy.
    *
    * ⚠️ UNDEFINED: `AI §10.2` names "output contract" as a request dimension
@@ -84,9 +99,11 @@ export interface CapabilityRequest {
 /**
  * Usage accounting for one call (`SA §3.5`, `NFR-083`).
  *
- * ⚠️ Cost is deliberately absent. `SA §3.5` requires cost be recorded, but no
- * document fixes a currency, unit, or precision. Recording a number without a
- * unit would be worse than recording nothing. Sprint 1 must define it.
+ * Cost is deliberately absent **from the adapter surface**, and remains so now
+ * that `docs/12` D-4 has fixed the unit. An adapter reports what it observed —
+ * tokens and latency; cost is derived from those against a configured rate,
+ * which is the abstraction layer's job (`cost.ts`). Putting cost here would
+ * require every adapter to know its own pricing.
  */
 export interface ProviderUsage {
   readonly inputTokens: number;

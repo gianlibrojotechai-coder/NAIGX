@@ -14,6 +14,11 @@ services:
 
     volumes:
       - naigx_postgres_data:/var/lib/postgresql/data
+      # `DB §1.4` — the trace store is a SEPARATE database, not a schema inside
+      # the primary one. This script creates it on first initialisation of an
+      # empty volume only; an existing volume needs it created manually (the
+      # command is in the script).
+      - ./scripts/init-trace-db.sql:/docker-entrypoint-initdb.d/10-init-trace-db.sql:ro
 
 volumes:
   naigx_postgres_data:

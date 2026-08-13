@@ -41,6 +41,34 @@ jobs:
     defaults:
       run:
         working-directory: backend
+
+    # `DB §1.4` requires the trace store to be a SEPARATE database, not a schema
+    # inside the primary one. One Postgres instance hosts both here — the
+    # separation that matters is the database boundary and its credentials, and
+    # a second container would test nothing extra while doubling CI cost.
+    #
+    # Ephemeral by construction: created for this job, discarded with it. There
+    # is no path from here to production data (`DB §8.4`).
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: naigx
+          POSTGRES_PASSWORD: naigx_ci_password
+          POSTGRES_DB: naigx
+        ports:
+          - 5432:5432
+        # Without this the first migration races the server's startup.
+        options: >-
+          --health-cmd "pg_isready -U naigx"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://naigx:naigx_ci_password@localhost:5432/naigx
+      TRACE_DATABASE_URL: postgresql://naigx:naigx_ci_password@localhost:5432/naigx_trace
+
     steps:
       - uses: actions/checkout@v4
 
@@ -53,11 +81,35 @@ jobs:
       - name: Install
         run: npm ci
 
-      # The generated Prisma client is gitignored, so it must be produced
+      # The generated Prisma clients are gitignored, so they must be produced
       # before typecheck. `prisma generate` reads the schema only and needs
       # no database and no network.
-      - name: Generate Prisma client
-        run: npx prisma generate
+      #
+      # There are TWO clients: the primary store and the trace store, which is
+      # a separate database (`DB §1.4`). `prisma:generate` produces both —
+      # generating only the primary one leaves `src/db/trace-client.ts` with an
+      # unresolvable import and fails typecheck.
+      - name: Generate Prisma clients
+        run: npm run prisma:generate
+
+      # The service container creates only POSTGRES_DB. The trace store is a
+      # second database (`DB §1.4`), created the same way `scripts/init-trace-db.sql`
+      # creates it for local development.
+      - name: Create the trace database
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE DATABASE naigx_trace;'
+
+      # Both migration sets, each against its own database. `migrate deploy`
+      # applies committed migrations only — it never generates or resets, so CI
+      # runs exactly the SQL that was reviewed.
+      - name: Apply migrations (primary + trace)
+        run: npm run prisma:deploy
+
+      # Stages 1-3 resolve their prompt fragments from the database at runtime
+      # (`docs/12` D-3), so the integration tests need them published. The
+      # publisher refuses to run if the authored fragments and the manifest
+      # disagree, so this doubles as the `NFR-043` gate against the real schema.
+      - name: Publish prompt fragments
+        run: npm run fragments:publish
 
       # Step order follows the `Roadmap §8.1` pipeline:
       # lint + format → type check → tests → build.
@@ -72,7 +124,12 @@ jobs:
         run: npm run typecheck
 
       # Unit, integration and contract layers (`Roadmap §6.1`).
-      # No database, no network, no credentials.
+      #
+      # Both databases are live here, so the NIE real-infrastructure tests
+      # execute rather than skip — `CI=true` makes them fail if either database
+      # is unreachable, so a provisioning regression can never present as a
+      # green run. Still no network and no credentials: the replay and stub
+      # adapters are offline by construction (`AI-005`, `docs/12` D-11).
       - name: Test
         run: npm test
 
