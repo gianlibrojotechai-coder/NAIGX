@@ -18,6 +18,15 @@
  * `stated` is checked further: the span must actually resolve within the input
  * text. `AI §3.2` calls for "traceable to a span, verified structurally", and a
  * span that points outside the input traces to nothing.
+ *
+ * TWO REFERENCES, NEITHER OF THEM COUNTED. `docs/12` D-19 established the rule
+ * after the model miscounted a character offset: where the application can
+ * derive a position deterministically, it must, and the model supplies
+ * something it can copy instead. Both references in this stage now follow it —
+ * a `stated` element quotes the input and the span is located, and a conflict
+ * cites another element's `id` and the index is looked up. The stored shape is
+ * unchanged either way: spans and `conflicts_with_index` are what persistence
+ * and `CONTEXT_REFERENCE` still see.
  */
 
 import {
@@ -121,11 +130,22 @@ export function resolveQuoteSpan(
   return { start, end: lastIndex + 1 };
 }
 
+/**
+ * One element as the model emitted it: the durable fields, plus the identifier
+ * it was given and the identifier it cites. The citation is resolved to a
+ * position in a second pass, once every id is known.
+ */
+interface DraftElement {
+  readonly element: ContextElement;
+  readonly id: string;
+  readonly conflictsWithId?: string;
+}
+
 function parseElement(
   value: unknown,
   index: number,
   inputText: string,
-): ContextElement {
+): DraftElement {
   const label = `elements[${String(index)}]`;
   const record = asRecord(CTX, value, label);
 
@@ -143,6 +163,13 @@ function parseElement(
   });
 
   const base = { content, category, provenance, specificityScore };
+  const id = idOf(record, label);
+  const conflictsWithId = conflictIdOf(record, label);
+  const draft = (element: ContextElement): DraftElement => ({
+    element,
+    id,
+    ...(conflictsWithId !== undefined ? { conflictsWithId } : {}),
+  });
 
   if (provenance === "stated") {
     const quote = optionalString(record, "source_quote");
@@ -162,12 +189,11 @@ function parseElement(
       );
     }
 
-    return {
+    return draft({
       ...base,
       sourceSpanStart: span.start,
       sourceSpanEnd: span.end,
-      ...conflictOf(record, label),
-    };
+    });
   }
 
   if (provenance === "inferred") {
@@ -175,30 +201,40 @@ function parseElement(
     if (inferenceBasis === undefined) {
       return fail(`${label}: inferred elements require an inference_basis`);
     }
-    return { ...base, inferenceBasis, ...conflictOf(record, label) };
+    return draft({ ...base, inferenceBasis });
   }
 
   const resolutionHint = optionalString(record, "resolution_hint");
   if (resolutionHint === undefined) {
     return fail(`${label}: unknown elements require a resolution_hint`);
   }
-  return { ...base, resolutionHint, ...conflictOf(record, label) };
+  return draft({ ...base, resolutionHint });
 }
 
-const conflictOf = (
+/**
+ * The identifier the model gives an element, and the one it cites in a
+ * conflict. Opaque to us: uniqueness is the only property required of it.
+ */
+const idOf = (record: Record<string, unknown>, label: string): string => {
+  const value = record["id"];
+  if (typeof value !== "string" || value.trim() === "") {
+    return fail(`${label}: every element requires a non-empty id`);
+  }
+  return value.trim();
+};
+
+const conflictIdOf = (
   record: Record<string, unknown>,
   label: string,
-): { conflictsWithIndex?: number } => {
-  const value = record["conflicts_with_index"];
+): string | undefined => {
+  const value = record["conflicts_with_id"];
   if (value === undefined || value === null) {
-    return {};
+    return undefined;
   }
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
-    return fail(
-      `${label}: conflicts_with_index must be a non-negative integer`,
-    );
+  if (typeof value !== "string" || value.trim() === "") {
+    return fail(`${label}: conflicts_with_id must be a non-empty id`);
   }
-  return { conflictsWithIndex: value };
+  return value.trim();
 };
 
 export function parseContext(
@@ -207,27 +243,55 @@ export function parseContext(
 ): ContextResult {
   const record = parseStructured(STAGE_NUMBER, STAGE_KEY, responseText);
 
-  const elements = requireArray(CTX, record, "elements").map((entry, index) =>
+  const drafts = requireArray(CTX, record, "elements").map((entry, index) =>
     parseElement(entry, index, inputText),
   );
 
-  // `AI §5.2`: two conflicting stated elements produce a surfaced contradiction,
-  // which requires the reference to resolve. A dangling conflict index would
-  // lose the contradiction it exists to record.
-  elements.forEach((element, index) => {
-    if (element.conflictsWithIndex === undefined) {
-      return;
-    }
-    if (element.conflictsWithIndex >= elements.length) {
+  // Ids are the model's own labels, so they are only useful if they are
+  // distinct. A duplicate would make a conflict citation ambiguous, and
+  // resolving it to whichever came first would be a guess.
+  const positionOfId = new Map<string, number>();
+  drafts.forEach((draft, index) => {
+    const existing = positionOfId.get(draft.id);
+    if (existing !== undefined) {
       fail(
-        `elements[${String(index)}]: conflicts_with_index ${String(element.conflictsWithIndex)} does not resolve`,
+        `elements[${String(index)}]: id ${JSON.stringify(draft.id)} is already used by elements[${String(existing)}]`,
       );
     }
-    if (element.conflictsWithIndex === index) {
-      fail(
+    positionOfId.set(draft.id, index);
+  });
+
+  // `AI §5.2`: two conflicting elements produce a surfaced contradiction, which
+  // requires the reference to resolve. Resolution happens here, after every id
+  // is known, which is what makes a **forward** reference work — the model can
+  // cite an element it has not written yet, exactly as it needs to when the
+  // contradiction is only apparent once the second element exists.
+  //
+  // The index is derived, never supplied (`docs/12` D-19): the model copies an
+  // id, and the position is arithmetic over ids we hold. The first real br-011
+  // capture failed precisely because the old contract asked it to count its own
+  // position in a 39-element array it was still writing.
+  const elements = drafts.map((draft, index) => {
+    if (draft.conflictsWithId === undefined) {
+      return draft.element;
+    }
+
+    const target = positionOfId.get(draft.conflictsWithId);
+    if (target === undefined) {
+      return fail(
+        `elements[${String(index)}]: conflicts_with_id ${JSON.stringify(draft.conflictsWithId)} does not resolve to any element`,
+      );
+    }
+    // Still rejected, never dropped. A self-conflict is not a contradiction,
+    // and silently discarding it would lose whatever the model was trying to
+    // record (`AI §5.2`).
+    if (target === index) {
+      return fail(
         `elements[${String(index)}]: an element cannot conflict with itself`,
       );
     }
+
+    return { ...draft.element, conflictsWithIndex: target };
   });
 
   // ⚠️ Reported by the model, not computed. `AI §3.2` describes the signal as

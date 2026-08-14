@@ -153,8 +153,13 @@ export function parseArchitecture(
     }
     for (const index of component.groundedInContextIndices) {
       if (index >= elementCount) {
+        // The valid range is named because this error is the one the pipeline
+        // regenerates on (`AI §3.2`): a message the next attempt can act on is
+        // worth more than one that only states the verdict.
         throw new ArchitectureTraceabilityError(
-          `Component "${component.name}" references context element ${String(index)}, but only ${String(elementCount)} were extracted`,
+          `Component "${component.name}" references context element ${String(index)}, ` +
+            `but the context set has ${String(elementCount)} element(s) with indices 0-${String(elementCount - 1)}. ` +
+            `Cite the "index" value shown on each context element.`,
         );
       }
     }

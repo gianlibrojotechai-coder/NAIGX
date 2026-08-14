@@ -3,8 +3,18 @@
 Fixed inputs with frozen expectations, used as the baseline for every reasoning change.
 
 **Specification:** [`docs/11-Golden-Corpus-Specification.md`](../../docs/11-Golden-Corpus-Specification.md)
-**Status:** 🔒 **FROZEN — `corpus-v1`, 44 cases.**
+**Status:** 🔒 **FROZEN — `corpus-v2`, 44 cases.**
 **Frozen at:** `2026-08-12T07:52:30Z` (single UTC stamp across all 44 cases)
+
+> **Suite version is `corpus-v2` as of 2026-08-14** — one expectation changed, which `docs/11` §6.3 requires to increment it. **No case content changed and no case was added or retired; all 44 remain frozen at the original stamp.**
+>
+> **The per-case `corpus_version` field is *not* the suite version.** `docs/11` §4.1 defines it as "version at which the case entered", so it is immutable entry provenance. Every case — `br-008` included — correctly still reads `corpus_version: corpus-v1`, because every case entered at v1. Rewriting it would assert something false and would strand the recording store, which partitions evidence by that field.
+
+## Change log (`docs/11` §6.2)
+
+| Date | Case | Field | Old → New | Why the original was wrong | Suite version |
+|---|---|---|---|---|---|
+| 2026-08-14 | `br-008` | `expected_classification_confidence.bound` | `below_threshold` → `at_or_above_threshold` | The expectation was authored 2026-08-12 under the rule that two substantively complete readings alone force sub-threshold confidence. `docs/12` **D-25** (2026-08-14) ratified a **conjunctive** trigger in `AI §4.3`: competing complete readings **and** an input that does not establish which analysis is intended. `br-008` states its ask — *"is it the right shape?"* — which is the same sentence D-25 uses to resolve the classification to `business_requirement`. The second condition is therefore not met, and the original bound no longer follows from the rule it encoded. **The change is driven by the ratified specification, not by the model having produced 0.85**; it would be proposed identically had no capture run. Recorded in `docs/12` D-26 | `corpus-v1` → `corpus-v2` |
 
 > The corpus is frozen. Per `AI §12.2` and `docs/11` §6, **changing a golden case is now a deliberate, recorded decision.** Adding cases is permitted and increments the corpus version. Changing an expectation requires recorded justification of *why the original was wrong* — never that output differs. Changing case content and deleting cases are not permitted.
 

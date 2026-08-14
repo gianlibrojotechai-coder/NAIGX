@@ -17,6 +17,7 @@ import {
   type ContextResult,
 } from "../../src/nie/contracts.js";
 import { parseArchitecture } from "../../src/nie/stages/architecture-analysis.js";
+import { contextHandoffView } from "../../src/nie/pipeline.js";
 
 const context: ContextResult = {
   sufficiency: "sufficient",
@@ -117,7 +118,7 @@ test("a component citing a context element that does not exist fails", () => {
       ),
     (error: unknown) =>
       error instanceof ArchitectureTraceabilityError &&
-      /only 2 were extracted/.test(error.message),
+      /has 2 element\(s\) with indices 0-1/.test(error.message),
   );
 });
 
@@ -243,4 +244,62 @@ test("a summary or data flow description is required", () => {
       `missing ${field} must be rejected`,
     );
   }
+});
+
+// --- grounding identifiers (docs/12 D-19 principle, applied to Stage 6) ---
+
+test("the context set Stage 6 is shown labels every element with its index", () => {
+  const view = contextHandoffView(context) as {
+    elements: { index: number; content: string }[];
+    sufficiency: string;
+  };
+
+  assert.deepEqual(
+    view.elements.map((e) => e.index),
+    [0, 1],
+    "the model copies this number instead of counting positions",
+  );
+  assert.equal(view.elements[0]?.content, "Invoices arrive by email");
+  assert.equal(view.sufficiency, "sufficient");
+  // The label is the array position, so nothing downstream has to change.
+  assert.equal(view.elements.length, context.elements.length);
+});
+
+test("a valid identifier is accepted", () => {
+  const parsed = parseArchitecture(
+    architecture([component({ grounded_in_context_indices: [0, 1] })]),
+    context,
+  );
+  assert.deepEqual(parsed.components[0]?.groundedInContextIndices, [0, 1]);
+});
+
+test("the last valid identifier is accepted, not treated as off the end", () => {
+  const parsed = parseArchitecture(
+    architecture([component({ grounded_in_context_indices: [1] })]),
+    context,
+  );
+  assert.deepEqual(parsed.components[0]?.groundedInContextIndices, [1]);
+});
+
+test("an identifier one past the end is rejected — the br-001 failure", () => {
+  // The real capture cited element 28 against a 28-element set. Same shape,
+  // two elements: index 2 does not exist.
+  assert.throws(
+    () =>
+      parseArchitecture(
+        architecture([component({ grounded_in_context_indices: [2] })]),
+        context,
+      ),
+    (error: unknown) => {
+      assert.ok(error instanceof ArchitectureTraceabilityError);
+      assert.match(error.message, /references context element 2/);
+      assert.match(
+        error.message,
+        /indices 0-1/,
+        "the valid range is named so the one regeneration can act on it",
+      );
+      assert.match(error.message, /Cite the "index" value/);
+      return true;
+    },
+  );
 });

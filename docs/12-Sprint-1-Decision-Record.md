@@ -870,6 +870,210 @@ Against real PostgreSQL, a full harness run's invocations are found in `provider
 
 ---
 
+## D-24 — What a recorded regression run proves, and what it cannot
+
+**Decided before any capture is paid for. Recorded mode is a compatibility gate; fragment activation needs evidence that exercised the changed fragment.**
+
+Taken while building the Sprint 2 regression infrastructure (2026-08-14), before spending on capture.
+
+### The contradiction inside `AI §12.3`
+
+`AI §12.3`'s execution policy — resolved 2026-08-12 — describes recorded mode twice, and the two descriptions disagree:
+
+| Where | Claim |
+|---|---|
+| Mode table, **Trigger** | "Every **code** change" |
+| Mode table, **Purpose** | "Detects regressions introduced by **code**" |
+| Property table, **What recorded mode detects** | "Regressions caused by **fragment**, stage, generator, or code changes" |
+
+The third claim cannot hold. A recording is a provider's answer to a *specific composed prompt*. Change a fragment and the prompt changes, so no recorded answer to the new prompt exists — replaying the old one measures the old prompt. **Recorded mode is physically incapable of validating a fragment change**, which is precisely the change `NFR-043`, `AI-011` and `R-14` care most about.
+
+### What is decided
+
+| # | Decision |
+|---|---|
+| 1 | **Recordings stay keyed to the composed prompt.** D-17 chose this so a fragment change "invalidates the recording loudly rather than replaying an answer to a question that is no longer being asked". Loosening the key to survive fragment edits would reinstate exactly that failure |
+| 2 | **An invalidated recording is `stale`, not an error.** A fragment change making a recording unreplayable is the mechanism working. Reporting it as a provider failure blames the system for a state the design intends |
+| 3 | **Recorded mode is a compatibility and regression gate.** It proves the pipeline, parser, provenance checks and the deterministic `docs/11` §9 expectations still hold *given a previously captured response*. It does **not** prove the current prompt produces that response |
+| 4 | **Fragment activation requires evidence that exercised the changed fragment** — a capture or a live run. A `regression_pass_reference` naming a replay of the *previous* fragment's responses is not a pass on the change |
+
+### Why 4 follows from the documents rather than from preference
+
+`NFR-043` requires the suite to run "before any template change ships"; `AI-011` repeats it; `R-14` names silent template regression as the high-likelihood risk the gate exists for. `DB §4.5` then makes activation conditional on a recorded passing run — a **data** constraint. Put together, the reference attached to a new fragment version has to name a run that saw that fragment.
+
+This does **not** contradict `AI §12.3`'s "a change may merge on a passing recorded run alone". Merging code and activating a fragment version are different events, and only the second is what `DB §4.5` gates.
+
+### What it costs, stated plainly
+
+Capture spend is bounded to fragment **activations**, not commits. Sprint 2 is a reasoning-iteration sprint, so activations will be frequent — and every one of them needs fresh evidence. That is the real price of the gate, and it is a price the specification already implies rather than one this decision introduces.
+
+### Consequences implemented alongside this record
+
+| Consequence | Mechanism |
+|---|---|
+| A fragment change must be *detectable* before the run, not discovered as a key miss | Each recording carries a composition hash over the fragments it was captured under; the runner recomputes and reports `stale` |
+| Evidence must be reviewable and tamper-evident | `research/regression-recordings/recordings.manifest.json` — content hashes, the same gate shape D-14 gave fragments |
+| A pass reference must name the evidence, not just the cases | Recording hashes and the per-case assertion set are part of the reference and of its `runId` |
+| A run cannot pass vacuously | Completeness and non-vacuous reference-integrity assertions |
+
+### Minimum authoritative amendment to ratify
+
+**`AI §12.3`** — correct the property table row so recorded mode claims code, stage and generator regressions, not fragment ones, and state which mode discharges a fragment change. One row, plus a sentence.
+
+`NFR-043` still needs the D-14 separation it already required; this decision sharpens what the second half costs.
+
+---
+
+---
+
+## D-25 — Classification selects a reasoning frame, and says so when it cannot
+
+**Decided. Four ratifications, amending `AI §3.2`, `§4.1`, `§4.3` and `FR-011`. Resolves `AIQ-9`.**
+
+Taken 2026-08-14, after the first corpus regression run over real captured evidence.
+
+### What exposed it
+
+`br-008` is the only failing case in the first vertical (12/13 passing). Its Stage 1 response, captured under the published fragments:
+
+```json
+{ "determined_type": "mixed", "dominant_type": "job_description",
+  "confidence": 0.85, "candidate_types": ["business_requirement"] }
+```
+
+The corpus expects `business_requirement` below the 0.6 threshold. The failure could not be adjudicated, because **four separate gaps meet in this one input**:
+
+| # | Gap | Where it should have been |
+|---|---|---|
+| 1 | No stated test for which type wins when artifact shape and stated ask diverge | `AI §4.1` defines types by artifact; `§4.2` says classification *is* the reasoning frame. Neither says which governs |
+| 2 | No rule for determining `dominant_type` | `AI §4.3` requires the concept and defines no rule |
+| 3 | No rule mapping input ambiguity to a confidence band | `FR-011`/`FR-015` fix the threshold and the consequence, never which inputs land where |
+| 4 | `mixed` enumerated by `AI §4.1` and excluded by `FR-011` | `AIQ-9`, open since 2026-08-12 |
+
+The input is posting-shaped but explicitly pre-posting — *"Before we advertise the role"* — and closes by asking whether the **project** is *"the right shape"*. `AI §4.2` states the stakes plainly: *"A misclassification is therefore not a mislabel — it is an analysis conducted under the wrong frame."* Classifying it `job_description` suppressed the architecture entirely (`AI §9.1`), which is the analysis that was asked for.
+
+### The four decisions
+
+| # | Decision |
+|---|---|
+| 1 | **Classification is purpose-primary, artifact-evidential.** Artifact identity decides the ordinary case and is never discarded. Where a document of one shape explicitly asks for the analysis of another, the frame the submitter asks for governs |
+| 2 | **Dominance follows the ask.** The dominant type is the one whose `§9.1` path produces what was asked for. Where the intended analysis cannot be determined, dominance is **not determinable** and the low-confidence route applies |
+| 3 | **Ambiguity calibration.** Where two or more type readings are each substantively complete and the input does not establish which analysis is intended, confidence is below 0.6 and `FR-015` applies. Confidence measures the **resolved terminal classification**, never merely the detection of mixed signals |
+| 4 | **`AIQ-9` resolved.** The five `FR-011` values are terminal. `mixed` is an internal Stage 1 detection state, resolved before the stage completes; the secondary reading is disclosed through `CLASSIFICATION.candidate_types`. This ratifies D-6 into the authoritative documents |
+
+### Why these four together, and why now
+
+Each alone leaves a hole the next ambiguous case falls into. Resolving the enumeration (4) without a dominance rule (2) leaves the collapse undefined. Defining dominance without the calibration rule (3) forces a guess where the input supports none. And (1) is what makes (2) computable at all — dominance can only follow the ask once the ask is what governs.
+
+**Decision 3's second half is the mechanism behind the `br-008` failure.** A `mixed` detection is collapsed to one type before the stage completes, so confidence carried over from the detection describes a judgement that no longer exists. The model was plausibly right to be 0.85 confident the input was mixed, and had no comparable basis for the dominance choice that confidence then travelled with. `PV §3.4` classes false confidence as a defect; `AI §8.5` classes over-confidence as severe.
+
+**No numeric rule is introduced.** Text length, element counts and percentage splits are not evidence of what a submitter wants, and "material proportion" in `§4.1`'s former `mixed` row described *detection*, never *dominance*. Where the ask is silent, the honest output is low confidence and a question — not arithmetic.
+
+### What was amended
+
+| Document | Change |
+|---|---|
+| `AI §4.1` | Terminal enumeration reduced to five; `mixed` row removed and restated as an internal detection state; purpose-primary selection rule added |
+| `AI §4.3` | Two new subsections: dominant-type determination, and ambiguity/confidence calibration |
+| `AI §3.2` | Stage 1 `Output` row reconciled to the five terminal values |
+| `AI` Appendix — `AIQ-9` | Marked resolved, with the resolution stated |
+| `FR-011` | Fifth acceptance criterion added, stating the five are terminal and how a mixed input resolves. **Threshold and `FR-015` behaviour unchanged** |
+
+`DB §4.2` still refers to `determined_type` as "the closed enumeration (`AI §4.1`)". That reference now resolves to five values and needs no edit, but the `DB` document was outside this task's scope and has not been re-read for consequential wording.
+
+### `br-008` is unchanged, deliberately
+
+`docs/11` §6.2 permits changing an expectation only when the expectation was wrong, and states that *"a change justified only by 'the system now produces X' is rejected"*. The expectation survives both candidate tests — `job_description` fails the purpose test on the stated ask, and fails the artifact test on `§4.1`'s *"a role posting"*, which this input explicitly is not yet. **Nothing in `research/` was modified.**
+
+`br-008` therefore remains a **recorded regression failure** until the ratified rules are implemented in the classification fragment and re-captured. It is adjudicated, not masked.
+
+### Implementation consequence
+
+**Prompt changes happen only after this ratification, never before.** `prompts/stage/classification.md` is untouched by D-25. Implementing rules 1–3 there is a separate, subsequent task, and it will invalidate every recording whose composition includes Stage 1 — which is all thirteen.
+
+**No API spend is part of D-25.** This decision is documentation only: no provider call, no capture, no publication.
+
+### Still open around it
+
+`FR-015`'s confirmation path is not implemented — Sprint 1 built stages 1-3 and 6, and the low-confidence user interaction is later work. Until it exists, "`br-008` passes" will mean the classifier is calibrated, not that the confirmation flow works.
+
+---
+
+---
+
+## D-26 — `br-008`'s confidence expectation predates the rule it was measured against
+
+**Decided. One corpus expectation changed under `docs/11` §6.2; suite version incremented to `corpus-v2`. No case content changed, no recording touched, no API spend.**
+
+Taken 2026-08-14, after the first capture under D-25.
+
+### What changed and why
+
+`br-008`'s first Stage 1 response under the D-25 classification prompt:
+
+```json
+{ "determined_type": "business_requirement", "confidence": 0.85,
+  "candidate_types": ["job_description"] }
+```
+
+D-25 rules 1, 2 and 4 landed exactly as designed — the explicit ask resolved the frame, `mixed` disappeared from the output, the secondary reading was disclosed rather than selected, and Stages 3 and 6 both ran for the first time on this case. Rule 3 was the sole disagreement: the frozen expectation required `below_threshold`.
+
+**The expectation predates the rule.** `br-008` was frozen 2026-08-12 under the theory that two substantively complete readings *alone* force sub-threshold confidence — its original rationale says so. D-25 (2026-08-14) ratified a **conjunctive** trigger in `AI §4.3`: competing complete readings **and** an input that does not establish which analysis is intended.
+
+`br-008` establishes it: *"Is this a sensible first project for someone, and is it the right shape? I'd rather know now than after we've hired."* That sentence is what D-25 rules 1-2 use to resolve the classification to `business_requirement`. **The same sentence cannot both resolve the frame and leave it unresolved**, so the trigger's second condition is not met and the original bound no longer follows.
+
+### Why this is not "the model produced 0.85"
+
+`docs/11` §6.2 rejects a change *"justified only by 'the system now produces X'"*. This one is justified by the rule change, and the counterfactual makes that concrete: had the model returned a sub-0.6 confidence *while* classifying `business_requirement`, it would have satisfied the corpus and contradicted `AI §4.3`. The proposal would be identical had no capture been run — D-25 alone determines it.
+
+D-25 also cost the system a real correction: the classification itself was wrong before and had to change. This is not a suite bent to fit a model.
+
+### Three quantities, kept apart
+
+| Quantity | Status |
+|---|---|
+| **Classification correctness** | ✅ Corrected by D-25 to `business_requirement`; the corpus expectation was right and is **unchanged** |
+| **Confidence calibration** | ⚠️ The only field changed — `bound`, `below_threshold` → `at_or_above_threshold` |
+| **`candidate_types` disclosure** | ✅ Working as intended. `AI §4.3` provides it for disclosing a secondary reading, and a non-empty list has never implied ambiguity — the prompt asks for it *"whenever another type was a genuine contender"*, a lower bar than the trigger's |
+
+### `corpus_version` is an entry marker and stays `corpus-v1`
+
+**This is the part most likely to be got wrong later, so it is recorded explicitly.**
+
+`docs/11` §4.1 defines the per-case field as *"version at which the case entered"* — immutable provenance, not a mutable per-case version. `br-008` entered at `corpus-v1` and always will have, so **its `corpus_version` remains `corpus-v1`.**
+
+`§6.3`'s increment is satisfied at the **suite** level, recorded in `research/golden-corpus/README.md`, which is where the corpus states its version.
+
+Two reasons this matters beyond pedantry:
+
+1. Rewriting the field would assert a falsehood about when the case entered.
+2. The regression recording store partitions evidence by that field — `research/regression-recordings/<corpus_version>/<case_id>.json` — so changing it would make `br-008`'s freshly paid recording unfindable, and no supported path exists to write a `corpus-v2` manifest. A metadata edit would have stranded paid evidence and left the case permanently `blocked`.
+
+> **Recorded as a latent design fault, not fixed here.** The store keys on a field `docs/11` defines as entry provenance, and the code reads it inconsistently — lookups are per case (`runner.ts`), while the manifest gate, status and pass reference take `cases[0]`. This works only while every case shares an entry version, which `§6.1` will break the first time a case is **added**. It needs its own decision and a code change; D-26 deliberately does not touch code.
+
+### `ta-004` — related, deliberately not batch-treated
+
+`ta-004` is the only other deliberately ambiguous case with an explicit ask, so D-25's second conjunct is arguably unmet there too. But its ask is itself ambiguous: its rationale notes the assessment path *"does not require an examination context"*, so *"What would you do differently?"* points at `technical_assessment` and `business_requirement` simultaneously. **`br-008`'s ask disambiguates; `ta-004`'s does not.** It is recorded here as requiring separate adjudication and is **unchanged**.
+
+`jd-001` and `ew-003` are unaffected — neither states an ask, so both satisfy the trigger in full and their `below_threshold` expectations remain correct.
+
+### Amendments
+
+| File | Change |
+|---|---|
+| `research/golden-corpus/business-requirement/br-008.yaml` | `bound` → `at_or_above_threshold`; rationale rewritten citing D-25; **original rationale preserved** in `previous_rationale` per §6.2 and the `docs/11` A-12 precedent; `changed_at` / `changed_by` / `previous_bound` recorded |
+| `research/golden-corpus/README.md` | Suite version → `corpus-v2`; §6.2 change-log entry; note that per-case `corpus_version` is an entry marker |
+
+Nothing else. No prompt, code, validator, schema, database or recording change, and no provider call.
+
+### What remains
+
+`br-008` should now pass all six evaluated assertions on its existing recording, verifiable by a free `regression:run`. The other twelve recordings are stale from the D-25 fragment publication, so a full green suite still needs a re-baseline that is a spend decision, not a specification one.
+
+---
+
+---
+
 ## Summary
 
 | ID | Status | Resolves |
@@ -897,13 +1101,21 @@ Against real PostgreSQL, a full harness run's invocations are found in `provider
 | D-21 | ✅ Implemented — one transaction per stage, committed as it completes | `DB §6.2`, `FR-091` |
 | D-22 | ✅ Implemented — `ANALYSIS.sufficiency_level` written in Stage 3's transaction | Completes D-13; `DB §4.2` |
 | D-23 | ✅ Implemented and verified against PostgreSQL — `PROVIDER_INVOCATION` persisted per attempt | Closes D-20's outstanding item; `DB §4.7`, `FR-093`, `NFR-083` |
+| D-24 | ✅ Decided — recorded mode is a compatibility gate; activation needs fragment-exercising evidence | `AI §12.3` contradiction recorded; sharpens D-14 and D-17 |
+| D-25 | ✅ Decided — purpose-primary classification; dominance follows the ask; ambiguity falls below threshold | **Resolves `AIQ-9`**; amends `AI §3.2`, `§4.1`, `§4.3` and `FR-011` |
+| D-26 | ✅ Decided — `br-008` confidence bound changed under `docs/11` §6.2; suite → `corpus-v2` | Justified by D-25, not by output; `corpus_version` confirmed an entry marker |
 
 ### Still open after this record
 
 | Item | Due |
 |---|---|
 | `AIQ-6` / `AQ-4` — stage-level routing as configuration | Sprint 2 |
-| `AIQ-9` — classification taxonomy: `AI §4.1` six vs `FR-011` five | Reconcile before Sprint 2 |
+| ~~`AIQ-9` — classification taxonomy: `AI §4.1` six vs `FR-011` five~~ | ✅ **Resolved 2026-08-14 — D-25** |
+| **D-25 rules are ratified but not implemented** — `prompts/stage/classification.md` still predates them | Before the next capture |
+| ~~`br-008` remains a recorded regression failure pending that implementation (D-25)~~ | ✅ **Resolved 2026-08-14 — D-25 corrected the classification; D-26 corrected the confidence expectation** |
+| **The recording store keys evidence on `corpus_version`**, which `docs/11` §4.1 defines as an entry marker — and reads it inconsistently (per-case for lookup, `cases[0]` for the gate). Breaks the first time a case is **added** (D-26) | Before any corpus addition |
+| `ta-004` may need the same adjudication as `br-008`: it states an ask, but the ask is itself ambiguous (D-26) | With the `technical_assessment` vertical |
+| 12 of 13 recordings are stale from the D-25 fragment publication; a full green suite needs a re-baseline (~$0.95) | Budget decision |
 | `AIQ-10` — stage count: `MVP` six vs `AI`/`Roadmap` twelve | Reconcile before Sprint 2 |
 | `DBQ-8` — app-level encryption scope | Before production data |
 | `DBQ-9` — partition granularity | Sprint 5 |
@@ -919,7 +1131,9 @@ Against real PostgreSQL, a full harness run's invocations are found in `provider
 | **D-14** — separate the two `NFR-043` guarantees, or scope the change gate | Before Sprint 2 |
 | **D-16** — carve Stage 6 regeneration out of `SA §11.3`, or drop it from `AI §3.2` | Before Sprint 2 |
 | `AI §3.2` Stage 6 input list assumes Stages 4-5 exist (D-15) | With Sprint 2 stages 4-5 |
-| Golden-corpus output regression, replacing `fragment-manifest-gate` references | Sprint 2 |
+| Golden-corpus output regression, replacing `fragment-manifest-gate` references | Sprint 2 — infrastructure built; **awaiting paid capture** (D-24) |
+| `AI §12.3` property table claims recorded mode detects fragment regressions; it cannot (D-24) | Before the first fragment activation |
+| No recordings captured yet, so no corpus run has ever executed (D-24) | With the capture spend decision |
 | CI has no Postgres service, so the real-infrastructure tests skip there | Before Sprint 2 |
 | `ANALYSIS.overall_confidence_band` is never written — it is **written at Stage 11** (`DB §4.2`, `§6.1`), which Sprint 1 does not implement (D-22) | Sprint 2, with Stage 11 |
 | `VALIDATION_EVENT` is never written — artifact schema validation is Stage 9 (D-23) | Sprint 2 |

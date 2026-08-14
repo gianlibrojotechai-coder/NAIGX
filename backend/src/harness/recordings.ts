@@ -48,6 +48,23 @@ export interface StageRecording {
 
 export type RecordingSet = readonly StageRecording[];
 
+export interface RecordedProviderOptions {
+  /**
+   * Whether the responses being replayed were captured under low-variance
+   * sampling.
+   *
+   * `AI §10.6` prohibits "capability assumptions without declaration", and the
+   * replay adapter turns this into an `AI §10.2` degradation when a caller asks
+   * for low variance and the recording cannot supply it. Declaring it for the
+   * caller would be an assumption; the caller knows how its recording was made
+   * and this one does not.
+   *
+   * Defaults to `true` for the harness's own hand-authored recording, which is
+   * deterministic by construction: it is a fixed string, not a sample.
+   */
+  readonly lowVarianceSampling?: boolean;
+}
+
 /**
  * A complete recorded run of the business-requirement path.
  *
@@ -93,6 +110,7 @@ export const DEFAULT_BUSINESS_REQUIREMENT_RECORDING: RecordingSet = [
     output: JSON.stringify({
       elements: [
         {
+          id: "e1",
           content: "Invoices arrive by email as PDF attachments",
           category: "environment",
           provenance: "stated",
@@ -100,6 +118,7 @@ export const DEFAULT_BUSINESS_REQUIREMENT_RECORDING: RecordingSet = [
           specificity_score: 0.9,
         },
         {
+          id: "e2",
           content: "Approval currently depends on email replies",
           category: "environment",
           provenance: "inferred",
@@ -108,6 +127,7 @@ export const DEFAULT_BUSINESS_REQUIREMENT_RECORDING: RecordingSet = [
           specificity_score: 0.55,
         },
         {
+          id: "e3",
           content: "Number of approvers per department",
           category: "dependency",
           provenance: "unknown",
@@ -174,6 +194,7 @@ export async function createRecordedProvider(
   recordings: RecordingSet,
   resolver: FragmentResolver,
   inputText: string,
+  options: RecordedProviderOptions = {},
 ): Promise<ProviderAdapter> {
   const fixtures: Record<
     string,
@@ -232,5 +253,8 @@ export async function createRecordedProvider(
     };
   }
 
-  return createReplayProvider({ fixtures, lowVarianceSampling: true });
+  return createReplayProvider({
+    fixtures,
+    lowVarianceSampling: options.lowVarianceSampling ?? true,
+  });
 }

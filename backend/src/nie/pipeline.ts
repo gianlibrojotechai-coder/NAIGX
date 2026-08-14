@@ -92,6 +92,34 @@ export const stageHandoff = (payload: Record<string, unknown>): string =>
   JSON.stringify(payload, null, 2);
 
 /**
+ * The context set as Stage 6 is shown it: every element carries its own
+ * `index`.
+ *
+ * WHY THE LABEL EXISTS. Stage 6 must cite the elements a component is grounded
+ * in (`FR-030`), and it used to receive a bare JSON array — so citing element
+ * seventeen meant *counting to seventeen*. The first real capture of `br-001`
+ * failed on exactly that: against a 28-element set the model cited element 28,
+ * one past the end, which is what 1-indexing a list you had to count looks
+ * like.
+ *
+ * `docs/12` D-19 already settled this class of problem for Stage 3 spans:
+ * "model arithmetic ... is not a thing language models do reliably", so the
+ * design stopped asking for a computed number and asked for something copied
+ * instead. This is the same move for grounding — the model copies an `index`
+ * that is printed beside the element rather than deriving it.
+ *
+ * THE VALUE IS THE ARRAY POSITION, so nothing downstream changes: the parser,
+ * the traceability check and `analysis-result-sink`'s `ids[index]` lookup all
+ * keep their 0-based contract. Only what the model is *shown* is different.
+ */
+export const contextHandoffView = (
+  context: ContextResult,
+): Record<string, unknown> => ({
+  elements: context.elements.map((element, index) => ({ index, ...element })),
+  sufficiency: context.sufficiency,
+});
+
+/**
  * The provider input each stage is sent, derived from a set of raw stage
  * outputs.
  *
@@ -147,7 +175,11 @@ export function stageProviderInputs(
   }
   inputs.set(
     "architecture_analysis",
-    stageHandoff({ classification, intent, context }),
+    stageHandoff({
+      classification,
+      intent,
+      context: contextHandoffView(context),
+    }),
   );
 
   return inputs;
@@ -431,8 +463,13 @@ export function createPipeline(deps: PipelineDependencies) {
           // `AI §3.2` Stage 6 input: "Context + knowledge + reasoning plan".
           // Knowledge and the reasoning plan are Stages 4-5, which do not exist
           // (`docs/12` D-15); the classification and intent are the frame the
-          // context was extracted under and are sent with it.
-          stageHandoff({ classification, intent, context }),
+          // context was extracted under and are sent with it. The context set
+          // is labelled so grounding is copied rather than counted.
+          stageHandoff({
+            classification,
+            intent,
+            context: contextHandoffView(context),
+          }),
         ),
       parse: (text) => parseArchitecture(text, context),
       regenerateOnce: (error) => error instanceof ArchitectureTraceabilityError,

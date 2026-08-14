@@ -229,7 +229,7 @@ flowchart TD
 |---|---|
 | **Purpose** | Determine what kind of artifact was submitted, so downstream reasoning applies the correct frame |
 | **Input** | Raw input text |
-| **Output** | Type ∈ {business_requirement, existing_workflow, job_description, technical_assessment, mixed, unsupported}, confidence ∈ [0,1], candidate alternatives |
+| **Output** | Type ∈ {business_requirement, existing_workflow, job_description, technical_assessment, unsupported} — the five terminal values (`FR-011`, §4.1). `mixed` may be detected internally and must be resolved to one of the five before the stage completes (§4.3, `docs/12` D-25). Confidence ∈ [0,1] in the **resolved** type; candidate alternatives |
 | **Responsibilities** | Content-derived determination only (`FR-011`); no user hint required; emit candidates when close |
 | **Determinism** | Model-assisted; output constrained to the enumerated set |
 | **Failure behavior** | Confidence < 0.6 → surface candidates for user confirmation (`FR-015`). `unsupported` → decline with explanation, no reasoning performed (`FR-092`). Stage failure → analysis fails; nothing downstream runs. |
@@ -428,8 +428,15 @@ Validation classes:
 | **existing_workflow** | A description or export of an implemented automation | Review path: current-structure identification precedes evaluation; optimization and risk emphasis |
 | **job_description** | A role posting for an automation or adjacent position | Career path: requirement extraction, gap analysis, portfolio, interview guidance. No architecture generated. |
 | **technical_assessment** | A challenge, exercise, or take-home problem | Assessment path: solution architecture with explicit trade-off reasoning and named rejected alternatives |
-| **mixed** | Contains two or more types in material proportion | Handled per §4.3 |
 | **unsupported** | Outside the domain of automation intelligence | Declined with explanation; no reasoning performed (`FR-092`) |
+
+**The five values above are the terminal enumeration**, identical to `FR-011`. `mixed` is **not** a terminal value: it is an internal Stage 1 detection state, resolved to one of the five before the stage completes, with the secondary reading disclosed through `CLASSIFICATION.candidate_types`. Detection and resolution are specified in §4.3.
+
+> **Ratified by `docs/12` D-25 (2026-08-14), resolving `AIQ-9`.** This section previously enumerated six values including `mixed`, which conflicted with `FR-011`'s five and with `DB §4.2`'s reference to "the closed enumeration". The implementation interpretation recorded in `docs/12` D-6 is now the specification.
+
+**Definition is artifact-shaped; selection is purpose-primary.** The definitions above describe what a submitted artifact *is*, and in the ordinary case artifact identity and intended analysis agree, so identity decides. Where they diverge — a document of one shape that explicitly asks for the analysis of another — **the frame the submitter asks for governs**, because §4.2 makes classification the reasoning frame rather than a label. Artifact identity remains the primary *evidence* of purpose and is never discarded; it simply does not override an explicit ask.
+
+> **Ratified by `docs/12` D-25.** The purpose-primary rule is new specification, not a restatement. Prior to D-25 no section stated which test governed when the two diverged.
 
 ### 4.2 How classification shapes downstream reasoning
 
@@ -454,6 +461,28 @@ Classification is not a routing label. It changes the reasoning frame at four po
 | **Unsupported** | Declined; input retained for revision (`FR-006`, `FR-092`) |
 
 **The v1.0 mixed-input decision is a deliberate scope choice, recorded as such.** Handling mixed inputs well requires either parallel paths or a merged frame; both are meaningful work with no bearing on the core hypothesis (`MVP §3`).
+
+#### Determining the dominant type
+
+**Ratified by `docs/12` D-25 (2026-08-14).** This rule is new: the table above has always required a dominant type and never said how one is chosen.
+
+| Condition | Dominant type |
+|---|---|
+| The input states which analysis it wants | The type whose §9.1 path produces what was asked for |
+| The intended analysis cannot be determined from the input | **Not determinable.** Classification confidence is below threshold and `FR-015` applies |
+
+**No proportional or numeric rule is defined, and none may be inferred.** Neither text length, element counts, nor a percentage split is evidence of what a submitter wants, and "material proportion" in §4.1's former `mixed` definition described *detection*, never *dominance*. Where the ask is silent, the honest output is low confidence and a question to the user — not a dominant type selected by arithmetic.
+
+#### Ambiguity and classification confidence
+
+**Ratified by `docs/12` D-25 (2026-08-14).** `FR-011` fixes the `[0,1]` range and the 0.6 threshold and `FR-015` fixes the consequence; neither states which inputs fall below it. This rule closes that gap and changes no threshold.
+
+| Rule | |
+|---|---|
+| **Trigger** | Where two or more type readings are each **substantively complete** and the input does not establish which analysis is intended, classification confidence is **below the 0.6 threshold** and `FR-015` applies |
+| **What confidence measures** | Confidence in the **resolved terminal classification** — one of the five §4.1 values — never merely confidence that mixed signals were detected |
+
+**The second rule is what makes the first enforceable.** A `mixed` detection is collapsed to a single dominant type before the stage completes (§4.1), so confidence carried over from the detection would describe a judgement that no longer exists. Reporting high confidence in a dominance choice made without a basis is the false confidence `PV §3.4` classifies as a defect and `§8.5` classifies as severe over-confidence.
 
 ### 4.4 Classification quality
 
@@ -1306,7 +1335,7 @@ Twelve-stage pipeline, five stages fully deterministic. Composable versioned pro
 | AIQ-6 | Whether stage-level model routing is exposed as configuration in v1.0 | Sprint 2 | Must not become user-facing configurability (`MVP §10`) | ⏳ Open — Sprint 2 |
 | AIQ-7 | Depth-level granularity — how many levels, defined how | Sprint 2 | Must make `AC-037` proportionality testable | ⏳ Open — Sprint 2 |
 | AIQ-8 | Platform knowledge source and update cadence | Sprint 3 | Must be neutral (`PV §3.3`); staleness disclosed, never concealed (`PRD O-4`) | ⏳ Open — Sprint 3 (`PRD O-4`) |
-| AIQ-9 | **Classification taxonomy conflict** — §4.1 enumerates six values incl. `mixed`; `FR-011` enumerates five | Before Sprint 2 | Reconciling requires amending §4.1 or `FR-011`; neither may be changed in passing. Frozen `corpus-v1` holds zero `mixed` cases | 📌 **Recorded 2026-08-12** — implementation interpretation set in `docs/12` D-6: `mixed` is intermediate, never terminal. Source documents unchanged |
+| AIQ-9 | **Classification taxonomy conflict** — §4.1 enumerates six values incl. `mixed`; `FR-011` enumerates five | Before Sprint 2 | Reconciling requires amending §4.1 or `FR-011`; neither may be changed in passing. Frozen `corpus-v1` holds zero `mixed` cases | ✅ **Resolved 2026-08-14** — `docs/12` D-25. §4.1 amended: the five `FR-011` values are terminal; `mixed` is an internal Stage 1 detection state resolved before the stage completes, secondary reading disclosed via `candidate_types`. §3.2 and §4.3 updated to match. `FR-011` unchanged in substance |
 | AIQ-10 | **Stage-count conflict** — §3.3, §14, `AID-02`, App. A and `Roadmap M-05` state twelve; `MVP §5.1` and `TM-3` state six | Before Sprint 2 | `MVP Scope` is the outlier; App. A carries the numbered inventory Sprint 1 is written against (stage 6 = `FR-030`) | 📌 **Recorded 2026-08-12** — implementation proceeds on twelve (`docs/12` D-7). `MVP §5.1`/`TM-3` require correction |
 
 ---

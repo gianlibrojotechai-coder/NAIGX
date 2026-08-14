@@ -110,11 +110,18 @@ test("every corpus case parses at its expected classification and bound", () => 
 
 test("the corpus contains genuine near-boundary and ambiguous cases", () => {
   // If every case were central, passing this suite would prove very little.
+  //
+  // Three, not four: `docs/12` D-26 moved `br-008` to `at_or_above_threshold`.
+  // Its ask is explicit, so `AI §4.3`'s conjunctive trigger — competing complete
+  // readings **and** no stated ask — is not met. The other three state no ask.
   const cases = corpusCases();
   const below = cases.filter((c) => c.bound === "below_threshold");
-  assert.equal(below.length, 4, "four ambiguous cases sit below the threshold");
+  assert.equal(
+    below.length,
+    3,
+    "three ambiguous cases sit below the threshold",
+  );
   assert.deepEqual(below.map((c) => c.caseId).sort(), [
-    "br-008",
     "ew-003",
     "jd-001",
     "ta-004",

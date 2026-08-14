@@ -35,7 +35,11 @@ import {
   replayKeyFor,
 } from "../../src/provider/adapters/replay.js";
 import type { CapabilityRequest } from "../../src/provider/capability.js";
-import { createPipeline, stageHandoff } from "../../src/nie/pipeline.js";
+import {
+  contextHandoffView,
+  createPipeline,
+  stageHandoff,
+} from "../../src/nie/pipeline.js";
 import { parseClassification } from "../../src/nie/stages/classification.js";
 import { parseIntent } from "../../src/nie/stages/intent.js";
 import { parseContext } from "../../src/nie/stages/context-extraction.js";
@@ -195,6 +199,7 @@ const OUTPUTS = {
   context: JSON.stringify({
     elements: [
       {
+        id: "e1",
         content: "Invoices arrive by email",
         category: "environment",
         provenance: "stated",
@@ -296,7 +301,12 @@ const primedAdapter = async (
 
   await add(
     "architecture_analysis",
-    stageHandoff({ classification, intent, context }),
+    // Labelled context set — grounding is copied, not counted.
+    stageHandoff({
+      classification,
+      intent,
+      context: contextHandoffView(context),
+    }),
     merged.architecture,
     "business_requirement",
   );

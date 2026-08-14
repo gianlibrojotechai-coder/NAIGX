@@ -25,8 +25,25 @@ import {
 const INPUT =
   "Invoices arrive by email and are keyed into Xero by hand. Roughly 450 per month.";
 
+/**
+ * Serialises a Stage 3 response, giving every element an `id` unless the test
+ * supplies its own.
+ *
+ * The ids are what conflicts cite (`docs/12` D-19 principle): the model copies
+ * a label rather than counting its own position in the array. Defaulting them
+ * here keeps the tests that are about *provenance* about provenance.
+ */
 const ctx = (elements: unknown[], sufficiency = "sufficient"): string =>
-  JSON.stringify({ elements, sufficiency });
+  JSON.stringify({
+    elements: elements.map((element, index) =>
+      typeof element === "object" &&
+      element !== null &&
+      "id" in (element as Record<string, unknown>)
+        ? element
+        : { id: `e${String(index + 1)}`, ...(element as object) },
+    ),
+    sufficiency,
+  });
 
 const stated = (overrides: Record<string, unknown> = {}) => ({
   content: "Invoices arrive by email",
@@ -241,22 +258,125 @@ test("category must come from the AI §5.3 set", () => {
 test("a conflict reference must resolve to another element", () => {
   const ok = parseContext(
     ctx([
-      stated({ conflicts_with_index: 1 }),
-      stated({ specificity_score: 0.5 }),
+      stated({ id: "a", conflicts_with_id: "b" }),
+      stated({ id: "b", specificity_score: 0.5 }),
     ]),
     INPUT,
   );
-  assert.equal(ok.elements[0]?.conflictsWithIndex, 1);
+  assert.equal(
+    ok.elements[0]?.conflictsWithIndex,
+    1,
+    "the cited id resolves to that element's position",
+  );
 
   assert.throws(
-    () => parseContext(ctx([stated({ conflicts_with_index: 7 })]), INPUT),
+    () =>
+      parseContext(ctx([stated({ id: "a", conflicts_with_id: "z" })]), INPUT),
     (error: unknown) =>
       error instanceof StageError && /does not resolve/.test(error.message),
   );
   assert.throws(
-    () => parseContext(ctx([stated({ conflicts_with_index: 0 })]), INPUT),
+    () =>
+      parseContext(ctx([stated({ id: "a", conflicts_with_id: "a" })]), INPUT),
     (error: unknown) =>
       error instanceof StageError && /conflict with itself/.test(error.message),
+  );
+});
+
+// --- stable identifiers (docs/12 D-19 principle, applied to conflicts) ---
+
+test("ids resolve to positions, and the stored shape is unchanged", () => {
+  const result = parseContext(
+    ctx([
+      stated({ id: "alpha" }),
+      stated({ id: "beta", conflicts_with_id: "delta" }),
+      stated({ id: "gamma" }),
+      stated({ id: "delta", conflicts_with_id: "beta" }),
+    ]),
+    INPUT,
+  );
+
+  assert.equal(result.elements.length, 4);
+  assert.deepEqual(
+    result.elements.map((e) => e.conflictsWithIndex),
+    [undefined, 3, undefined, 1],
+    "positions are derived from the ids, not supplied by the model",
+  );
+  // The id itself is internal: persistence and `CONTEXT_REFERENCE` still see
+  // only positional indices, so no schema or mapping changed.
+  assert.ok(!("id" in (result.elements[0] as object)));
+});
+
+test("a forward reference resolves — the br-011 case", () => {
+  // br-011's element 37 contradicted the element it was about to write. Under
+  // the old contract that meant predicting a position; now it cites an id that
+  // simply has not appeared yet, and resolution happens once all ids are known.
+  const result = parseContext(
+    ctx([
+      stated({
+        id: "e37",
+        content: "Expiry data must live outside Reapit",
+        conflicts_with_id: "e38",
+      }),
+      stated({
+        id: "e38",
+        content: "Reapit should be updated with expiry dates",
+      }),
+    ]),
+    INPUT,
+  );
+
+  assert.equal(result.elements[0]?.conflictsWithIndex, 1);
+  assert.equal(result.elements[1]?.conflictsWithIndex, undefined);
+});
+
+test("a self-conflict is rejected, never silently dropped", () => {
+  // The exact br-011 failure: the element cited its own id.
+  assert.throws(
+    () =>
+      parseContext(
+        ctx([
+          stated({ id: "e37", conflicts_with_id: "e37" }),
+          stated({ id: "e38" }),
+        ]),
+        INPUT,
+      ),
+    (error: unknown) =>
+      error instanceof StageError && /conflict with itself/.test(error.message),
+  );
+});
+
+test("every element requires an id, and ids must be unique", () => {
+  assert.throws(
+    () =>
+      parseContext(
+        JSON.stringify({
+          elements: [{ ...stated(), id: "" }],
+          sufficiency: "sufficient",
+        }),
+        INPUT,
+      ),
+    (error: unknown) =>
+      error instanceof StageError &&
+      /requires a non-empty id/.test(error.message),
+  );
+
+  assert.throws(
+    () =>
+      parseContext(ctx([stated({ id: "dup" }), stated({ id: "dup" })]), INPUT),
+    (error: unknown) =>
+      error instanceof StageError && /already used by/.test(error.message),
+    "a duplicate id would make a citation ambiguous",
+  );
+});
+
+test("an empty conflicts_with_id is rejected rather than ignored", () => {
+  assert.throws(
+    () =>
+      parseContext(ctx([stated({ id: "a", conflicts_with_id: "" })]), INPUT),
+    (error: unknown) =>
+      error instanceof StageError &&
+      /conflicts_with_id must be a non-empty id/.test(error.message),
   );
 });
 

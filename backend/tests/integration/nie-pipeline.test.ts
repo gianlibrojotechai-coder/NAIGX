@@ -23,6 +23,7 @@ import type {
   ProviderAdapter,
 } from "../../src/provider/capability.js";
 import {
+  contextHandoffView,
   createPipeline,
   stageHandoff,
   stageProviderInputs,
@@ -100,6 +101,7 @@ const ARCHITECTURE_OUTPUT = JSON.stringify({
 const CONTEXT_OUTPUT = JSON.stringify({
   elements: [
     {
+      id: "e1",
       content: "Invoices arrive by email",
       category: "environment",
       provenance: "stated",
@@ -107,6 +109,7 @@ const CONTEXT_OUTPUT = JSON.stringify({
       specificity_score: 0.9,
     },
     {
+      id: "e2",
       content: "Approval headcount",
       category: "dependency",
       provenance: "unknown",
@@ -210,7 +213,13 @@ const primedAdapter = async (
 
   await add(
     "architecture_analysis",
-    stageHandoff({ classification, intent, context }),
+    // Stage 6 is shown the context set with each element's `index` label, so
+    // grounding is copied rather than counted (`docs/12` D-19 principle).
+    stageHandoff({
+      classification,
+      intent,
+      context: contextHandoffView(context),
+    }),
     outputs.architecture ?? ARCHITECTURE_OUTPUT,
     "business_requirement",
   );
@@ -386,6 +395,7 @@ test("insufficient context halts before reasoning but keeps what was extracted",
     context: JSON.stringify({
       elements: [
         {
+          id: "e1",
           content: "What the process does",
           category: "objective",
           provenance: "unknown",

@@ -1,0 +1,22 @@
+{
+  "caseId": "un-001",
+  "corpusVersion": "corpus-v1",
+  "inputTextHash": "0b5a6ebab63b09cdb4c051e5cdbc5cfcf253f39772272a7f148d839bb93f5a6e",
+  "fragmentsManifestVersion": "fragments-v1",
+  "fragmentsCompositionHash": "8a844d2f922259024e380b619ed886846ca4ba2af80e2cb2cc78313edbcf831e",
+  "capturedAt": "2026-08-14T15:55:03.999Z",
+  "provider": {
+    "adapter": "anthropic",
+    "modelKey": "claude-sonnet-4-5"
+  },
+  "lowVarianceSampling": false,
+  "stages": [
+    {
+      "stageKey": "input_classification",
+      "output": "```json\n{\n  \"determined_type\": \"unsupported\",\n  \"confidence\": 0.95,\n  \"candidate_types\": []\n}\n```",
+      "inputTokens": 1677,
+      "outputTokens": 41,
+      "latencyMs": 2059
+    }
+  ]
+}

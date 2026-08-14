@@ -21,10 +21,12 @@ Every component must:
 - State `failure_handling` for itself specifically: what happens when this
   component fails. A general statement about the system is not failure handling
   for a component.
-- Cite `grounded_in_context_indices`: the array indices of the context elements
-  that justify its existence. **At least one.** A component that addresses no
-  extracted requirement is a defect, not a design choice. Cite the elements the
-  component actually addresses, not every element that seems related.
+- Cite `grounded_in_context_indices`: **copy the `index` value printed on each
+  context element** you are grounding in. Do not count positions in the list and
+  do not renumber from one — every element carries its own `index`, and that is
+  the number to use. **At least one.** A component that addresses no extracted
+  requirement is a defect, not a design choice. Cite the elements the component
+  actually addresses, not every element that seems related.
 
 Where a component talks to something outside the system, give both
 `external_system` (what it talks to) and `integration_direction` (which way the

@@ -19,6 +19,12 @@
     "fragments:check": "tsx scripts/fragments.mts check",
     "fragments:write": "tsx scripts/fragments.mts write",
     "fragments:publish": "tsx scripts/fragments.mts publish",
+    "regression:status": "tsx scripts/regression.mts status",
+    "regression:recordings:check": "tsx scripts/regression.mts recordings:check",
+    "regression:recordings:write": "tsx scripts/regression.mts recordings:write",
+    "regression:capture": "tsx scripts/regression.mts capture",
+    "regression:capture:dry": "tsx scripts/regression.mts capture --dry-run",
+    "regression:run": "tsx scripts/regression.mts run",
     "analyze": "tsx scripts/analyze.mts"
   },
   "keywords": [],
@@ -32,7 +38,8 @@
     "dotenv": "^17.4.2",
     "fastify": "^5.11.3",
     "pg": "^8.23.0",
-    "prisma": "^7.9.1"
+    "prisma": "^7.9.1",
+    "yaml": "2.9.0"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",

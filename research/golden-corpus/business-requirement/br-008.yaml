@@ -54,14 +54,43 @@ expected_omissions:
 expected_confidence_band: medium
 
 expected_classification_confidence:
-  bound: below_threshold
+  bound: at_or_above_threshold
   threshold: 0.6
+  changed_at: 2026-08-14
+  changed_by: docs/12 D-26
+  previous_bound: below_threshold
   rationale: >
-    Genuinely ambiguous, and the axis is the inverse of `jd-001`. There, a complete
+    Two substantively complete readings exist - a hiring frame (role title, skills
+    list, closing question about a hire) and a fully specified automation (volumes,
+    exception rate, named ERP, maintainability constraint). Under `AI §4.3` as
+    ratified by `docs/12` D-25, that alone does not put classification below the
+    threshold. The trigger is conjunctive: two or more substantively complete
+    readings **and** an input that does not establish which analysis is intended.
+
+    This input establishes it. "Is this a sensible first project for someone, and is
+    it the right shape? I'd rather know now than after we've hired" asks for the
+    project to be evaluated. That explicit ask is what resolves the frame to
+    `business_requirement` under D-25 rules 1 and 2, so the second condition of the
+    trigger is not met and confidence is expected at or above threshold. The
+    secondary reading is disclosed through `candidate_types`, which `AI §4.3`
+    provides for exactly this and which carries no implication of ambiguity.
+
+    Contrast `jd-001` and `ew-003`, which remain `below_threshold`: neither states
+    an ask, so both satisfy the trigger in full. `ta-004` states an ask but its ask
+    is itself ambiguous between two paths; it is recorded in D-26 as requiring
+    separate adjudication and is not changed here.
+
+  previous_rationale: >
+    PRESERVED PER `docs/11` §6.2 AND THE A-12 PRECEDENT. Authored 2026-08-12, before
+    D-25 existed. Wrong not in its reading of the input but in the rule it applied:
+    it treated competing complete readings as sufficient on their own to force
+    sub-threshold confidence, which D-25 later established is only half the trigger.
+
+    "Genuinely ambiguous, and the axis is the inverse of `jd-001`. There, a complete
     automation requirement sat inside a document whose purpose was hiring. Here a
     hiring frame wraps a document whose purpose is arguably the requirement itself:
-    the title is a role, the closing question asks whether this is "a sensible first
-    project for someone", and a skills list appears - all `job_description` signals.
+    the title is a role, the closing question asks whether this is 'a sensible first
+    project for someone', and a skills list appears - all `job_description` signals.
     But no salary, location, application route, experience level, or employment terms
     appear, and the bulk of the text is a specified automation with volumes,
     exception rates, systems, and a stated constraint on maintainability.
@@ -69,7 +98,7 @@ expected_classification_confidence:
     Both readings are substantively complete, which is what distinguishes ambiguity
     from near-boundary. A correctly calibrated classifier should fall below the
     `FR-011` threshold and trigger `FR-015`, letting the submitter say whether they
-    want the project analysed or the role scoped.
+    want the project analysed or the role scoped."
 
 expected_complexity:
   status: not_determinable

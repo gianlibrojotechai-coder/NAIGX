@@ -367,6 +367,9 @@ Feature-level descriptions. Testable requirements are in §8.
 - Confidence below 0.6 triggers FR-015.
 - `unsupported` triggers FR-092 and does not proceed to reasoning.
 - Classification is derived from content only; no user-supplied type hint is required.
+- These five values are the **terminal** enumeration. `mixed` is an internal detection state within Stage 1 (`AI §4.1`, `§4.3`) and is never returned; a mixed input resolves to the type whose analysis was asked for, with the secondary reading carried in `candidate_types`. Where the intended analysis cannot be determined, confidence falls below 0.6 and FR-015 applies.
+
+> **Reconciled by `docs/12` D-25 (2026-08-14), resolving `AIQ-9`.** `AI §4.1` previously enumerated six values including `mixed`, conflicting with the five above. The five are authoritative and unchanged; the amendment is on the `AI` side. The 0.6 threshold and FR-015 behaviour are untouched, and no numeric dominance or scoring rule is introduced.
 
 #### FR-012 — Intent detection
 **Priority:** P0 · **Depends on:** FR-011

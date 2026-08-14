@@ -1,0 +1,22 @@
+{
+  "caseId": "un-002",
+  "corpusVersion": "corpus-v1",
+  "inputTextHash": "7f7cd3255c50bdbe54fd67167a06e9093853de58aeacf1b473537ec18dde9ed6",
+  "fragmentsManifestVersion": "fragments-v1",
+  "fragmentsCompositionHash": "8a844d2f922259024e380b619ed886846ca4ba2af80e2cb2cc78313edbcf831e",
+  "capturedAt": "2026-08-14T15:55:09.919Z",
+  "provider": {
+    "adapter": "anthropic",
+    "modelKey": "claude-sonnet-4-5"
+  },
+  "lowVarianceSampling": false,
+  "stages": [
+    {
+      "stageKey": "input_classification",
+      "output": "```json\n{\n  \"determined_type\": \"unsupported\",\n  \"confidence\": 0.95,\n  \"candidate_types\": []\n}\n```\n\nThis input describes an organizational change management challenge—specifically, how to communicate and enforce adoption of a new expenses policy across a distributed workforce. While it mentions \"a bit of a workflow\" in the communication and escalation sequence, the core problem is human behavior change, stakeholder engagement, and compliance enforcement. These are change management and internal communications concerns, not automation design problems.\n\nThe input does not describe a technical process to be automated, an existing automation to be analyzed, a role in the automation domain, or a technical exercise. It is outside the scope of automation intelligence.",
+      "inputTokens": 1688,
+      "outputTokens": 158,
+      "latencyMs": 5912
+    }
+  ]
+}
