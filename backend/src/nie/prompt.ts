@@ -33,6 +33,10 @@ export const STAGE_FRAGMENT_KEYS: Readonly<Record<string, string>> = {
   intent_detection: "stage.intent",
   context_extraction: "stage.context_extraction",
   architecture_analysis: "stage.architecture_analysis",
+  recommendation_generation: "stage.recommendation_generation",
+  // Stage 9 registers per generator, not per stage: generators are independent
+  // (`AID-08`), so each carries its own fragment rather than sharing one.
+  portfolio_suggestions: "stage.portfolio_suggestions",
 };
 
 /** Type modifier per classified path (`AI §6.1` TYPE group). */

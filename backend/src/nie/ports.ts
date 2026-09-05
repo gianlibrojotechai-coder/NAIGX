@@ -14,6 +14,7 @@ import type {
   ArchitectureResult,
   ClassificationResult,
   ContextResult,
+  RecommendationResult,
   IntentResult,
 } from "./contracts.js";
 
@@ -115,6 +116,15 @@ export interface StageResultSink {
   ): Promise<void>;
   persistIntent(analysisId: string, intent: IntentResult): Promise<void>;
   persistContext(analysisId: string, context: ContextResult): Promise<void>;
+  /**
+   * Stage 7, job-description path (`FR-022`). Optional so a caller wired for
+   * Sprint 1 only keeps compiling; a sink that omits it simply stores no
+   * recommendation.
+   */
+  persistRecommendation?(
+    analysisId: string,
+    recommendation: RecommendationResult,
+  ): Promise<void>;
   persistArchitecture(
     analysisId: string,
     architecture: ArchitectureResult,

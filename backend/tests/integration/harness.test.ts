@@ -195,10 +195,15 @@ test(
         "the report states plainly what it does and does not demonstrate",
       );
 
-      // Every implemented stage ran and was traced, in order.
-      const implemented = STAGES.filter((s) => s.implemented).map(
-        (s) => s.stageNumber,
-      );
+      // Every implemented stage *on this path* ran and was traced, in order.
+      // Stages 7-9 are excluded because `AI §9.1` scopes recommendation
+      // generation and the portfolio artifact to the job-description path: a
+      // business requirement that ran them would be answering a question
+      // nobody asked.
+      const JOB_DESCRIPTION_PATH_ONLY = new Set([7, 8, 9]);
+      const implemented = STAGES.filter(
+        (s) => s.implemented && !JOB_DESCRIPTION_PATH_ONLY.has(s.stageNumber),
+      ).map((s) => s.stageNumber);
       assert.deepEqual(
         report.trace.stages.map((s) => s.stageNumber),
         implemented,

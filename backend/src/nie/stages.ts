@@ -75,22 +75,27 @@ export const STAGES: readonly StageDefinition[] = [
     stageNumber: 7,
     stageKey: "recommendation_generation",
     name: "Recommendation Generation",
-    implemented: false,
+    implemented: true,
     producesArtifactTypes: [],
   },
   {
     stageNumber: 8,
     stageKey: "artifact_planning",
     name: "Artifact Planning",
-    implemented: false,
+    implemented: true,
     producesArtifactTypes: [],
   },
   {
     stageNumber: 9,
-    stageKey: "artifact_generation",
-    name: "Artifact Generation",
-    implemented: false,
-    producesArtifactTypes: [],
+    stageKey: "portfolio_suggestions",
+    // Stage 9 is Artifact Generation, and its generators are independent
+    // (`AID-08`). Phase 3A ships one, so the stage key is that generator: the
+    // prompt fragment is generator-specific, and a shared `artifact_generation`
+    // key would give two generators one prompt. Per-generator resolution is the
+    // follow-up when a second generator lands (`docs/12` D-29).
+    name: "Artifact Generation — Portfolio Suggestions",
+    implemented: true,
+    producesArtifactTypes: ["portfolio_suggestions"],
   },
   {
     stageNumber: 10,

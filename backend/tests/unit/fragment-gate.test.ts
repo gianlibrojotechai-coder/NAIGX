@@ -92,7 +92,7 @@ test("the gate detects an added or removed fragment", () => {
   assert.deepEqual(removed.removed, [fragments[0]?.fragmentKey]);
 });
 
-test("every fragment the composer requires for stages 1-3 exists", () => {
+test("every fragment the composer requires exists", () => {
   // The composer resolves by key; a missing file is a runtime halt. Catching it
   // here means the failure surfaces in review, not mid-analysis.
   const authored = new Set(
@@ -110,7 +110,9 @@ test("every fragment the composer requires for stages 1-3 exists", () => {
   for (const key of required) {
     assert.ok(authored.has(key), `composer requires fragment "${key}"`);
   }
-  assert.equal(required.length, 12, "4 foundation + 4 stage + 4 type modifier");
+  // Stage 9 registers per generator (`AID-08`), so the sixth stage key is
+  // `portfolio_suggestions` rather than a shared `artifact_generation`.
+  assert.equal(required.length, 14, "4 foundation + 6 stage + 4 type modifier");
 });
 
 test("fragment classes map onto the DB §4.5 vocabulary", () => {

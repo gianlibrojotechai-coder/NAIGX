@@ -34,6 +34,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { createPipeline } from "../nie/pipeline.js";
+import type { CapabilityProfile } from "../nie/capability-profile.js";
 import { StageError, type PipelineResult } from "../nie/contracts.js";
 import type { FragmentResolver } from "../nie/ports.js";
 import type { StageRecording } from "../harness/recordings.js";
@@ -92,6 +93,16 @@ export interface CaptureOptions {
    * adapter ignores the argument and returns the same instance.
    */
   readonly adapterFor: (corpusCase: CorpusCase) => ProviderAdapter;
+  /**
+   * The operator inventory Stage 7 matches against (`FR-022`).
+   *
+   * Optional for the same reason it is optional on the pipeline: without one a
+   * `job_description` case halts at Stage 7 by design rather than failing, and
+   * every other path is unaffected. Supplied by the caller so capture never
+   * reads the profile itself — the choice of inventory belongs to whoever is
+   * running the capture, not to the capture machinery.
+   */
+  readonly capabilityProfile?: CapabilityProfile;
   readonly resolver: FragmentResolver;
   readonly store: RecordingStore;
   readonly rate: TokenRate;
@@ -294,6 +305,9 @@ export async function captureCase(
     fragmentUsageSink: { record: () => Promise.resolve() },
     modelVersionId: randomUUID(),
     modelKey: options.modelKey,
+    ...(options.capabilityProfile !== undefined
+      ? { capabilityProfile: options.capabilityProfile }
+      : {}),
   });
 
   const result = await pipeline.run({

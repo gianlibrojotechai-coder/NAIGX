@@ -524,20 +524,25 @@ test("the pipeline is provider-neutral — a different adapter changes nothing s
 
 // --- stage inventory (docs/12 D-7) --------------------------------------
 
-test("the stage inventory is twelve stages, four implemented", () => {
+test("the stage inventory is twelve stages, seven implemented", () => {
   assert.equal(STAGES.length, 12, "docs/12 D-7 — twelve, not six");
+  // Stage 7 joined in Phase 2 (`docs/12` D-27); stages 8 and 9 in Phase 3A
+  // (`docs/12` D-29), both on the job-description path.
   assert.deepEqual(
     STAGES.filter((s) => s.implemented).map((s) => s.stageNumber),
-    [1, 2, 3, 6],
+    [1, 2, 3, 6, 7, 8, 9],
   );
   assert.equal(
     STAGES.find((s) => s.stageNumber === 6)?.stageKey,
     "architecture_analysis",
     "stage 6 is Architecture Analysis, per AI Appendix A",
   );
-  assert.ok(
-    STAGES.every((s) => s.producesArtifactTypes.length === 0),
-    "artifact generation is Stage 9, a Sprint 2 deliverable",
+  // Stage 9 is the only stage that produces an artifact type (`AI` App. A).
+  assert.deepEqual(
+    STAGES.filter((s) => s.producesArtifactTypes.length > 0).map(
+      (s) => s.stageNumber,
+    ),
+    [9],
   );
 });
 

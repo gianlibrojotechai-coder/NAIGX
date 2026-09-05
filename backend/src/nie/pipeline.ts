@@ -30,9 +30,21 @@ import {
   type ClassificationType,
   type ContextResult,
   type IntentResult,
+  type GapItem,
   type PipelineResult,
+  type PortfolioSuggestions,
+  type RecommendationResult,
+  type RecommendationResult as ContractRecommendationResult,
 } from "./contracts.js";
 import { composePrompt, type ComposedPrompt } from "./prompt.js";
+import type { CapabilityProfile } from "./capability-profile.js";
+import { parseRecommendation } from "./stages/recommendation-generation.js";
+import {
+  eligibleGaps,
+  isPlanned,
+  planArtifacts,
+} from "./stages/artifact-planning.js";
+import { parsePortfolioSuggestions } from "./stages/portfolio-suggestions.js";
 import type {
   FragmentResolver,
   FragmentUsageRecord,
@@ -67,6 +79,16 @@ export interface PipelineDependencies {
   readonly resultSink?: StageResultSink;
   readonly modelVersionId: string;
   readonly modelKey: string;
+  /**
+   * The operator capability profile Stage 7 matches against (`FR-022`).
+   *
+   * Optional, and its absence is a designed outcome rather than a failure: a
+   * job description still classifies, extracts intent and extracts context
+   * without one. What it cannot do is produce a gap analysis, because there is
+   * nothing to compare against — so Stage 7 is skipped and the reason is
+   * recorded on the result.
+   */
+  readonly capabilityProfile?: CapabilityProfile;
   /** Injected so traces are testable without the wall clock. */
   readonly now?: () => Date;
   readonly newId?: () => string;
@@ -137,6 +159,13 @@ export function stageProviderInputs(
     readonly classification?: string;
     readonly intent?: string;
     readonly context?: string;
+    /**
+     * Supplied only for the job-description path, and only when the caller has
+     * one — exactly the condition under which the pipeline calls Stage 7.
+     * Without it there is no Stage 7 input to describe, because there would
+     * have been no Stage 7 call to key a fixture against.
+     */
+    readonly capabilityProfile?: CapabilityProfile;
   },
 ): ReadonlyMap<string, string> {
   const inputs = new Map<string, string>();
@@ -173,6 +202,25 @@ export function stageProviderInputs(
   } catch {
     return inputs;
   }
+  // The branch the pipeline takes after Stage 3, mirrored. `AI §9.1` sends the
+  // job-description path to Stage 7 and gives it no architecture, so a fixture
+  // set that offered `architecture_analysis` here would describe a call that is
+  // never made.
+  if (classification.determinedType === "job_description") {
+    if (outputs.capabilityProfile !== undefined) {
+      inputs.set(
+        "recommendation_generation",
+        stageHandoff({
+          classification,
+          intent,
+          context: contextHandoffView(context),
+          capability_profile: outputs.capabilityProfile,
+        }),
+      );
+    }
+    return inputs;
+  }
+
   inputs.set(
     "architecture_analysis",
     stageHandoff({
@@ -210,6 +258,30 @@ interface StageRun<T> {
   readonly regenerateOnce?: (error: unknown) => boolean;
 }
 
+/**
+ * The eligible gap set as Stage 9 is shown it: each gap carries its own
+ * `requirement_id`, name and priority.
+ *
+ * The same move as `contextHandoffView` for Stage 6 and Stage 7 — the model
+ * copies an identifier printed beside the item rather than deriving one. It
+ * also carries the requirement *name*, because a gap id alone tells the
+ * generator nothing about what to build.
+ */
+export const eligibleGapsView = (
+  recommendation: ContractRecommendationResult,
+  eligible: readonly GapItem[],
+): readonly Record<string, unknown>[] => {
+  const nameOf = new Map(
+    recommendation.requiredCapabilities.map((r) => [r.id, r.name]),
+  );
+  return eligible.map((gap) => ({
+    requirement_id: gap.requirementId,
+    requirement: nameOf.get(gap.requirementId) ?? gap.requirementId,
+    priority: gap.priority,
+    why_it_matters: gap.whyItMatters,
+  }));
+};
+
 export function createPipeline(deps: PipelineDependencies) {
   const now = deps.now ?? (() => new Date());
   const newId = deps.newId ?? (() => randomUUID());
@@ -229,6 +301,43 @@ export function createPipeline(deps: PipelineDependencies) {
    * stage whose trace is most needed (`FR-100`, `FR-093`), and emitting only on
    * success would lose every diagnosis the trace store exists for.
    */
+  /**
+   * Traces a stage that reaches no provider.
+   *
+   * `AP-8`/`FR-100` require every stage to be reconstructible from its trace,
+   * and Stage 8 is a stage — it just happens to be rule-based (`AI` App. A).
+   * `StageTrace` carries no model linkage (`DB §8.2`), so a deterministic
+   * stage records exactly like any other, minus the invocation. Without this
+   * the one stage whose output is pure policy would be the one stage nobody
+   * could audit.
+   */
+  const recordDeterministicStage = async (
+    input: PipelineInput,
+    spec: {
+      readonly stageNumber: number;
+      readonly structuredInput: unknown;
+      readonly structuredOutput: unknown;
+    },
+  ): Promise<void> => {
+    const stage = stageByNumber(spec.stageNumber);
+    const startedAt = now();
+    await guard(() =>
+      deps.traceSink.record({
+        stageTraceId: newId(),
+        analysisId: input.analysisId,
+        stageNumber: stage.stageNumber,
+        stageKey: stage.stageKey,
+        structuredInput: spec.structuredInput,
+        structuredOutput: spec.structuredOutput,
+        startedAt,
+        durationMs: Math.max(0, now().getTime() - startedAt.getTime()),
+        outcome: "success",
+        failureReason: null,
+        retryCount: 0,
+      }),
+    );
+  };
+
   const runStage = async <T>(
     input: PipelineInput,
     spec: StageRun<T>,
@@ -442,6 +551,107 @@ export function createPipeline(deps: PipelineDependencies) {
           reason:
             "Context insufficient; any design would be substantially invented (AI §5.4)",
         },
+      };
+    }
+
+    // `FR-022` — the job-description path decides whether to apply now or
+    // build first. `AI §9.1` gives it no architecture, so this is where that
+    // path produces its reasoning instead of stopping at context.
+    if (classification.determinedType === "job_description") {
+      const profile = deps.capabilityProfile;
+      if (profile === undefined) {
+        // Not a failure. Without a profile there is nothing to compare the
+        // posting against, and a gap analysis against an absent inventory
+        // would invent both halves of its own conclusion.
+        return {
+          classification,
+          intent,
+          context,
+          haltedAt: {
+            stageNumber: 7,
+            reason:
+              "No capability profile supplied; gap analysis needs one side to compare against (FR-022)",
+          },
+        };
+      }
+
+      const recommendation: RecommendationResult = await runStage(input, {
+        stageNumber: 7,
+        classifiedAs: classification.determinedType,
+        structuredInput: { classification, intent, context },
+        buildRequest: (prompt) =>
+          request(
+            prompt,
+            "recommendation_generation",
+            // The context set is labelled so requirement grounding is copied
+            // rather than counted, exactly as Stage 6 receives it.
+            stageHandoff({
+              classification,
+              intent,
+              context: contextHandoffView(context),
+              capability_profile: profile,
+            }),
+          ),
+        parse: (text) => parseRecommendation(text, context, profile),
+      });
+
+      await deps.resultSink?.persistRecommendation?.(
+        input.analysisId,
+        recommendation,
+      );
+
+      // Stage 8 — deterministic (`AI` App. A). No prompt, no provider call, no
+      // model judgement: the same input yields the same plan, which is what
+      // `FR-024` requires of artifact selection.
+      const artifactPlan = planArtifacts(recommendation);
+      await recordDeterministicStage(input, {
+        stageNumber: 8,
+        structuredInput: { recommendation },
+        structuredOutput: artifactPlan,
+      });
+
+      if (!isPlanned(artifactPlan, "portfolio_suggestions")) {
+        // Planned out, with the reason already on the entry. Not a halt: the
+        // run completed everything its path defines.
+        return {
+          classification,
+          intent,
+          context,
+          recommendation,
+          artifactPlan,
+        };
+      }
+
+      // Stage 9 — one generator, independent by construction (`AID-08`): it
+      // reads reasoning state and no other generator's output.
+      const eligible = eligibleGaps(recommendation);
+      const portfolioSuggestions: PortfolioSuggestions = await runStage(input, {
+        stageNumber: 9,
+        classifiedAs: classification.determinedType,
+        structuredInput: { recommendation, artifactPlan },
+        buildRequest: (prompt) =>
+          request(
+            prompt,
+            "portfolio_suggestions",
+            // The eligible set is derived and labelled, never left for the
+            // model to filter: which gaps may justify a build is application
+            // knowledge (`docs/12` D-19, D-28, D-29).
+            stageHandoff({
+              eligible_gaps: eligibleGapsView(recommendation, eligible),
+              matched_capabilities: recommendation.matched,
+              verdict: recommendation.verdict,
+            }),
+          ),
+        parse: (text) => parsePortfolioSuggestions(text, eligible),
+      });
+
+      return {
+        classification,
+        intent,
+        context,
+        recommendation,
+        artifactPlan,
+        portfolioSuggestions,
       };
     }
 

@@ -144,6 +144,19 @@ export interface PipelineResult {
    * the run halted before Stage 6.
    */
   readonly architecture?: ArchitectureResult;
+  /**
+   * Stage 7, job-description path only (`FR-022`). Absent on every other
+   * path, and absent when no capability profile was supplied.
+   */
+  readonly recommendation?: RecommendationResult;
+  /**
+   * Stage 8, deterministic. Present whenever Stage 7 produced a verdict —
+   * including when it plans nothing, because an omission with a reason is the
+   * output (`DB §4.4`).
+   */
+  readonly artifactPlan?: readonly ArtifactPlanEntry[];
+  /** Stage 9, present only when the plan included `portfolio_suggestions`. */
+  readonly portfolioSuggestions?: PortfolioSuggestions;
   /** Why the pipeline stopped early, if it did. */
   readonly haltedAt?: { readonly stageNumber: number; readonly reason: string };
 }
@@ -236,4 +249,228 @@ export class ArchitectureTraceabilityError extends StageError {
     super(6, "architecture_analysis", message);
     this.name = "ArchitectureTraceabilityError";
   }
+}
+
+// --- Stage 7 (job-description path) ---------------------------------------
+
+/**
+ * `FR-022`: "Requirements are extracted with `must-have` / `nice-to-have`
+ * classification, labelled `stated` or `inferred`."
+ */
+export const REQUIREMENT_NECESSITY = ["must_have", "nice_to_have"] as const;
+export type RequirementNecessity = (typeof REQUIREMENT_NECESSITY)[number];
+
+/** How completely an evidenced capability covers a requirement. */
+export const MATCH_STRENGTHS = ["strong", "partial"] as const;
+export type MatchStrength = (typeof MATCH_STRENGTHS)[number];
+
+/** `FR-022`: gaps carry a priority so a build can be sized against them. */
+export const GAP_PRIORITIES = ["high", "medium", "low"] as const;
+export type GapPriority = (typeof GAP_PRIORITIES)[number];
+
+/**
+ * What closing a requirement would actually take (`docs/12` D-28).
+ *
+ * WHY THIS EXISTS. Without it every requirement is implicitly capability-
+ * shaped, and because the profile models only technical capabilities, anything
+ * behavioural falls through to "no matchable evidence" and becomes a gap. The
+ * first real run proved the cost: "track record as builder/solo operator"
+ * matched `strong` while "independent operation with minimal oversight" was
+ * reported as a gap — the same claim, split by phrasing alone, because the
+ * model had no way to say *this is not the kind of thing a profile evidences*.
+ *
+ * `FR-022` already requires portfolio recommendations be "specific and
+ * buildable". This vocabulary is what lets the stage honour that.
+ */
+export const REQUIREMENT_KINDS = [
+  /** A capability an artifact can demonstrate. The only buildable kind. */
+  "technical",
+  /** Industry or sector exposure. Only real work in that sector closes it. */
+  "domain_experience",
+  /** History: years held, people trained, roles occupied. Proved by narrative. */
+  "track_record",
+  /** Behavioural or character attributes. Never a build target. */
+  "disposition",
+] as const;
+export type RequirementKind = (typeof REQUIREMENT_KINDS)[number];
+
+/**
+ * Whether a gap on this requirement could justify building something.
+ *
+ * The mirror of `isMatchable` in `capability-profile.ts`, at the other end of
+ * the pipeline: that predicate governs what may *support* a match, this one
+ * governs what may *drive* a build. Only `technical` qualifies — a portfolio
+ * project cannot close resourcefulness, five years in aerospace, or a track
+ * record of training non-technical staff, and recommending one that claims to
+ * would waste the scarcest thing the operator has.
+ */
+export const isBuildableKind = (kind: RequirementKind): boolean =>
+  kind === "technical";
+
+/**
+ * The decision the stage exists to make.
+ *
+ * `apply_now` is first-class, not a fallback: the product maximises
+ * employability rather than project count, so concluding that existing
+ * evidence suffices is a valid and valuable outcome.
+ */
+export const RECOMMENDATION_DECISIONS = ["apply_now", "build_first"] as const;
+export type RecommendationDecision = (typeof RECOMMENDATION_DECISIONS)[number];
+
+export interface RequiredCapability {
+  readonly id: string;
+  readonly name: string;
+  readonly necessity: RequirementNecessity;
+  readonly provenance: IntentProvenance;
+  /** What closing this would take, and so whether a build could (`D-28`). */
+  readonly kind: RequirementKind;
+  /** At least one, each resolving to a Stage 3 context element. */
+  readonly groundedInContextIndices: readonly number[];
+}
+
+export interface MatchedCapability {
+  readonly requirementId: string;
+  /** Resolves in the capability profile, and must be matchable. */
+  readonly capabilityId: string;
+  readonly strength: MatchStrength;
+  /** The specific evidence locator a reader could open. */
+  readonly evidenceRef: string;
+}
+
+export interface GapItem {
+  readonly requirementId: string;
+  readonly priority: GapPriority;
+  readonly whyItMatters: string;
+}
+
+export interface RecommendationVerdict {
+  readonly decision: RecommendationDecision;
+  readonly rationale: string;
+  /** Required for `build_first`, forbidden for `apply_now`. */
+  readonly decisiveGaps: readonly string[];
+}
+
+/** What Stage 7 produces on the job-description path. */
+export interface RecommendationResult {
+  readonly requiredCapabilities: readonly RequiredCapability[];
+  readonly matched: readonly MatchedCapability[];
+  readonly gaps: readonly GapItem[];
+  readonly verdict: RecommendationVerdict;
+}
+
+// --- Stage 8 / Stage 9, job-description path (`docs/12` D-29) -------------
+
+/**
+ * The artifact set `AI §9.1` maps to the job-description path, and `docs/11`
+ * §5 names in the corpus.
+ *
+ * All three are declared because Stage 8 must record an **omission reason**
+ * for the ones it does not plan — `DB §4.4` exists so "chose not to" and
+ * "tried and failed" are distinguishable in storage, and a type the planner
+ * cannot name at all would be neither.
+ */
+export const ARTIFACT_TYPES = [
+  "skill_gap_analysis",
+  "portfolio_suggestions",
+  "interview_guidance",
+] as const;
+export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
+
+/** The generators that exist. Phase 3A ships one (`docs/12` D-29). */
+export const IMPLEMENTED_ARTIFACT_TYPES = ["portfolio_suggestions"] as const;
+
+/** `DB §4.4` ARTIFACT_PLAN_ENTRY — Stage 8 output, one row per artifact type. */
+export interface ArtifactPlanEntry {
+  readonly artifactType: ArtifactType;
+  readonly planned: boolean;
+  readonly depthLevel: "standard";
+  /** Required when planned. */
+  readonly inclusionReason?: string;
+  /** Required when not planned. Omission is a decision, not an absence. */
+  readonly omissionReason?: string;
+}
+
+/** How much work a project is, from the operator's side. */
+export const PORTFOLIO_COMPLEXITY = [
+  "simple",
+  "intermediate",
+  "advanced",
+] as const;
+export type PortfolioComplexity = (typeof PORTFOLIO_COMPLEXITY)[number];
+
+/** Coarse on purpose: a model estimating hours precisely is inventing. */
+export const BUILD_EFFORT = ["hours", "days", "weeks"] as const;
+export type BuildEffort = (typeof BUILD_EFFORT)[number];
+
+/**
+ * What a finished project should leave behind.
+ *
+ * Deliberately the `EVIDENCE_TYPES` vocabulary from `capability-profile.ts`,
+ * plus the two forms a build produces that an inventory entry does not
+ * (`screenshot`, `test_evidence`, `sample_io`). The overlap is the point: the
+ * loop is gap → project → evidence → `profile.yaml` → future match, and a
+ * separate vocabulary would break it at the last step.
+ */
+export const PORTFOLIO_EVIDENCE_TYPES = [
+  "workflow",
+  "repo",
+  "diagram",
+  "loom",
+  "doc",
+  "deployment",
+  "screenshot",
+  "test_evidence",
+  "sample_io",
+] as const;
+export type PortfolioEvidenceType = (typeof PORTFOLIO_EVIDENCE_TYPES)[number];
+
+export interface PortfolioEvidence {
+  readonly type: PortfolioEvidenceType;
+  readonly whatItShows: string;
+}
+
+/**
+ * A claim about how far a project carries beyond this posting.
+ *
+ * Always `inferred`, and structurally so: NAIGX holds exactly one job
+ * description and nothing models the wider market, so a reusability claim is
+ * reasoning about the requirements in hand — not data. `basis` must state what
+ * the inference rests on, so a reader can discount it (`docs/12` D-29).
+ */
+export interface ReusabilityClaim {
+  readonly provenance: "inferred";
+  readonly basis: string;
+  readonly claim: string;
+}
+
+export interface PortfolioProject {
+  /** Total order over the set; 1 is built first. */
+  readonly rank: number;
+  readonly name: string;
+  readonly complexity: PortfolioComplexity;
+  /** Stage 7 gap ids. Every one technical, decisive, and reported. */
+  readonly primaryGaps: readonly string[];
+  /** Free text: what else it shows. Never a capability-profile id. */
+  readonly secondaryCapabilities: readonly string[];
+  readonly whyThisProject: string;
+  readonly businessProblem: string;
+  readonly whatToBuild: string;
+  /** Trigger through outcome, in order. */
+  readonly workflow: readonly string[];
+  readonly platforms: readonly string[];
+  readonly technicalConcepts: readonly string[];
+  /** At least one. A project leaving no evidence closes no gap. */
+  readonly evidenceToProduce: readonly PortfolioEvidence[];
+  /** Required when the project claims exactly one gap. */
+  readonly whyNotConsolidated?: string;
+  readonly reusability: ReusabilityClaim;
+  readonly estimatedEffort: BuildEffort;
+  readonly portfolioValue: string;
+}
+
+/** What the Stage 9 `portfolio_suggestions` generator produces. */
+export interface PortfolioSuggestions {
+  readonly projects: readonly PortfolioProject[];
+  /** Why this many projects and not one per gap. */
+  readonly consolidationRationale: string;
 }

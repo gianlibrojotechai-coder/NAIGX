@@ -27,6 +27,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import type { CapabilityProfile } from "../src/nie/capability-profile.js";
 import {
   FIRST_VERTICAL,
   loadCorpus,
@@ -162,10 +163,16 @@ if (command === "capture") {
     .filter((a) => a.startsWith("--case="))
     .map((a) => a.slice("--case=".length));
 
+  // An explicit `--case=` is resolved against the whole corpus, not just the
+  // first vertical. Without this the job-description path is unreachable from
+  // the CLI in any mode — `FIRST_VERTICAL` is business requirements plus the
+  // special classes, so no `jd-*` case is ever selectable, dry run included.
+  //
+  // The default is deliberately unchanged: with no `--case=` the suite is the
+  // same set it has always been, so the frozen pass reference still describes
+  // the same run.
   const cases =
-    only.length > 0
-      ? selected.filter((c) => only.includes(c.caseId))
-      : selected;
+    only.length > 0 ? corpus.filter((c) => only.includes(c.caseId)) : selected;
   if (cases.length === 0) {
     console.error(`No selected case matches ${only.join(", ")}.`);
     process.exit(2);
@@ -203,6 +210,7 @@ if (command === "capture") {
     };
     let captureStore = store;
     let quarantine: ((record: CaptureFailureRecord) => void) | undefined;
+    let dryRunProfile: CapabilityProfile | undefined;
 
     if (dryRun) {
       const scratch = fs.mkdtempSync(
@@ -213,7 +221,14 @@ if (command === "capture") {
       // the repository, diagnostic or otherwise.
       quarantine = (record) =>
         writeFailureRecord(record, path.join(scratch, "failures"));
-      adapterFor = createDryRunAdapter;
+      // The job-description path needs an inventory to compare against, and
+      // Stage 7 refuses a match citing anything not in it — so the dry run is
+      // given the real `profile.yaml` rather than a fabricated one.
+      const { loadCapabilityProfile } =
+        await import("../src/nie/capability-profile.js");
+      dryRunProfile = loadCapabilityProfile();
+      adapterFor = (corpusCase) =>
+        createDryRunAdapter(corpusCase, dryRunProfile);
       adapterId = DRY_RUN_ADAPTER_ID;
       modelKey = "dry-run";
       rate = {
@@ -265,6 +280,9 @@ if (command === "capture") {
     const report = await captureCases({
       cases,
       adapterFor,
+      ...(dryRunProfile !== undefined
+        ? { capabilityProfile: dryRunProfile }
+        : {}),
       resolver: resolverFor(prisma),
       store: captureStore,
       rate,

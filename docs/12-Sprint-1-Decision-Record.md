@@ -1074,6 +1074,176 @@ Nothing else. No prompt, code, validator, schema, database or recording change, 
 
 ---
 
+## D-27 — Gap analysis needs a second side, and no document supplied one
+
+**Decided. The capability profile is a new authored primitive; Stage 7 implements the job-description path as a decision.**
+
+Taken 2026-08-15, opening Phase 2. Sprint 1 is frozen and unchanged.
+
+### The gap in the requirement itself
+
+`FR-022` requires the job-description path to produce "required-skill extraction, **skill gap analysis**, portfolio recommendations, and interview guidance". A gap analysis compares two things, and **no authoritative document says what the second thing is.** Every input the NIE models describes the submitted artifact; nothing models the operator the analysis is for.
+
+That is not an unbuilt part of an existing concept — it is a missing concept. Stage 7 cannot decide between applying and building without it, so it is recorded here rather than assumed into existence.
+
+### What was decided
+
+| # | Decision |
+|---|---|
+| 1 | **The capability profile is an authored repository asset** — `research/capability-profile/profile.yaml`, the same shape `docs/11` gives the corpus and D-3 gives fragments: reviewable as a diff, owned by a human, **never written by the system**. NAIGX authoring its own inventory could justify any verdict it liked |
+| 2 | **Evidence is the unit, not claimed skill.** A capability without at least one evidence item carrying an openable locator cannot load, so it can never be cited |
+| 3 | **`familiar` depth is loadable but never matchable.** Familiarity means no artifact proves it. Accepting it produces "apply now" for a posting the operator cannot evidence — the one error that costs a real application. Rejecting it costs time instead, and only that error is recoverable |
+| 4 | **Stage 7 output is a decision**, with `apply_now` first-class. The product maximises employability, not project count, so concluding that existing evidence suffices is a valuable answer |
+
+### The invariants, and why each is a refusal
+
+Every requirement must cite a Stage 3 context element — the same discipline `FR-030` applies to architecture components, applied to the other end of the pipeline. **An invented requirement manufactures a gap, and a gap manufactures a project.** Every match must cite a capability that exists, is matchable, and one of *its own* evidence locators. `build_first` must name at least one decisive gap, `apply_now` must name none, and a requirement cannot be both matched and a gap.
+
+### Scope, held deliberately
+
+Stage 7 decides **whether** to build and names what a build would have to close. What to build, how to test it, what evidence to produce, and how to use it in an application are Phases 3-5 and are **not** implemented.
+
+### Persistence is deferred, and this is the one thing not delivered
+
+`DB §4.3` already has a `Recommendation` model, but it is shaped for the platform-recommendation path — non-nullable `confidence_band` (Stage 11, unimplemented), `criteria_applied`, `limits`, and a required alternatives relation. The job-description verdict has none of those and has four collections the model cannot hold.
+
+Forcing one onto the other would corrupt a specified entity; adding new models needs a migration, and **the local database holds the published prompt fragments the frozen regression baseline depends on** — a `migrate dev` that detects drift can offer to reset it. That risk is not worth taking inside a slice that does not need durable storage: the harness prints the verdict and capture records the raw response.
+
+`StageResultSink.persistRecommendation` exists as an **optional** port, so the pipeline is ready and a sink that omits it simply stores nothing. **Recorded as outstanding**, with the schema decision to be taken on its own.
+
+### Minimum authoritative amendment to ratify
+
+**`FR-022`** — state what the gap analysis compares against, or reference the capability profile as an input to the job-description path. One clause. `AI §4.1`'s career-path description is unaffected.
+
+---
+
+## D-28 — A requirement's kind decides what closing it would take
+
+**Decided. `required_capabilities` carry a `kind`; only a `technical` gap can drive a build; every requirement must be disposed of.**
+
+Taken 2026-08-19, after the **first real Stage 7 run** against a live job posting. Sprint 1 remains frozen; this changes the Stage 7 contract fixed by D-27 and nothing else.
+
+### What the real run showed
+
+The posting was an "AI Automation & Implementation Specialist" role. Stage 3 extracted 46 grounded context elements; Stage 7 derived 23 requirements, matched 8 and reported 13 gaps, returning `build_first`. Every invariant held. The verdict was correct. Three defects surfaced anyway, and none was a reasoning error — each was a gap in the contract.
+
+**1. Behavioural requirements became build targets.** Six of the thirteen gaps were dispositional: independent operation, fast task-switching, resourcefulness, short-notice execution, staying current, research ability. No portfolio project closes any of them. They inflated the gap count and, had a build generator consumed the list, would have produced work the operator could never finish.
+
+The cause was structural, not a lapse. `RequiredCapability` carried `necessity` and `provenance` but nothing describing **what kind of thing the requirement is**. Every requirement was therefore implicitly capability-shaped, and because the profile models only technical capabilities, anything behavioural fell through to "no matchable evidence" and became a gap.
+
+The run produced its own proof. `req-8` *"track record as builder/solo operator with rapid prototype-to-deployment capability"* matched **strong**. `req-9` *"independent operation with minimal oversight"* was reported as a **gap**. These are the same claim. The model matched the one phrased as a track record and gapped the one phrased as a disposition — an arbitrary split forced by a missing distinction.
+
+**2. Requirements vanished.** `matched` and `gaps` were independent arrays, and the parser checked that they did not *overlap* but never that they *covered*. A partial function presented as a total one. Twenty-three requirements went in; twenty-one came out. `req-19` (training non-technical staff) and `req-20` (drone/aerospace experience) disappeared. Both were honest gaps. A requirement that vanishes is worse than one reported unmet, because the reader cannot tell it was considered at all.
+
+**3. Any gap could be decisive.** `decisive_gaps` was constrained only to name a reported gap. Nothing prevented "resourcefulness" from being the sole justification for `build_first`. This run chose the four buildable gaps — Zapier, HubSpot, AI web builders, AI video tooling — by the model's good judgement, not because the contract required it.
+
+### What was decided
+
+| # | Decision |
+|---|---|
+| 1 | **Every requirement carries a `kind`** from a closed set: `technical`, `domain_experience`, `track_record`, `disposition`. It records **what closing the requirement would take**, judged on the requirement itself rather than on the posting's phrasing |
+| 2 | **Only `technical` is buildable** (`isBuildableKind`). A project cannot close resourcefulness, five years in aerospace, or a history of training staff |
+| 3 | **`matched` and `gaps` must partition the requirement set** — every requirement in exactly one, never both, never neither |
+| 4 | **Every decisive gap must be `technical`.** With the existing rule that `build_first` names at least one decisive gap, `build_first` becomes reachable only when a genuine buildable gap exists |
+
+`isBuildableKind` is deliberately the mirror of `isMatchable` in the capability profile: that predicate governs what may **support a match**, this one governs what may **drive a build**. Same shape, opposite ends of the pipeline.
+
+### Why no third verdict, and what follows from that
+
+If every gap is `domain_experience`, `track_record` or `disposition`, no decisive gap can be named, so the verdict must be `apply_now` — while real, significant, unmet requirements remain.
+
+That is accepted deliberately. D-27 decision 4 fixes the outcome vocabulary at `apply_now` | `build_first`, and the question Stage 7 answers is *"should I build something first?"* Building would not close those gaps, so `build_first` would be false advice. Adding a third value would be a product change rather than a defect fix, and is not taken here.
+
+The mitigation is prompt guidance, not a parser rule: when the verdict is `apply_now` and non-buildable gaps remain, the rationale must name them and say why building would not close them. **This is deliberately unenforced.** A mechanical rule over free text would be checkable only by keyword, which invites satisfying the checker rather than the reader.
+
+### `FR-022` needs no amendment
+
+Its acceptance criteria already require that *"portfolio recommendations are specific and buildable, not generic project categories."* This change makes the stage honour a criterion the specification already states; the vocabulary is drawn from `FR-022` rather than invented. The one-clause `FR-022` amendment identified by D-27 — naming what the gap analysis compares against — remains outstanding and is unaffected.
+
+### Scope, held
+
+This decides **which gaps may justify building**. It does not generate the build. What to build, how to test it, and what evidence to produce remain Phases 3-5, exactly as D-27 scoped them.
+
+### Cost of the evidence
+
+One real run, `claude-sonnet-4-5`, 4 provider calls, 17,347 input and 8,552 output tokens, **$0.1803**. No recordings were captured and the frozen baseline was untouched.
+
+---
+
+## D-29 — A gap earns a project only if a project could close it
+
+**Decided. Stage 8 plans deterministically; Stage 9 generates one artifact; only decisive technical gaps may justify a build.**
+
+Taken 2026-08-19, opening Phase 3A. Sprint 1 remains frozen; Stages 1-3, 6 and the Stage 7 contract fixed by D-27/D-28 are unchanged.
+
+### Why Stage 8 is deterministic and Stage 9 is not
+
+This is not a design choice taken here — `AI` App. A already fixes it, and the reasoning is worth restating because it is the load-bearing part of Phase 3:
+
+> *"artifact selection asked of a model produces an inconsistent, unexplainable, untestable set that varies between runs on identical input — directly violating `FR-024`. Rules are inspectable, testable, and explainable to the user."*
+
+So **which** artifacts exist, and **why each was included or omitted**, is arithmetic over the Stage 7 result. **What they contain** — grouping gaps into a coherent system, framing a business problem, sequencing work — is judgement, and judgement is what a model is for. The split follows the same line `docs/12` D-19 drew for spans and D-28 drew for kinds: never ask the model to compute what the application can derive.
+
+Stage 8 makes no provider call, holds no prompt, and is unit-tested by running it twenty times on identical input and comparing.
+
+### Only decisive technical gaps are eligible
+
+`eligibleGaps` applies three filters, each a refusal carried forward:
+
+| Filter | Refuses |
+|---|---|
+| **reported** | a project justified by a gap nobody found |
+| **technical** (`isBuildableKind`, D-28) | a project aimed at resourcefulness, sector history, or a track record |
+| **decisive** | a project justified by a gap the verdict did not rest on |
+
+The first real run made the middle filter concrete: six of thirteen gaps were dispositional, and a naive generator would have proposed projects for "stays current on emerging AI technologies". D-28 gave those gaps a name; this decision is what stops them becoming work.
+
+### Consolidation is enforced, not requested
+
+A model asked for projects returns one per gap. Three mechanical rules make that impossible without capping the count, which would be arbitrary:
+
+| # | Rule |
+|---|---|
+| 1 | **Coverage** — every eligible gap claimed by at least one project. The D-28 exhaustiveness move, one level up: a gap the operator was told was decisive, then quietly dropped, is worse than one never named |
+| 2 | **No subset projects** — a project whose gaps are contained in another's closes strictly less and adds nothing |
+| 3 | **Solo justification** — a project claiming exactly one gap must say why it cannot fold into another |
+
+Rule 2 is the one that does the work. It makes redundancy structurally impossible, so the only way to add a project is to make it close something no other project does.
+
+### Evidence is part of the specification
+
+Every project must name at least one artifact that should exist when it is finished, from a vocabulary compatible with `capability-profile.ts`. The loop this closes is **build → ship → document → record → `profile.yaml`**, and a project leaving nothing citable leaves the inventory exactly where it was — which means the next analysis of the next posting reports the same gap again.
+
+### Market reusability is inferred, structurally
+
+NAIGX holds **one** job description and models no wider market. A claim that a project "transfers well to other postings" is therefore reasoning about the requirements in hand, never data.
+
+`ReusabilityClaim.provenance` is fixed to `inferred` **in the parser, not read from the response** — a model cannot promote its own guess to fact by writing `stated`. `basis` is mandatory so a reader can discount the claim by seeing what it rests on.
+
+The alternative considered and **deferred**: an authored `research/market-signals/postings.yaml`, human-owned like the capability profile, recording requirements the operator has actually seen recur. Architecturally consistent with D-27, but premature on one observed posting. It becomes worth building once several postings have been analysed, since the data is a by-product of using the system.
+
+### One generator, and why
+
+`FR-022` names three artifacts for this path. Phase 3A implements `portfolio_suggestions` only. `AID-08` makes generators independent and additive — *"artifacts added by registration"* — so `skill_gap_analysis` and `interview_guidance` are later registrations rather than modifications. One generator built properly beats three built thinly.
+
+The other two are **planned-out with a reason**, not omitted silently. `DB §4.4` gives ARTIFACT_PLAN_ENTRY a mandatory `omission_reason` exactly so the reader can distinguish "chose not to" from "tried and failed", and an unimplemented generator is the former.
+
+### Stage 9's key is the generator, not the stage
+
+`STAGE_FRAGMENT_KEYS` maps `portfolio_suggestions` rather than `artifact_generation`, because the prompt is generator-specific and a shared key would give two generators one prompt. When a second generator lands, Stage 9 needs per-generator prompt resolution — a registration mechanism rather than a map entry. **Recorded as outstanding.**
+
+### Persistence is deferred again
+
+`DB §4.4` specifies `ARTIFACT` and `ARTIFACT_PLAN_ENTRY`; neither exists in `schema.prisma`. Adding them needs a migration, and — exactly as D-27 reasoned for `Recommendation` — **the local database holds the published prompt fragments the frozen regression baseline depends on**, so a `migrate dev` that detects drift can offer to reset it. The harness prints the plan and the artifact, and the trace store already retains both as structured stage output. That is sufficient for this slice and risks nothing. **Recorded as outstanding**, to be taken with the D-27 persistence decision rather than piecemeal.
+
+### A deterministic stage is still traced
+
+`AP-8`/`FR-100` require every stage to be reconstructible from its trace, and Stage 8 is a stage — it simply reaches no provider. `StageTrace` carries no model linkage (`DB §8.2`), so `recordDeterministicStage` writes the same row minus the invocation. Without it, the one stage whose output is pure policy would be the one stage nobody could audit.
+
+---
+
+---
+
 ## Summary
 
 | ID | Status | Resolves |
@@ -1104,6 +1274,9 @@ Nothing else. No prompt, code, validator, schema, database or recording change, 
 | D-24 | ✅ Decided — recorded mode is a compatibility gate; activation needs fragment-exercising evidence | `AI §12.3` contradiction recorded; sharpens D-14 and D-17 |
 | D-25 | ✅ Decided — purpose-primary classification; dominance follows the ask; ambiguity falls below threshold | **Resolves `AIQ-9`**; amends `AI §3.2`, `§4.1`, `§4.3` and `FR-011` |
 | D-26 | ✅ Decided — `br-008` confidence bound changed under `docs/11` §6.2; suite → `corpus-v2` | Justified by D-25, not by output; `corpus_version` confirmed an entry marker |
+| D-27 | ✅ Decided — capability profile is an authored primitive; Stage 7 decides apply-vs-build | Opens Phase 2; `FR-022` never said *gap against what* |
+| D-28 | ✅ Decided — requirement `kind`; exhaustive disposition; buildable decisive gaps | Stage 7 defects from the first real run |
+| D-29 | ✅ Decided — deterministic Stage 8; one Stage 9 generator; decisive technical gaps only | Phase 3A portfolio suggestions |
 
 ### Still open after this record
 

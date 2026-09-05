@@ -1,0 +1,179 @@
+# NAIGX Capability Profile
+#
+# What you have actually demonstrated, with evidence. Stage 7 compares a job
+# description's extracted requirements against this file to decide whether to
+# apply now or build first.
+#
+# AUTHORING RULES — these are enforced by the loader, not left to discipline:
+#
+#   1. Every capability needs at least one evidence item. A capability with no
+#      evidence cannot be cited in a match, so it cannot influence a verdict.
+#   2. `depth` is about what the evidence proves, not what you could probably do:
+#        production   — running, used by someone other than you
+#        demonstrated — built end to end and shown working (repo, Loom, docs)
+#        familiar     — worked with it, no artifact that proves it
+#      `familiar` is deliberately NOT matchable. Familiarity is not evidence,
+#      and a gap analysis that accepts it will tell you to apply when you should
+#      build. That is the expensive direction to be wrong in.
+#   3. Evidence needs a locator (`url` or `path`) — something a hiring manager
+#      could open. "I built one once" is not evidence.
+#
+# ONE SYSTEM, MANY CAPABILITIES. Every entry below is evidenced by the SAME
+# production client automation — a live-selling inventory and invoicing system
+# built in n8n and used in that client's real operations. They are not ten
+# projects. They are ten independently matchable capabilities that one system
+# demonstrates, and the granularity is deliberate: Stage 7 matches individual
+# extracted job requirements, so a single coarse "built an n8n workflow" entry
+# would fail to match a posting that asks for structured LLM output handling or
+# operational state management by name.
+#
+# The published artifact is generalized to protect client confidentiality. The
+# node graph, routing and transformation logic are unchanged from production;
+# client identity, brand tables, sourcing data and customer-facing copy are not.
+#
+# DEPTH NOTE. All ten are `production` because the system runs in a real
+# business's operations. Be aware of what the locator itself proves: the
+# repository evidences the build, not the operation. A recorded walkthrough of a
+# live run would close that gap and is the highest-value evidence to add next.
+
+profile_version: profile-v1
+owner: Gian Librojo
+
+capabilities:
+  - id: cap-001
+    name: Multi-system workflow orchestration in n8n
+    platforms: [n8n]
+    depth: production
+    evidence:
+      - type: repo
+        locator: https://github.com/gianlibrojotechai-coder/live-selling-inventory-invoicing
+        description: >-
+          Production client automation: 36 nodes orchestrating Telegram, Google
+          Sheets and OpenAI in a single workflow with two flows behind a command
+          router
+      - type: doc
+        locator: https://github.com/gianlibrojotechai-coder/live-selling-inventory-invoicing/blob/main/README.md#architecture
+        description: >-
+          Architecture section — flow diagram and the three structural decisions
+          that shape the system
+
+  - id: cap-002
+    name: LLM integration in an operational workflow
+    platforms: [n8n, OpenAI]
+    depth: production
+    evidence:
+      - type: workflow
+        locator: https://github.com/gianlibrojotechai-coder/live-selling-inventory-invoicing/blob/main/workflows/live-selling-inventory-invoicing.json
+        description: >-
+          Two gpt-4.1-mini calls on the live path — one load-bearing parser, one
+          cosmetic generator — invoked as pipeline stages, not as a chatbot
+      - type: doc
+        locator: https://github.com/gianlibrojotechai-coder/live-selling-inventory-invoicing/blob/main/README.md#aillm-usage
+        description: >-
+          AI/LLM usage section, including the deliberate split between validated
+          and unvalidated model output
+
+  - id: cap-003
+    name: Structured LLM output contracts and parsing
+    platforms: [n8n, OpenAI]
+    depth: production
+    evidence:
+      - type: workflow
+        locator: https://github.com/gianlibrojotechai-coder/live-selling-inventory-invoicing/blob/main/workflows/live-selling-inventory-invoicing.json
+        description: >-
+          System prompt fixing a JSON-array output contract with closed
+          vocabularies, worked examples and explicit null handling; parsed in a
+          dedicated node so malformed output fails at a known point
+
+  - id: cap-004
+    name: Data normalization and transformation in workflow code
+    platforms: [n8n, JavaScript]
+    depth: production
+    evidence:
+      - type: workflow
+        locator: https://github.com/gianlibrojotechai-coder/live-selling-inventory-invoicing/blob/main/workflows/live-selling-inventory-invoicing.json
+        description: >-
+          16 JavaScript Code nodes performing trimming, whitespace collapsing,
+          numeric coercion with null preservation, default application and
+          field-to-column mapping on untrusted model output
+      - type: doc
+        locator: https://github.com/gianlibrojotechai-coder/live-selling-inventory-invoicing/blob/main/README.md#data-processing
+        description: >-
+          Data processing section — the rule that IDs, numbers and totals are
+          computed in code and never asked of the model
+
+  - id: cap-005
+    name: Conditional routing and business rule implementation
+    platforms: [n8n]
+    depth: production
+    evidence:
+      - type: workflow
+        locator: https://github.com/gianlibrojotechai-coder/live-selling-inventory-invoicing/blob/main/workflows/live-selling-inventory-invoicing.json
+        description: >-
+          Five-output command switch, an empty-result branch with an actionable
+          reply, two merge joins and a split-out fan-out driving per-row updates
+      - type: doc
+        locator: https://github.com/gianlibrojotechai-coder/live-selling-inventory-invoicing/blob/main/README.md#business-logic
+        description: >-
+          Business logic section — rules elicited from the client, including the
+          status lifecycle that prevents an item being sold twice
+
+  - id: cap-006
+    name: Google Sheets as an operational datastore
+    platforms: [n8n, Google Sheets]
+    depth: production
+    evidence:
+      - type: workflow
+        locator: https://github.com/gianlibrojotechai-coder/live-selling-inventory-invoicing/blob/main/workflows/live-selling-inventory-invoicing.json
+        description: >-
+          Eight nodes performing read, append and update across three tabs, with
+          a settings tab used as runtime configuration the client edits directly
+
+  - id: cap-007
+    name: Telegram-based conversational automation interface
+    platforms: [n8n, Telegram Bot API]
+    depth: production
+    evidence:
+      - type: workflow
+        locator: https://github.com/gianlibrojotechai-coder/live-selling-inventory-invoicing/blob/main/workflows/live-selling-inventory-invoicing.json
+        description: >-
+          Telegram trigger plus three send nodes implementing a command grammar
+          over chat, with distinct internal and customer-facing message registers
+
+  - id: cap-008
+    name: Inventory intake automation from unstructured input
+    platforms: [n8n, OpenAI, Google Sheets]
+    depth: production
+    evidence:
+      - type: workflow
+        locator: https://github.com/gianlibrojotechai-coder/live-selling-inventory-invoicing/blob/main/workflows/live-selling-inventory-invoicing.json
+        description: >-
+          End-to-end intake flow converting a free-form multi-item chat message
+          into normalised, ID-assigned inventory rows with a confirmation summary
+      - type: doc
+        locator: https://github.com/gianlibrojotechai-coder/live-selling-inventory-invoicing/blob/main/README.md#workflow-breakdown
+        description: Node-by-node breakdown of the intake flow
+
+  - id: cap-009
+    name: Invoice generation and order-state automation
+    platforms: [n8n, Google Sheets, Telegram Bot API]
+    depth: production
+    evidence:
+      - type: workflow
+        locator: https://github.com/gianlibrojotechai-coder/live-selling-inventory-invoicing/blob/main/workflows/live-selling-inventory-invoicing.json
+        description: >-
+          Invoice flow producing a numbered invoice from a buyer name — filtered
+          line items, subtotal and shipping, settings-derived due date, recorded
+          to a sheet, source rows transitioned to sold, customer message sent
+
+  - id: cap-010
+    name: Sequential identifier and counter state management
+    platforms: [n8n, Google Sheets]
+    depth: production
+    evidence:
+      - type: workflow
+        locator: https://github.com/gianlibrojotechai-coder/live-selling-inventory-invoicing/blob/main/workflows/live-selling-inventory-invoicing.json
+        description: >-
+          Read-allocate-advance counter pattern held in a settings tab, producing
+          gap-free human-meaningful identifiers for both items and invoices
+          across multi-item batches

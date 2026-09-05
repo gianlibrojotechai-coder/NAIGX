@@ -45,6 +45,10 @@ import { createProvider } from "../provider/index.js";
 import { createAnthropicProvider } from "../provider/adapters/anthropic.js";
 import type { ProviderAdapter } from "../provider/capability.js";
 import { createPipeline } from "../nie/pipeline.js";
+import {
+  loadCapabilityProfile,
+  type CapabilityProfile,
+} from "../nie/capability-profile.js";
 import { StageError } from "../nie/contracts.js";
 import type {
   FragmentUsageRecord,
@@ -115,6 +119,17 @@ export interface HarnessReport {
     readonly adapter: string;
     readonly note: string;
     readonly invocations: readonly ProviderInvocationRecord[];
+  };
+  /**
+   * Whether the operator inventory Stage 7 matches against was available
+   * (`FR-022`). Reported rather than assumed: a job description that halts for
+   * want of a profile and one that halts for any other reason look identical
+   * from the outside otherwise.
+   */
+  readonly capabilityProfile: {
+    readonly loaded: boolean;
+    readonly capabilities: number;
+    readonly error?: string;
   };
   readonly result?: unknown;
   readonly failure?: {
@@ -286,6 +301,24 @@ export async function runHarness(
       },
     };
 
+    // `FR-022` — the job-description path needs the operator inventory to have
+    // anything to compare a posting against. Read from the repository asset,
+    // never assembled here: `docs/12` D-27 makes the profile human-authored
+    // precisely so the system cannot write the evidence behind its own verdict.
+    //
+    // A missing or malformed profile is not fatal to an analysis that does not
+    // need one, so the failure is carried rather than thrown: business
+    // requirements, workflows and assessments still run, and a job description
+    // halts at Stage 7 with the reason the pipeline already states.
+    let capabilityProfile: CapabilityProfile | undefined;
+    let capabilityProfileError: string | undefined;
+    try {
+      capabilityProfile = loadCapabilityProfile();
+    } catch (error) {
+      capabilityProfileError =
+        error instanceof Error ? error.message : String(error);
+    }
+
     const pipeline = createPipeline({
       invoker,
       resolver,
@@ -296,6 +329,7 @@ export async function runHarness(
       // Progressive persistence (`DB §6.2`): each stage commits as it
       // completes, so a later failure keeps what earlier stages produced.
       resultSink: createStageResultSink(primary),
+      ...(capabilityProfile !== undefined ? { capabilityProfile } : {}),
     });
 
     // Built as a function, not a value: the trace and fragment arrays are
@@ -308,6 +342,13 @@ export async function runHarness(
         adapter: providerId,
         note,
         invocations,
+      },
+      capabilityProfile: {
+        loaded: capabilityProfile !== undefined,
+        capabilities: capabilityProfile?.capabilities.length ?? 0,
+        ...(capabilityProfileError !== undefined
+          ? { error: capabilityProfileError }
+          : {}),
       },
       trace: {
         store: "separate database" as const,
