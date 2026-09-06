@@ -221,8 +221,13 @@ test(
         "every recorded usage names a published fragment version",
       );
 
-      // Cost accounting flowed through the shared provider path.
-      assert.equal(report.provider.invocations.length, implemented.length);
+      // Cost accounting flowed through the shared provider path — for the
+      // stages that call one. Stage 5 is deterministic (`AI` App. A,
+      // `docs/12` D-35): it is traced like any other stage but reaches no
+      // provider, so it contributes a trace and no invocation.
+      const DETERMINISTIC = new Set([5]);
+      const providerStages = implemented.filter((n) => !DETERMINISTIC.has(n));
+      assert.equal(report.provider.invocations.length, providerStages.length);
       for (const invocation of report.provider.invocations) {
         assert.match(invocation.estimatedCostUsd, /^\d+\.\d{8}$/);
       }

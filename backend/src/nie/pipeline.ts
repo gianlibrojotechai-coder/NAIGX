@@ -23,9 +23,9 @@ import type { CapabilityRequest } from "../provider/capability.js";
 import type { InvocationContext, ProviderInvoker } from "../provider/invoke.js";
 import {
   ArchitectureTraceabilityError,
-  producesArchitecture,
   StageError,
   type ArchitectureResult,
+  type ArtifactOutcome,
   type ClassificationResult,
   type ClassificationType,
   type ContextResult,
@@ -42,6 +42,7 @@ import { parseRecommendation } from "./stages/recommendation-generation.js";
 import {
   eligibleGaps,
   isPlanned,
+  withOutcome,
   planArtifacts,
 } from "./stages/artifact-planning.js";
 import { parsePortfolioSuggestions } from "./stages/portfolio-suggestions.js";
@@ -63,6 +64,12 @@ import {
   proceedsToReasoning as contextProceeds,
 } from "./stages/context-extraction.js";
 import { parseArchitecture } from "./stages/architecture-analysis.js";
+import { planReasoning } from "./stages/reasoning-planning.js";
+import {
+  ArtifactSchemaError,
+  validateArtifact,
+} from "./artifact-validation.js";
+import { parseStructured } from "./parse.js";
 
 export interface PipelineDependencies {
   readonly invoker: ProviderInvoker;
@@ -554,10 +561,22 @@ export function createPipeline(deps: PipelineDependencies) {
       };
     }
 
+    // Stage 5 — deterministic (`AI` App. A, `docs/12` D-35). Reduced in v1: it
+    // selects the reasoning modules and the depth level, and produces no
+    // complexity pre-assessment, which remains undefined. Recorded like any
+    // other stage so the routing below is auditable rather than implicit —
+    // `FR-017` wants orchestration "explicit and inspectable".
+    const reasoningPlan = planReasoning(classification.determinedType);
+    await recordDeterministicStage(input, {
+      stageNumber: 5,
+      structuredInput: { classification, intent },
+      structuredOutput: reasoningPlan,
+    });
+
     // `FR-022` — the job-description path decides whether to apply now or
     // build first. `AI §9.1` gives it no architecture, so this is where that
     // path produces its reasoning instead of stopping at context.
-    if (classification.determinedType === "job_description") {
+    if (reasoningPlan.requiredAnalyses.includes("recommendation_generation")) {
       const profile = deps.capabilityProfile;
       if (profile === undefined) {
         // Not a failure. Without a profile there is nothing to compare the
@@ -625,40 +644,81 @@ export function createPipeline(deps: PipelineDependencies) {
       // Stage 9 — one generator, independent by construction (`AID-08`): it
       // reads reasoning state and no other generator's output.
       const eligible = eligibleGaps(recommendation);
-      const portfolioSuggestions: PortfolioSuggestions = await runStage(input, {
-        stageNumber: 9,
-        classifiedAs: classification.determinedType,
-        structuredInput: { recommendation, artifactPlan },
-        buildRequest: (prompt) =>
-          request(
-            prompt,
-            "portfolio_suggestions",
-            // The eligible set is derived and labelled, never left for the
-            // model to filter: which gaps may justify a build is application
-            // knowledge (`docs/12` D-19, D-28, D-29).
-            stageHandoff({
-              eligible_gaps: eligibleGapsView(recommendation, eligible),
-              matched_capabilities: recommendation.matched,
-              verdict: recommendation.verdict,
-            }),
-          ),
-        parse: (text) => parsePortfolioSuggestions(text, eligible),
-      });
+      const generate = (): Promise<PortfolioSuggestions> =>
+        runStage(input, {
+          stageNumber: 9,
+          classifiedAs: classification.determinedType,
+          structuredInput: { recommendation, artifactPlan },
+          buildRequest: (prompt) =>
+            request(
+              prompt,
+              "portfolio_suggestions",
+              // The eligible set is derived and labelled, never left for the
+              // model to filter: which gaps may justify a build is application
+              // knowledge (`docs/12` D-19, D-28, D-29).
+              stageHandoff({
+                eligible_gaps: eligibleGapsView(recommendation, eligible),
+                matched_capabilities: recommendation.matched,
+                verdict: recommendation.verdict,
+              }),
+            ),
+          parse: (text) => {
+            // `FR-039`: every artifact validates against its schema before
+            // presentation. Against the *wire* record, because the schema is the
+            // Output Contract the generator was given (`AI §6.1`, `§9.3`) — the
+            // camelCase result is downstream of it.
+            validateArtifact(
+              "portfolio_suggestions",
+              parseStructured(9, "portfolio_suggestions", text),
+            );
+            // Schema-valid is necessary, not sufficient: gap coverage, project
+            // redundancy and the rank total order are not expressible in JSON
+            // Schema and stay here (`docs/12` D-29).
+            return parsePortfolioSuggestions(text, eligible);
+          },
+          // `FR-039`: "Validation failure triggers one regeneration attempt."
+          // The existing Stage 6 mechanism, not a second retry path — one
+          // attempt, then the failure stands (`AI §3.2`).
+          regenerateOnce: (error) => error instanceof ArtifactSchemaError,
+        });
+
+      // `FR-091` — partial failure yields partial results with honest
+      // labelling, and `AI` App. A makes Stage 9 "per-artifact isolated".
+      // Letting the failure escape would discard a completed classification,
+      // intent, context, recommendation and plan to report one artifact that
+      // did not generate — the "silent omission" `FR-091` calls a defect,
+      // applied to the whole analysis.
+      //
+      // The failure is not swallowed: `runStage` has already recorded the
+      // Stage 9 trace with `outcome: "failure"` and its retry count, and the
+      // plan entry below carries the label a reader needs.
+      let portfolioSuggestions: PortfolioSuggestions | undefined;
+      let outcome: ArtifactOutcome = "generated";
+      try {
+        portfolioSuggestions = await generate();
+      } catch {
+        outcome = "failed";
+      }
 
       return {
         classification,
         intent,
         context,
         recommendation,
-        artifactPlan,
-        portfolioSuggestions,
+        artifactPlan: withOutcome(
+          artifactPlan,
+          "portfolio_suggestions",
+          outcome,
+        ),
+        ...(portfolioSuggestions !== undefined ? { portfolioSuggestions } : {}),
       };
     }
 
-    if (!producesArchitecture(classification.determinedType)) {
+    if (!reasoningPlan.requiredAnalyses.includes("architecture_analysis")) {
       // `AI §9.1` scopes the architecture to the requirement and assessment
       // paths. Skipping is correct, not a halt: the run completed everything
-      // its path defines.
+      // its path defines. The condition now reads from the Stage 5 plan, which
+      // derives it from `producesArchitecture` — the same predicate, stated once.
       return { classification, intent, context };
     }
 

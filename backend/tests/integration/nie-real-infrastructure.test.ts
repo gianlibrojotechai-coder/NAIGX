@@ -493,11 +493,11 @@ test(
       });
       assert.deepEqual(
         traces.map((t) => t.stageNumber),
-        [1, 2, 3, 6],
+        [1, 2, 3, 5, 6],
       );
       assert.deepEqual(
         traces.map((t) => t.outcome),
-        ["success", "success", "success", "success"],
+        ["success", "success", "success", "success", "success"],
       );
       for (const row of traces) {
         assert.equal(row.failureReason, null);
@@ -607,7 +607,8 @@ test("a trace-store outage does not fail the analysis", { skip }, async () => {
       "the analysis completed despite the trace store being unreachable",
     );
     assert.equal(result.context?.sufficiency, "sufficient");
-    assert.equal(seen.length, 4, "each failed trace write is surfaced");
+    // Stages 1-3, the deterministic Stage 5 (`docs/12` D-35), and Stage 6.
+    assert.equal(seen.length, 5, "each failed trace write is surfaced");
 
     // The durable record still landed: fragment usage is primary-store data.
     const usages = await primary.fragmentUsage.count({
@@ -724,10 +725,18 @@ test(
       const invocations = await trace.providerInvocation.findMany({
         where: { stageTraceId: { in: stageTraceIds } },
       });
+      // Not one per stage trace: Stage 5 is deterministic (`AI` App. A,
+      // `docs/12` D-35) and records a trace without reaching a provider, so a
+      // one-to-one assertion would now require it to have invented a call.
+      const providerTraces = stageTraces.filter((t) => t.stageNumber !== 5);
       assert.equal(
         invocations.length,
-        stageTraces.length,
+        providerTraces.length,
         "every stage that called a provider recorded its invocation",
+      );
+      assert.ok(
+        stageTraces.some((t) => t.stageNumber === 5),
+        "the deterministic stage is still traced (AP-8, FR-100)",
       );
       for (const invocation of invocations) {
         assert.equal(invocation.modelVersionId, seed.modelVersionId);
@@ -940,23 +949,25 @@ test(
         pipeline.run({ analysisId: seed.analysisId, text: INPUT }),
       );
 
-      // Traces still land in the separate database, all four stages.
+      // Traces still land in the separate database, all five stages.
       const traces = await trace.stageTrace.findMany({
         where: { analysisId: seed.analysisId },
         orderBy: { stageNumber: "asc" },
       });
       assert.deepEqual(
         traces.map((t) => t.stageNumber),
-        [1, 2, 3, 6],
+        [1, 2, 3, 5, 6],
       );
       assert.deepEqual(
         traces.map((t) => t.outcome),
-        ["success", "success", "success", "failure"],
+        // Stage 5 plans successfully; Stage 6 is the one that fails.
+        ["success", "success", "success", "success", "failure"],
       );
 
       // D-20: the failed stage still retains what the provider returned.
+      // Index 4, not 3 — Stage 5 now sits between context and architecture.
       assert.equal(
-        (traces[3]?.structuredOutput as { unparsed?: string })?.unparsed,
+        (traces[4]?.structuredOutput as { unparsed?: string })?.unparsed,
         BAD_ARCHITECTURE,
         "the raw response is still recoverable (DB §8.2, FR-100)",
       );

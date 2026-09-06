@@ -287,7 +287,7 @@ test("runs stages 1-3 in order and produces typed handoffs", async () => {
   // `FR-010`: fixed order, no stage bypassed.
   assert.deepEqual(
     traces.map((t) => t.stageNumber),
-    [1, 2, 3, 6],
+    [1, 2, 3, 5, 6],
   );
   assert.deepEqual(
     traces.map((t) => t.stageKey),
@@ -295,6 +295,7 @@ test("runs stages 1-3 in order and produces typed handoffs", async () => {
       "input_classification",
       "intent_detection",
       "context_extraction",
+      "reasoning_planning",
       "architecture_analysis",
     ],
   );
@@ -310,7 +311,11 @@ test("every stage emits a trace event (AP-8, FR-100)", async () => {
   const { pipeline, traces } = await harness();
   await pipeline.run({ analysisId: ANALYSIS_ID, text: INPUT });
 
-  assert.equal(traces.length, 4);
+  // 1-2-3 then Stage 5 (deterministic planning, `docs/12` D-35) then Stage 6.
+  assert.deepEqual(
+    traces.map((t) => t.stageNumber),
+    [1, 2, 3, 5, 6],
+  );
   for (const trace of traces) {
     assert.equal(trace.analysisId, ANALYSIS_ID);
     assert.equal(trace.outcome, "success");
@@ -524,13 +529,15 @@ test("the pipeline is provider-neutral — a different adapter changes nothing s
 
 // --- stage inventory (docs/12 D-7) --------------------------------------
 
-test("the stage inventory is twelve stages, seven implemented", () => {
+test("the stage inventory is twelve stages, eight implemented", () => {
   assert.equal(STAGES.length, 12, "docs/12 D-7 — twelve, not six");
   // Stage 7 joined in Phase 2 (`docs/12` D-27); stages 8 and 9 in Phase 3A
-  // (`docs/12` D-29), both on the job-description path.
+  // (`docs/12` D-29), both on the job-description path. Stage 5 joined with
+  // `docs/12` D-35, reduced: reasoning modules and depth only, no complexity
+  // pre-assessment.
   assert.deepEqual(
     STAGES.filter((s) => s.implemented).map((s) => s.stageNumber),
-    [1, 2, 3, 6, 7, 8, 9],
+    [1, 2, 3, 5, 6, 7, 8, 9],
   );
   assert.equal(
     STAGES.find((s) => s.stageNumber === 6)?.stageKey,

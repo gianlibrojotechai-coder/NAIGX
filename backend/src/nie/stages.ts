@@ -60,8 +60,11 @@ export const STAGES: readonly StageDefinition[] = [
   {
     stageNumber: 5,
     stageKey: "reasoning_planning",
+    // Reduced in v1 (`docs/12` D-35): it selects reasoning modules and the
+    // depth level, and produces no complexity pre-assessment — that output has
+    // no scale, entity or vocabulary defined anywhere and was not invented.
     name: "Reasoning Planning",
-    implemented: false,
+    implemented: true,
     producesArtifactTypes: [],
   },
   {
