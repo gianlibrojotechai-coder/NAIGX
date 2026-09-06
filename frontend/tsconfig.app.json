@@ -16,6 +16,16 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
+    /* Stricter typechecking, matching backend/tsconfig.json.
+       `strict` was absent here while the backend has run with it plus
+       `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes` since
+       Sprint 1. The gap matters most in this increment: the UI's core rule is
+       that a null field is never rendered as though it held a value, and
+       without `strict` the compiler does not distinguish the two. */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+
     /* Linting */
     "noUnusedLocals": true,
     "noUnusedParameters": true,

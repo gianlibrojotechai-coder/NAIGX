@@ -1,112 +1,131 @@
-import { useEffect, useState } from "react";
-import "./App.css";
-import { api } from "./api/client";
+/**
+ * NAIGX — job-description analysis (`M-12`, first usable increment).
+ *
+ * Paste a posting, submit, watch it run, read the stored analysis. One page,
+ * one flow, no configuration (`NFR-071`).
+ *
+ * WHAT WAS REMOVED AND WHY. The scaffold described a workflow-complexity
+ * analyser with a complexity score, risk detection and optimisation
+ * suggestions, above a textarea and button wired to nothing. None of that is
+ * what NAIGX does, and a header advertising features that do not exist is a
+ * false claim in the product's own voice. The health-check indicator went with
+ * it: a permanent "Connected" dot reported on a dependency the user has no
+ * decision to make about, while saying nothing about the request they actually
+ * care about. Reachability is now reported where it matters — on the failure
+ * of the call that needed it, with the corrective step attached.
+ *
+ * NOT HERE, DELIBERATELY: authentication, history, export, SSE. Each is
+ * specified and each is a later increment; none is stubbed, because a control
+ * that does nothing is worse than an absent one.
+ */
 
-type HealthResponse = {
-  status: string;
-  app: string;
-  version: string;
-  database: string;
-};
+import { JobDescriptionForm } from "./components/JobDescriptionForm";
+import { Processing } from "./components/Processing";
+import { AnalysisView } from "./components/AnalysisView";
+import { isOffline } from "./api/analyses";
+import { useAnalysis } from "./useAnalysis";
 
 function App() {
-  const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [backendError, setBackendError] = useState(false);
+  const { state, submit, reset, retryRetrieval } = useAnalysis();
 
-  useEffect(() => {
-    const checkHealth = async () => {
-      try {
-        const response = await api.get<HealthResponse>("/health");
-
-        setHealth(response.data);
-        setBackendError(false);
-      } catch {
-        setHealth(null);
-        setBackendError(true);
-      }
-    };
-
-    checkHealth();
-  }, []);
-
-  const isConnected =
-    health?.status === "ok" && health?.database === "connected";
+  const showForm = state.phase === "idle" || state.phase === "submitting";
 
   return (
-    <div className="app">
-      <main className="container">
-        <header className="hero">
-          <div className="hero-content">
-            <span className="logo-badge">
-              AI Workflow Intelligence
-            </span>
-
-            <h1>NAIGX</h1>
-
-            <h2>Understand Any Workflow. Powered by AI.</h2>
-
-            <p>
-              Paste an automation workflow from n8n, Make.com, Zapier,
-              or describe it in plain English. NAIGX will analyze its
-              complexity, detect risks, and recommend improvements.
-            </p>
-          </div>
-
-          <div className="status">
-            <span
-              className={`dot ${isConnected ? "connected" : "disconnected"}`}
-            ></span>
-
-            {isConnected
-              ? "Connected"
-              : backendError
-                ? "Backend Offline"
-                : "Checking..."}
-          </div>
-        </header>
-
-        <section className="card">
-          <h3>Workflow Description</h3>
-
-          <p className="card-subtitle">
-            Paste your automation workflow below.
+    <div className="min-h-screen bg-slate-50">
+      <header className="border-b border-slate-200 bg-white">
+        <div className="max-w-4xl mx-auto px-6 py-5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">
+            NAIGX
+          </h1>
+          <p className="text-sm text-slate-600">
+            Should you apply to this role, or build evidence first?
           </p>
+        </div>
+      </header>
 
-          <textarea
-            placeholder={`Example:
-
-Google Form
-      ↓
-Google Sheets
-      ↓
-OpenAI
-      ↓
-Slack Notification`}
+      <main className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+        {showForm && (
+          <JobDescriptionForm
+            onSubmit={(content) => {
+              void submit(content);
+            }}
+            busy={state.phase === "submitting"}
           />
+        )}
 
-          <button>Analyze Workflow</button>
-        </section>
+        {state.phase === "processing" && (
+          <Processing
+            status={state.status}
+            elapsedSeconds={state.elapsedSeconds}
+            connectionWarning={state.connectionWarning}
+            onCancel={reset}
+          />
+        )}
 
-        <section className="card">
-          <h3>Analysis</h3>
-
-          <div className="empty-state">
-            <div className="robot">🤖</div>
-
-            <h4>Ready to Analyze</h4>
-
-            <p>
-              Your AI workflow report will appear here.
+        {state.phase === "error" && state.failure !== null && (
+          <div
+            role="alert"
+            className="border border-rose-300 bg-rose-50 rounded-lg p-5"
+          >
+            <h2 className="font-semibold text-rose-900">
+              {isOffline(state.failure)
+                ? "Cannot reach the backend"
+                : "That did not work"}
+            </h2>
+            <p className="text-sm text-rose-900 mt-1">
+              {state.failure.message}
             </p>
+            {state.failure.action !== null && (
+              <p className="text-sm text-rose-900 mt-2">
+                <span className="font-medium">What to do: </span>
+                {state.failure.action}
+              </p>
+            )}
 
-            <ul>
-              <li>✓ Complexity Score</li>
-              <li>✓ Risk Detection</li>
-              <li>✓ Best Practices</li>
-              <li>✓ Optimization Suggestions</li>
-            </ul>
+            <div className="mt-4 flex flex-wrap gap-3">
+              {/* The analysis may have completed even though retrieving it
+                  did not — offer the retry before offering to start over. */}
+              {state.analysisId !== null && (
+                <button
+                  type="button"
+                  onClick={retryRetrieval}
+                  className="px-4 py-2 rounded-md bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-900"
+                >
+                  Retry retrieval
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={reset}
+                className="px-4 py-2 rounded-md border border-slate-300 bg-white text-sm font-medium text-slate-800 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-900"
+              >
+                Start over
+              </button>
+            </div>
+
+            {state.analysisId !== null && (
+              <p className="text-xs text-rose-900/80 mt-3">
+                The analysis is stored as <code>{state.analysisId}</code> and is
+                not lost.
+              </p>
+            )}
           </div>
-        </section>
+        )}
+
+        {state.phase === "done" && state.analysis !== null && (
+          <>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={reset}
+                className="px-4 py-2 rounded-md bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-900"
+              >
+                Analyse another posting
+              </button>
+            </div>
+            <AnalysisView analysis={state.analysis} />
+          </>
+        )}
       </main>
     </div>
   );
