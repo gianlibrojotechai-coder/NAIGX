@@ -21,6 +21,46 @@ import {
   readAuthoredFragments,
   type FragmentManifest,
 } from "../src/fragments/source.js";
+import type { AuthoredFragment } from "../src/fragments/source.js";
+import {
+  ActivationRefusedError,
+  assertActivationPermitted,
+} from "../src/regression/activation-gate.js";
+import { loadCorpus, loadSuiteVersion } from "../src/regression/corpus.js";
+import { createRecordingStore } from "../src/regression/recording-store.js";
+import type { FragmentResolver, ResolvedFragment } from "../src/nie/ports.js";
+
+/**
+ * Resolves the fragments **about to be published**, not the active ones.
+ *
+ * Coverage asks which corpus cases compose a fragment key. At publish time the
+ * database still holds the previous version — and for a first publish, none at
+ * all — so resolving from it would answer for the wrong content or fail
+ * outright. The authored set is what is being activated, so it is what the
+ * question is about.
+ */
+const authoredResolver = (
+  fragments: readonly AuthoredFragment[],
+): FragmentResolver => {
+  const byKey = new Map(fragments.map((f) => [f.fragmentKey, f]));
+  return {
+    resolve: (keys) =>
+      Promise.resolve(
+        keys.map((fragmentKey): ResolvedFragment => {
+          const fragment = byKey.get(fragmentKey);
+          if (fragment === undefined) {
+            throw new RangeError(`No authored fragment "${fragmentKey}"`);
+          }
+          return {
+            fragmentKey,
+            fragmentVersionId: `authored:${fragment.contentHash.slice(0, 12)}`,
+            version: "pending",
+            content: fragment.content,
+          };
+        }),
+      ),
+  };
+};
 
 const ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -83,10 +123,15 @@ if (command === "publish") {
     process.exit(1);
   }
 
-  // `DB §4.5`: activation requires a recorded passing regression run. Until the
-  // Sprint 2 corpus suite exists, that reference names the gate that actually
-  // ran — the manifest gate — rather than a fabricated pass (`docs/12` D-14).
-  const regressionPassReference = `fragment-manifest-gate:${manifest.version}`;
+  // `DB §4.5`: activation requires a recorded passing regression run, and
+  // `docs/12` D-24 decision 4 requires that run to have exercised the fragment
+  // being activated. The publisher no longer manufactures its own reference —
+  // the operator supplies one and the gate checks it (`docs/12` D-14's
+  // replacement for `fragment-manifest-gate:`).
+  const regressionPassReference = process.argv
+    .slice(3)
+    .find((arg) => arg.startsWith("--reference="))
+    ?.slice("--reference=".length);
 
   const pool = new pg.Pool({ connectionString: process.env["DATABASE_URL"] });
   const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
@@ -94,13 +139,62 @@ if (command === "publish") {
   let published = 0;
   let unchanged = 0;
 
+  // Read pass. Which fragments would actually be activated is a fact about the
+  // store, so it has to be read before the gate can be asked about them — but
+  // nothing is written until the gate has passed. A refusal therefore leaves
+  // every existing row exactly as it was.
+  const existingByKey = new Map(
+    await Promise.all(
+      fragments.map(
+        async (fragment) =>
+          [
+            fragment.fragmentKey,
+            await prisma.promptFragment.findUnique({
+              where: { fragmentKey: fragment.fragmentKey },
+              include: {
+                versions: { orderBy: { createdAt: "desc" }, take: 1 },
+              },
+            }),
+          ] as const,
+      ),
+    ),
+  );
+
+  const changing = fragments
+    .filter(
+      (fragment) =>
+        existingByKey.get(fragment.fragmentKey)?.versions[0]?.contentHash !==
+        fragment.contentHash,
+    )
+    .map((fragment) => fragment.fragmentKey);
+
+  if (changing.length > 0) {
+    try {
+      await assertActivationPermitted({
+        reference: regressionPassReference,
+        fragmentKeys: changing,
+        cases: loadCorpus(),
+        suiteVersion: loadSuiteVersion(),
+        store: createRecordingStore(),
+        resolver: authoredResolver(fragments),
+      });
+    } catch (error) {
+      if (error instanceof ActivationRefusedError) {
+        console.error(`❌ Refusing to activate [${error.reason}]`);
+        console.error(`   ${error.message}`);
+        console.error(
+          "\n   Usage: npm run fragments:publish -- --reference=corpus-regression:<suite>+<fragments>:<runId>",
+        );
+        await prisma.$disconnect();
+        await pool.end();
+        process.exit(1);
+      }
+      throw error;
+    }
+  }
+
   for (const fragment of fragments) {
-    const existing = await prisma.promptFragment.findUnique({
-      where: { fragmentKey: fragment.fragmentKey },
-      include: {
-        versions: { orderBy: { createdAt: "desc" }, take: 1 },
-      },
-    });
+    const existing = existingByKey.get(fragment.fragmentKey) ?? null;
 
     const parent =
       existing ??
