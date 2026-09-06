@@ -1,0 +1,174 @@
+{
+  "warning": "DO NOT OPEN BEFORE REVIEWING. This file carries the fragment version, composition hash and model identity that docs/10 §4.2 keeps out of the packets to avoid anchoring. It exists so completed verdicts can be attributed to their cases afterwards.",
+  "packets": [
+    {
+      "reviewerId": "RP-27f9fb58",
+      "caseId": "br-001",
+      "inputType": "business_requirement",
+      "capturedAt": "2026-08-14T15:46:15.573Z",
+      "fragmentsManifestVersion": "fragments-v1",
+      "fragmentsCompositionHash": "4f65ab62887890507bc0e8180b3c898559c79c32098f9a13993432b69304b48b",
+      "provider": {
+        "adapter": "anthropic",
+        "modelKey": "claude-sonnet-4-5"
+      },
+      "lowVarianceSampling": false
+    },
+    {
+      "reviewerId": "RP-4bb087ba",
+      "caseId": "br-002",
+      "inputType": "business_requirement",
+      "capturedAt": "2026-08-14T16:51:07.005Z",
+      "fragmentsManifestVersion": "fragments-v1",
+      "fragmentsCompositionHash": "4f65ab62887890507bc0e8180b3c898559c79c32098f9a13993432b69304b48b",
+      "provider": {
+        "adapter": "anthropic",
+        "modelKey": "claude-sonnet-4-5"
+      },
+      "lowVarianceSampling": false
+    },
+    {
+      "reviewerId": "RP-ac291956",
+      "caseId": "br-003",
+      "inputType": "business_requirement",
+      "capturedAt": "2026-08-14T15:47:52.746Z",
+      "fragmentsManifestVersion": "fragments-v1",
+      "fragmentsCompositionHash": "4f65ab62887890507bc0e8180b3c898559c79c32098f9a13993432b69304b48b",
+      "provider": {
+        "adapter": "anthropic",
+        "modelKey": "claude-sonnet-4-5"
+      },
+      "lowVarianceSampling": false
+    },
+    {
+      "reviewerId": "RP-d41a9d08",
+      "caseId": "br-004",
+      "inputType": "business_requirement",
+      "capturedAt": "2026-08-14T15:48:32.407Z",
+      "fragmentsManifestVersion": "fragments-v1",
+      "fragmentsCompositionHash": "4f65ab62887890507bc0e8180b3c898559c79c32098f9a13993432b69304b48b",
+      "provider": {
+        "adapter": "anthropic",
+        "modelKey": "claude-sonnet-4-5"
+      },
+      "lowVarianceSampling": false
+    },
+    {
+      "reviewerId": "RP-5c2b0a40",
+      "caseId": "br-005",
+      "inputType": "business_requirement",
+      "capturedAt": "2026-08-14T15:49:09.733Z",
+      "fragmentsManifestVersion": "fragments-v1",
+      "fragmentsCompositionHash": "23ff8160f39bfc2f7054e84dcc8f4acaccda228abc9910a15df6ea9ab34f9e5c",
+      "provider": {
+        "adapter": "anthropic",
+        "modelKey": "claude-sonnet-4-5"
+      },
+      "lowVarianceSampling": false
+    },
+    {
+      "reviewerId": "RP-14769a97",
+      "caseId": "br-006",
+      "inputType": "business_requirement",
+      "capturedAt": "2026-08-14T16:25:46.955Z",
+      "fragmentsManifestVersion": "fragments-v1",
+      "fragmentsCompositionHash": "4f65ab62887890507bc0e8180b3c898559c79c32098f9a13993432b69304b48b",
+      "provider": {
+        "adapter": "anthropic",
+        "modelKey": "claude-sonnet-4-5"
+      },
+      "lowVarianceSampling": false
+    },
+    {
+      "reviewerId": "RP-07a977a3",
+      "caseId": "br-007",
+      "inputType": "business_requirement",
+      "capturedAt": "2026-08-14T15:51:13.319Z",
+      "fragmentsManifestVersion": "fragments-v1",
+      "fragmentsCompositionHash": "4f65ab62887890507bc0e8180b3c898559c79c32098f9a13993432b69304b48b",
+      "provider": {
+        "adapter": "anthropic",
+        "modelKey": "claude-sonnet-4-5"
+      },
+      "lowVarianceSampling": false
+    },
+    {
+      "reviewerId": "RP-172cbc4e",
+      "caseId": "br-008",
+      "inputType": "business_requirement",
+      "capturedAt": "2026-08-14T13:59:28.846Z",
+      "fragmentsManifestVersion": "fragments-v1",
+      "fragmentsCompositionHash": "4f65ab62887890507bc0e8180b3c898559c79c32098f9a13993432b69304b48b",
+      "provider": {
+        "adapter": "anthropic",
+        "modelKey": "claude-sonnet-4-5"
+      },
+      "lowVarianceSampling": false
+    },
+    {
+      "reviewerId": "RP-2fa7c3e3",
+      "caseId": "br-009",
+      "inputType": "business_requirement",
+      "capturedAt": "2026-08-14T15:52:41.026Z",
+      "fragmentsManifestVersion": "fragments-v1",
+      "fragmentsCompositionHash": "4f65ab62887890507bc0e8180b3c898559c79c32098f9a13993432b69304b48b",
+      "provider": {
+        "adapter": "anthropic",
+        "modelKey": "claude-sonnet-4-5"
+      },
+      "lowVarianceSampling": false
+    },
+    {
+      "reviewerId": "RP-e755dbdf",
+      "caseId": "br-010",
+      "inputType": "business_requirement",
+      "capturedAt": "2026-08-14T15:53:30.126Z",
+      "fragmentsManifestVersion": "fragments-v1",
+      "fragmentsCompositionHash": "4f65ab62887890507bc0e8180b3c898559c79c32098f9a13993432b69304b48b",
+      "provider": {
+        "adapter": "anthropic",
+        "modelKey": "claude-sonnet-4-5"
+      },
+      "lowVarianceSampling": false
+    },
+    {
+      "reviewerId": "RP-448236a4",
+      "caseId": "br-011",
+      "inputType": "business_requirement",
+      "capturedAt": "2026-08-14T15:55:01.932Z",
+      "fragmentsManifestVersion": "fragments-v1",
+      "fragmentsCompositionHash": "4f65ab62887890507bc0e8180b3c898559c79c32098f9a13993432b69304b48b",
+      "provider": {
+        "adapter": "anthropic",
+        "modelKey": "claude-sonnet-4-5"
+      },
+      "lowVarianceSampling": false
+    },
+    {
+      "reviewerId": "RP-661bcf50",
+      "caseId": "un-001",
+      "inputType": "unsupported",
+      "capturedAt": "2026-08-14T15:55:03.999Z",
+      "fragmentsManifestVersion": "fragments-v1",
+      "fragmentsCompositionHash": "8a844d2f922259024e380b619ed886846ca4ba2af80e2cb2cc78313edbcf831e",
+      "provider": {
+        "adapter": "anthropic",
+        "modelKey": "claude-sonnet-4-5"
+      },
+      "lowVarianceSampling": false
+    },
+    {
+      "reviewerId": "RP-c51473dc",
+      "caseId": "un-002",
+      "inputType": "unsupported",
+      "capturedAt": "2026-08-14T15:55:09.919Z",
+      "fragmentsManifestVersion": "fragments-v1",
+      "fragmentsCompositionHash": "8a844d2f922259024e380b619ed886846ca4ba2af80e2cb2cc78313edbcf831e",
+      "provider": {
+        "adapter": "anthropic",
+        "modelKey": "claude-sonnet-4-5"
+      },
+      "lowVarianceSampling": false
+    }
+  ]
+}

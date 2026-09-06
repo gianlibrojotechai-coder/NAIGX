@@ -27,7 +27,8 @@
     "regression:run": "tsx scripts/regression.mts run",
     "analyze": "tsx scripts/analyze.mts",
     "schemas:check": "tsx scripts/artifact-schemas.mts check",
-    "schemas:publish": "tsx scripts/artifact-schemas.mts publish"
+    "schemas:publish": "tsx scripts/artifact-schemas.mts publish",
+    "review:packets": "tsx scripts/review-packets.mts"
   },
   "keywords": [],
   "author": "",
