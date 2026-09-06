@@ -91,6 +91,14 @@ const recommendation: RecommendationResult = {
     decision: "build_first",
     rationale: "The CRM gap is decisive and buildable.",
     decisiveGaps: ["req-1"],
+    criteriaApplied:
+      "Must-have technical requirements weighted above nice-to-haves; a gap is decisive when nothing in the profile evidences it.",
+    alternatives: [
+      {
+        alternative: "Apply now without building",
+        rejectionReason: "The decisive gap has no evidence behind it.",
+      },
+    ],
   },
 };
 
@@ -99,6 +107,7 @@ const recordingStore = () => {
   const writes: Record<string, unknown[]> = {
     contextElement: [],
     recommendation: [],
+    recommendationAlternative: [],
     requiredCapability: [],
     capabilityMatch: [],
     capabilityGap: [],
@@ -124,6 +133,10 @@ const recordingStore = () => {
     },
     analysis: { update: () => Promise.resolve({}) },
     recommendation: model("recommendation", "recommendationId"),
+    recommendationAlternative: model(
+      "recommendationAlternative",
+      "alternativeId",
+    ),
     requiredCapability: model("requiredCapability", "requiredCapabilityId"),
     capabilityMatch: model("capabilityMatch", "matchId"),
     capabilityGap: model("capabilityGap", "gapId"),
@@ -183,18 +196,22 @@ test("no confidence is fabricated for a pre-Stage-11 verdict", async () => {
     string,
     unknown
   >;
-  for (const field of [
-    "confidenceBand",
-    "confidenceFactors",
-    "criteriaApplied",
-    "limits",
-  ]) {
+  for (const field of ["confidenceBand", "confidenceFactors", "limits"]) {
     assert.equal(
       verdict[field],
       undefined,
       `${field} must stay null — Stage 11 is deferred (docs/12 D-33)`,
     );
   }
+
+  // `criteria_applied` is the exception, and was wrongly grouped with the
+  // confidence columns when this sink was built. D-33 defers confidence;
+  // `AIP-4` requires criteria, and Stage 7 now produces them.
+  assert.equal(
+    verdict["criteriaApplied"],
+    recommendation.verdict.criteriaApplied,
+    "criteria are written, not deferred (AIP-4, FR-034)",
+  );
 });
 
 test("a decisive gap is marked from the verdict, not stored twice", async () => {
@@ -397,9 +414,16 @@ const storedAnalysis = (
     {
       conclusion: "build_first",
       rationale: "The CRM gap is decisive.",
+      criteriaApplied:
+        "Must-have technical requirements weighted above nice-to-haves.",
       confidenceBand: null,
       confidenceFactors: null,
-      alternatives: [],
+      alternatives: [
+        {
+          alternative: "Apply now without building",
+          rejectionReason: "The decisive gap has no built evidence behind it.",
+        },
+      ],
     },
   ],
   requiredCapabilities: [
@@ -577,4 +601,30 @@ test("the widened response still exposes no trace, fragment or provider detail",
   ]) {
     assert.ok(!raw.includes(forbidden), `body must not mention "${forbidden}"`);
   }
+});
+
+test("API-021 returns the criteria and the rejected alternatives", () => {
+  // `FR-034` is only satisfied if the criteria and the rejection reach a
+  // reader. Stored-but-unreturned would leave `docs/10` C-6 — the `M-9`
+  // instrument — no more assessable than it was.
+  return appWith(storedAnalysis()).then(async (app) => {
+    const { data } = (
+      await app.inject({ method: "GET", url: `/analyses/${ANALYSIS_ID}` })
+    ).json() as { data: Record<string, unknown> };
+
+    const verdict = data["verdict"] as Record<string, unknown>;
+    assert.match(String(verdict["criteria_applied"]), /Must-have technical/);
+
+    const alternatives = verdict["alternatives"] as Record<string, unknown>[];
+    assert.equal(
+      alternatives.length,
+      1,
+      "FR-034 — at least one, and it is returned",
+    );
+    assert.match(String(alternatives[0]?.["alternative"]), /Apply now/);
+    assert.match(
+      String(alternatives[0]?.["rejection_reason"]),
+      /no built evidence/,
+    );
+  });
 });

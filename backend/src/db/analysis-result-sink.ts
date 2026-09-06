@@ -178,9 +178,14 @@ export function createStageResultSink(prisma: PrismaClient): StageResultSink {
      * NO CONFIDENCE IS WRITTEN. `Recommendation.confidence_band` and
      * `confidence_factors` are nullable precisely so this is possible — Stage
      * 11 is deferred (`docs/12` D-33) and there is no measured band to record.
-     * `criteria_applied` and `limits` are likewise absent because
-     * `RecommendationResult` contains nothing that means either. Fabricating
-     * any of the four is the failure the nullability exists to prevent.
+     * Fabricating either is the failure that nullability exists to prevent.
+     *
+     * `criteria_applied` IS written, and is non-nullable again. It was
+     * relaxed alongside the confidence columns when this sink was first built,
+     * which was wrong: D-33 covers confidence, and `AIP-4`/`DD-04` cover
+     * criteria. Stage 7 now produces them (`AI §3.2`), so the `DB §4.4`
+     * invariant is restored rather than worked around. `limits` stays nullable
+     * — no authoritative document defines what Stage 7 would put there.
      */
     async persistRecommendation(
       analysisId: string,
@@ -217,12 +222,33 @@ export function createStageResultSink(prisma: PrismaClient): StageResultSink {
             recommendationType: "job_description_fit",
             conclusion: recommendation.verdict.decision,
             rationale: recommendation.verdict.rationale,
+            // `AIP-4` / `DD-04` — non-null by schema constraint, so an
+            // unexplained recommendation is unrepresentable rather than merely
+            // discouraged (`DB §4.4`: "the database is the enforcement point").
+            criteriaApplied: recommendation.verdict.criteriaApplied,
             // `AC-013` is about a do-not-automate conclusion on the
             // requirement path. An apply-vs-build verdict is neither.
             isNegativeConclusion: false,
           },
           select: { recommendationId: true },
         });
+
+        // `FR-034` — "at least one rejected alternative is named with its
+        // reason". Stored as rows rather than prose so the requirement is
+        // countable, which is why `RecommendationAlternative` exists at all.
+        for (const [
+          ordinal,
+          alternative,
+        ] of recommendation.verdict.alternatives.entries()) {
+          await tx.recommendationAlternative.create({
+            data: {
+              recommendationId: created.recommendationId,
+              alternative: alternative.alternative,
+              rejectionReason: alternative.rejectionReason,
+              ordinal,
+            },
+          });
+        }
 
         for (const [
           ordinal,

@@ -109,6 +109,14 @@ const body = (overrides: Record<string, unknown> = {}) =>
       decision: "apply_now",
       rationale: "The one must-have is already evidenced by a built workflow.",
       decisive_gaps: [],
+      criteria_applied:
+        "Must-have technical requirements weighted above nice-to-haves; a gap is decisive when no evidenced capability covers it.",
+      alternatives: [
+        {
+          alternative: "Apply now without building",
+          rejection_reason: "The decisive gap has no built evidence behind it.",
+        },
+      ],
     },
     ...overrides,
   });
@@ -154,6 +162,15 @@ test("a build_first verdict parses when it names what would close the gap", () =
         decision: "build_first",
         rationale: "CRM integration is a must-have with no evidence behind it.",
         decisive_gaps: ["req-2"],
+        criteria_applied:
+          "Must-have technical requirements weighted above nice-to-haves; a gap is decisive when no evidenced capability covers it.",
+        alternatives: [
+          {
+            alternative: "Apply now without building",
+            rejection_reason:
+              "The decisive gap has no built evidence behind it.",
+          },
+        ],
       },
     }),
   );
@@ -308,6 +325,15 @@ test("a requirement cannot be both matched and a gap", () => {
             decision: "build_first",
             rationale: "x",
             decisive_gaps: ["req-1"],
+            criteria_applied:
+              "Must-have technical requirements weighted above nice-to-haves; a gap is decisive when no evidenced capability covers it.",
+            alternatives: [
+              {
+                alternative: "Apply now without building",
+                rejection_reason:
+                  "The decisive gap has no built evidence behind it.",
+              },
+            ],
           },
         }),
       ),
@@ -326,6 +352,15 @@ test("build_first must name at least one decisive gap", () => {
             decision: "build_first",
             rationale: "Felt like it",
             decisive_gaps: [],
+            criteria_applied:
+              "Must-have technical requirements weighted above nice-to-haves; a gap is decisive when no evidenced capability covers it.",
+            alternatives: [
+              {
+                alternative: "Apply now without building",
+                rejection_reason:
+                  "The decisive gap has no built evidence behind it.",
+              },
+            ],
           },
         }),
       ),
@@ -351,6 +386,15 @@ test("apply_now must not name decisive gaps", () => {
             decision: "apply_now",
             rationale: "x",
             decisive_gaps: ["req-2"],
+            criteria_applied:
+              "Must-have technical requirements weighted above nice-to-haves; a gap is decisive when no evidenced capability covers it.",
+            alternatives: [
+              {
+                alternative: "Apply now without building",
+                rejection_reason:
+                  "The decisive gap has no built evidence behind it.",
+              },
+            ],
           },
         }),
       ),
@@ -369,6 +413,15 @@ test("decisive_gaps must reference a reported gap", () => {
             decision: "build_first",
             rationale: "x",
             decisive_gaps: ["req-1"],
+            criteria_applied:
+              "Must-have technical requirements weighted above nice-to-haves; a gap is decisive when no evidenced capability covers it.",
+            alternatives: [
+              {
+                alternative: "Apply now without building",
+                rejection_reason:
+                  "The decisive gap has no built evidence behind it.",
+              },
+            ],
           },
         }),
       ),
@@ -478,6 +531,15 @@ test("A — a technical gap may be decisive and reach build_first", () => {
         decision: "build_first",
         rationale: "CRM integration is a must-have with nothing behind it.",
         decisive_gaps: ["req-2"],
+        criteria_applied:
+          "Must-have technical requirements weighted above nice-to-haves; a gap is decisive when no evidenced capability covers it.",
+        alternatives: [
+          {
+            alternative: "Apply now without building",
+            rejection_reason:
+              "The decisive gap has no built evidence behind it.",
+          },
+        ],
       },
     }),
   );
@@ -518,7 +580,15 @@ for (const [label, kind, name] of [
         verdict: {
           decision: decisive.length > 0 ? "build_first" : "apply_now",
           rationale: `${name} remains unevidenced.`,
+          criteria_applied:
+            "Only a technical gap can be closed by building something.",
           decisive_gaps: decisive,
+          alternatives: [
+            {
+              alternative: "Build first",
+              rejection_reason: "No technical gap remains unevidenced.",
+            },
+          ],
         },
       });
 
@@ -567,6 +637,15 @@ test("E — build_first is unreachable when every gap is non-technical", () => {
             decision: "build_first",
             rationale: "Autonomy is unevidenced.",
             decisive_gaps: [],
+            criteria_applied:
+              "Must-have technical requirements weighted above nice-to-haves; a gap is decisive when no evidenced capability covers it.",
+            alternatives: [
+              {
+                alternative: "Apply now without building",
+                rejection_reason:
+                  "The decisive gap has no built evidence behind it.",
+              },
+            ],
           },
         }),
       ),
@@ -604,6 +683,15 @@ test("F — apply_now is valid while non-technical gaps remain", () => {
         rationale:
           "The technical must-have is evidenced. Aerospace exposure is missing and no project would close it, so building first would not improve the application.",
         decisive_gaps: [],
+        criteria_applied:
+          "Must-have technical requirements weighted above nice-to-haves; a gap is decisive when no evidenced capability covers it.",
+        alternatives: [
+          {
+            alternative: "Apply now without building",
+            rejection_reason:
+              "The decisive gap has no built evidence behind it.",
+          },
+        ],
       },
     }),
   );
@@ -687,5 +775,161 @@ test("I — a familiar capability still cannot be matched", () => {
     (error: unknown) =>
       error instanceof RecommendationGroundingError &&
       /familiarity is not demonstrated ability/.test(error.message),
+  );
+});
+
+// --- FR-034: criteria applied and rejected alternatives -------------------
+//
+// `AI §3.2` has always specified Stage 7's output as including "the criteria
+// applied" and "rejected alternatives with reasons", and `AI-031` makes naming
+// what was rejected a Stage 7 responsibility. The parser read neither, so
+// `criteria_applied` was stored null and `RecommendationAlternative` stayed
+// empty — leaving `docs/10` C-6, the `M-9` instrument, unassessable for every
+// analysis NAIGX had ever produced.
+
+test("the criteria applied are parsed and carried", () => {
+  const result = parse(
+    body({
+      verdict: {
+        decision: "apply_now",
+        rationale: "The CRM gap is decisive.",
+        criteria_applied:
+          "Must-have technical requirements weighted above nice-to-haves.",
+        decisive_gaps: [],
+        alternatives: [
+          {
+            alternative: "Apply now",
+            rejection_reason: "The decisive gap has no evidence behind it.",
+          },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(
+    result.verdict.criteriaApplied,
+    "Must-have technical requirements weighted above nice-to-haves.",
+  );
+});
+
+test("a verdict without criteria is refused", () => {
+  // `AIP-4` — an unexplained recommendation must be unrepresentable. The
+  // database enforces it too; the parser refuses before it gets that far.
+  assert.throws(
+    () =>
+      parse(
+        body({
+          verdict: {
+            decision: "apply_now",
+            rationale: "x",
+            decisive_gaps: [],
+            alternatives: [{ alternative: "Apply now", rejection_reason: "y" }],
+          },
+        }),
+      ),
+    /criteria_applied/,
+  );
+});
+
+test("empty criteria are refused as firmly as absent ones", () => {
+  assert.throws(
+    () =>
+      parse(
+        body({
+          verdict: {
+            decision: "apply_now",
+            rationale: "x",
+            criteria_applied: "   ",
+            decisive_gaps: [],
+            alternatives: [{ alternative: "Apply now", rejection_reason: "y" }],
+          },
+        }),
+      ),
+    /criteria_applied/,
+  );
+});
+
+test("at least one rejected alternative is required", () => {
+  // `FR-034`: "At least one rejected alternative is named with its reason."
+  // A decision with nothing rejected is not a position taken against options.
+  assert.throws(
+    () =>
+      parse(
+        body({
+          verdict: {
+            decision: "apply_now",
+            rationale: "x",
+            criteria_applied: "y",
+            decisive_gaps: [],
+            alternatives: [],
+          },
+        }),
+      ),
+    /at least one rejected alternative/,
+  );
+});
+
+test("an alternative without a reason is refused", () => {
+  // Naming an option without saying why it lost answers nothing.
+  assert.throws(
+    () =>
+      parse(
+        body({
+          verdict: {
+            decision: "apply_now",
+            rationale: "x",
+            criteria_applied: "y",
+            decisive_gaps: [],
+            alternatives: [{ alternative: "Apply now" }],
+          },
+        }),
+      ),
+    /rejection_reason/,
+  );
+});
+
+test("every rejected alternative is carried, in order", () => {
+  const result = parse(
+    body({
+      verdict: {
+        decision: "apply_now",
+        rationale: "x",
+        criteria_applied: "y",
+        decisive_gaps: [],
+        alternatives: [
+          { alternative: "Apply now", rejection_reason: "first" },
+          {
+            alternative: "Wait for a different posting",
+            rejection_reason: "second",
+          },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(result.verdict.alternatives.length, 2);
+  assert.deepEqual(
+    result.verdict.alternatives.map((a) => a.rejectionReason),
+    ["first", "second"],
+  );
+});
+
+test("apply_now must also name what it rejected", () => {
+  // The requirement is not conditional on the decision. An apply_now verdict
+  // that never considered building is as undefended as the reverse.
+  assert.throws(
+    () =>
+      parse(
+        body({
+          verdict: {
+            decision: "apply_now",
+            rationale: "x",
+            criteria_applied: "y",
+            decisive_gaps: [],
+            alternatives: [],
+          },
+        }),
+      ),
+    /at least one rejected alternative/,
   );
 });

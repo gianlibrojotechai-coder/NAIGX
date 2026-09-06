@@ -160,6 +160,14 @@ const RECOMMENDATION_OUTPUT = JSON.stringify({
     rationale:
       "n8n orchestration is already evidenced; CRM integration is a must-have with nothing behind it.",
     decisive_gaps: ["req-2"],
+    criteria_applied:
+      "Must-have technical requirements weighted above nice-to-haves; a gap is decisive when no evidenced capability covers it.",
+    alternatives: [
+      {
+        alternative: "Apply now without building",
+        rejection_reason: "The decisive gap has no built evidence behind it.",
+      },
+    ],
   },
 });
 
@@ -506,6 +514,15 @@ test("an invented requirement fails the stage rather than reaching a verdict", a
           decision: "build_first",
           rationale: "x",
           decisive_gaps: ["req-1"],
+          criteria_applied:
+            "Must-have technical requirements weighted above nice-to-haves; a gap is decisive when no evidenced capability covers it.",
+          alternatives: [
+            {
+              alternative: "Apply now without building",
+              rejection_reason:
+                "The decisive gap has no built evidence behind it.",
+            },
+          ],
         },
       }),
     }),
@@ -659,6 +676,15 @@ test("apply_now plans no artifact and never reaches Stage 9", async () => {
         decision: "apply_now",
         rationale: "The one must-have is already evidenced.",
         decisive_gaps: [],
+        criteria_applied:
+          "Must-have technical requirements weighted above nice-to-haves; a gap is decisive when no evidenced capability covers it.",
+        alternatives: [
+          {
+            alternative: "Apply now without building",
+            rejection_reason:
+              "The decisive gap has no built evidence behind it.",
+          },
+        ],
       },
     }),
   });
@@ -826,6 +852,14 @@ const FOUR_GAP_RECOMMENDATION = JSON.stringify({
     rationale:
       "Four decisive technical gaps have no built evidence behind them.",
     decisive_gaps: ["req-5", "req-8", "req-9", "req-10"],
+    criteria_applied:
+      "Must-have technical requirements weighted above nice-to-haves; a gap is decisive when no evidenced capability covers it.",
+    alternatives: [
+      {
+        alternative: "Apply now without building",
+        rejection_reason: "The decisive gap has no built evidence behind it.",
+      },
+    ],
   },
 });
 

@@ -343,11 +343,44 @@ export interface GapItem {
   readonly whyItMatters: string;
 }
 
+/**
+ * One option considered and rejected, with the reason (`AI-031`, `FR-034`).
+ *
+ * Modelled as a pair rather than free prose because `FR-034` requires "at least
+ * one rejected alternative **named with its reason**" — countable, not
+ * inferable from a paragraph. `RecommendationAlternative` was built to store
+ * exactly this shape.
+ */
+export interface RejectedAlternative {
+  readonly alternative: string;
+  readonly rejectionReason: string;
+}
+
 export interface RecommendationVerdict {
   readonly decision: RecommendationDecision;
   readonly rationale: string;
   /** Required for `build_first`, forbidden for `apply_now`. */
   readonly decisiveGaps: readonly string[];
+  /**
+   * The criteria the decision was made against (`AI §3.2` Stage 7 output,
+   * `FR-034`, `AIP-4`).
+   *
+   * Non-optional, because `DB §4.4`'s design note calls non-nullable
+   * `criteria_applied` "the most important constraint in the schema": an
+   * unexplained recommendation must be unrepresentable. A rationale says what
+   * the system concluded; criteria say what it weighed to get there, and only
+   * the second lets a reader disagree on the standard rather than the verdict.
+   */
+  readonly criteriaApplied: string;
+  /**
+   * What was considered and rejected (`AI-031`).
+   *
+   * At least one, enforced at parse. `AI §3.2` makes "name what was rejected
+   * and why" a Stage 7 responsibility, and `docs/10` C-6 — the `M-9`
+   * instrument — asks whether the reader can answer "why this, not the
+   * alternative?". Without a named rejection there is nothing to answer with.
+   */
+  readonly alternatives: readonly RejectedAlternative[];
 }
 
 /** What Stage 7 produces on the job-description path. */

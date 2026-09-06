@@ -10,11 +10,7 @@
 
 /** `DB §4.2` ANALYSIS_STATUS. */
 export type AnalysisStatus =
-  | "queued"
-  | "running"
-  | "completed"
-  | "failed"
-  | "timed_out";
+  "queued" | "running" | "completed" | "failed" | "timed_out";
 
 /**
  * The statuses after which nothing further will change.
@@ -120,6 +116,14 @@ export interface Verdict {
   /** `apply_now` or `build_first` on this path; free text in the column. */
   readonly decision: string;
   readonly rationale: string;
+  /**
+   * The standard the decision was weighed against (`FR-034`, `AIP-4`).
+   *
+   * Non-nullable at the database, so a stored verdict always has one. Typed
+   * nullable here anyway: an analysis persisted before Stage 7 produced
+   * criteria can still be retrieved, and the UI says so rather than crashing.
+   */
+  readonly criteria_applied: string | null;
   /** Null until Stage 11 exists (`docs/12` D-33). Never render a substitute. */
   readonly confidence_band: string | null;
   readonly confidence_factors: unknown | null;

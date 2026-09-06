@@ -118,10 +118,33 @@ Respond with exactly this JSON shape:
   "verdict": {
     "decision": "apply_now | build_first",
     "rationale": "...",
-    "decisive_gaps": ["req-2"]
+    "criteria_applied": "...",
+    "decisive_gaps": ["req-2"],
+    "alternatives": [
+      {
+        "alternative": "<the option you did not take>",
+        "rejection_reason": "<why this evidence made it the weaker choice>"
+      }
+    ]
   }
 }
 
 Every requirement id must appear exactly once across `matched` and `gaps`, and
 every id in `decisive_gaps` must belong to a requirement whose `kind` is
 `technical`.
+
+STATE WHAT YOU WEIGHED, AND WHAT YOU REJECTED.
+
+`criteria_applied` names the standard the decision was made against — which
+requirements counted, how a gap was judged decisive, and what would have changed
+the answer. A rationale says what you concluded; criteria say what you measured
+it by, so a reader can disagree with the standard rather than only the verdict.
+
+`alternatives` must name **at least one** option you considered and did not
+take, each with the reason the evidence made it weaker. The other verdict is
+always available: if you concluded `build_first`, applying now is the rejected
+alternative, and the reason is whatever makes the gap decisive. A decision with
+nothing rejected cannot answer "why this, not the other?".
+
+Do not manufacture an alternative you did not consider. Where the only real
+alternative is the opposite verdict, name that one plainly.

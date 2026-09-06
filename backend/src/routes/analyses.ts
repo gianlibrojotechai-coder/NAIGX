@@ -326,6 +326,11 @@ export const analysisRoutes: FastifyPluginAsync<AnalysisRouteOptions> = (
           ? {
               decision: verdict.conclusion,
               rationale: verdict.rationale,
+              // `FR-034` — the criteria the decision was weighed against, and
+              // what was rejected. `FR-042` puts the rationale beside the
+              // conclusion; these are what let a reader disagree with the
+              // standard rather than only with the verdict.
+              criteria_applied: verdict.criteriaApplied,
               confidence_band: verdict.confidenceBand,
               confidence_factors: verdict.confidenceFactors,
               alternatives: verdict.alternatives.map((alternative) => ({

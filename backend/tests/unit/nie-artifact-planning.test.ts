@@ -66,6 +66,14 @@ const recommendation = (
     decision: "build_first",
     rationale: "x",
     decisiveGaps: ["req-2"],
+    criteriaApplied:
+      "Must-have technical requirements weighted above nice-to-haves; a gap is decisive when nothing in the profile evidences it.",
+    alternatives: [
+      {
+        alternative: "Apply now without building",
+        rejectionReason: "The decisive gap has no evidence behind it.",
+      },
+    ],
   },
   ...overrides,
 });
@@ -96,6 +104,14 @@ test("every entry carries a reason for its decision (DB §4.4)", () => {
           decision,
           rationale: "x",
           decisiveGaps: decision === "build_first" ? ["req-2"] : [],
+          criteriaApplied:
+            "Must-have technical requirements weighted above nice-to-haves; a gap is decisive when nothing in the profile evidences it.",
+          alternatives: [
+            {
+              alternative: "Apply now without building",
+              rejectionReason: "The decisive gap has no evidence behind it.",
+            },
+          ],
         },
       }),
     );
@@ -130,7 +146,16 @@ test("only technical, decisive, reported gaps are eligible", () => {
 test("a technical gap that is not decisive is not eligible", () => {
   const eligible = eligibleGaps(
     recommendation({
-      verdict: { decision: "build_first", rationale: "x", decisiveGaps: [] },
+      verdict: {
+        decision: "build_first",
+        rationale: "x",
+        decisiveGaps: [],
+        criteriaApplied:
+          "Evidenced capability against every must-have requirement.",
+        alternatives: [
+          { alternative: "The opposite verdict", rejectionReason: "x" },
+        ],
+      },
     }),
   );
   assert.deepEqual(eligible, []);
@@ -140,7 +165,16 @@ test("no gap is eligible when the verdict is apply_now", () => {
   assert.deepEqual(
     eligibleGaps(
       recommendation({
-        verdict: { decision: "apply_now", rationale: "x", decisiveGaps: [] },
+        verdict: {
+          decision: "apply_now",
+          rationale: "x",
+          decisiveGaps: [],
+          criteriaApplied:
+            "Evidenced capability against every must-have requirement.",
+          alternatives: [
+            { alternative: "The opposite verdict", rejectionReason: "x" },
+          ],
+        },
       }),
     ),
     [],
@@ -159,7 +193,16 @@ test("build_first with an eligible gap plans portfolio_suggestions", () => {
 test("apply_now plans nothing, and says why", () => {
   const plan = planArtifacts(
     recommendation({
-      verdict: { decision: "apply_now", rationale: "x", decisiveGaps: [] },
+      verdict: {
+        decision: "apply_now",
+        rationale: "x",
+        decisiveGaps: [],
+        criteriaApplied:
+          "Evidenced capability against every must-have requirement.",
+        alternatives: [
+          { alternative: "The opposite verdict", rejectionReason: "x" },
+        ],
+      },
     }),
   );
   assert.equal(isPlanned(plan, "portfolio_suggestions"), false);
@@ -185,6 +228,14 @@ test("no artifact is planned when every decisive gap is non-technical", () => {
         decision: "build_first",
         rationale: "x",
         decisiveGaps: ["req-3"],
+        criteriaApplied:
+          "Must-have technical requirements weighted above nice-to-haves; a gap is decisive when nothing in the profile evidences it.",
+        alternatives: [
+          {
+            alternative: "Apply now without building",
+            rejectionReason: "The decisive gap has no evidence behind it.",
+          },
+        ],
       },
     }),
   );
@@ -201,7 +252,16 @@ test("every unplanned entry is outcome `omitted`, keeping its reason", () => {
   // final the moment it is written.
   const plan = planArtifacts(
     recommendation({
-      verdict: { decision: "apply_now", rationale: "x", decisiveGaps: [] },
+      verdict: {
+        decision: "apply_now",
+        rationale: "x",
+        decisiveGaps: [],
+        criteriaApplied:
+          "Evidenced capability against every must-have requirement.",
+        alternatives: [
+          { alternative: "The opposite verdict", rejectionReason: "x" },
+        ],
+      },
     }),
   );
 

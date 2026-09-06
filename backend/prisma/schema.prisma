@@ -383,7 +383,10 @@ model Recommendation {
   recommendationType   String         @map("recommendation_type")
   conclusion           String
   rationale            String
-  criteriaApplied      String?        @map("criteria_applied")
+  /// `AIP-4`/`DD-04` — non-nullable so an unexplained recommendation cannot be
+  /// represented. Briefly relaxed while Stage 7 produced no criteria; restored
+  /// once it did (`AI §3.2`).
+  criteriaApplied      String         @map("criteria_applied")
   limits               String?
   confidenceBand       ConfidenceBand? @map("confidence_band")
   /// Below `high` requires non-empty factors (`FR-018`, `FR-045`).

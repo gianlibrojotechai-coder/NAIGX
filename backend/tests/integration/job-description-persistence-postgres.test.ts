@@ -149,6 +149,14 @@ const recommendation: RecommendationResult = {
     decision: "build_first",
     rationale: "The CRM gap is decisive and buildable.",
     decisiveGaps: ["req-1"],
+    criteriaApplied:
+      "Must-have technical requirements weighted above nice-to-haves; a gap is decisive when nothing in the profile evidences it.",
+    alternatives: [
+      {
+        alternative: "Apply now without building",
+        rejectionReason: "The decisive gap has no evidence behind it.",
+      },
+    ],
   },
 };
 
@@ -348,8 +356,32 @@ test(
       assert.equal(stored.conclusion, "build_first");
       assert.equal(stored.confidenceBand, null, "Stage 11 is deferred (D-33)");
       assert.equal(stored.confidenceFactors, null);
-      assert.equal(stored.criteriaApplied, null);
       assert.equal(stored.limits, null);
+
+      // Criteria are NOT deferred. The column is non-nullable again
+      // (`AIP-4`/`DD-04`), so a criteria-less recommendation is now
+      // unrepresentable rather than merely discouraged.
+      assert.equal(
+        stored.criteriaApplied,
+        recommendation.verdict.criteriaApplied,
+      );
+
+      const alternatives = await prisma.recommendationAlternative.findMany({
+        where: { recommendationId: stored.recommendationId },
+        orderBy: { ordinal: "asc" },
+      });
+      assert.ok(
+        alternatives.length >= 1,
+        "FR-034 — at least one rejected alternative, stored countably",
+      );
+      assert.equal(
+        alternatives[0]?.alternative,
+        recommendation.verdict.alternatives[0]?.alternative,
+      );
+      assert.equal(
+        alternatives[0]?.rejectionReason,
+        recommendation.verdict.alternatives[0]?.rejectionReason,
+      );
     } finally {
       await prisma.analysis.delete({ where: { analysisId } });
       await close();

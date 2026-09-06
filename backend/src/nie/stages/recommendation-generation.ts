@@ -39,6 +39,7 @@ import {
   type GapItem,
   type MatchedCapability,
   type RecommendationResult,
+  type RejectedAlternative,
   type RequiredCapability,
   RECOMMENDATION_DECISIONS,
   REQUIREMENT_KINDS,
@@ -342,11 +343,49 @@ export function parseRecommendation(
     );
   }
 
+  // `FR-034` / `AI-031` / `AIP-4`. Stage 7's specified output has always
+  // included "the criteria applied" and "rejected alternatives with reasons"
+  // (`AI §3.2`); until now the parser read neither, so `criteria_applied` was
+  // stored null and `RecommendationAlternative` stayed empty — leaving `C-6`,
+  // the `M-9` instrument, unassessable for every analysis.
+  const criteriaApplied = requireString(CTX, verdictRecord, "criteria_applied");
+
+  const rawAlternatives = requireArray(CTX, verdictRecord, "alternatives");
+  const alternatives: RejectedAlternative[] = [];
+  for (const [index, entry] of rawAlternatives.entries()) {
+    const record = asRecord(
+      CTX,
+      entry,
+      `verdict.alternatives[${String(index)}]`,
+    );
+    alternatives.push({
+      alternative: requireString(CTX, record, "alternative"),
+      rejectionReason: requireString(CTX, record, "rejection_reason"),
+    });
+  }
+
+  // `FR-034`: "At least one rejected alternative is named with its reason."
+  // A verdict with nothing rejected is not a position taken against options —
+  // it is a position taken against nothing, which `PV §3.3` distinguishes from
+  // neutrality.
+  if (alternatives.length === 0) {
+    return fail(
+      "the verdict must name at least one rejected alternative with its reason (FR-034) — " +
+        'a decision with no considered alternative cannot answer "why this, not the other?"',
+    );
+  }
+
   return {
     requiredCapabilities: requirements,
     matched,
     gaps,
-    verdict: { decision, rationale, decisiveGaps },
+    verdict: {
+      decision,
+      rationale,
+      decisiveGaps,
+      criteriaApplied,
+      alternatives,
+    },
   };
 }
 

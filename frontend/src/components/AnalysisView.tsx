@@ -56,7 +56,9 @@ function RequirementCard({ requirement }: { requirement: Requirement }) {
         <h4 className="font-medium text-slate-900 flex-1 min-w-0">
           {requirement.name}
         </h4>
-        <Badge tone={requirement.necessity === "must_have" ? "danger" : "neutral"}>
+        <Badge
+          tone={requirement.necessity === "must_have" ? "danger" : "neutral"}
+        >
           {humanise(requirement.necessity)}
         </Badge>
         <Badge>{humanise(requirement.kind)}</Badge>
@@ -74,7 +76,9 @@ function RequirementCard({ requirement }: { requirement: Requirement }) {
                 key={match.capability_id}
                 className="text-sm text-slate-800 flex flex-wrap items-center gap-2"
               >
-                <Badge tone={match.strength === "strong" ? "success" : "warning"}>
+                <Badge
+                  tone={match.strength === "strong" ? "success" : "warning"}
+                >
                   {humanise(match.strength)} match
                 </Badge>
                 <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">
@@ -147,10 +151,14 @@ function ArtifactStatusRow({ entry }: { entry: ArtifactEntry }) {
           {humanise(entry.artifact_type)}
         </span>
         <Badge tone={artifactTone(entry)}>
-          {entry.outcome === null ? "No outcome recorded" : humanise(entry.outcome)}
+          {entry.outcome === null
+            ? "No outcome recorded"
+            : humanise(entry.outcome)}
         </Badge>
         {entry.validation_status !== null && (
-          <Badge tone={entry.validation_status === "valid" ? "success" : "danger"}>
+          <Badge
+            tone={entry.validation_status === "valid" ? "success" : "danger"}
+          >
             Validation {entry.validation_status}
           </Badge>
         )}
@@ -267,7 +275,8 @@ export function AnalysisView({ analysis }: { analysis: Analysis }) {
 
         {analysis.derived_title !== null && (
           <p className="mt-4 text-sm text-slate-600">
-            Stored as: <span className="font-medium">{analysis.derived_title}</span>
+            Stored as:{" "}
+            <span className="font-medium">{analysis.derived_title}</span>
           </p>
         )}
       </Section>
@@ -323,7 +332,9 @@ export function AnalysisView({ analysis }: { analysis: Analysis }) {
           analysis.verdict !== null ? (
             <Badge
               tone={
-                analysis.verdict.decision === "apply_now" ? "success" : "warning"
+                analysis.verdict.decision === "apply_now"
+                  ? "success"
+                  : "warning"
               }
             >
               {verdictLabel(analysis.verdict.decision)}
@@ -353,8 +364,24 @@ export function AnalysisView({ analysis }: { analysis: Analysis }) {
               <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Rationale
               </h3>
-              <p className="mt-1 text-slate-800">{analysis.verdict.rationale}</p>
+              <p className="mt-1 text-slate-800">
+                {analysis.verdict.rationale}
+              </p>
             </div>
+
+            {/* `FR-034` — the standard, beside the conclusion it produced. The
+                rationale says what was decided; this says what it was measured
+                against, which is what lets a reader dispute the standard. */}
+            {analysis.verdict.criteria_applied !== null && (
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Criteria applied
+                </h3>
+                <p className="mt-1 text-slate-800">
+                  {analysis.verdict.criteria_applied}
+                </p>
+              </div>
+            )}
 
             {analysis.verdict.alternatives.length > 0 && (
               <div>
