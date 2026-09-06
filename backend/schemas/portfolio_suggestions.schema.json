@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://naigx/schemas/portfolio_suggestions.schema.json",
+  "title": "Portfolio Suggestions",
+  "description": "Stage 9 artifact for the job_description path (FR-022). Repository-authored per docs/12 D-1, published to ARTIFACT_SCHEMA.definition per DB §4.4, and injected as the Output Contract fragment per AI §6.1 — one source for generation guidance and validation (AI §9.3).\n\nSCOPE. This schema states the SHAPE of a response. Three rules that decide whether a response is ACCEPTABLE are not expressible here and remain enforced in parsePortfolioSuggestions: (1) every decisive technical gap must be claimed by at least one project; (2) no project's primary_gaps may be a subset of another's; (3) rank must form a total order 1..n with no gaps or ties. Schema-valid is therefore necessary, not sufficient — see docs/12 D-29.\n\nTOLERANCE. additionalProperties is deliberately left open, matching the parser, which reads known keys and ignores others. Tightening it here would make the schema stricter than the validator it is paired with, which AI §9.3 forbids.",
+  "type": "object",
+  "required": ["projects", "consolidation_rationale"],
+  "properties": {
+    "projects": {
+      "type": "array",
+      "minItems": 1,
+      "description": "At least one. The verdict was build_first, so something must be built.",
+      "items": { "$ref": "#/$defs/project" }
+    },
+    "consolidation_rationale": {
+      "$ref": "#/$defs/nonEmptyString",
+      "description": "Why this many projects rather than one per gap."
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "nonEmptyStringList": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/nonEmptyString" }
+    },
+    "project": {
+      "type": "object",
+      "required": [
+        "rank",
+        "name",
+        "complexity",
+        "primary_gaps",
+        "secondary_capabilities",
+        "why_this_project",
+        "business_problem",
+        "what_to_build",
+        "workflow",
+        "platforms",
+        "technical_concepts",
+        "evidence_to_produce",
+        "reusability",
+        "estimated_effort",
+        "portfolio_value"
+      ],
+      "properties": {
+        "rank": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Total order over the set; 1 is built first."
+        },
+        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "complexity": {
+          "enum": ["simple", "intermediate", "advanced"]
+        },
+        "primary_gaps": {
+          "allOf": [{ "$ref": "#/$defs/nonEmptyStringList" }],
+          "uniqueItems": true,
+          "description": "Stage 7 gap ids. Every one must be technical, decisive and reported — verified against the eligible set by the parser, which this schema cannot see."
+        },
+        "secondary_capabilities": {
+          "$ref": "#/$defs/nonEmptyStringList",
+          "description": "Free text: what else the project shows. Never a capability-profile id."
+        },
+        "why_this_project": { "$ref": "#/$defs/nonEmptyString" },
+        "business_problem": { "$ref": "#/$defs/nonEmptyString" },
+        "what_to_build": { "$ref": "#/$defs/nonEmptyString" },
+        "workflow": {
+          "$ref": "#/$defs/nonEmptyStringList",
+          "description": "Trigger through outcome, in order."
+        },
+        "platforms": { "$ref": "#/$defs/nonEmptyStringList" },
+        "technical_concepts": { "$ref": "#/$defs/nonEmptyStringList" },
+        "evidence_to_produce": {
+          "type": "array",
+          "minItems": 1,
+          "description": "A project that leaves nothing a reader could open closes no gap, because nothing can be cited in the capability profile afterwards (docs/12 D-29).",
+          "items": { "$ref": "#/$defs/evidence" }
+        },
+        "why_not_consolidated": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Required when the project claims exactly one gap. One project per gap is the naive answer, so the reason it cannot fold into another has to be stated."
+        },
+        "reusability": { "$ref": "#/$defs/reusability" },
+        "estimated_effort": {
+          "enum": ["hours", "days", "weeks"],
+          "description": "Coarse on purpose: a model estimating hours precisely is inventing."
+        },
+        "portfolio_value": { "$ref": "#/$defs/nonEmptyString" }
+      },
+      "if": {
+        "required": ["primary_gaps"],
+        "properties": { "primary_gaps": { "maxItems": 1 } }
+      },
+      "then": { "required": ["why_not_consolidated"] }
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["type", "what_it_shows"],
+      "properties": {
+        "type": {
+          "enum": [
+            "workflow",
+            "repo",
+            "diagram",
+            "loom",
+            "doc",
+            "deployment",
+            "screenshot",
+            "test_evidence",
+            "sample_io"
+          ],
+          "description": "The capability-profile EVIDENCE_TYPES vocabulary plus the three forms a build produces that an inventory entry does not. The overlap is the point: gap → project → evidence → profile.yaml → future match."
+        },
+        "what_it_shows": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "reusability": {
+      "type": "object",
+      "required": ["provenance", "basis", "claim"],
+      "properties": {
+        "provenance": {
+          "const": "inferred",
+          "description": "Always inferred, structurally. NAIGX holds one job description and models no market, so a reusability claim can only ever be an inference. The parser fixes this value rather than reading it, so a model cannot promote its own guess to fact (docs/12 D-29)."
+        },
+        "basis": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Mandatory so a reader can discount the claim by seeing what it rests on."
+        },
+        "claim": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    }
+  }
+}
