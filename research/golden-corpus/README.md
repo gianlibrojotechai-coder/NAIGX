@@ -277,7 +277,7 @@ Carried from `docs/11` §10 plus gaps found during pilot authoring. Each is flag
 | G-3 | No field for expected classification confidence | ✅ **Resolved 2026-08-12.** `expected_classification_confidence` added (`docs/11` §4.4). `jd-001` now asserts `below_threshold` explicitly |
 | G-4 | Complexity and risk expectations absent from the schema | ✅ **Resolved 2026-08-12.** `expected_complexity` and `expected_risk` added with a three-state status model (`docs/11` §4.5). **All five pilot cases are `not_applicable` or `not_determinable`** — see below |
 | G-5 | `expected_artifact_set` may shift when artifact types are fixed in Sprint 1–2 | ⏸️ **Left open deliberately.** A corpus-versioning concern; revision proceeds under `docs/11` §6.2. The artifact catalogue is not being redesigned now |
-| G-6 | Baseline capture for non-deterministic content unspecified (`docs/11` A-4) | ⏸️ **Left open deliberately.** No live-provider baseline policy is being invented. Belongs with Sprint 2 regression work |
+| G-6 | ~~Baseline capture for non-deterministic content unspecified (`docs/11` A-4)~~ | ✅ **Resolved 2026-09-06 — `docs/12` D-30.** The recording store is the baseline; replacement is approval-gated; capture is targeted to the cases exercising the changed fragment, with coverage computed offline. Live regression monthly |
 
 ### 📌 Preserved conflict cases — `br-004` and `ta-005`
 

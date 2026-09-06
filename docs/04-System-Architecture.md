@@ -1242,7 +1242,7 @@ Recorded rather than resolved prematurely. Each has a decision point.
 | AQ-3 | PDF rendering approach — server-side headless render versus document library | Sprint 4 | Must render Mermaid diagrams and preserve provenance treatment (`FR-050`) | ⏳ Open — Sprint 4 |
 | AQ-4 | Whether stage-to-model routing is exposed as configuration in v1.0 or fixed | Sprint 2 | Must not become user-facing configurability (`MVP §10`, non-goal) | ⏳ Open — Sprint 2 |
 | AQ-5 | ~~Template storage — repository assets versus a runtime store~~ | Sprint 1 | Must permit rollback without code deploy (`AI-014`) | ✅ **Resolved 2026-08-12** — repository-authored, database-published; rollback by activation (`docs/12` D-3) |
-| AQ-6 | Whether the regression suite runs against live providers or recorded responses | Sprint 2 | Must detect model drift (`AR-41`) while remaining affordable to run on every change | ✅ **Resolved 2026-08-12** — `AI §12.3` "Execution policy": recorded results on every code change, live-provider regression on a schedule. Live runs are not required per change |
+| AQ-6 | Whether the regression suite runs against live providers or recorded responses | Sprint 2 | Must detect model drift (`AR-41`) while remaining affordable to run on every change | ✅ **Resolved 2026-08-12** — `AI §12.3` "Execution policy": recorded results on every code change, live-provider regression on a schedule. Live runs are not required per change. **Sub-question (baseline mechanics, live interval) closed 2026-09-06** — `AI §12.3` "Baseline mechanics", `docs/12` D-30. Live interval: monthly |
 
 ---
 

@@ -292,6 +292,12 @@ flowchart TD
 | **Determinism** | **Deterministic.** Rules over classification, intent, and context signals (`AIP-7`). |
 | **Failure behavior** | Cannot fail independently — a rule evaluation. A plan producing no analyses indicates upstream failure and halts. |
 
+> **Depth level is single-valued in v1** (`docs/12` D-34, resolving `AIQ-7`). Stage 5 emits `depth_level: "standard"`; no other value exists. Proportionality is carried by the artifact set (`FR-017`), and `AC-037` is tested as `DB §4.4` specifies — artifact-set size against complexity score. Not a claim that one level is correct; revisit when complexity scoring exists.
+>
+> **The complexity pre-assessment is deferred** (`docs/12` D-35). It is **not** the `COMPLEXITY_ASSESSMENT` artifact: `FR-033` makes that depend on the Stage 6 architecture and `DB §4.3` writes it at Stage 9, so Stage 5 cannot produce it. `docs/09` governs that artifact and says nothing about this output, which has no scale, entity or vocabulary defined anywhere — and none was invented. The determinism above stands unchanged: §3 already names *depth selection* and planning as deterministic operations, separately from the reasoning work `docs/09` delegates.
+>
+> **Stage 5 v1 is therefore reduced** — it emits **required analyses** and **`depth_level: "standard"`**, two of the three outputs above. It must not be described as satisfying `FR-017` in full.
+
 **Why plan before reasoning:** this is where `PV §3.2` depth-proportionality becomes mechanical. A three-step notification requirement produces a shallow plan; a multi-system orchestration produces a deep one. Deciding this by rule, before generation, is what prevents over-production (`AI-044`) rather than trying to suppress it afterward.
 
 ---
@@ -329,7 +335,7 @@ flowchart TD
 | | |
 |---|---|
 | **Purpose** | Decide which artifacts to produce, at what depth, with recorded reasons for inclusion and omission |
-| **Input** | Classification + intent + complexity assessment + reasoning plan |
+| **Input** | Classification + intent + the Stage 5 reasoning plan, including its complexity **pre**-assessment |
 | **Output** | Artifact plan: artifact types with depth level, inclusion reason per artifact, omission reason per omitted artifact |
 | **Responsibilities** | `FR-017`. Proportionality (`AI-044`). Distinguish omission from failure. |
 | **Determinism** | **Deterministic.** Rule-based, inspectable (`TC-006`). |
@@ -751,6 +757,8 @@ The reason is empirical: model-reported confidence correlates with output fluenc
 | CF-6 | **Reasoning consistency** | Agreement across stages; regeneration count; validation retries | Inconsistency → lower |
 | CF-7 | **Unknown materiality** | How central the unresolved unknowns are to the conclusion | Material unknowns → sharply lower |
 
+> **Stage 11 v1 does not implement all seven** (`docs/12` D-31, D-32, D-33). The weighted base set is **CF-2 and CF-4** only — **CF-6 was added to the zero-weighted set by D-33**, being a runtime property with no corpus signal (0 of 44 rationales) and no representation in recordings. **CF-7's cap trigger is withdrawn**: D-31 mapped it to `sufficiency`, and four frozen cases (`br-006`, `br-007`, `br-009`, `br-011`) are `thin` yet `high`, so `§5.4`'s "confidence reduced" is not `§8.4`'s "material unknown". No field represents an unknown that *blocks a recommendation* (`FR-044`), so CF-7 is specification-only until one exists. **CF-1 is excluded** — the "expected context schema" it is measured against is asserted by §4.2 but enumerated nowhere, and no per-type table can be derived from existing requirements. **CF-5 is excluded** — Stage 4, its source, is unimplemented. Both exclusions carry weight 0, are versioned, and are reconsidered when their sources exist. CF-3 and CF-7 are caps rather than weighted terms, per §8.4. Per-recommendation adjustment (§8.3) is deferred, so v1 does not satisfy `AI-021` or `AC-007`. **v1 output is labelled as the reduced model wherever it is surfaced; it is not the seven-factor framework.**
+
 ### 8.3 Evaluation flow
 
 ```mermaid
@@ -1118,14 +1126,31 @@ The foundation. Established in `MVP` Sprint 0.
 
 | Property | Detail |
 |---|---|
-| What recorded mode detects | Regressions caused by fragment, stage, generator, or code changes — measured against frozen expectations from the golden corpus (`docs/11`) |
+| What recorded mode detects | Regressions caused by **code, stage and generator** changes — measured against frozen expectations from the golden corpus (`docs/11`). **Not fragment changes:** a recording answers a specific composed prompt, so changing a fragment changes the question and the recording becomes `stale` rather than a pass. **A fragment change is discharged by a capture or a live run** (`docs/12` D-24) |
 | What recorded mode cannot detect | Provider-side model drift. Nothing changed locally, so a recorded run cannot observe it |
 | What live mode adds | Drift detection — the failure mode `SA AR-41` names, which is invisible to recorded runs by construction |
 | Divergence handling | Unchanged from the table above: deterministic assertions are hard pass/fail; non-deterministic content is compared to baseline and flagged for human review, not auto-failed |
 
 **Why the asymmetry is correct.** Code changes are frequent and locally caused, so their check must be cheap enough to run every time. Drift is infrequent and externally caused, so its check must run on a clock rather than on a commit — a commit is not the event that causes drift, and gating merges on it would spend provider cost to detect something no merge introduced.
 
-**Open sub-question.** The live schedule interval is not set here, and baseline capture and refresh under recorded mode remain unspecified (`docs/11` A-4). Both belong with the Sprint 2 regression implementation.
+#### Baseline mechanics — resolved
+
+✅ **Decided 2026-09-06.** Resolves the open sub-question that stood here, `docs/11` A-4 and corpus README G-6. Recorded as `docs/12` D-30.
+
+| Mechanic | Decision |
+|---|---|
+| **Baseline storage** | The recording store **is** the baseline. There is no separate baseline artifact |
+| **Baseline refresh** | A capture does **not** replace the approved baseline. Replacement requires explicit, recorded human approval |
+| **Capture scope** | Targeted — capture the cases whose composition includes the changed fragment. Coverage is computed offline and named in the pass reference |
+| **Live schedule** | **Monthly.** Never per change (`SA AQ-6`) |
+
+**Why storage and refresh are one decision.** In recorded mode there is nothing to compare — replaying a recording and measuring it against itself asserts nothing. The baseline comparison in the table above is a **live-mode** operation: a fresh provider response measured against the recorded one. The recording is therefore the natural baseline, and a second artifact would be a parallel store that drifts.
+
+That makes evidence and baseline the same object, which is precisely why refresh cannot be automatic. If a capture silently replaced the baseline, divergence flagged for human review would be absorbed before anyone reviewed it — destroying the `SA AR-41` signal live mode exists to produce. **Approval is what separates "new evidence exists" from "the new evidence is now the standard".**
+
+**Capture scope follows D-24.** D-24 requires activation evidence that exercised the *changed* fragment. Cases are selected by recomputing compositions offline with `composePrompt` — no provider call, so coverage is proved before any spend. Blast radius is a property of the fragment class, not a quota: a `foundation.*` or early-stage change appears in every composition and therefore requires the full corpus; a `type.*` change requires only that type's cases.
+
+**A targeted run's pass reference must name its coverage.** A reference that did not would claim suite-wide evidence for a subset — the same failure `pass-reference.ts` already guards against per case.
 
 ### 12.4 Prompt version testing
 
@@ -1330,10 +1355,10 @@ Twelve-stage pipeline, five stages fully deterministic. Composable versioned pro
 | AIQ-1 | Reasoning quality rubric definition | `MVP` Sprint 0 | Must achieve inter-reviewer agreement; blocks `M-8`, `M-9`, and the `PRD §14.3` release gate (`PRD O-1`) | ✅ **Resolved 2026-08-12** — `docs/10-Reasoning-Quality-Rubric.md`, operationalizing the §7.5 criteria |
 | AIQ-2 | Complexity factor set and weights | Sprint 0 | Must be itemized and reconstructible by the user (`FR-033`, `PRD O-2`) | ✅ **Resolved 2026-08-12** — `docs/09-Scoring-Scales.md` §1 |
 | AIQ-3 | Risk severity and likelihood scales | Sprint 0 | Consistent and applicable across paths (`FR-032`, `PRD O-3`) | ✅ **Resolved 2026-08-12** — `docs/09-Scoring-Scales.md` §2 |
-| AIQ-4 | Confidence factor weights | Sprint 2 | Must be calibratable; conflicts and material unknowns must cap, not merely reduce | ⏳ Open — Sprint 2 |
-| AIQ-5 | Regression against live providers vs. recorded responses | Sprint 2 | Must detect model drift (`SA AR-41`) while remaining affordable per change (`SA AQ-6`) | ✅ **Resolved 2026-08-12** — §12.3 "Execution policy". Recorded every change; live on a schedule |
+| AIQ-4 | Confidence factor weights | Sprint 2 | Must be calibratable; conflicts and material unknowns must cap, not merely reduce | ⏳ **Open — Sprint 2. Prerequisites resolved 2026-09-06 by `docs/12` D-31:** no-artifact analyses take `low`; conflicts and `sufficiency !== "sufficient"` cap at `medium` with no forced `low`; CF-5 zero-weighted and versioned while Stage 4 is unbuilt; per-recommendation adjustment deferred; thresholds to be **fitted** to the 44 frozen corpus band labels, never chosen. **CF-1 measurability resolved 2026-09-06 by D-32** — excluded from the v1 weighted model and versioned, because no per-type expected-context schema can be derived from existing requirements. **D-33 (2026-09-06) records `AIQ-4` as BLOCKED, not answered.** Computed Stage 3 features exist for 11 of 44 corpus cases, 10 are usable, none is a `low`-band example, and four parameters against 10 two-class points is overfitting. Closing it needs Stage 3 output for the remaining 33 cases — provider execution and capture, prohibited under the project's zero-spend constraint. **No weights and no thresholds are ratified. Stage 11 is not implementable until this is resolved** |
+| AIQ-5 | Regression against live providers vs. recorded responses | Sprint 2 | Must detect model drift (`SA AR-41`) while remaining affordable per change (`SA AQ-6`) | ✅ **Resolved 2026-08-12** — §12.3 "Execution policy". Recorded every change; live on a schedule. **Sub-question (baseline mechanics, live interval) closed 2026-09-06** — §12.3 "Baseline mechanics", `docs/12` D-30. Live interval: monthly |
 | AIQ-6 | Whether stage-level model routing is exposed as configuration in v1.0 | Sprint 2 | Must not become user-facing configurability (`MVP §10`) | ⏳ Open — Sprint 2 |
-| AIQ-7 | Depth-level granularity — how many levels, defined how | Sprint 2 | Must make `AC-037` proportionality testable | ⏳ Open — Sprint 2 |
+| AIQ-7 | Depth-level granularity — how many levels, defined how | Sprint 2 | Must make `AC-037` proportionality testable | ✅ **Resolved 2026-09-06 — `docs/12` D-34.** `depth_level` is **single-valued (`"standard"`) for v1**. The constraint was already discharged elsewhere: `DB §4.4` specifies `AC-037` as testable by *artifact-set size against complexity score*, not by a depth taxonomy, and `FR-017`'s acceptance criterion measures the artifact set. No levels or cut points were invented — none is derivable, and `docs/09` A-3 records that no calibration data exists. Single-valued because nothing supports more, not because one level is correct; revisit with complexity scoring. **`AC-037` is specifiable, not yet measurable** |
 | AIQ-8 | Platform knowledge source and update cadence | Sprint 3 | Must be neutral (`PV §3.3`); staleness disclosed, never concealed (`PRD O-4`) | ⏳ Open — Sprint 3 (`PRD O-4`) |
 | AIQ-9 | **Classification taxonomy conflict** — §4.1 enumerates six values incl. `mixed`; `FR-011` enumerates five | Before Sprint 2 | Reconciling requires amending §4.1 or `FR-011`; neither may be changed in passing. Frozen `corpus-v1` holds zero `mixed` cases | ✅ **Resolved 2026-08-14** — `docs/12` D-25. §4.1 amended: the five `FR-011` values are terminal; `mixed` is an internal Stage 1 detection state resolved before the stage completes, secondary reading disclosed via `candidate_types`. §3.2 and §4.3 updated to match. `FR-011` unchanged in substance |
 | AIQ-10 | **Stage-count conflict** — §3.3, §14, `AID-02`, App. A and `Roadmap M-05` state twelve; `MVP §5.1` and `TM-3` state six | Before Sprint 2 | `MVP Scope` is the outlier; App. A carries the numbered inventory Sprint 1 is written against (stage 6 = `FR-030`) | 📌 **Recorded 2026-08-12** — implementation proceeds on twelve (`docs/12` D-7). `MVP §5.1`/`TM-3` require correction |

@@ -566,6 +566,8 @@ erDiagram
 
 It also makes `AC-037` proportionality testable by query: artifact-set size against complexity score across the corpus.
 
+> **`depth_level` domain, v1: the single value `standard`** (`docs/12` D-34, resolving `AIQ-7`). It applies to `depth_level` on both this entity and `ARTIFACT`. No depth taxonomy is defined because none is derivable from any requirement, and the `AC-037` mechanism above needs none. Single-valued because nothing supports more — revisit with complexity scoring. **The query above is not yet runnable: `FR-033` / `COMPLEXITY_ASSESSMENT` are unimplemented, so no complexity score exists to test against.**
+
 ---
 
 #### ARTIFACT

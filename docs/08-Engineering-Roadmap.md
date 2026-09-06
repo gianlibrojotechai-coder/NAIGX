@@ -942,7 +942,7 @@ Inherited from prior documents, with the sprint that must resolve each.
 | 6 | Fragment content storage location (`AIQ-5`, `DBQ-5`) | 1 | Rollback mechanism |
 | 7 | Confidence factor weights (`AIQ-4`) | 2 | Stage 11 |
 | 8 | Regression against live vs. recorded providers (`AIQ-5`, `SA AQ-6`) | 2 | Regression suite design |
-| 9 | Depth-level granularity (`AIQ-7`) | 2 | `AC-037` testability |
+| 9 | ~~Depth-level granularity (`AIQ-7`)~~ ✅ **Resolved 2026-09-06 — `docs/12` D-34.** `depth_level` single-valued (`"standard"`) for v1; `AC-037` is tested by artifact-set size against complexity score per `DB §4.4`, needing no depth taxonomy. **`AC-037` remains unmeasurable until complexity scoring exists** | 2 | `AC-037` testability |
 | 10 | SSE vs. polling as primary (`APIQ-1`, `SA AQ-2`) | 3 | Delivery architecture |
 | 11 | PDF rendering approach (`APIQ-2`, `SA AQ-3`) | 4 | Export implementation |
 | 12 | Platform knowledge source and cadence (`AIQ-8`, `PRD O-4`) | 3 | `FR-035` quality |

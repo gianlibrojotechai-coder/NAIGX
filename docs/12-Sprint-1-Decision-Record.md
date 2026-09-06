@@ -9,7 +9,7 @@
 | Sources of truth | PRD v1.0 · MVP Scope v1.0 · System Architecture v1.0 · AI Architecture v1.0 · Database Design v1.0 · API Design v1.0 · Engineering Roadmap v1.0 · `corpus-v1` |
 | Resolves | `SA AQ-1` · `SA AQ-5` · `DBQ-1` · `DBQ-5` |
 | Records | D-6 and D-7 documentation discrepancies · `DBQ-8` deferral rationale |
-| Last updated | 2026-08-14 |
+| Last updated | 2026-09-06 |
 
 ---
 
@@ -1244,6 +1244,468 @@ The other two are **planned-out with a reason**, not omitted silently. `DB §4.4
 
 ---
 
+## D-30 — The recording is the baseline, and only a person may promote one
+
+**Decided. Four ratifications resolving `AI §12.3`'s open sub-question, `docs/11` A-4 and corpus README G-6.**
+
+Taken 2026-09-06, before any capture is paid for. Sprint 1 remains frozen; Stages 1-3, 6-9 and the contracts fixed by D-27/D-28/D-29 are unchanged.
+
+### What was decided
+
+| # | Decision |
+|---|---|
+| 1 | **The recording store is the baseline.** No separate baseline artifact exists |
+| 2 | **A capture does not become the baseline.** Promotion requires explicit, recorded human approval |
+| 3 | **Capture is targeted** to the cases whose composition includes the changed fragment; coverage is computed offline and named in the pass reference |
+| 4 | **Live regression runs monthly**, never per change |
+
+### Why 1 follows from the documents
+
+`AI §12.3` compares non-deterministic content "to baseline". In recorded mode that comparison is vacuous — the recording is both operands. It is meaningful only in live mode, where a fresh response is measured against a captured one. The recording is therefore already the baseline in everything but name, and `recording-store.ts` warns that a second format "would be a parallel mechanism that drifts".
+
+### Why 2 is forced by 1
+
+Making evidence and baseline the same object removes the ability to add evidence without moving the standard. Automatic promotion would let a capture overwrite the baseline that a flagged divergence was waiting to be measured against — `AI §12.3` requires such divergence be "flagged for human review, not auto-failed", and auto-refresh discharges the flag by deleting what it pointed at. Approval restores the separation that the single-artifact choice removed.
+
+**Two states are now orthogonal.** A recording may be `stale` (the fragment changed, D-24 decision 2) or *unapproved* (captured but not promoted). They are different conditions with different remedies, and the runner must not conflate them.
+
+### Why 3 satisfies D-24 rather than weakening it
+
+D-24 decision 4 requires evidence that exercised the changed fragment — **not** evidence covering everything. Targeting is therefore the precise reading, provided coverage is proved rather than assumed. It is proved offline: `composePrompt` recomputes each case's composition with no provider call, so the covered set is known before any spend.
+
+Blast radius is a property of the fragment class, not a quota:
+
+| Changed fragment | Cases requiring capture |
+|---|---|
+| `foundation.*` | All — present in every composition |
+| `stage.classification`, `stage.intent` | All — every case reaches stages 1-2 |
+| `stage.context_extraction`, `stage.architecture_analysis` | All reaching those stages; excludes `unsupported`, which decline at Stage 1 |
+| `type.*` | Only that type's cases |
+
+Where a fragment appears in every composition the targeted set *is* the full corpus, and the cost is identical to capturing everything. The saving is real only where the blast radius is genuinely narrow.
+
+### The suite version had no machine-readable home
+
+`docs/11` §6.3 requires that regression results record the corpus version. They record the wrong one. `capture.ts` derives it as `cases[0].corpusVersion` — a case's **entry provenance** (§4.1), immutable and correctly `corpus-v1` for every case — while the suite stands at `corpus-v2` after D-26. The suite version existed only as prose in the corpus README.
+
+| # | Decision |
+|---|---|
+| 5 | The suite version is held in **`research/golden-corpus/corpus.manifest.json`** |
+| 6 | Runs and pass references carry `suiteVersion` as a **distinct field**, read from that manifest |
+| 7 | Per-case `corpus_version` is **unchanged** — immutable entry provenance |
+| 8 | Recording storage stays keyed on entry provenance: `research/regression-recordings/<corpus_version>/`. Storage semantics are untouched |
+| 9 | The reference string names the suite version — `corpus-regression:corpus-v2+fragments-v1:<runId>` |
+
+**Rewriting per-case `corpus_version` to v2 was rejected.** It would assert that cases entered at v2, which is false, and would strand the recording store, which partitions evidence by that field. The corpus README already forbids it.
+
+**This costs nothing today.** No fragment version yet carries a `corpus-regression:` reference — the live gate value is still `fragment-manifest-gate:fragments-v1` (D-14). The window to change the reference format without migration closes the moment the first real reference is attached.
+
+### What this does not decide
+
+The three deferred assertion classes — `artifact_set`, `confidence_band`, `do_not_automate_conclusion` — are unaffected. They are deferred because Stage 9 generators, Stage 11 and a do-not-automate case do not yet exist, and no capture policy closes them.
+
+Nothing here implements the decisions. Approval recording, targeted-capture selection, the suite-version field and the monthly schedule are Sprint 2 implementation work.
+
+### Minimum authoritative amendments to ratify
+
+`AI §12.3` (baseline mechanics block, and the property-table row D-24 already required), `docs/11` A-4 and §6.3, corpus README G-6, and the `corpus.manifest.json` suite-version file.
+
+---
+
+---
+
+## D-31 — What the confidence model can decide without inventing a number
+
+**Decided. Six ratifications resolving the prerequisites `AIQ-4` depends on. `AIQ-4` itself — the weights — remains open.**
+
+Taken 2026-09-06. Every decision below is a reading of text already in the specifications; none introduces a numeric rule, and none required a provider call.
+
+### Why the prerequisites are a separate decision
+
+`AIQ-4` asks for factor weights. Weights are the **last** of three dependent choices: a weight produces a number, a threshold turns that number into a band, and both depend on which factors are measurable at all. Ratifying weights first would have forced invented thresholds — which `AI §4` forbids in terms (*"No proportional or numeric rule is defined, and none may be inferred"*) and `docs/11` forbids again for corpus expectations (*"would encode precision the specification does not define and no calibration data supports"*).
+
+So this record settles what the documents already determine, and leaves for `AIQ-4` only the judgement that genuinely needs one.
+
+### What was decided
+
+| # | Decision |
+|---|---|
+| 1 | **An analysis producing no artifacts carries `low`.** The `docs/11` A-9 corpus convention is promoted to a rule |
+| 2 | **Conflicts cap overall confidence at `medium`.** No severe-conflict-forces-`low` rule exists or is created |
+| 3 | ~~**`sufficiency !== "sufficient"` triggers that same `medium` ceiling.**~~ **SUPERSEDED 2026-09-06 by D-33** — contradicted by four frozen corpus cases. Graded unknown materiality remains deferred |
+| 4 | **CF-5 carries zero weight in Stage 11 v1**, because Stage 4 does not exist. Versioned, with re-weighting required when it does |
+| 5 | **Per-recommendation adjustment is deferred.** Stage 11 v1 produces `ANALYSIS.overall_confidence_band` only |
+| 6 | **Thresholds will be calibrated against the 44 frozen corpus band labels**, not chosen |
+
+### 1 — `low` for no-artifact analyses
+
+`docs/11` A-9 records the constraint and the convention together: *"No N/A value is to be invented and the `AI §8.4` vocabulary is not to be altered. Corpus convention: record `low`, on the basis that no confident recommendation exists."*
+
+Both alternatives were already closed by that owner decision, and all three affected cases — `br-005` (`insufficient`), `un-001` and `un-002` (`unsupported`) — already carry `low`. Promoting the convention changes no data and invents no value; it makes the field writable by Stage 11 for paths that halt before reasoning.
+
+### 2 — the cap is a ceiling, not a floor
+
+`AI §8.4` states *"cannot exceed Medium"*; `AI §8.3`'s flow node reads `Capped: cannot exceed Medium`. Nothing anywhere forces `low`.
+
+**CF-3's severity has no representation.** `AI §8.2` describes CF-3 as *"Count **and** severity of contradiction flags"*, but `ContextElement.conflictsWithIndex` is a bare index — the data model carries no severity field. Only count is available, and a severity scale is not being invented to fill the gap.
+
+**A specification tension is recorded rather than resolved.** `AI §5.2` says a contradiction *"lowers confidence (§8)"* while `§8.4` says it caps. `§8.4` is the confidence authority and governs.
+
+### 3 — sufficiency is the materiality signal that already exists
+
+`AI §8.2` defines CF-7 as *"How central the unresolved unknowns are to the conclusion"*, and centrality is defined nowhere. What **is** defined is `AI §5.4`'s three-level sufficiency assessment, in which `thin` means *"Analysis possible but inference-heavy; analysis proceeds; **confidence reduced**"*.
+
+That is the specification's own authored judgement that unknowns are material enough to matter. Using it as the cap trigger measures something the pipeline already produces, instead of manufacturing a materiality score. `insufficient` does not reach Stage 11 at all — it halts under `§5.4` and takes decision 1's `low`.
+
+Presence and count of `unknown` elements remain available; **graded** materiality is deferred.
+
+### 4 — a zero weight, stated rather than defaulted
+
+CF-5 measures *"currency and completeness of the platform knowledge used"*, sourced from Stage 4, which is `implemented: false`. The factor has no source.
+
+`AI §8.4` says *"Absence lowers, never raises"*, which admits two readings: weight CF-5 and apply a conservative floor, or weight it zero. **The floor is the worse choice here**, because it applies an identical penalty to every analysis, and thresholds fitted under that uniform penalty would bake a temporary build state into a calibrated constant — requiring refitting the moment Stage 4 lands.
+
+Zero weight is therefore chosen **and versioned**: the weight set carries a version, and Stage 4's arrival requires re-weighting, not a silent adjustment. A specified factor is being ignored deliberately, which is why it is ratified here rather than defaulted in code.
+
+### 5 — what Stage 11 v1 does not do
+
+`AI §8.3` ends `BAND → PER[Per-recommendation adjustment by supporting evidence] → OUT`. *"By supporting evidence"* is the entire specification: no rule states what evidence supports a recommendation, nor how it moves a band. The link does not exist in the data model either — the closest analogue, `ArchitectureComponentDraft.groundedInContextIndices`, grounds *components*, not recommendations.
+
+**Stage 11 v1 therefore produces the analysis-level band only, and does not satisfy `AI-021` or `AC-007`.** Both require confidence to vary across a single output set. That is a stated requirement left unmet, recorded here and in the register rather than quietly reinterpreted. No compliance with either is to be claimed.
+
+### 6 — the thresholds are already latent in the corpus
+
+Fitting rather than choosing is possible because the oracle exists. **42 of the 44 frozen cases carry human-authored, per-factor assessments in their rationales**, keyed to the `AI §8.2` vocabulary — `br-001` reads *"Confidence `high`. Assessed against the `AI §8.2` factors: — CF-1 input completeness: high…"*. Coverage by factor: CF-1 in 39 cases, CF-4 in 34, CF-2 in 20, CF-7 in 4, CF-3 in 3.
+
+Against 44 frozen band labels (23 `high`, 15 `medium`, 6 `low`), thresholds can be **fitted and reported with their reproduction rate** instead of asserted. This is the calibration `AI §8.5` requires, and it costs nothing: the labels were authored by a human and are already committed.
+
+**This does not license fitting the corpus to the system.** `AI §12.2` freezes the corpus precisely so it cannot drift to match output. The fit runs one way — thresholds are chosen to reproduce the labels, and a poor reproduction rate is evidence against the weighting, never grounds to edit a case.
+
+### What remains open
+
+`AIQ-4` — the weights themselves — and the band thresholds derived with them. CF-1's measurability is the remaining prerequisite, filed as its own decision.
+
+### Minimum authoritative amendments to ratify
+
+`docs/11` A-9; the `AIQ-4` row in `AI` §15; and the two register entries this record creates. The corpus README's A-9 mirror needs the same update and is **not** amended here.
+
+---
+
+---
+
+## D-32 — Stage 11 v1 weights three factors, and says so
+
+**Decided. CF-1 and CF-5 are excluded from the v1 weighted model, both versioned. The active base set is CF-2, CF-4 and CF-6.**
+
+Taken 2026-09-06, following D-31. No code exists yet; this fixes what the code will be allowed to claim.
+
+### What was decided
+
+| # | Decision |
+|---|---|
+| 1 | **CF-1 weight = 0**, versioned. The per-type expected-context schema it is defined against does not exist |
+| 2 | **CF-5 weight = 0**, versioned. Stage 4, its specified source, is not implemented |
+| 3 | **The v1 weighted base set is CF-2, CF-4, CF-6** |
+| 4 | **CF-3 and CF-7 remain caps**, per D-31: conflicts cap at `medium`; `sufficiency !== "sufficient"` triggers the same ceiling; no severe-conflict-forces-`low` rule |
+| 5 | **Per-recommendation adjustment stays deferred** |
+| 6 | **Stage 11 v1 must not be described as implementing the seven-factor framework.** The two excluded base factors and the deferred adjustment are documented wherever confidence is surfaced |
+| 7 | **Both exclusions are reconsidered when their sources exist** — not silently absorbed |
+
+### Why CF-1 could not be measured
+
+`AI §8.2` defines CF-1 as *"Proportion of the type's **expected context schema** populated."* No such schema exists. `AI §4.2` asserts one — *"Stage 3 extracts against a type-appropriate schema"* — and illustrates it with three examples for `business_requirement` and three for `job_description`, in prose, in a vocabulary that is not `CONTEXT_CATEGORIES`. `FR-013` names four categories and qualifies them by no type at all. Two of the six categories, `system` and `objective`, appear in no requirement.
+
+The per-type prompt fragments were the strongest candidate source and do not survive inspection: *"what tends to carry the decision on this path"* is hedged generation guidance, the four fragments do not share a structure, and mapping *"who will operate the result"* or *"seniority"* onto the six categories is a judgement no document makes.
+
+**The corpus does not supply it either, and this is the decisive finding.** CF-1 is discussed in 39 of 44 rationales, but never against a category set. `ew-001` reads: *"CF-1 is moderate: step sequence and volumes are stated, but no retry configuration, error-handling settings, or deduplication logic is given — **and those are the details the reported failures turn on**."* Completeness was judged relative to what that specific input needed. Two `existing_workflow` cases would score differently on identical categories.
+
+Authoring the table would therefore have been judgement presented as derivation — the move `AI §4` forbids: *"No proportional or numeric rule is defined, and none may be inferred."*
+
+**And it would have been undetectable.** Fitting thresholds (D-31 decision 6) against an invented table would let the fit absorb the table's errors: a wrong table with compensating thresholds reproduces the corpus labels while measuring the wrong thing, and the corpus cannot catch it, because the corpus never assessed CF-1 categorically.
+
+### Why the two exclusions are the same decision
+
+CF-1 and CF-5 fail identically — a factor whose specified source does not exist. D-31 decision 4 already chose the treatment for that shape and gave the reason: a conservative floor applies the same penalty to every analysis, and thresholds fitted under a uniform penalty bake a temporary build state into a calibrated constant. Zero weight, versioned, is the honest form.
+
+### What v1 rests on, and what that costs
+
+The surviving factors are the ones the pipeline measures per element and validates:
+
+| Factor | Source | Validation |
+|---|---|---|
+| CF-2 | `ContextElement.provenance` | `stated` spans verified against the input (D-19) |
+| CF-4 | `ContextElement.specificityScore` | Range-checked `0..1` at parse |
+| CF-6 | Pipeline `retryCount` | Stage regenerations; only Stage 6 is non-zero |
+
+**Stated plainly: this is three of the five base factors `AI §8.2` names, and a materially thinner model than `AI §8` describes.** Two exclusions are recorded rather than fixed, and per-recommendation variation is absent. Anywhere Stage 11 v1 output is surfaced, exported or reviewed, it is labelled as the reduced v1 model — not as the confidence framework.
+
+`AI §8.4`'s *"Factors are always exposed"* rule makes this workable rather than merely honest: anything below `high` already has to state its reason, and a reason drawn from three factors is visibly narrower than one drawn from five.
+
+### What remains open
+
+`AIQ-4` proper: the weights for CF-2, CF-4 and CF-6, and the thresholds mapping their combined value to `high` / `medium` / `low`. Filed as D-33, to be fitted against the 44 frozen band labels per D-31 decision 6.
+
+### Minimum authoritative amendments to ratify
+
+A note on the `AI §8.2` factor table recording the v1 active set; the `AIQ-4` row; and one register entry for CF-1's reconsideration trigger.
+
+---
+
+---
+
+## D-33 — The corpus refuses the cap rule, and cannot yet supply the weights
+
+**Decided. D-31 decision 3 is withdrawn, CF-6 joins the zero-weighted set, and `AIQ-4` is recorded as blocked rather than answered.**
+
+Taken 2026-09-06, after computing the Stage 3 feature values from the existing recordings. No capture, no provider call, no spend.
+
+### What the evidence showed
+
+Feature values were computed offline from the 13 committed recordings and paired with the frozen bands:
+
+| Case | Band | CF-2 stated ratio | CF-4 mean specificity | Conflicts | Sufficiency |
+|---|---|---|---|---|---|
+| br-001 | high | 0.73 | 0.708 | 0 | sufficient |
+| br-003 | high | 0.63 | 0.676 | 0 | sufficient |
+| br-006 | high | 0.82 | 0.763 | 0 | **thin** |
+| br-007 | high | 0.68 | 0.577 | 0 | **thin** |
+| br-009 | high | 0.67 | 0.683 | 0 | **thin** |
+| br-011 | high | 0.61 | 0.714 | **1** | **thin** |
+| br-002 | medium | 0.73 | 0.673 | 5 | thin |
+| br-004 | medium | 0.36 | 0.368 | 0 | thin |
+| br-008 | medium | 0.54 | 0.496 | 0 | thin |
+| br-010 | medium | 0.56 | 0.406 | 0 | thin |
+
+### 1 — D-31 decision 3 is withdrawn
+
+Under it, `br-006`, `br-007`, `br-009` and `br-011` would be forced to `medium`. **All four are frozen as `high`.** A ceiling cannot be recovered by any weighting, so the rule is not merely mis-tuned — it is unsatisfiable against the oracle.
+
+**The conflation it rested on.** `AI §5.4` gives `thin` the effect *"confidence **reduced**"*. `AI §8.4` reserves capping for *"material unknowns"*, which `FR-044` operationalises as *"unknowns **affecting the recommendation**"* and the corpus author states as *"no material unknown **blocks** a recommendation"* (`br-006`). Inference-heavy is not blocking. D-31 decision 3 treated the two as one.
+
+**Option B was tested and failed.** No field in the data model represents materiality: `ContextElement` carries `provenance`, `resolutionHint` and `conflictsWithIndex`, none of which marks an unknown as affecting the recommendation, and the only occurrence of "material" in `contracts.ts` concerns Stage 1 mixed detection. `sufficiency` was the nearest candidate and is the one the evidence rejects.
+
+**Therefore Option A.** `sufficiency` is removed as a cap trigger, and **CF-7 has no computable trigger until materiality is explicitly represented.** No numerical materiality score is invented to fill the gap.
+
+**What is preserved:** CF-3 remains a cap, not a weighted term. CF-7 remains a material-unknown cap in specification, now with its trigger recorded as unimplementable. The `medium` ceiling is unchanged, and no severe-conflict-forces-`low` rule exists. `insufficient` is untouched — it halts at Stage 3 under `AI §5.4` and takes `low` from D-31 decision 1, which is a separate mechanism from the CF-7 cap and survives this correction intact.
+
+**A second defect, recorded not fixed.** `br-011` carries a model-emitted conflict flag while its author records the constraints as *"restrictive but mutually consistent"*. That is a Stage 3 false positive, which makes the CF-3 cap only as precise as Stage 3's conflict detection.
+
+### 2 — CF-6 is zero-weighted and versioned
+
+CF-6 is mentioned in **0 of 44** rationales, and principledly so: it measures *"agreement across stages; regeneration count; validation retries"* — runtime properties of an execution. Corpus expectations are authored from inputs, so CF-6 is structurally un-assessable there, and it is absent from recordings because it is a pipeline counter rather than provider output.
+
+A separately defined runtime rule was considered and rejected as new architecture with no evidence behind it. **Zero weight, versioned**, is the treatment D-31 decision 4 and D-32 already established for a factor whose measurement source is unavailable, and consistency costs nothing here.
+
+**The v1 weighted base set is therefore CF-2 and CF-4 only** — two of the five base factors `AI §8.2` names.
+
+### 3 — `AIQ-4` is blocked, not answered
+
+**Weights and thresholds cannot currently be responsibly calibrated.** The reasons are evidentiary, not a matter of effort:
+
+| # | Finding |
+|---|---|
+| 1 | **Only 11 of 44 cases have computed Stage 3 features.** Band labels cover all 44; the computable inputs cover only what was recorded |
+| 2 | **Only 10 of those are useful for base-band calibration.** `br-005` is `insufficient` and takes `low` from D-31 decision 1 without reaching the weighted model |
+| 3 | **There are no computed `low`-band examples.** The 10 are 6 `high` and 4 `medium`, so the `medium`/`low` threshold has no data at all |
+| 4 | **The evidence is insufficient to fit a defensible model.** Two free weights plus two thresholds is four parameters against 10 points spanning two classes — overfitting by construction, not calibration |
+| 5 | **The rationale grades are not a scale.** Free prose — *"high"*, *"strong"*, *"weakened"*, *"moderate"*, *"mixed"* — and they assess the **input**, whereas CF-2 and CF-4 are computed from Stage 3's **output**. No recorded mapping between the two exists |
+| 6 | **Closing the gap requires Stage 3 output for the remaining 33 cases**, which requires provider execution and capture |
+| 7 | **That execution is explicitly prohibited by the project's zero-spend constraint.** It is a budget decision, not an engineering one |
+
+**What the data suggests, and why it is not enough.** Excluding `br-002` — genuinely capped, two irreconcilable contradiction pairs — the nine remaining cases separate on CF-4 alone: `high` spans 0.577–0.763, `medium` spans 0.368–0.496, with an empty interval of 0.081 between them. That locates a boundary only to a range, on nine points, from one of five verticals, with no `low` examples, and it would let CF-4 carry the model alone — making CF-2's weight arbitrary rather than fitted. **No threshold is adopted from it.**
+
+`AIQ-4` remains **open**. No weights and no thresholds are ratified here.
+
+### Consequence for Stage 11
+
+With CF-7's cap trigger withdrawn and the weighted base uncalibrated, **Stage 11 cannot be responsibly implemented under the zero-spend constraint.** The only defensible partial form would emit a band solely where a CF-3 cap or D-31 decision 1 determines it, leaving every other case explicitly undetermined — a partial stage that would need its own ratification. It is not undertaken here.
+
+### Minimum authoritative amendments to ratify
+
+The `AI §8.2` v1 note (base set now CF-2 and CF-4); the `AIQ-4` row; and the register entries this record creates.
+
+---
+
+---
+
+## D-34 — Depth has one level because nothing supports a second
+
+**Decided. `depth_level` is single-valued (`"standard"`) for v1. Resolves `AIQ-7`.**
+
+Taken 2026-09-06. Derived entirely from committed specifications; no provider call, no spend.
+
+### What was decided
+
+| # | Decision |
+|---|---|
+| 1 | **`depth_level` remains single-valued as `"standard"` for v1** |
+| 2 | **No additional depth levels, names or complexity cut points are invented** |
+| 3 | **`AC-037` proportionality is tested by the mechanism `DB §4.4` already specifies** — artifact-set size against complexity score across the corpus |
+| 4 | **One level is not declared universally correct.** It is the v1 domain because the repository supplies no evidence for a deeper taxonomy |
+| 5 | **Reconsideration trigger:** revisit granularity once complexity scoring exists and enough measured evidence accumulates to show whether multiple levels are warranted |
+| 6 | **Resolving `AIQ-7` does not make `AC-037` measurable today.** Complexity scoring is unimplemented |
+| 7 | **The existing `depthLevel: "standard"` contract is preserved**, not widened |
+
+### Why the question's own premise was already answered elsewhere
+
+`AIQ-7` is constrained by *"Must make `AC-037` proportionality testable"*. `DB §4.4`'s design note states the test mechanism outright:
+
+> *"It also makes `AC-037` proportionality testable by query: **artifact-set size against complexity score** across the corpus."*
+
+That is not a depth-level enumeration. Three further sources agree that proportionality is carried by the artifact set:
+
+| Source | Statement |
+|---|---|
+| `FR-017` acceptance criteria | *"A minimal input produces a proportionally minimal **artifact set**"* |
+| `docs/11` §2.3 | `minimal` means *"satisfiable by a single primary artifact, with no downstream solution architecture or implementation design"* |
+| `docs/11` §2.2 | `minimal` cases *"exercise proportionality (`FR-017`, `AC-037`)"* — a corpus character, measured by what is produced |
+
+So the granularity question was load-bearing for a test that a different mechanism already discharges.
+
+### Why a taxonomy would have been invention
+
+No document in the repository names a depth level, counts them, or gives a boundary. Constructing them would require choosing a count and cut points on `docs/09`'s 20–100 complexity scale with nothing to cite — the move `AI §4` forbids in terms (*"No proportional or numeric rule is defined, and none may be inferred"*) and the one D-33 refused for `AIQ-4`'s thresholds.
+
+`docs/09` §4 A-2 sets the precedent one level down: *"Factor anchor descriptors are drafted, not derived from an authoritative source… Requires owner review."* An un-derived depth taxonomy is the same defect. And `docs/09` A-3 records that *"No calibration data exists yet"*, so there is nothing to place boundaries against even if one wanted to.
+
+### Three things this record keeps separate
+
+| Concept | What it is | State |
+|---|---|---|
+| **Depth-level granularity** | The domain of `depth_level` | **Resolved here** — single-valued for v1 |
+| **Artifact-set proportionality** | Which artifacts are planned and why (`FR-017`, `ARTIFACT_PLAN_ENTRY`) | Implemented for the job-description path at Stage 8 |
+| **Complexity scoring** | `docs/09` `complexity-v1`, `FR-033`, `COMPLEXITY_ASSESSMENT` | **Unimplemented** |
+
+**`AC-037` is now specifiable, not measurable.** Its query needs complexity scores, and none are produced: `ARTIFACT_TYPES` holds only the three job-description artifacts and `FR-033` is unbuilt. Claiming AC-037 satisfaction on the strength of this record would be false.
+
+### What this does not resolve
+
+Stage 5's *complexity pre-assessment* output. `AI` App. A classifies Stage 5 as **Deterministic**, while `docs/09` line 22 says it *"does not specify how the NIE arrives at a factor score, which is **reasoning work**"* and §1.6 says *"Determinism of the factor scores themselves is a property of the **reasoning stage**"*. A deterministic Stage 5 cannot produce a complexity pre-assessment unless "pre-assessment" means something coarser than `COMPLEXITY_ASSESSMENT`, and no document says what that is. **Recorded as a separate open blocker; not resolved by invention here.**
+
+### Minimum authoritative amendments to ratify
+
+The `AIQ-7` row and the Stage 5 spec in `AI`; the `depth_level` domain in `DB §4.4`; Roadmap Appendix C item 9; and the two register entries this record creates.
+
+---
+
+---
+
+## D-35 — Two different complexity questions were being treated as one
+
+**Decided. `docs/09` governs the Stage 9 `COMPLEXITY_ASSESSMENT` artifact only. Stage 5's complexity pre-assessment is deferred, undefined. Stage 5 ships reduced.**
+
+Taken 2026-09-06, resolving the conflict D-34 recorded. Derived from committed specifications; no provider call, no spend.
+
+### What was decided
+
+| # | Decision |
+|---|---|
+| 1 | **`docs/09` governs `COMPLEXITY_ASSESSMENT` only** — the `FR-033` artifact, `complexity-v1`, written at Stage 9 |
+| 2 | **Stage 5's pre-assessment is a different quantity** and is not governed by `docs/09` |
+| 3 | **Stage 5 stays Deterministic.** Planning, required-analysis selection and depth selection are deterministic operations |
+| 4 | **The pre-assessment is deferred, undefined for v1.** No scale, entity, vocabulary, persistence model or score is invented |
+| 5 | **Stage 5 v1 emits required analyses and `depth_level: "standard"`.** The third specified output is deferred — this is a **reduced** stage and is labelled as one |
+| 6 | **The Stage 8 input-ordering contradiction is recorded, not resolved** |
+
+### Why they are different quantities
+
+`COMPLEXITY_ASSESSMENT` cannot be what Stage 5 produces, on the specifications' own terms:
+
+| Property | `COMPLEXITY_ASSESSMENT` | Stage 5 |
+|---|---|---|
+| Producer | Stage 9 — `DB §4.3` lifecycle: *"Written during artifact generation"* | Stage 5 |
+| Dependency | `FR-033` **depends on `FR-030`** — the Stage 6 architecture | Runs before Stage 6 |
+| Representation | `score`, `factor_breakdown`, `scale_version` | None defined anywhere |
+
+A stage cannot produce an artifact that depends on output from a later stage. Reading the two as one quantity is what generated the conflict.
+
+### Why determinism survives
+
+`docs/09` is narrower than it was being read. Line 22: *"It defines scales only. **It does not specify how the NIE arrives at a factor score, which is reasoning work belonging to `AI Architecture`**."* §1.6: *"Determinism of the factor scores themselves is a property of the reasoning stage."*
+
+`AI §3` line 178 then draws the line explicitly:
+
+> *"Artifact planning, stage sequencing, validation, confidence computation, and **depth selection** are deterministic (`TC-006`). Classification, extraction, reasoning, and generation involve the model."*
+
+Depth selection and planning are named deterministic; complexity scoring is not in that list. `AI` had already separated them. Stage 5's classification stands unchanged, and no reclassification is made.
+
+### What Stage 5 v1 does not do
+
+The pre-assessment has no definition to implement. Defining one would mean inventing a scale and a vocabulary against no source — the move refused at D-33 for `AIQ-4`'s thresholds and at D-34 for depth levels.
+
+**Stage 5 v1 is therefore a reduced stage: two of its three specified outputs.** It is labelled as such wherever it is surfaced, on the same footing as Stage 11's reduced factor set (D-32) and Stage 9's single generator (D-29). No claim of full `FR-017` satisfaction is made.
+
+### The contradiction this does not resolve
+
+`AI §5` Stage 8's input is *"Classification + intent + **complexity assessment** + reasoning plan"* — naming complexity assessment as an input distinct from the reasoning plan. But `DB §4.3` writes `COMPLEXITY_ASSESSMENT` at **Stage 9**, after Stage 8 has run.
+
+Either Stage 8 consumes something other than that entity, or the lifecycle is wrong. **Both readings are plausible and neither is adopted here.** Resolving it by assumption would settle a specification question with an implementation convenience. It is filed as an open item.
+
+It costs nothing today: the implemented Stage 8 consumes no complexity input.
+
+### Minimum authoritative amendments to ratify
+
+The Stage 5 spec note in `AI §5`; and the two register entries this record creates. **`docs/09` is not amended** — it continues to govern `complexity-v1` and `COMPLEXITY_ASSESSMENT`, which is precisely the point.
+
+---
+
+---
+
+## D-36 — Stage 8 cannot consume the artifact it decides whether to produce
+
+**Decided. `AI §5` Stage 8's "complexity assessment" input is the Stage 5 **pre**-assessment. `COMPLEXITY_ASSESSMENT` remains the Stage 9 artifact. Closes the ordering contradiction D-35 left open.**
+
+Taken 2026-09-06. Reached by elimination on the specifications' own terms; nothing is invented and no lifecycle changes.
+
+### What was decided
+
+| # | Decision |
+|---|---|
+| 1 | **`AI §5` Stage 8's "complexity assessment" denotes the Stage 5 complexity pre-assessment**, not the persisted artifact |
+| 2 | **`COMPLEXITY_ASSESSMENT` remains the persisted Complexity Score artifact, produced at Stage 9** |
+| 3 | **`DB §4.3`'s lifecycle and `FR-033` → `FR-030` are unchanged.** Neither was in error |
+| 4 | **Stage 8 must never consume the Stage 9 artifact it decides whether to produce** |
+| 5 | **This defines nothing.** The Stage 5 pre-assessment stays deferred and undefined per D-35, and `FR-017`'s assessed-complexity requirement stays unsatisfied |
+| 6 | **A separate gap is recorded:** `docs/09` delegates factor-score derivation to "a reasoning stage" without naming which |
+
+### Why the artifact reading is impossible, not merely awkward
+
+`AI §9.1`'s artifact catalogue lists **Complexity Score** — *"Score with itemized factors and weights | Requirement, workflow"* — as an artifact. `AI §5` Stage 9's purpose is *"Produce each planned artifact"*. `DB §4.3` persists it there. `FR-033` depends on `FR-030`, satisfied because Stage 6 precedes Stage 9. **Four sources agree**, and `DB §4.3` is not the outlier.
+
+Stage 8's purpose is *"Decide which artifacts to produce"*, and `ARTIFACT_PLAN_ENTRY` carries `planned` with an `omission_reason` for each type in the catalogue — Complexity Score included on the requirement path. So Stage 8 decides whether that artifact exists at all.
+
+**A stage cannot take as input the output of a decision it is itself making.** The reading fails on circularity, not on ordering, and no interpretation rescues it.
+
+### Why the pre-assessment reading is what remains
+
+Both terms already exist in `AI §5`, one stage spec apart. `FR-017` independently requires orchestration *"based on classification, intent, and assessed complexity"*, so Stage 8 genuinely needs something complexity-shaped, and Stage 5 is the only producer of anything of that shape before it. `SA §12`'s lifecycle table gives Stage 8's input as *"All prior"* — an enumeration of what exists at that point, consistent with reading Stage 8's list as naming available inputs rather than asserting a new dependency.
+
+The alternatives were: amend `DB §4.3` (contradicts three sources to save one), or posit a third complexity quantity (nothing in the repository names one). This record adopts neither.
+
+### The wording defect this exposes
+
+`AI §5` Stage 5's output reads *"Reasoning plan: required analyses, depth level, complexity pre-assessment"* — the colon makes the pre-assessment a **component of** the reasoning plan. Stage 8's input line lists *"complexity assessment + reasoning plan"* as siblings, naming a part alongside its whole under a different name.
+
+That is an editorial defect inside one section, and it is why the phrase read as a different object. `AI §5` Stage 8's input line is amended to name the pre-assessment plainly. **Editorial only** — no field, score, scale, entity or lifecycle semantics is added.
+
+### What this does not do
+
+**It resolves the contradiction and leaves the gap.** Stage 8's complexity input is now correctly identified as a quantity that does not yet exist: D-35 deferred the pre-assessment as undefined, and this record does not define it.
+
+So `FR-017`'s assessed-complexity requirement remains **unsatisfied**, and Stage 8 v1 legitimately consumes no complexity — which is what the implemented Stage 8 does. The job-description path names no complexity artifact (`FR-022`); the requirement path does (`FR-020`), and Stage 8 does not yet serve it.
+
+### The gap this record opens
+
+`docs/09` line 22 says it *"does not specify how the NIE arrives at a factor score, **which is reasoning work** belonging to `AI Architecture`"*, and §1.6 attributes factor-score determinism to *"the reasoning stage"* — **without naming which stage performs it.** `AI §9.1` places the Complexity Score artifact at Stage 9, whose input includes the architecture, which is consistent; but no document states where the five factor scores are produced. Recorded, not resolved.
+
+### Minimum authoritative amendment to ratify
+
+The `AI §5` Stage 8 input line, and the register updates this record makes. **`docs/09` is not amended.** `DB §4.3` is not amended — decision 3 confirms it.
+
+---
+
+---
+
 ## Summary
 
 | ID | Status | Resolves |
@@ -1277,6 +1739,13 @@ The other two are **planned-out with a reason**, not omitted silently. `DB §4.4
 | D-27 | ✅ Decided — capability profile is an authored primitive; Stage 7 decides apply-vs-build | Opens Phase 2; `FR-022` never said *gap against what* |
 | D-28 | ✅ Decided — requirement `kind`; exhaustive disposition; buildable decisive gaps | Stage 7 defects from the first real run |
 | D-29 | ✅ Decided — deterministic Stage 8; one Stage 9 generator; decisive technical gaps only | Phase 3A portfolio suggestions |
+| D-30 | ✅ Decided — recording is the baseline; approval-gated promotion; targeted capture; monthly live; suite version separated from entry provenance | Resolves `AI §12.3` sub-question, `docs/11` A-4, corpus README G-6 |
+| D-31 | ✅ Decided — no-artifact `low`; conflicts cap at `medium`; sufficiency triggers the cap; CF-5 zero-weighted and versioned; per-recommendation deferred; thresholds fitted to the frozen corpus | Resolves `docs/11` A-9; unblocks `AIQ-4`'s prerequisites. **`AIQ-4` itself remains open** |
+| D-32 | ✅ Decided — CF-1 and CF-5 excluded from the v1 weighted model, both versioned; active base set is CF-2, CF-4, CF-6; v1 is not the seven-factor framework and must not be described as it | Resolves CF-1 measurability. **`AIQ-4` weights and thresholds remain open — filed as D-33** |
+| D-33 | ✅ Decided — **withdraws D-31 decision 3** (sufficiency is not a cap trigger); CF-7's cap has no computable trigger until materiality is represented; CF-6 zero-weighted and versioned, leaving CF-2 and CF-4; `AIQ-4` recorded as **blocked** by the zero-spend constraint | Corrects D-31. **`AIQ-4` remains open — no weights or thresholds ratified** |
+| D-34 | ✅ Decided — `depth_level` single-valued (`"standard"`) for v1; no invented levels or cut points; `AC-037` tested by artifact-set size against complexity score per `DB §4.4` | Resolves `AIQ-7`. **`AC-037` is specifiable, not yet measurable** |
+| D-35 | ✅ Decided — `docs/09` governs `COMPLEXITY_ASSESSMENT` only; Stage 5's pre-assessment is a distinct, deferred quantity; Stage 5 stays Deterministic and ships **reduced** (required analyses + `depth_level`) | Resolves the D-34 determinism conflict. ~~Stage 8 input-ordering contradiction left open~~ — **closed by D-36** |
+| D-36 | ✅ Decided — Stage 8's "complexity assessment" is the Stage 5 **pre**-assessment; `COMPLEXITY_ASSESSMENT` stays the Stage 9 artifact; `DB §4.3` and `FR-033` → `FR-030` unchanged; Stage 8 never consumes the artifact it plans | Closes D-35's open contradiction. **Defines nothing; `FR-017` still unsatisfied.** Opens the factor-scoring-stage gap |
 
 ### Still open after this record
 
@@ -1284,11 +1753,11 @@ The other two are **planned-out with a reason**, not omitted silently. `DB §4.4
 |---|---|
 | `AIQ-6` / `AQ-4` — stage-level routing as configuration | Sprint 2 |
 | ~~`AIQ-9` — classification taxonomy: `AI §4.1` six vs `FR-011` five~~ | ✅ **Resolved 2026-08-14 — D-25** |
-| **D-25 rules are ratified but not implemented** — `prompts/stage/classification.md` still predates them | Before the next capture |
+| ~~**D-25 rules are ratified but not implemented** — `prompts/stage/classification.md` still predates them~~ | ✅ **Resolved 2026-08-14, verified 2026-09-06 — D-25 is implemented in `prompts/stage/classification.md`:** purpose-primary classification, non-counting dominance, and the conjunctive sub-threshold trigger. The fragment has **not** been exercised by a paid capture; that is the re-baseline item below, not this one |
 | ~~`br-008` remains a recorded regression failure pending that implementation (D-25)~~ | ✅ **Resolved 2026-08-14 — D-25 corrected the classification; D-26 corrected the confidence expectation** |
-| **The recording store keys evidence on `corpus_version`**, which `docs/11` §4.1 defines as an entry marker — and reads it inconsistently (per-case for lookup, `cases[0]` for the gate). Breaks the first time a case is **added** (D-26) | Before any corpus addition |
+| **The recording store keys evidence on `corpus_version`**, which `docs/11` §4.1 defines as an entry marker — and reads it inconsistently (per-case for lookup, `cases[0]` for the gate) (D-26). **Verified 2026-09-06: this has already drifted, without waiting for a case addition.** The suite is `corpus-v2` (`research/golden-corpus/README.md`), while the only recorded run is keyed `corpus-v1` — `reference: corpus-regression:corpus-v1+fragments-v1:4ea7eef7345389e9`. The run takes its version from per-case entry markers, not the suite version. ~~**Specification resolved 2026-09-06 by D-30**~~ | ✅ **Closed 2026-09-06 — specified by D-30 and implemented.** `loadSuiteVersion()` reads `research/golden-corpus/corpus.manifest.json`; `RegressionReport.suiteVersion` and `RegressionPassReference.suiteVersion` carry it; the reference string now reads `corpus-regression:corpus-v2+fragments-v1:<runId>`. The `cases[0].corpusVersion` derivation is gone from the suite-version path. Per-case `corpus_version` and the recording storage partition are unchanged. Covered by `regression-corpus.test.ts` (manifest loading and rejection) and `regression-runner.test.ts` (reference names the suite version while the case keeps its entry marker) |
 | `ta-004` may need the same adjudication as `br-008`: it states an ask, but the ask is itself ambiguous (D-26) | With the `technical_assessment` vertical |
-| 12 of 13 recordings are stale from the D-25 fragment publication; a full green suite needs a re-baseline (~$0.95) | Budget decision |
+| ~~12 of 13 recordings are stale from the D-25 fragment publication; a full green suite needs a re-baseline (~$0.95)~~ | ✅ **Corrected 2026-09-06 — the premise was false.** All 14 authored fragments hash-match the published manifest, `stage.classification` (`fb90828b`) included, and all 13 recordings carry `fragments-v1` with the three composition hashes the green run records. The runner reports `stale` before a case can pass; the run passed 13/13, so none were stale. D-26 was taken *"after the first capture under D-25"* — the recapture happened 2026-08-14 and this entry was never updated. **No re-baseline of the existing 13 is needed.** The real gap is the 31 unrecorded cases, at a cost that is not $0.95 |
 | `AIQ-10` — stage count: `MVP` six vs `AI`/`Roadmap` twelve | Reconcile before Sprint 2 |
 | `DBQ-8` — app-level encryption scope | Before production data |
 | `DBQ-9` — partition granularity | Sprint 5 |
@@ -1306,13 +1775,31 @@ The other two are **planned-out with a reason**, not omitted silently. `DB §4.4
 | `AI §3.2` Stage 6 input list assumes Stages 4-5 exist (D-15) | With Sprint 2 stages 4-5 |
 | Golden-corpus output regression, replacing `fragment-manifest-gate` references | Sprint 2 — infrastructure built; **awaiting paid capture** (D-24) |
 | `AI §12.3` property table claims recorded mode detects fragment regressions; it cannot (D-24) | Before the first fragment activation |
-| No recordings captured yet, so no corpus run has ever executed (D-24) | With the capture spend decision |
-| CI has no Postgres service, so the real-infrastructure tests skip there | Before Sprint 2 |
+| ~~No recordings captured yet, so no corpus run has ever executed (D-24)~~ | ✅ **Superseded, verified 2026-09-06.** 13 recordings exist (`research/regression-recordings/corpus-v1/`, `br-001`–`br-011`, `un-001`, `un-002`, plus manifest) and one run has executed (`research/regression-runs/4ea7eef7345389e9.json`, 13 cases). The run is `mode: recorded`, and its own `attests` field states this is **not** evidence that the current prompts produce these responses. The live-capture gap remains open above as the re-baseline item |
+| ~~CI has no Postgres service, so the real-infrastructure tests skip there~~ | ✅ **Resolved, verified 2026-09-06** — `.github/workflows/ci.yml` provisions a `postgres:17` service with both `DATABASE_URL` and `TRACE_DATABASE_URL`, creating the separate trace database (`bd47217`) |
 | `ANALYSIS.overall_confidence_band` is never written — it is **written at Stage 11** (`DB §4.2`, `§6.1`), which Sprint 1 does not implement (D-22) | Sprint 2, with Stage 11 |
-| `VALIDATION_EVENT` is never written — artifact schema validation is Stage 9 (D-23) | Sprint 2 |
+| `VALIDATION_EVENT` is never written (D-23). **Still true as of 2026-09-06** — the only references outside generated code are retention constants and a `deleteMany`; no create path exists. **The recorded reason is now wrong:** Stage 9 *is* implemented (`portfolio-suggestions.ts`) and writes none, and the trace schema attributes validation classes to `AI §3.2` **Stage 10** (`response_validation`), which is unimplemented. The Stage 9 vs Stage 10 attribution needs adjudication before this can be scheduled | Sprint 2 — **blocked on that adjudication** |
 | No boundary check covers provider-invocation recorder wiring; the orchestrator must wire it too (D-23) | With `SA §3.4` job lifecycle |
 | `docs/11` A-9 — confidence band for analyses producing no artifacts | **Becomes live in Sprint 1** with stage 1 `unsupported` and stage 3 insufficiency |
 | Provider README deferrals #4 (task vocabulary), #5 (degradation vocabulary), #6 (determinism scale) | With the NIE stage work |
+| **Persistence for Stages 7–9 is not implemented** — deferred at D-27 (*"the one thing not delivered"*) and again at D-29 (*"Persistence is deferred again"*). Recorded in both decision bodies but never registered here until 2026-09-06 | Sprint 2 |
+| **Stage 9 fragment resolution is per-generator, not per-stage.** The single `portfolio_suggestions` stage key is the generator's key, because a shared `artifact_generation` key would give two generators one prompt (`stages.ts`, citing D-29). Must become per-generator resolution when a second generator lands | With the second Stage 9 generator |
+| **Stage 11 v1 will not satisfy `AI-021` or `AC-007`.** Both require confidence to vary across a single output set; `AI §8.3`'s per-recommendation adjustment is specified only as *"by supporting evidence"*, and no recommendation→evidence link exists in the data model (D-31 decision 5). Stage 11 v1 produces the analysis-level band only. **No compliance with either requirement is to be claimed** | With per-recommendation confidence |
+| ~~**Stage 5's determinism conflicts with `docs/09`** (D-34)~~ | ✅ **Resolved 2026-09-06 — D-35.** The two were different quantities: `docs/09` governs the Stage 9 `COMPLEXITY_ASSESSMENT` artifact, which `FR-033` makes dependent on Stage 6 output and `DB §4.3` writes at Stage 9 — so Stage 5 cannot be producing it. `AI §3`:178 already names depth selection and planning as the deterministic operations. Stage 5's classification is unchanged |
+| **Stage 5's complexity pre-assessment is deferred, undefined** (D-35 decision 4). No scale, entity, vocabulary or persistence model exists for it, and none was invented. **Stage 5 v1 is a reduced stage** — two of its three specified outputs — and must not be described as satisfying `FR-017` in full | With a defined pre-assessment |
+| ~~**`AI §5` and `DB §4.3` disagree on when the complexity assessment exists** (D-35 decision 6)~~ | ✅ **Resolved 2026-09-06 — D-36.** Stage 8's input is the Stage 5 **pre**-assessment; `COMPLEXITY_ASSESSMENT` remains the Stage 9 artifact and `DB §4.3` was not in error. The artifact reading is circular, not merely mis-ordered: `AI §9.1` lists Complexity Score as an artifact, and Stage 8 decides whether artifacts are produced. `AI §5` Stage 8's input line amended editorially |
+| **`docs/09` does not say which stage scores the complexity factors** (D-36 decision 6). Line 22 calls factor scoring *"reasoning work belonging to `AI Architecture`"* and §1.6 attributes its determinism to *"the reasoning stage"*, but no document names that stage. `AI §9.1` places the Complexity Score artifact at Stage 9, which is consistent but does not identify where the five factor scores are produced | Before complexity scoring |
+| **`FR-017`'s assessed-complexity requirement is unsatisfied** (D-36 decision 5). Stage 8's complexity input is now correctly identified as the Stage 5 pre-assessment — a quantity D-35 deferred and left undefined. Stage 8 v1 consumes no complexity, which is correct for the job-description path (`FR-022` names no complexity artifact) and insufficient for the requirement path (`FR-020` does) | With a defined pre-assessment |
+| **`depth_level` is single-valued because nothing supports more** (D-34 decision 4), not because one level is correct. Revisit once complexity scoring exists and measured evidence can show whether multiple levels are warranted | With complexity scoring |
+| **`AC-037` is specifiable but not measurable** (D-34 decision 6). Its `DB §4.4` query needs complexity scores; `FR-033` and `COMPLEXITY_ASSESSMENT` are unimplemented and `ARTIFACT_TYPES` holds only the three job-description artifacts. **No `AC-037` satisfaction may be claimed** | With complexity scoring |
+| **`AIQ-4` is blocked by the zero-spend constraint, not by engineering** (D-33). Weights and thresholds cannot be calibrated: computed Stage 3 features exist for 11 of 44 cases, 10 are usable, **none is a `low`-band example**, and four parameters against 10 points spanning two classes is overfitting. Closing it requires Stage 3 output for the remaining 33 cases — provider execution and capture, currently prohibited. **Stage 11 cannot be responsibly implemented until this is resolved** | Budget decision |
+| **CF-7's cap has no computable trigger** (D-33). `sufficiency` was withdrawn as the trigger after four frozen cases (`br-006`, `br-007`, `br-009`, `br-011`) proved `thin` compatible with `high`. No field represents an unknown that *blocks a recommendation* (`FR-044`). Either add a materiality representation or record that CF-7 is specification-only | Before Stage 11 |
+| **CF-3's cap is only as precise as Stage 3's conflict detection** (D-33). `br-011` carries a model-emitted conflict flag while its author records the constraints as mutually consistent — a false positive that would wrongly cap a `high` case | With conflict-detection review |
+| **CF-6 is zero-weighted because it is a runtime property with no corpus signal** (D-33) — 0 of 44 rationales, absent from recordings. The v1 weighted base is CF-2 and CF-4 alone | With a runtime evidence source |
+| **CF-1 is zero-weighted only because its expected-context schema does not exist** (D-32 decision 1). `AI §8.2` defines it against *"the type's expected context schema"*; `AI §4.2` asserts one exists but illustrates it in prose outside the `CONTEXT_CATEGORIES` vocabulary, and no requirement enumerates it per type. Authoring that table as a specification amendment — each non-floor category cited to a requirement — is what would reinstate the factor | With a per-type context schema |
+| **CF-5 is zero-weighted only because Stage 4 does not exist** (D-31 decision 4). The weight set is versioned; Stage 4's arrival requires deliberate re-weighting and threshold refitting, not a silent adjustment | With Stage 4 |
+| **CF-3 severity has no representation.** `AI §8.2` describes CF-3 as *"count **and** severity"*, but `ContextElement.conflictsWithIndex` is a bare index — only count is available. Either add a severity field or amend `§8.2` to claim count alone | Before graded conflict handling |
+| **31 of 44 corpus cases have no recordings.** Only `business_requirement` (11) and `unsupported` (2) are recorded; `job_description`, `existing_workflow` and `technical_assessment` have none. Broader than the re-baseline item, which concerns staleness of the 13 that exist | With the capture spend decision |
 
 Deferral #4 is now largely answered by the twelve-stage inventory in `AI` App. A — stage keys supply the task vocabulary — but is left open pending D-7 reconciliation.
 
