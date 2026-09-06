@@ -226,6 +226,7 @@ test("what capture writes is what the runner can replay", async () => {
 
     const report = await runRegression({
       cases: [target],
+      suiteVersion: "corpus-v2",
       store: createRecordingStore(root),
       resolver,
       repeat: 2,

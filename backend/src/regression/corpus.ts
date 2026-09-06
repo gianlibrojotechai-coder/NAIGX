@@ -40,6 +40,59 @@ export const CORPUS_ROOT = path.resolve(
   "../../../research/golden-corpus",
 );
 
+/**
+ * `research/golden-corpus/corpus.manifest.json` — the suite version's only
+ * machine-readable home (`docs/12` D-30 decision 5).
+ */
+export const CORPUS_MANIFEST_FILE = "corpus.manifest.json";
+
+/**
+ * The **suite** version — what the corpus currently measures.
+ *
+ * NOT a case's `corpus_version`. `docs/11` §4.1 defines that field as the
+ * version at which a case *entered*, so it is immutable provenance: every case
+ * correctly still reads `corpus-v1` while the suite stands at `corpus-v2` after
+ * D-26 changed one expectation. Deriving the suite version from `cases[0]`
+ * therefore named the wrong thing — a run reported the entry marker of whichever
+ * case happened to sort first, and `docs/11` §6.3 requires results to record the
+ * version the suite was measured against (`docs/12` D-30).
+ *
+ * Reads one small file and validates it, for the same reason `parseCorpusCase`
+ * validates: a silently missing version would let a run claim an oracle it never
+ * ran against.
+ */
+export function loadSuiteVersion(root: string = CORPUS_ROOT): string {
+  const manifestPath = path.join(root, CORPUS_MANIFEST_FILE);
+
+  let raw: string;
+  try {
+    raw = fs.readFileSync(manifestPath, "utf8");
+  } catch {
+    throw new CorpusCaseError(
+      manifestPath,
+      `no corpus manifest — the suite version has no machine-readable source (docs/12 D-30)`,
+    );
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new CorpusCaseError(manifestPath, "not valid JSON");
+  }
+
+  const suiteVersion = (parsed as { suiteVersion?: unknown } | null)
+    ?.suiteVersion;
+  if (typeof suiteVersion !== "string" || suiteVersion.trim() === "") {
+    throw new CorpusCaseError(
+      manifestPath,
+      'must carry a non-empty string "suiteVersion"',
+    );
+  }
+
+  return suiteVersion;
+}
+
 /** `docs/11` §4.4 — the two bounds an expectation may state. */
 export const CONFIDENCE_BOUNDS = [
   "below_threshold",

@@ -31,6 +31,7 @@ import type { CapabilityProfile } from "../src/nie/capability-profile.js";
 import {
   FIRST_VERTICAL,
   loadCorpus,
+  loadSuiteVersion,
   type CorpusCase,
 } from "../src/regression/corpus.js";
 import {
@@ -70,12 +71,15 @@ const command = process.argv[2] ?? "status";
 const corpus = loadCorpus();
 const selected: readonly CorpusCase[] = FIRST_VERTICAL(corpus);
 const store = createRecordingStore();
+const suiteVersion = loadSuiteVersion();
+// Storage partition, not the suite version: recordings stay keyed on a case's
+// immutable entry provenance (`docs/12` D-30 decision 8).
 const corpusVersion = corpus[0]?.corpusVersion ?? "corpus-v1";
 const recorded = new Set(store.list(corpusVersion));
 
 if (command === "status") {
   console.log(
-    `corpus         ${corpusVersion} — ${String(corpus.length)} cases`,
+    `corpus         suite ${suiteVersion} — ${String(corpus.length)} cases, recordings under ${corpusVersion}`,
   );
   console.log(
     `first vertical ${String(selected.length)} cases (business_requirement + mandatory special classes, docs/11 §8)`,
@@ -360,6 +364,7 @@ if (command === "run") {
   try {
     const report = await runRegression({
       cases: selected,
+      suiteVersion,
       store,
       resolver: createFragmentResolver(prisma),
       // `FR-024`: repeated runs on identical input must agree.

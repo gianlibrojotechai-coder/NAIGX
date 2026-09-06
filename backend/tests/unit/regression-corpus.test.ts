@@ -12,11 +12,15 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 import {
   CorpusCaseError,
   FIRST_VERTICAL,
   loadCorpus,
+  loadSuiteVersion,
   parseCorpusCase,
 } from "../../src/regression/corpus.js";
 
@@ -171,4 +175,47 @@ test("CRLF and LF checkouts agree", () => {
   const crlf = parseCorpusCase(VALID.replace(/\n/g, "\r\n"), "fixture.yaml");
   assert.equal(crlf.inputText, lf.inputText);
   assert.equal(crlf.characterCount, lf.characterCount);
+});
+
+// --- suite version vs entry provenance (`docs/12` D-30) ------------------
+
+test("the suite version comes from the manifest, not from a case", () => {
+  const suiteVersion = loadSuiteVersion();
+
+  assert.equal(suiteVersion, "corpus-v2", "docs/11 §6.3 — D-26 incremented it");
+  assert.ok(
+    corpus.every((c) => c.corpusVersion === "corpus-v1"),
+    "every case still carries its immutable entry marker (docs/11 §4.1)",
+  );
+  assert.notEqual(
+    suiteVersion,
+    corpus[0]?.corpusVersion,
+    "the two must be able to differ — conflating them was the D-30 defect",
+  );
+});
+
+test("a missing, malformed or empty suite version is rejected", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "naigx-suite-"));
+  const manifest = path.join(root, "corpus.manifest.json");
+
+  assert.throws(
+    () => loadSuiteVersion(root),
+    CorpusCaseError,
+    "a missing manifest must raise, never default",
+  );
+
+  for (const [label, body] of [
+    ["not JSON", "{"],
+    ["no suiteVersion", "{}"],
+    ["empty suiteVersion", '{"suiteVersion":"  "}'],
+    ["non-string suiteVersion", '{"suiteVersion":2}'],
+  ] as const) {
+    fs.writeFileSync(manifest, body, "utf8");
+    assert.throws(() => loadSuiteVersion(root), CorpusCaseError, label);
+  }
+
+  fs.writeFileSync(manifest, '{"suiteVersion":"corpus-v9"}', "utf8");
+  assert.equal(loadSuiteVersion(root), "corpus-v9");
+
+  fs.rmSync(root, { recursive: true, force: true });
 });

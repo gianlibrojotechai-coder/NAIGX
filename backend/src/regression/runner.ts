@@ -85,7 +85,14 @@ export interface CaseOutcome {
 
 export interface RegressionReport {
   readonly mode: "recorded";
-  readonly corpusVersion: string;
+  /**
+   * The **suite** version the run measured against (`docs/11` §6.3).
+   *
+   * Supplied by the caller from `corpus.manifest.json`, never derived from a
+   * case: a case's `corpus_version` is immutable entry provenance, so reading it
+   * here reported the wrong version entirely (`docs/12` D-30).
+   */
+  readonly suiteVersion: string;
   readonly startedAt: string;
   readonly cases: readonly CaseOutcome[];
   readonly totals: {
@@ -100,6 +107,8 @@ export interface RegressionReport {
 
 export interface RegressionRunOptions {
   readonly cases: readonly CorpusCase[];
+  /** From `corpus.manifest.json` — see `RegressionReport.suiteVersion`. */
+  readonly suiteVersion: string;
   readonly store: RecordingStore;
   /** The real resolver — fixtures key on the published fragment composition. */
   readonly resolver: FragmentResolver;
@@ -293,7 +302,7 @@ export async function runRegression(
 
   return {
     mode: "recorded",
-    corpusVersion: options.cases[0]?.corpusVersion ?? "corpus-v1",
+    suiteVersion: options.suiteVersion,
     startedAt: now().toISOString(),
     cases: outcomes,
     totals: {
