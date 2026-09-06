@@ -11,6 +11,8 @@
  */
 
 import type {
+  ArtifactPlanEntry,
+  ArtifactType,
   ArchitectureResult,
   ClassificationResult,
   ContextResult,
@@ -129,4 +131,35 @@ export interface StageResultSink {
     analysisId: string,
     architecture: ArchitectureResult,
   ): Promise<void>;
+  /**
+   * Stage 8 (`DB §4.4` ARTIFACT_PLAN_ENTRY). Optional, for the same reason
+   * `persistRecommendation` is: a sink wired for an earlier sprint keeps
+   * compiling and simply stores no plan.
+   */
+  persistArtifactPlan?(
+    analysisId: string,
+    plan: readonly ArtifactPlanEntry[],
+  ): Promise<void>;
+  /** Stage 9 (`DB §4.4` ARTIFACT). */
+  persistArtifact?(
+    analysisId: string,
+    artifact: PersistedArtifact,
+  ): Promise<void>;
+}
+
+/**
+ * One generated artifact, as the persistence layer receives it.
+ *
+ * The content is the **wire document** the generator returned and the schema
+ * validated — not the camelCase domain object. `DB §4.4` stores it whole
+ * (`DP-1`), and storing the parsed form would mean the row no longer matched
+ * the definition its `validation_status` refers to.
+ */
+export interface PersistedArtifact {
+  readonly artifactType: ArtifactType;
+  readonly content: unknown;
+  readonly depthLevel: string;
+  readonly generationAttemptCount: number;
+  /** `DB §4.4` — only `valid` artifacts are presentable. */
+  readonly validationStatus: "valid" | "failed";
 }

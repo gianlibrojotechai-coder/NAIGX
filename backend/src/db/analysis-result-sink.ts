@@ -27,11 +27,16 @@
 import type { PrismaClient } from "../generated/prisma/client.js";
 import type {
   ArchitectureResult,
+  ArtifactPlanEntry,
   ClassificationResult,
   ContextResult,
+  GapItem,
   IntentResult,
+  MatchedCapability,
+  RecommendationResult,
 } from "../nie/contracts.js";
-import type { StageResultSink } from "../nie/ports.js";
+import type { PersistedArtifact, StageResultSink } from "../nie/ports.js";
+import { requirePublishedSchemaId } from "./artifact-schema-publisher.js";
 
 /**
  * ⚠️ `CONTEXT_REFERENCE.relevance` has no vocabulary in any authoritative
@@ -50,6 +55,15 @@ export function createStageResultSink(prisma: PrismaClient): StageResultSink {
    * can serve concurrent runs.
    */
   const contextElementIds = new Map<string, readonly string[]>();
+
+  /**
+   * Plan entry ids by artifact type, per analysis.
+   *
+   * Stage 9 stores an artifact against the plan entry that decided it should
+   * exist (`DB §4.4` 1:0..1), and holding the ids from our own Stage 8 write is
+   * what lets it resolve one without re-querying by type.
+   */
+  const planEntryIds = new Map<string, Map<string, string>>();
 
   return {
     async persistClassification(
@@ -152,6 +166,215 @@ export function createStageResultSink(prisma: PrismaClient): StageResultSink {
       });
 
       contextElementIds.set(analysisId, ids);
+    },
+
+    /**
+     * Stage 7, job-description path (`FR-022`).
+     *
+     * Four things land together, because a verdict without the requirements it
+     * rests on is an assertion nobody can check: the recommendation, the
+     * required capabilities, what matched them, and what did not.
+     *
+     * NO CONFIDENCE IS WRITTEN. `Recommendation.confidence_band` and
+     * `confidence_factors` are nullable precisely so this is possible — Stage
+     * 11 is deferred (`docs/12` D-33) and there is no measured band to record.
+     * `criteria_applied` and `limits` are likewise absent because
+     * `RecommendationResult` contains nothing that means either. Fabricating
+     * any of the four is the failure the nullability exists to prevent.
+     */
+    async persistRecommendation(
+      analysisId: string,
+      recommendation: RecommendationResult,
+    ): Promise<void> {
+      const elementIds = contextElementIds.get(analysisId);
+      if (elementIds === undefined) {
+        throw new Error(
+          `Cannot persist a recommendation for analysis ${analysisId}: no context elements were persisted first`,
+        );
+      }
+
+      const decisive = new Set(recommendation.verdict.decisiveGaps);
+      const matchesByRequirement = new Map<string, MatchedCapability[]>();
+      for (const match of recommendation.matched) {
+        const list = matchesByRequirement.get(match.requirementId) ?? [];
+        list.push(match);
+        matchesByRequirement.set(match.requirementId, list);
+      }
+      const gapsByRequirement = new Map<string, GapItem[]>();
+      for (const gap of recommendation.gaps) {
+        const list = gapsByRequirement.get(gap.requirementId) ?? [];
+        list.push(gap);
+        gapsByRequirement.set(gap.requirementId, list);
+      }
+
+      await prisma.$transaction(async (tx) => {
+        const created = await tx.recommendation.create({
+          data: {
+            analysisId,
+            // The column is explicitly free text — "vocabulary undefined by
+            // every authoritative document" — so it names the decision this
+            // path makes rather than inventing a taxonomy.
+            recommendationType: "job_description_fit",
+            conclusion: recommendation.verdict.decision,
+            rationale: recommendation.verdict.rationale,
+            // `AC-013` is about a do-not-automate conclusion on the
+            // requirement path. An apply-vs-build verdict is neither.
+            isNegativeConclusion: false,
+          },
+          select: { recommendationId: true },
+        });
+
+        for (const [
+          ordinal,
+          requirement,
+        ] of recommendation.requiredCapabilities.entries()) {
+          const row = await tx.requiredCapability.create({
+            data: {
+              analysisId,
+              externalId: requirement.id,
+              name: requirement.name,
+              necessity: requirement.necessity,
+              provenance: requirement.provenance,
+              kind: requirement.kind,
+              ordinal,
+            },
+            select: { requiredCapabilityId: true },
+          });
+
+          for (const match of matchesByRequirement.get(requirement.id) ?? []) {
+            await tx.capabilityMatch.create({
+              data: {
+                requiredCapabilityId: row.requiredCapabilityId,
+                capabilityId: match.capabilityId,
+                strength: match.strength,
+                evidenceRef: match.evidenceRef,
+              },
+            });
+          }
+
+          for (const gap of gapsByRequirement.get(requirement.id) ?? []) {
+            await tx.capabilityGap.create({
+              data: {
+                requiredCapabilityId: row.requiredCapabilityId,
+                priority: gap.priority,
+                whyItMatters: gap.whyItMatters,
+                decisive: decisive.has(gap.requirementId),
+              },
+            });
+          }
+
+          // The traceability join (`FR-030`'s rule, applied to requirements):
+          // a requirement the posting does not support is invented, so each
+          // one records the context elements it was grounded in. Indices are
+          // resolved to persisted ids by the same mapping Stage 6 uses.
+          for (const index of requirement.groundedInContextIndices) {
+            const contextElementId = elementIds[index];
+            if (contextElementId === undefined) {
+              throw new Error(
+                `Requirement "${requirement.id}" grounds in context element ${String(index)}, which was not persisted`,
+              );
+            }
+            await tx.contextReference.create({
+              data: {
+                contextElementId,
+                referencingType: "recommendation",
+                referencingId: created.recommendationId,
+                relevance: GROUNDING_RELEVANCE,
+              },
+            });
+          }
+        }
+      });
+    },
+
+    /**
+     * Stage 8 (`DB §4.4` ARTIFACT_PLAN_ENTRY).
+     *
+     * Written whole, including the entries that were planned *out*: `FR-091`
+     * and `AIP-8` exist so omission and failure stay distinguishable, and an
+     * omitted entry carries the reason that makes it a decision rather than a
+     * gap.
+     */
+    async persistArtifactPlan(
+      analysisId: string,
+      plan: readonly ArtifactPlanEntry[],
+    ): Promise<void> {
+      const ids = new Map<string, string>();
+      await prisma.$transaction(async (tx) => {
+        for (const entry of plan) {
+          const row = await tx.artifactPlanEntry.create({
+            data: {
+              analysisId,
+              artifactType: entry.artifactType,
+              planned: entry.planned,
+              depthLevel: entry.depthLevel,
+              ...(entry.inclusionReason !== undefined
+                ? { inclusionReason: entry.inclusionReason }
+                : {}),
+              ...(entry.omissionReason !== undefined
+                ? { omissionReason: entry.omissionReason }
+                : {}),
+              ...(entry.outcome !== undefined
+                ? { outcome: entry.outcome }
+                : {}),
+            },
+            select: { planEntryId: true },
+          });
+          ids.set(entry.artifactType, row.planEntryId);
+        }
+      });
+      planEntryIds.set(analysisId, ids);
+    },
+
+    /**
+     * Stage 9 (`DB §4.4` ARTIFACT).
+     *
+     * Stores the wire document whole (`DP-1`: retrieved whole, never queried by
+     * internal structure) against the published schema version it was validated
+     * under, so the row's `validation_status` is a claim about a definition
+     * that still exists.
+     *
+     * **A failed artifact is stored, not discarded** — that is what lets a
+     * reader see a labelled failure rather than an unexplained gap.
+     */
+    async persistArtifact(
+      analysisId: string,
+      artifact: PersistedArtifact,
+    ): Promise<void> {
+      const planEntryId = planEntryIds
+        .get(analysisId)
+        ?.get(artifact.artifactType);
+      if (planEntryId === undefined) {
+        throw new Error(
+          `Cannot persist artifact "${artifact.artifactType}" for analysis ${analysisId}: no plan entry was persisted for it`,
+        );
+      }
+
+      const schemaId = await requirePublishedSchemaId(
+        prisma,
+        artifact.artifactType,
+      );
+
+      await prisma.artifact.create({
+        data: {
+          analysisId,
+          planEntryId,
+          artifactType: artifact.artifactType,
+          schemaId,
+          content: artifact.content as object,
+          depthLevel: artifact.depthLevel,
+          generationAttemptCount: artifact.generationAttemptCount,
+          validationStatus: artifact.validationStatus,
+        },
+      });
+
+      await prisma.artifactPlanEntry.update({
+        where: { planEntryId },
+        data: {
+          outcome:
+            artifact.validationStatus === "valid" ? "generated" : "failed",
+        },
+      });
     },
 
     async persistArchitecture(

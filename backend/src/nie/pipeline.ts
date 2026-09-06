@@ -67,6 +67,7 @@ import { parseArchitecture } from "./stages/architecture-analysis.js";
 import { planReasoning } from "./stages/reasoning-planning.js";
 import {
   ArtifactSchemaError,
+  correctionFor,
   validateArtifact,
 } from "./artifact-validation.js";
 import { parseStructured } from "./parse.js";
@@ -258,12 +259,30 @@ interface StageRun<T> {
   readonly structuredInput: unknown;
   /**
    * When set, a failure this predicate accepts earns exactly one further
-   * attempt. Only Stage 6 uses it: `AI §3.2` grants one regeneration on a
-   * traceability failure, then fails "rather than emitting an unjustifiable
-   * design". Everything else follows `SA §11.3` — stages do not auto-retry.
+   * attempt. `AI §3.2` grants one regeneration on a traceability failure, then
+   * fails "rather than emitting an unjustifiable design"; `FR-039` grants the
+   * same after a schema validation failure. Everything else follows
+   * `SA §11.3` — stages do not auto-retry.
+   *
+   * Returning `true` retries with the identical request. Returning an
+   * `{ addendum }` retries with that text appended to the request input, so
+   * the second attempt is told what was wrong with the first. The budget is
+   * one attempt either way: the addendum makes the retry *informed*, not
+   * repeatable.
    */
-  readonly regenerateOnce?: (error: unknown) => boolean;
+  readonly regenerateOnce?: (error: unknown) => RegenerationDecision;
 }
+
+/**
+ * What to do with a failure a stage is willing to retry.
+ *
+ * `false` (or `undefined`) lets the failure stand. `true` repeats the request
+ * unchanged — correct where the failure carries nothing the model could act
+ * on. `{ addendum }` repeats it with corrective text appended, which is what a
+ * validation failure warrants: the violations name exactly what to fix, and
+ * withholding them makes the retry a coin toss the run pays for.
+ */
+export type RegenerationDecision = boolean | { readonly addendum: string };
 
 /**
  * The eligible gap set as Stage 9 is shown it: each gap carries its own
@@ -409,11 +428,25 @@ export function createPipeline(deps: PipelineDependencies) {
         modelKey: deps.modelKey,
       };
 
-      const attempt = async (): Promise<T> => {
-        const response = await deps.invoker.invoke(
-          spec.buildRequest(prompt),
-          invocationContext,
-        );
+      /**
+       * One provider call.
+       *
+       * `addendum` is present only on a regeneration, and is appended to the
+       * request *input* rather than its instructions. The instructions are the
+       * fragment-composed prompt (`AI §6.1`), and they stay byte-identical to
+       * the published fragments this stage recorded using — a correction is
+       * data about one response, not a change to the template. The addendum is
+       * therefore invisible to `FRAGMENT_USAGE`, which is correct: no fragment
+       * was added, activated or altered.
+       */
+      const attempt = async (addendum?: string): Promise<T> => {
+        const base = spec.buildRequest(prompt);
+        const request =
+          addendum === undefined
+            ? base
+            : { ...base, input: `${base.input}\n\n${addendum}` };
+
+        const response = await deps.invoker.invoke(request, invocationContext);
         // Captured before parsing, so an unparseable response survives.
         lastProviderOutput = response.output;
         return spec.parse(response.output);
@@ -423,12 +456,18 @@ export function createPipeline(deps: PipelineDependencies) {
       try {
         parsed = await attempt();
       } catch (error) {
-        if (spec.regenerateOnce?.(error) !== true) {
+        const decision = spec.regenerateOnce?.(error) ?? false;
+        if (decision === false) {
           throw error;
         }
-        // One regeneration, then the failure stands (`AI §3.2`).
+        // One regeneration, then the failure stands (`AI §3.2`, `FR-039`).
+        // A second failure leaves this `catch` uncaught, so the stage fails
+        // closed exactly as before — being informed buys one better attempt,
+        // never an extra one.
         retryCount = 1;
-        parsed = await attempt();
+        parsed = await attempt(
+          decision === true ? undefined : decision.addendum,
+        );
       }
 
       structuredOutput = parsed;
@@ -628,6 +667,13 @@ export function createPipeline(deps: PipelineDependencies) {
         structuredInput: { recommendation },
         structuredOutput: artifactPlan,
       });
+      // `DB §4.4`: the plan is written at Stage 8, including the entries that
+      // were planned *out* — omission and failure stay distinguishable only if
+      // the omissions are stored too (`FR-091`, `AIP-8`).
+      await deps.resultSink?.persistArtifactPlan?.(
+        input.analysisId,
+        artifactPlan,
+      );
 
       if (!isPlanned(artifactPlan, "portfolio_suggestions")) {
         // Planned out, with the reason already on the entry. Not a halt: the
@@ -644,6 +690,10 @@ export function createPipeline(deps: PipelineDependencies) {
       // Stage 9 — one generator, independent by construction (`AID-08`): it
       // reads reasoning state and no other generator's output.
       const eligible = eligibleGaps(recommendation);
+      // Declared before the generator closes over them.
+      let lastPortfolioWire: unknown;
+      let portfolioAttempts = 1;
+
       const generate = (): Promise<PortfolioSuggestions> =>
         runStage(input, {
           stageNumber: 9,
@@ -667,10 +717,13 @@ export function createPipeline(deps: PipelineDependencies) {
             // presentation. Against the *wire* record, because the schema is the
             // Output Contract the generator was given (`AI §6.1`, `§9.3`) — the
             // camelCase result is downstream of it.
-            validateArtifact(
-              "portfolio_suggestions",
-              parseStructured(9, "portfolio_suggestions", text),
-            );
+            const wire = parseStructured(9, "portfolio_suggestions", text);
+            // Captured before validation so a *failed* artifact still has a
+            // document to store: `DB §4.4` keeps failed artifacts rather than
+            // discarding them, which is what turns an unexplained gap into a
+            // labelled failure.
+            lastPortfolioWire = wire;
+            validateArtifact("portfolio_suggestions", wire);
             // Schema-valid is necessary, not sufficient: gap coverage, project
             // redundancy and the rank total order are not expressible in JSON
             // Schema and stay here (`docs/12` D-29).
@@ -679,7 +732,17 @@ export function createPipeline(deps: PipelineDependencies) {
           // `FR-039`: "Validation failure triggers one regeneration attempt."
           // The existing Stage 6 mechanism, not a second retry path — one
           // attempt, then the failure stands (`AI §3.2`).
-          regenerateOnce: (error) => error instanceof ArtifactSchemaError,
+          //
+          // The attempt carries the violations. A schema failure names exactly
+          // what was wrong, and re-sending the identical request throws that
+          // away: analysis `d797492d` spent two calls producing the same
+          // omission because the second was never told about the first.
+          regenerateOnce: (error) => {
+            if (!(error instanceof ArtifactSchemaError)) return false;
+            // `DB §4.4`: generation_attempt_count records regeneration.
+            portfolioAttempts += 1;
+            return { addendum: correctionFor(error) };
+          },
         });
 
       // `FR-091` — partial failure yields partial results with honest
@@ -698,6 +761,20 @@ export function createPipeline(deps: PipelineDependencies) {
         portfolioSuggestions = await generate();
       } catch {
         outcome = "failed";
+      }
+
+      // `DB §4.4`: the artifact is stored either way. A `failed` row is what a
+      // reader sees instead of an absence, and only a `valid` one is
+      // presentable. Nothing is stored when the generator produced no parseable
+      // document at all — there is no artifact to record.
+      if (lastPortfolioWire !== undefined) {
+        await deps.resultSink?.persistArtifact?.(input.analysisId, {
+          artifactType: "portfolio_suggestions",
+          content: lastPortfolioWire,
+          depthLevel: "standard",
+          generationAttemptCount: portfolioAttempts,
+          validationStatus: outcome === "generated" ? "valid" : "failed",
+        });
       }
 
       return {

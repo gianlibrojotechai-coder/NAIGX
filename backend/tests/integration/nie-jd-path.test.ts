@@ -28,6 +28,11 @@ import {
   stageHandoff,
 } from "../../src/nie/pipeline.js";
 import { eligibleGaps } from "../../src/nie/stages/artifact-planning.js";
+import {
+  ArtifactSchemaError,
+  correctionFor,
+  validateArtifact,
+} from "../../src/nie/artifact-validation.js";
 import { parseRecommendation } from "../../src/nie/stages/recommendation-generation.js";
 import { parseClassification } from "../../src/nie/stages/classification.js";
 import { parseIntent } from "../../src/nie/stages/intent.js";
@@ -197,6 +202,16 @@ const primedAdapter = async (
   outputs: {
     readonly recommendation?: string;
     readonly portfolio?: string;
+    /**
+     * What the generator returns on its regeneration.
+     *
+     * The regeneration appends the schema violations to the request input, so
+     * it is a *different* request and needs its own fixture. Defaulting it to
+     * the first attempt's output preserves the pre-existing behaviour — the
+     * same document twice, so the failure stands — while letting a test script
+     * a corrected second answer.
+     */
+    readonly portfolioRetry?: string;
   } = {},
 ) => {
   const fixtures: Record<
@@ -275,16 +290,37 @@ const primedAdapter = async (
     );
     const eligible = eligibleGaps(recommendation);
     if (eligible.length > 0) {
+      const handoff = stageHandoff({
+        eligible_gaps: eligibleGapsView(recommendation, eligible),
+        matched_capabilities: recommendation.matched,
+        verdict: recommendation.verdict,
+      });
+      const portfolioText = outputs.portfolio ?? PORTFOLIO_OUTPUT;
       await add(
         "portfolio_suggestions",
-        stageHandoff({
-          eligible_gaps: eligibleGapsView(recommendation, eligible),
-          matched_capabilities: recommendation.matched,
-          verdict: recommendation.verdict,
-        }),
-        outputs.portfolio ?? PORTFOLIO_OUTPUT,
+        handoff,
+        portfolioText,
         "job_description",
       );
+
+      // The regeneration's fixture. Keyed on the corrected request, so it is
+      // only reachable if the pipeline actually appends the violations — a
+      // pipeline that retried blindly would miss this key entirely.
+      try {
+        validateArtifact(
+          "portfolio_suggestions",
+          JSON.parse(portfolioText) as unknown,
+        );
+      } catch (error) {
+        if (error instanceof ArtifactSchemaError) {
+          await add(
+            "portfolio_suggestions",
+            `${handoff}\n\n${correctionFor(error)}`,
+            outputs.portfolioRetry ?? portfolioText,
+            "job_description",
+          );
+        }
+      }
     }
   } catch {
     // A recommendation fixture that does not parse describes a run that stops
@@ -306,6 +342,7 @@ const buildHarness = async (
     readonly withProfile?: boolean;
     readonly recommendation?: string;
     readonly portfolio?: string;
+    readonly portfolioRetry?: string;
   } = {},
 ) => {
   const traces: StageTraceRecord[] = [];
@@ -319,6 +356,9 @@ const buildHarness = async (
           : {}),
         ...(options.portfolio !== undefined
           ? { portfolio: options.portfolio }
+          : {}),
+        ...(options.portfolioRetry !== undefined
+          ? { portfolioRetry: options.portfolioRetry }
           : {}),
       }),
       rate,
@@ -730,4 +770,247 @@ test("a schema-valid artifact needs no regeneration", async () => {
     (e) => e.artifactType === "portfolio_suggestions",
   );
   assert.equal(entry?.outcome, "generated");
+});
+
+// --- informed regeneration (FR-039) --------------------------------------
+//
+// Reproduces the live failure of analysis `d797492d-af90-4435-a814-50ba34e657d3`.
+//
+// That run had four decisive technical gaps. The generator consolidated three
+// into one project and left the fourth on its own — the consolidation the
+// prompt asks for — but a project claiming exactly one gap must also say
+// `why_not_consolidated`, and it did not. The schema rejected it:
+//
+//   /projects/1 must have required property 'why_not_consolidated'
+//   /projects/1 must match "then" schema
+//
+// The regeneration then re-sent an identical request. Both attempts billed
+// 3,469 input and 2,907 output tokens, and both omitted the same field. The
+// retry could not have worked: nothing in it said what was wrong.
+
+/** Four decisive technical gaps, as the live run had. */
+const FOUR_GAP_RECOMMENDATION = JSON.stringify({
+  required_capabilities: [
+    {
+      id: "req-1",
+      name: "Build and own n8n workflows",
+      necessity: "must_have",
+      provenance: "stated",
+      kind: "technical",
+      grounded_in_context_indices: [0],
+    },
+    ...["req-5", "req-8", "req-9", "req-10"].map((id, index) => ({
+      id,
+      name: `Capability ${id}`,
+      necessity: "must_have",
+      provenance: "stated",
+      kind: "technical",
+      grounded_in_context_indices: [index % 2],
+    })),
+  ],
+  matched: [
+    {
+      requirement_id: "req-1",
+      capability_id: "cap-001",
+      strength: "strong",
+      evidence_ref: "https://example.invalid/lead-routing.json",
+    },
+  ],
+  gaps: ["req-5", "req-8", "req-9", "req-10"].map((id) => ({
+    requirement_id: id,
+    priority: "high",
+    why_it_matters: `Nothing in the profile evidences ${id}`,
+  })),
+  verdict: {
+    decision: "build_first",
+    rationale:
+      "Four decisive technical gaps have no built evidence behind them.",
+    decisive_gaps: ["req-5", "req-8", "req-9", "req-10"],
+  },
+});
+
+const consolidatedProject = {
+  rank: 1,
+  name: "Multi-platform lead pipeline",
+  complexity: "intermediate",
+  primary_gaps: ["req-8", "req-10", "req-5"],
+  secondary_capabilities: ["Retry handling", "Structured logging"],
+  why_this_project: "One system exercises three of the four decisive gaps.",
+  business_problem: "Leads are re-keyed between three systems by hand.",
+  what_to_build: "A pipeline that captures, enriches and syncs leads.",
+  workflow: ["Trigger: form submission", "Enrich", "Outcome: CRM record"],
+  platforms: ["n8n", "HubSpot"],
+  technical_concepts: ["Webhooks", "Field mapping", "Idempotency"],
+  evidence_to_produce: [
+    { type: "repo", what_it_shows: "The workflow export and its README" },
+  ],
+  reusability: {
+    provenance: "inferred",
+    basis: "These platforms recur across automation postings",
+    claim: "Likely to transfer to other CRM automation roles",
+  },
+  estimated_effort: "days",
+  portfolio_value: "Closes three decisive gaps with one demonstrable system",
+};
+
+/** The second project claims one gap and omits `why_not_consolidated`. */
+const soloProject = {
+  ...consolidatedProject,
+  rank: 2,
+  name: "Scheduled reconciliation job",
+  primary_gaps: ["req-9"],
+  why_this_project: "The remaining gap does not fold into the pipeline above.",
+  portfolio_value: "Closes the fourth decisive gap",
+};
+
+const BROKEN_PORTFOLIO = JSON.stringify({
+  projects: [consolidatedProject, soloProject],
+  consolidation_rationale:
+    "Three gaps share one system; the fourth is a different shape of problem.",
+});
+
+const CORRECTED_PORTFOLIO = JSON.stringify({
+  projects: [
+    consolidatedProject,
+    {
+      ...soloProject,
+      why_not_consolidated:
+        "It runs on a schedule rather than a webhook, so folding it into the pipeline above would obscure both triggers.",
+    },
+  ],
+  consolidation_rationale:
+    "Three gaps share one system; the fourth is a different shape of problem.",
+});
+
+test("the d797492d document is exactly the one the schema rejected", () => {
+  // Anchors the fixture to the real failure: if the schema or the fixture
+  // drifts, this fails rather than the regression quietly testing something
+  // else. The violations are the two the live run recorded, verbatim.
+  try {
+    validateArtifact(
+      "portfolio_suggestions",
+      JSON.parse(BROKEN_PORTFOLIO) as unknown,
+    );
+    assert.fail("expected the document to be rejected");
+  } catch (error) {
+    assert.ok(error instanceof ArtifactSchemaError);
+    assert.deepEqual(error.violations, [
+      "/projects/1 must have required property 'why_not_consolidated'",
+      '/projects/1 must match "then" schema',
+    ]);
+  }
+});
+
+test("the correction names the violations and the path to fix", () => {
+  try {
+    validateArtifact(
+      "portfolio_suggestions",
+      JSON.parse(BROKEN_PORTFOLIO) as unknown,
+    );
+    assert.fail("expected the document to be rejected");
+  } catch (error) {
+    assert.ok(error instanceof ArtifactSchemaError);
+    const correction = correctionFor(error);
+
+    assert.match(correction, /why_not_consolidated/);
+    assert.match(correction, /\/projects\/1/);
+    assert.match(correction, /CORRECTION REQUIRED/);
+    assert.ok(
+      !correction.includes("portfolio_suggestions.schema.json"),
+      "it carries the violations, not a path into the repository",
+    );
+  }
+});
+
+test("the regeneration receives the violations and produces a valid document", async () => {
+  // The heart of the fix. The retry fixture is keyed on the request *with* the
+  // correction appended, so it is unreachable unless the pipeline forwards the
+  // violations. A blindly-retried request would miss the key and the stage
+  // would fail — which is precisely how this test would have failed before.
+  const { result, traces } = await harness({
+    recommendation: FOUR_GAP_RECOMMENDATION,
+    portfolio: BROKEN_PORTFOLIO,
+    portfolioRetry: CORRECTED_PORTFOLIO,
+  });
+
+  const suggestions = result.portfolioSuggestions;
+  assert.ok(suggestions, "the corrected document is presented");
+  assert.equal(suggestions.projects.length, 2);
+
+  const solo = suggestions.projects.find((p) => p.primaryGaps.length === 1);
+  assert.ok(solo, "the single-gap project survived the correction");
+  assert.ok(
+    solo.whyNotConsolidated,
+    "and now carries the field whose absence failed the first attempt",
+  );
+
+  const stage9 = traces.find((t) => t.stageNumber === 9);
+  assert.equal(stage9?.outcome, "success", "the stage recovered");
+  assert.equal(
+    stage9?.retryCount,
+    1,
+    "exactly one regeneration — informed, not extra",
+  );
+
+  const entry = (result.artifactPlan ?? []).find(
+    (e) => e.artifactType === "portfolio_suggestions",
+  );
+  assert.equal(entry?.outcome, "generated");
+});
+
+test("all four decisive gaps are still claimed after the correction", async () => {
+  // The correction must fix the violation without costing coverage. Telling a
+  // generator to satisfy a rule invites it to drop the offending project, and
+  // a document that closes three of four decisive gaps is worse than one that
+  // failed honestly.
+  const { result } = await harness({
+    recommendation: FOUR_GAP_RECOMMENDATION,
+    portfolio: BROKEN_PORTFOLIO,
+    portfolioRetry: CORRECTED_PORTFOLIO,
+  });
+
+  const claimed = new Set(
+    (result.portfolioSuggestions?.projects ?? []).flatMap((p) => p.primaryGaps),
+  );
+  assert.deepEqual(
+    [...claimed].sort(),
+    ["req-10", "req-5", "req-8", "req-9"],
+    "every decisive gap still has a project behind it",
+  );
+});
+
+test("a regeneration that fails again still fails closed", async () => {
+  // The budget is one attempt, informed or not. A corrected request that is
+  // still invalid leaves the stage failed, the artifact absent from the
+  // result, and the plan entry labelled — unchanged from before this fix.
+  const stillBroken = JSON.parse(CORRECTED_PORTFOLIO) as {
+    projects: Record<string, unknown>[];
+  };
+  const [, second] = stillBroken.projects;
+  assert.ok(second);
+  delete second["why_not_consolidated"];
+
+  const { result, traces } = await harness({
+    recommendation: FOUR_GAP_RECOMMENDATION,
+    portfolio: BROKEN_PORTFOLIO,
+    portfolioRetry: JSON.stringify(stillBroken),
+  });
+
+  assert.equal(
+    result.portfolioSuggestions,
+    undefined,
+    "a still-invalid document is not presented",
+  );
+  assert.ok(result.recommendation, "the completed reasoning survives (FR-091)");
+
+  const stage9 = traces.find((t) => t.stageNumber === 9);
+  assert.equal(stage9?.outcome, "failure");
+  assert.equal(stage9?.retryCount, 1, "no second regeneration was bought");
+  assert.match(stage9?.failureReason ?? "", /why_not_consolidated/);
+
+  const entry = (result.artifactPlan ?? []).find(
+    (e) => e.artifactType === "portfolio_suggestions",
+  );
+  assert.equal(entry?.outcome, "failed");
+  assert.ok(entry?.inclusionReason, "the reason it was planned survives");
 });

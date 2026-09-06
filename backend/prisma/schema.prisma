@@ -229,6 +229,9 @@ model Analysis {
   contextElements      ContextElement[]
   architectureModel    ArchitectureModel?
   recommendations      Recommendation[]
+  requiredCapabilities RequiredCapability[]
+  artifactPlanEntries  ArtifactPlanEntry[]
+  artifacts            Artifact[]
   riskItems            RiskItem[]
   complexityAssessment ComplexityAssessment?
   fragmentUsages       FragmentUsage[]
@@ -380,11 +383,11 @@ model Recommendation {
   recommendationType   String         @map("recommendation_type")
   conclusion           String
   rationale            String
-  criteriaApplied      String         @map("criteria_applied")
-  limits               String
-  confidenceBand       ConfidenceBand @map("confidence_band")
+  criteriaApplied      String?        @map("criteria_applied")
+  limits               String?
+  confidenceBand       ConfidenceBand? @map("confidence_band")
   /// Below `high` requires non-empty factors (`FR-018`, `FR-045`).
-  confidenceFactors    Json           @map("confidence_factors")
+  confidenceFactors    Json?          @map("confidence_factors")
   /// Stored explicitly so `AC-013` is verifiable by query.
   isNegativeConclusion Boolean        @map("is_negative_conclusion")
 
@@ -606,6 +609,192 @@ model ArtifactSchema {
   effectiveFrom DateTime  @map("effective_from")
   deprecatedAt  DateTime? @map("deprecated_at")
 
+  artifacts Artifact[]
+
   @@unique([artifactType, version])
   @@map("artifact_schema")
+}
+
+// --- Stage 7 output, job-description path (`FR-022`) ----------------------
+
+/// `FR-012` — every intent element is labelled stated or inferred. Narrower
+/// than ContextProvenance, which also admits `unknown`: a requirement the
+/// posting does not state is not extracted at all.
+enum IntentProvenance {
+  stated
+  inferred
+
+  @@map("intent_provenance")
+}
+
+/// `AI §4.3` necessity. Mirrors `REQUIREMENT_NECESSITY`.
+enum RequirementNecessity {
+  must_have
+  nice_to_have
+
+  @@map("requirement_necessity")
+}
+
+/// `docs/12` D-28 — what closing a requirement would take, and so whether a
+/// build could. Only `technical` is buildable.
+enum RequirementKind {
+  technical
+  domain_experience
+  track_record
+  disposition
+
+  @@map("requirement_kind")
+}
+
+enum MatchStrength {
+  strong
+  partial
+
+  @@map("match_strength")
+}
+
+enum GapPriority {
+  high
+  medium
+  low
+
+  @@map("gap_priority")
+}
+
+/// One capability a posting requires (`FR-022`).
+///
+/// `external_id` is Stage 7's own identifier (`req-1`), kept because the
+/// verdict's decisive gaps and a project's primary gaps both cite it. Without
+/// it those references would have to be rewritten to UUIDs at persistence and
+/// rewritten back on read.
+model RequiredCapability {
+  requiredCapabilityId String               @id @default(uuid()) @map("required_capability_id") @db.Uuid
+  analysisId           String               @map("analysis_id") @db.Uuid
+  externalId           String               @map("external_id")
+  name                 String
+  necessity            RequirementNecessity
+  /// `stated` or `inferred` (`FR-012`).
+  provenance           IntentProvenance
+  kind                 RequirementKind
+  ordinal              Int
+
+  analysis Analysis          @relation(fields: [analysisId], references: [analysisId], onDelete: Cascade)
+  matches  CapabilityMatch[]
+  gaps     CapabilityGap[]
+
+  @@unique([analysisId, externalId])
+  @@index([analysisId])
+  @@map("required_capability")
+}
+
+/// A requirement the operator already evidences (`docs/12` D-27).
+model CapabilityMatch {
+  matchId              String        @id @default(uuid()) @map("match_id") @db.Uuid
+  requiredCapabilityId String        @map("required_capability_id") @db.Uuid
+  /// Resolves in the authored capability profile, never written by the system.
+  capabilityId         String        @map("capability_id")
+  strength             MatchStrength
+  /// The specific evidence locator a reader could open.
+  evidenceRef          String        @map("evidence_ref")
+
+  requiredCapability RequiredCapability @relation(fields: [requiredCapabilityId], references: [requiredCapabilityId], onDelete: Cascade)
+
+  @@index([requiredCapabilityId])
+  @@map("capability_match")
+}
+
+/// A requirement nothing in the profile evidences.
+///
+/// `decisive` carries `verdict.decisive_gaps` rather than a second list: a gap
+/// is decisive or it is not, and storing the verdict's copy separately would
+/// let the two disagree.
+model CapabilityGap {
+  gapId                String      @id @default(uuid()) @map("gap_id") @db.Uuid
+  requiredCapabilityId String      @map("required_capability_id") @db.Uuid
+  priority             GapPriority
+  whyItMatters         String      @map("why_it_matters")
+  decisive             Boolean     @default(false)
+
+  requiredCapability RequiredCapability @relation(fields: [requiredCapabilityId], references: [requiredCapabilityId], onDelete: Cascade)
+
+  @@index([requiredCapabilityId])
+  @@map("capability_gap")
+}
+
+// --- `DB §4.4` Artifact Domain -------------------------------------------
+
+/// `DB §4.4` ARTIFACT_PLAN_ENTRY.outcome.
+enum ArtifactOutcome {
+  generated
+  failed
+  omitted
+
+  @@map("artifact_outcome")
+}
+
+/// `DB §4.4` ARTIFACT.validation_status. Only `valid` is presentable.
+enum ValidationStatus {
+  valid
+  failed
+
+  @@map("validation_status")
+}
+
+/// `DB §4.4` ARTIFACT_PLAN_ENTRY — Stage 8 output.
+///
+/// Exists so omission and failure are distinguishable in storage (`FR-091`,
+/// `AIP-8`): a missing artifact is otherwise ambiguous, and "chose not to" and
+/// "tried and failed" mean opposite things about an analysis.
+model ArtifactPlanEntry {
+  planEntryId     String           @id @default(uuid()) @map("plan_entry_id") @db.Uuid
+  analysisId      String           @map("analysis_id") @db.Uuid
+  artifactType    String           @map("artifact_type")
+  planned         Boolean
+  /// v1 domain is the single value `standard` (`docs/12` D-34).
+  depthLevel      String           @map("depth_level")
+  inclusionReason String?          @map("inclusion_reason")
+  omissionReason  String?          @map("omission_reason")
+  /// Nullable between Stage 8 and Stage 9: `DB §4.4` writes the row at Stage 8
+  /// and sets the outcome at Stage 9-10, so a planned entry legitimately has
+  /// none yet. The nullability question `docs/12` D-34 recorded is left open.
+  outcome         ArtifactOutcome?
+
+  analysis Analysis  @relation(fields: [analysisId], references: [analysisId], onDelete: Cascade)
+  artifact Artifact?
+
+  @@index([analysisId])
+  @@index([artifactType, outcome])
+  @@map("artifact_plan_entry")
+}
+
+/// `DB §4.4` ARTIFACT — a generated output artifact.
+///
+/// Content is a structured document (`DP-1`): retrieved whole, never queried by
+/// internal structure. `schema_id` is a reference, not a copy, so an artifact
+/// always knows which schema version it satisfied.
+///
+/// **Failed artifacts are stored, not discarded** — that is what lets a user
+/// see a labelled failure rather than an unexplained gap.
+model Artifact {
+  artifactId             String           @id @default(uuid()) @map("artifact_id") @db.Uuid
+  analysisId             String           @map("analysis_id") @db.Uuid
+  planEntryId            String           @unique @map("plan_entry_id") @db.Uuid
+  artifactType           String           @map("artifact_type")
+  schemaId               String           @map("schema_id") @db.Uuid
+  content                Json
+  depthLevel             String           @map("depth_level")
+  /// Regeneration count; feeds confidence factor CF-6 when Stage 11 exists.
+  generationAttemptCount Int              @default(1) @map("generation_attempt_count")
+  validationStatus       ValidationStatus @map("validation_status")
+  createdAt              DateTime         @default(now()) @map("created_at")
+
+  analysis  Analysis          @relation(fields: [analysisId], references: [analysisId], onDelete: Cascade)
+  planEntry ArtifactPlanEntry @relation(fields: [planEntryId], references: [planEntryId], onDelete: Cascade)
+  /// §5.3 RESTRICT — a schema referenced by a stored artifact is never
+  /// deletable; it is deprecated instead (DP-7).
+  schema    ArtifactSchema    @relation(fields: [schemaId], references: [schemaId], onDelete: Restrict)
+
+  @@index([analysisId, artifactType])
+  @@index([validationStatus])
+  @@map("artifact")
 }

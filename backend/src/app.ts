@@ -7,6 +7,8 @@
  * root in `index.ts`.
  */
 
+import { createHash } from "node:crypto";
+
 import cors from "@fastify/cors";
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
@@ -19,6 +21,17 @@ import {
   registerRequestContext,
 } from "./http/request-context.js";
 import { healthRoutes, type HealthCheck } from "./routes/health.js";
+import { analysisRoutes } from "./routes/analyses.js";
+
+/**
+ * `DB §4.2` `ANALYSIS_INPUT.content_hash`.
+ *
+ * Overridable so the API layer can be exercised without crypto, and so the
+ * composition root keeps one definition — duplicate detection and
+ * regression-corpus matching both key on this value.
+ */
+const defaultHashContent = (content: string): string =>
+  createHash("sha256").update(content, "utf8").digest("hex");
 
 export interface AppDependencies {
   readonly config: AppConfig;
@@ -30,6 +43,16 @@ export interface AppDependencies {
    */
   readonly checkProvider?: HealthCheck;
   readonly checkTemplates?: HealthCheck;
+  /**
+   * Content hashing for `ANALYSIS_INPUT.content_hash` (`DB §4.2`).
+   *
+   * Injected rather than imported so the API layer stays free of crypto and
+   * the composition root keeps one definition of how content is hashed —
+   * duplicate detection and regression-corpus matching both key on it.
+   */
+  readonly hashContent?: (content: string) => string;
+  /** Starts reasoning for a created analysis. Absent means submissions queue and stay queued. */
+  readonly startExecution?: (analysisId: string) => void;
 }
 
 export async function buildApp({
@@ -37,6 +60,8 @@ export async function buildApp({
   database,
   checkProvider,
   checkTemplates,
+  hashContent = defaultHashContent,
+  startExecution,
 }: AppDependencies): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
@@ -66,6 +91,12 @@ export async function buildApp({
     prisma: database.prisma,
     ...(checkProvider !== undefined ? { checkProvider } : {}),
     ...(checkTemplates !== undefined ? { checkTemplates } : {}),
+  });
+
+  await app.register(analysisRoutes, {
+    prisma: database.prisma,
+    hashContent,
+    ...(startExecution !== undefined ? { startExecution } : {}),
   });
 
   return app;
