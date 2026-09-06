@@ -23,6 +23,7 @@ import type {
 import {
   eligibleGaps,
   isPlanned,
+  withOutcome,
   planArtifacts,
 } from "../../src/nie/stages/artifact-planning.js";
 
@@ -190,4 +191,54 @@ test("no artifact is planned when every decisive gap is non-technical", () => {
   assert.equal(isPlanned(plan, "portfolio_suggestions"), false);
   const entry = plan.find((e) => e.artifactType === "portfolio_suggestions");
   assert.match(entry?.omissionReason ?? "", /No decisive technical gap/);
+});
+
+// --- outcome (DB §4.4, FR-091) -------------------------------------------
+
+test("every unplanned entry is outcome `omitted`, keeping its reason", () => {
+  // `FR-091`: "Failed artifacts are labelled as failed, distinct from omitted."
+  // An entry planned out at Stage 8 was never attempted, so its outcome is
+  // final the moment it is written.
+  const plan = planArtifacts(
+    recommendation({
+      verdict: { decision: "apply_now", rationale: "x", decisiveGaps: [] },
+    }),
+  );
+
+  for (const entry of plan) {
+    assert.equal(entry.planned, false);
+    assert.equal(entry.outcome, "omitted", entry.artifactType + " is omitted");
+    assert.ok(
+      entry.omissionReason !== undefined && entry.omissionReason.length > 0,
+      "the reason survives alongside the outcome",
+    );
+    assert.equal(entry.inclusionReason, undefined);
+  }
+});
+
+test("a planned entry carries no outcome until Stage 9 sets one", () => {
+  // `DB §4.4`: "Written at Stage 8; `outcome` set at Stage 9-10." Stage 8 has
+  // not run the generator, so it cannot know what became of the artifact.
+  const plan = planArtifacts(recommendation());
+  const entry = plan.find((e) => e.artifactType === "portfolio_suggestions");
+
+  assert.equal(entry?.planned, true);
+  assert.equal(entry?.outcome, undefined);
+  assert.ok(entry?.inclusionReason);
+});
+
+test("withOutcome touches only the planned entry it names", () => {
+  const plan = planArtifacts(recommendation());
+  const after = withOutcome(plan, "portfolio_suggestions", "failed");
+
+  assert.equal(
+    after.find((e) => e.artifactType === "portfolio_suggestions")?.outcome,
+    "failed",
+  );
+  for (const entry of after.filter(
+    (e) => e.artifactType !== "portfolio_suggestions",
+  )) {
+    assert.equal(entry.outcome, "omitted", "unplanned entries are untouched");
+  }
+  assert.notEqual(plan, after, "the Stage 8 plan is not mutated");
 });

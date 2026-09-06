@@ -25,6 +25,7 @@ import {
   ARTIFACT_TYPES,
   IMPLEMENTED_ARTIFACT_TYPES,
   isBuildableKind,
+  type ArtifactOutcome,
   type ArtifactPlanEntry,
   type ArtifactType,
   type GapItem,
@@ -86,6 +87,7 @@ export function planArtifacts(
         artifactType,
         planned: false,
         depthLevel: "standard",
+        outcome: "omitted",
         omissionReason:
           "No generator for this artifact type yet; Phase 3A implements " +
           "portfolio_suggestions only (docs/12 D-29). Omitted by decision, not failure.",
@@ -97,6 +99,7 @@ export function planArtifacts(
         artifactType,
         planned: false,
         depthLevel: "standard",
+        outcome: "omitted",
         omissionReason:
           "The verdict is apply_now, so there is nothing to build. Recommending a " +
           "project here would contradict the decision the analysis just reached.",
@@ -112,6 +115,7 @@ export function planArtifacts(
         artifactType,
         planned: false,
         depthLevel: "standard",
+        outcome: "omitted",
         omissionReason:
           "No decisive technical gap remains, so no project could be traced to one.",
       };
@@ -134,6 +138,28 @@ export const isPlanned = (
   artifactType: ArtifactType,
 ): boolean =>
   plan.some((entry) => entry.artifactType === artifactType && entry.planned);
+
+/**
+ * Records what became of one planned artifact (`DB §4.4`, `FR-091`).
+ *
+ * `DB §4.4` writes the entry at Stage 8 and sets its `outcome` at Stage 9-10,
+ * so this returns a new plan rather than mutating one: the Stage 8 trace
+ * already recorded what was planned, and rewriting that record afterwards would
+ * make the trace disagree with itself.
+ *
+ * Only planned entries are touched. An unplanned entry is already `omitted` and
+ * that decision is final — `FR-091` requires failed and omitted stay distinct.
+ */
+export const withOutcome = (
+  plan: readonly ArtifactPlanEntry[],
+  artifactType: ArtifactType,
+  outcome: ArtifactOutcome,
+): readonly ArtifactPlanEntry[] =>
+  plan.map((entry) =>
+    entry.artifactType === artifactType && entry.planned
+      ? { ...entry, outcome }
+      : entry,
+  );
 
 export const ARTIFACT_PLANNING_STAGE = {
   stageNumber: 8,

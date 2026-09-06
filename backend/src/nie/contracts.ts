@@ -379,6 +379,17 @@ export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
 /** The generators that exist. Phase 3A ships one (`docs/12` D-29). */
 export const IMPLEMENTED_ARTIFACT_TYPES = ["portfolio_suggestions"] as const;
 
+/**
+ * `DB §4.4` — what became of a planned artifact.
+ *
+ * The distinction `ARTIFACT_PLAN_ENTRY` exists for: *"omission and failure are
+ * distinguishable… the user cannot tell whether the system chose not to produce
+ * it or tried and failed, and those mean opposite things"* (`DB §4.4`,
+ * `FR-091`, `AIP-8`).
+ */
+export const ARTIFACT_OUTCOMES = ["generated", "failed", "omitted"] as const;
+export type ArtifactOutcome = (typeof ARTIFACT_OUTCOMES)[number];
+
 /** `DB §4.4` ARTIFACT_PLAN_ENTRY — Stage 8 output, one row per artifact type. */
 export interface ArtifactPlanEntry {
   readonly artifactType: ArtifactType;
@@ -388,6 +399,14 @@ export interface ArtifactPlanEntry {
   readonly inclusionReason?: string;
   /** Required when not planned. Omission is a decision, not an absence. */
   readonly omissionReason?: string;
+  /**
+   * `DB §4.4`: *"Written at Stage 8; `outcome` set at Stage 9–10."*
+   *
+   * Optional because a planned entry has no outcome until Stage 9 runs. An
+   * unplanned entry is `omitted` from the moment it is planned out — that
+   * decision is already final.
+   */
+  readonly outcome?: ArtifactOutcome;
 }
 
 /** How much work a project is, from the operator's side. */

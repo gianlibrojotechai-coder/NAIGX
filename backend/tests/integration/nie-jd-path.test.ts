@@ -294,7 +294,14 @@ const primedAdapter = async (
   return createReplayProvider({ fixtures, lowVarianceSampling: true });
 };
 
-const harness = async (
+/**
+ * Builds the pipeline without running it.
+ *
+ * Separated from `harness` so a test expecting a *failing* run can still read
+ * the traces the run emitted — `harness` returns the result, which a rejection
+ * never produces.
+ */
+const buildHarness = async (
   options: {
     readonly withProfile?: boolean;
     readonly recommendation?: string;
@@ -339,6 +346,19 @@ const harness = async (
     now: () => new Date(0),
   });
 
+  return { pipeline, traces, usages };
+};
+
+const harness = async (
+  options: Parameters<typeof buildHarness>[0] = {},
+): Promise<{
+  result: Awaited<
+    ReturnType<Awaited<ReturnType<typeof buildHarness>>["pipeline"]["run"]>
+  >;
+  traces: StageTraceRecord[];
+  usages: FragmentUsageRecord[];
+}> => {
+  const { pipeline, traces, usages } = await buildHarness(options);
   const result = await pipeline.run({ analysisId: ANALYSIS_ID, text: INPUT });
   return { result, traces, usages };
 };
@@ -371,7 +391,9 @@ test("Stage 7 emits a trace like every other stage (AP-8, FR-100)", async () => 
   // 8 and 9 joined in Phase 3A (`docs/12` D-29); the JD path now runs all six.
   assert.deepEqual(
     traces.map((t) => t.stageNumber),
-    [1, 2, 3, 7, 8, 9],
+    // Stage 5 plans the reasoning deterministically before Stage 7 runs it
+    // (`docs/12` D-35).
+    [1, 2, 3, 5, 7, 8, 9],
   );
   const stage7 = traces.find((t) => t.stageNumber === 7);
   assert.ok(stage7);
@@ -413,7 +435,9 @@ test("without a capability profile the run stops before Stage 7, and says why", 
   assert.match(result.haltedAt?.reason ?? "", /No capability profile/);
   assert.deepEqual(
     traces.map((t) => t.stageNumber),
-    [1, 2, 3],
+    // Stage 5 planned the reasoning before the missing profile halted the run:
+    // the plan was legitimately made, and the halt is Stage 7's.
+    [1, 2, 3, 5],
     "no Stage 7 trace, because no Stage 7 call was made",
   );
 });
@@ -487,7 +511,9 @@ test("stages 8 and 9 are traced like every other stage (AP-8, FR-100)", async ()
 
   assert.deepEqual(
     traces.map((t) => t.stageNumber),
-    [1, 2, 3, 7, 8, 9],
+    // Stage 5 plans the reasoning deterministically before Stage 7 runs it
+    // (`docs/12` D-35).
+    [1, 2, 3, 5, 7, 8, 9],
   );
 
   // Stage 8 reaches no provider, and is traced anyway — the one stage whose
@@ -520,34 +546,50 @@ test("Stage 9 is shown only the decisive technical gaps", async () => {
   assert.equal(view[0]?.["requirement"], "HubSpot CRM integration");
 });
 
-test("a project citing a gap outside the eligible set fails the stage", async () => {
-  await assert.rejects(
-    harness({
-      portfolio: JSON.stringify({
-        projects: [
-          {
-            rank: 1,
-            name: "Ungrounded",
-            complexity: "simple",
-            primary_gaps: ["req-1"],
-            secondary_capabilities: ["x"],
-            why_this_project: "x",
-            business_problem: "x",
-            what_to_build: "x",
-            workflow: ["Trigger: x", "Outcome: y"],
-            platforms: ["x"],
-            technical_concepts: ["x"],
-            evidence_to_produce: [{ type: "repo", what_it_shows: "x" }],
-            why_not_consolidated: "x",
-            reusability: { provenance: "inferred", basis: "x", claim: "y" },
-            estimated_effort: "days",
-            portfolio_value: "x",
-          },
-        ],
-        consolidation_rationale: "x",
-      }),
+test("a project citing a gap outside the eligible set fails the artifact", async () => {
+  // The refusal is unchanged — an ungrounded project is never presented
+  // (`docs/12` D-28, D-29). What changed is its blast radius: under `FR-091`
+  // Stage 9 is per-artifact isolated, so the refusal fails the artifact rather
+  // than discarding the completed analysis around it.
+  const { result, traces } = await harness({
+    portfolio: JSON.stringify({
+      projects: [
+        {
+          rank: 1,
+          name: "Ungrounded",
+          complexity: "simple",
+          primary_gaps: ["req-1"],
+          secondary_capabilities: ["x"],
+          why_this_project: "x",
+          business_problem: "x",
+          what_to_build: "x",
+          workflow: ["Trigger: x", "Outcome: y"],
+          platforms: ["x"],
+          technical_concepts: ["x"],
+          evidence_to_produce: [{ type: "repo", what_it_shows: "x" }],
+          why_not_consolidated: "x",
+          reusability: { provenance: "inferred", basis: "x", claim: "y" },
+          estimated_effort: "days",
+          portfolio_value: "x",
+        },
+      ],
+      consolidation_rationale: "x",
     }),
+  });
+
+  assert.equal(
+    result.portfolioSuggestions,
+    undefined,
+    "an ungrounded project is still never presented",
+  );
+  const entry = (result.artifactPlan ?? []).find(
+    (e) => e.artifactType === "portfolio_suggestions",
+  );
+  assert.equal(entry?.outcome, "failed");
+  assert.match(
+    traces.find((t) => t.stageNumber === 9)?.failureReason ?? "",
     /not one of the decisive technical gaps/,
+    "the refusal and its reason are still recorded on the trace",
   );
 });
 
@@ -586,11 +628,106 @@ test("apply_now plans no artifact and never reaches Stage 9", async () => {
   assert.equal(result.portfolioSuggestions, undefined);
   assert.deepEqual(
     traces.map((t) => t.stageNumber),
-    [1, 2, 3, 7, 8],
+    [1, 2, 3, 5, 7, 8],
     "no Stage 9 trace, because no Stage 9 call was made",
   );
   const entry = (result.artifactPlan ?? []).find(
     (e) => e.artifactType === "portfolio_suggestions",
   );
   assert.match(entry?.omissionReason ?? "", /apply_now/);
+  // `FR-091`: omitted and failed must not be confusable. This one was never
+  // attempted, so it is `omitted` — and it keeps the reason that says why.
+  assert.equal(entry?.outcome, "omitted");
+});
+
+// --- schema validation at Stage 9 (FR-039, docs/12 D-1) ------------------
+
+test("a schema-invalid artifact earns one regeneration, then fails", async () => {
+  // `FR-039`: "Validation failure triggers one regeneration attempt, then
+  // degradation." The replay adapter returns the same fixture both times, so
+  // the second attempt is invalid too and the failure stands (`AI §3.2`).
+  const invalid = JSON.parse(PORTFOLIO_OUTPUT) as {
+    consolidation_rationale?: string;
+  };
+  delete invalid.consolidation_rationale;
+
+  const { result, traces } = await harness({
+    portfolio: JSON.stringify(invalid),
+  });
+
+  // `FR-091`: the run resolves. Discarding a completed analysis to report one
+  // artifact that did not generate is the "silent omission" the requirement
+  // calls a defect, applied to everything upstream.
+  assert.ok(result.recommendation, "the completed reasoning survives");
+  assert.ok(result.context, "so does everything before it");
+  assert.equal(result.portfolioSuggestions, undefined);
+
+  const entry = (result.artifactPlan ?? []).find(
+    (e) => e.artifactType === "portfolio_suggestions",
+  );
+  assert.equal(
+    entry?.outcome,
+    "failed",
+    "tried and failed, not chosen against",
+  );
+  assert.ok(
+    entry?.inclusionReason,
+    "the reason it was planned survives the failure",
+  );
+  assert.equal(entry?.omissionReason, undefined);
+
+  // Degradation does not erase the failure record.
+  const stage9 = traces.find((t) => t.stageNumber === 9);
+  assert.ok(stage9, "Stage 9 is still traced when it fails (AP-8, FR-100)");
+  assert.equal(stage9.outcome, "failure");
+  assert.match(stage9.failureReason ?? "", /consolidation_rationale/);
+  assert.equal(
+    stage9.retryCount,
+    1,
+    "exactly one regeneration — the existing Stage 6 mechanism, not a second retry path",
+  );
+});
+
+test("an invalid artifact never reaches the pipeline result", async () => {
+  // `DB §4.4`: "only `valid` artifacts are presentable." In this build the
+  // pipeline result *is* the presentation boundary — no ARTIFACT entity exists
+  // yet — so enforcement is that the artifact never lands in it.
+  const invalid = JSON.parse(PORTFOLIO_OUTPUT) as {
+    projects: { reusability: { provenance: string } }[];
+  };
+  const [project] = invalid.projects;
+  assert.ok(project);
+  project.reusability.provenance = "stated";
+
+  const { result } = await harness({ portfolio: JSON.stringify(invalid) });
+
+  assert.equal(
+    result.portfolioSuggestions,
+    undefined,
+    "a document a model could not have written honestly must not be presented",
+  );
+  // Absent *and* labelled: `FR-091` — "silent omission of a failed artifact is
+  // a defect", so the gap in the result has to be explained by the plan.
+  const entry = (result.artifactPlan ?? []).find(
+    (e) => e.artifactType === "portfolio_suggestions",
+  );
+  assert.equal(entry?.outcome, "failed");
+});
+
+test("a schema-valid artifact needs no regeneration", async () => {
+  const { result, traces } = await harness();
+
+  assert.ok(result.portfolioSuggestions, "the valid artifact is presented");
+  const stage9 = traces.find((t) => t.stageNumber === 9);
+  assert.equal(stage9?.outcome, "success");
+  assert.equal(
+    stage9?.retryCount,
+    0,
+    "no regeneration on a conforming artifact",
+  );
+
+  const entry = (result.artifactPlan ?? []).find(
+    (e) => e.artifactType === "portfolio_suggestions",
+  );
+  assert.equal(entry?.outcome, "generated");
 });
