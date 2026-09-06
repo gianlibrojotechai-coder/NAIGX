@@ -234,7 +234,14 @@ const tamperedStore = (): RecordingStore => ({
 });
 
 const run = (cases: readonly CorpusCase[], store: RecordingStore, repeat = 1) =>
-  runRegression({ cases, store, resolver, repeat, now: () => new Date(0) });
+  runRegression({
+    cases,
+    suiteVersion: "corpus-v2",
+    store,
+    resolver,
+    repeat,
+    now: () => new Date(0),
+  });
 
 const NO_STALE = { blocked: 0, stale: 0, errored: 0 } as const;
 
@@ -512,8 +519,21 @@ test("a clean run issues a reference naming the evidence it used", async () => {
   assert.equal(reference.suite, "corpus-regression");
   assert.match(
     reference.reference,
-    /^corpus-regression:corpus-v1\+fragments-v1:[0-9a-f]{16}$/,
+    /^corpus-regression:corpus-v2\+fragments-v1:[0-9a-f]{16}$/,
   );
+
+  // `docs/12` D-30: the reference names the **suite** version, while the case
+  // it replayed still carries its immutable entry marker. Deriving one from the
+  // other is the defect this separation exists to prevent.
+  assert.equal(reference.suiteVersion, "corpus-v2");
+  assert.equal(report.suiteVersion, "corpus-v2");
+  assert.equal(target.corpusVersion, "corpus-v1", "entry provenance is intact");
+
+  // `docs/12` D-30 dec. 3: a reference that cannot prove it covered everything
+  // must not read as though it did. No `corpusSize` was supplied, so it does
+  // not claim completeness.
+  assert.equal(reference.selectionScope, "partial");
+  assert.equal(reference.coverage, undefined);
 
   const entry = reference.cases[0];
   assert.ok(entry);

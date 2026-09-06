@@ -26,6 +26,7 @@
 import { createHash } from "node:crypto";
 
 import { DEFERRED_ASSERTIONS, type AssertionId } from "./assertions.js";
+import type { FragmentCoverage } from "./coverage.js";
 import type { RegressionReport } from "./runner.js";
 
 export const SUITE_ID = "corpus-regression";
@@ -59,7 +60,14 @@ export interface RegressionPassReference {
   readonly suite: typeof SUITE_ID;
   readonly reference: string;
   readonly mode: "recorded";
-  readonly corpusVersion: string;
+  /**
+   * The suite version measured against, from `corpus.manifest.json`.
+   *
+   * Named in the reference string so a row in `regression_pass_reference`
+   * identifies the oracle, not the entry marker of an arbitrary case
+   * (`docs/11` §6.3, `docs/12` D-30).
+   */
+  readonly suiteVersion: string;
   readonly fragmentsManifestVersion: string;
   /**
    * Every distinct composition present in the run, sorted.
@@ -70,6 +78,18 @@ export interface RegressionPassReference {
    * green refusal-bearing suite unable to issue a reference at all.
    */
   readonly fragmentsCompositions: readonly string[];
+  /**
+   * Whether this reference speaks for the whole corpus.
+   *
+   * `entire_corpus` requires every corpus case to have run; `targeted` names the
+   * fragment that selected the subset; `partial` is any other incomplete
+   * selection. A reference must never be readable as suite-wide evidence when it
+   * is not (`docs/12` D-30 dec. 3, and the per-case reasoning already applied to
+   * `assertionsEvaluated`).
+   */
+  readonly selectionScope: "entire_corpus" | "targeted" | "partial";
+  /** Present only when `selectionScope` is `targeted`. */
+  readonly coverage?: FragmentCoverage;
   readonly runId: string;
   readonly completedAt: string;
   readonly cases: readonly ReferencedCase[];
@@ -91,10 +111,65 @@ const ATTESTATION =
   "produces these responses — that requires a capture or live run against the fragments in " +
   "force (docs/12 D-24).";
 
+/** The parts encoded in a reference string. */
+export interface ParsedPassReference {
+  readonly suiteVersion: string;
+  readonly fragmentsManifestVersion: string;
+  readonly runId: string;
+}
+
+/**
+ * Reads a reference string back into its parts, or `null` if it is not one.
+ *
+ * The format is written in exactly one place — `buildPassReference` — and read
+ * in exactly this one. A consumer that parsed it itself would be a second
+ * definition of the same identity, free to drift from the producer.
+ *
+ * `fragment-manifest-gate:` references are **not** accepted here. `docs/12`
+ * D-14 recorded that value as the honest stand-in for Sprint 1, "always meant
+ * to be replaced by a reference naming a real corpus run" — so it parses as
+ * what it is, a non-corpus reference, and the caller refuses it by name.
+ */
+export function parsePassReference(
+  reference: string,
+): ParsedPassReference | null {
+  const match = /^corpus-regression:(.+)\+([^:+]+):([0-9a-f]{16})$/.exec(
+    reference,
+  );
+  if (match === null) return null;
+
+  const [, suiteVersion, fragmentsManifestVersion, runId] = match;
+  if (
+    suiteVersion === undefined ||
+    fragmentsManifestVersion === undefined ||
+    runId === undefined
+  ) {
+    return null;
+  }
+  return { suiteVersion, fragmentsManifestVersion, runId };
+}
+
 export interface PassReferenceInputs {
   readonly report: RegressionReport;
   readonly fragmentsManifestVersion: string;
   readonly completedAt?: string;
+  /**
+   * Total cases in the suite, when the caller knows it.
+   *
+   * Omitting it means the reference **declines to claim completeness** and
+   * records `partial`. That is the safe direction: a reference that cannot
+   * prove it covered everything must not imply it did.
+   */
+  readonly corpusSize?: number;
+  /**
+   * The targeting basis, when this run covered a subset (`docs/12` D-30 dec. 3).
+   *
+   * Present means: these cases ran **because** they compose the named fragment.
+   * Absent means the selection was not fragment-targeted — it does **not** mean
+   * the run was suite-wide. Either way the reference states `selectionScope`
+   * rather than leaving a reader to infer it.
+   */
+  readonly coverage?: FragmentCoverage;
 }
 
 /**
@@ -112,8 +187,12 @@ export function runIdFor(inputs: PassReferenceInputs): string {
       JSON.stringify([
         SUITE_ID,
         report.mode,
-        report.corpusVersion,
+        report.suiteVersion,
         inputs.fragmentsManifestVersion,
+        // A targeted run and a full run over the same cases measured different
+        // things and must not share an id.
+        inputs.coverage?.fragmentKey ?? null,
+        inputs.coverage?.fragmentVersionId ?? null,
         // The evidence, not merely the case list. Two runs replaying different
         // recordings of the same cases must not share an id: the reference
         // exists to identify what justified an activation.
@@ -178,11 +257,19 @@ export function buildPassReference(
   const runId = runIdFor(inputs);
   return {
     suite: SUITE_ID,
-    reference: `${SUITE_ID}:${inputs.report.corpusVersion}+${inputs.fragmentsManifestVersion}:${runId}`,
+    reference: `${SUITE_ID}:${inputs.report.suiteVersion}+${inputs.fragmentsManifestVersion}:${runId}`,
     mode: inputs.report.mode,
-    corpusVersion: inputs.report.corpusVersion,
+    suiteVersion: inputs.report.suiteVersion,
     fragmentsManifestVersion: inputs.fragmentsManifestVersion,
     fragmentsCompositions: compositions,
+    selectionScope:
+      inputs.coverage !== undefined
+        ? "targeted"
+        : inputs.corpusSize !== undefined &&
+            inputs.report.cases.length === inputs.corpusSize
+          ? "entire_corpus"
+          : "partial",
+    ...(inputs.coverage !== undefined ? { coverage: inputs.coverage } : {}),
     runId,
     completedAt: inputs.completedAt ?? inputs.report.startedAt,
     cases: inputs.report.cases.map((c) => ({
