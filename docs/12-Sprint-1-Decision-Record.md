@@ -1706,6 +1706,56 @@ The `AI §5` Stage 8 input line, and the register updates this record makes. **`
 
 ---
 
+## D-37 — Entering Sprint 3 with the quality gate unrun, on a narrow boundary
+
+**Decided. Sprint 3 proceeds for transport and presentation only. The Sprint 2 quality gate is not claimed as passed, and its requirements are not waived.**
+
+Taken 2026-09-06, at owner decision. This is a deliberate deviation from a stated dependency, recorded as one.
+
+### What is being stated
+
+| # | Statement |
+|---|---|
+| 1 | **M-08 was not run.** The rubric review has not happened — this is unstarted, not passed-with-caveats |
+| 2 | **The Sprint 2 quality gate is not claimed as passed**, here or anywhere else |
+| 3 | **Sprint 3 work is limited to transport and presentation infrastructure** that does not modify the reasoning core |
+| 4 | **No new prompt fragment may be authored or activated under this deviation** |
+| 5 | **M-10 and M-11 remain open and unchanged** |
+| 6 | **This does not waive the Sprint 2 quality requirements.** They stand, unmet, and are closed by running the review — not by shipping past it |
+
+### What the roadmap actually says, and where this departs from it
+
+Two statements govern, and they are not identical:
+
+- Sprint 3's **Dependencies**: *"Sprint 2 quality gate **passed**."*
+- Sprint 2's **stop condition**: *"If reviewed output does **not meet** the rubric, no Sprint 3 work begins."*
+
+The stop condition blocks on a **failed** review. The dependency requires a **passed** one. Neither is satisfied, because the review has not been run — a state the roadmap does not describe. **The deviation is from the dependency, not from the stop condition**, and it is recorded rather than reasoned away.
+
+### Why this boundary and not a wider one
+
+The stop condition states its own reason: *"Building presentation, export, and history on top of reasoning that does not meet standard… converts a two-week reasoning problem into a two-month rewrite, and it produces a v1.0 that tests the wrong product."*
+
+That risk is **compounding** — new reasoning paths built on unreviewed reasoning multiply the rework, because each new path inherits whatever is wrong. An API and a display layer over an **unchanged** reasoning core do not compound it: if the reasoning later fails the rubric and needs fragment iteration, the transport and presentation layers do not change. The coupling the stop condition protects against is not present in this slice.
+
+Decision 4 is what makes that true and is therefore load-bearing. The moment a fragment is authored, reasoning changes, the argument above collapses, and this deviation no longer covers the work.
+
+### What is in scope
+
+`API-020`, `API-021`, `API-026`, and the Sprint 3 frontend deliverables. `API-025` (SSE) follows; `SA AR-06` requires the polling fallback in the same sprint regardless, and it is the simpler mechanism.
+
+### What is out of scope under this deviation
+
+`FR-021` existing-workflow and `FR-023` technical-assessment paths — both require new fragments, which decision 4 forbids and the activation gate would refuse without capture. Stages 4, 10, 11, 12. `AIQ-4`, `AIQ-6`, `AIQ-8`. `ARTIFACT` persistence and the `VALIDATION_EVENT` attribution.
+
+### How this is closed
+
+By running the M-08 rubric review. A partial review against the 13 committed recordings costs nothing and covers the `business_requirement` vertical; a full review needs capture across the other three, which is a budget decision (`docs/12` D-33). **Until one of those happens, no Sprint 2 milestone may be reported as met on the strength of Sprint 3 work.**
+
+---
+
+---
+
 ## Summary
 
 | ID | Status | Resolves |
@@ -1746,6 +1796,7 @@ The `AI §5` Stage 8 input line, and the register updates this record makes. **`
 | D-34 | ✅ Decided — `depth_level` single-valued (`"standard"`) for v1; no invented levels or cut points; `AC-037` tested by artifact-set size against complexity score per `DB §4.4` | Resolves `AIQ-7`. **`AC-037` is specifiable, not yet measurable** |
 | D-35 | ✅ Decided — `docs/09` governs `COMPLEXITY_ASSESSMENT` only; Stage 5's pre-assessment is a distinct, deferred quantity; Stage 5 stays Deterministic and ships **reduced** (required analyses + `depth_level`) | Resolves the D-34 determinism conflict. ~~Stage 8 input-ordering contradiction left open~~ — **closed by D-36** |
 | D-36 | ✅ Decided — Stage 8's "complexity assessment" is the Stage 5 **pre**-assessment; `COMPLEXITY_ASSESSMENT` stays the Stage 9 artifact; `DB §4.3` and `FR-033` → `FR-030` unchanged; Stage 8 never consumes the artifact it plans | Closes D-35's open contradiction. **Defines nothing; `FR-017` still unsatisfied.** Opens the factor-scoring-stage gap |
+| D-37 | ✅ Decided — Sprint 3 proceeds for **transport and presentation only**; no fragment may be authored or activated; M-08 unrun and the Sprint 2 gate **not claimed passed** | Records a deviation from Sprint 3's stated dependency. **Waives nothing** — closed by running the rubric review |
 
 ### Still open after this record
 
@@ -1792,6 +1843,7 @@ The `AI §5` Stage 8 input line, and the register updates this record makes. **`
 | **`FR-017`'s assessed-complexity requirement is unsatisfied** (D-36 decision 5). Stage 8's complexity input is now correctly identified as the Stage 5 pre-assessment — a quantity D-35 deferred and left undefined. Stage 8 v1 consumes no complexity, which is correct for the job-description path (`FR-022` names no complexity artifact) and insufficient for the requirement path (`FR-020` does) | With a defined pre-assessment |
 | **`depth_level` is single-valued because nothing supports more** (D-34 decision 4), not because one level is correct. Revisit once complexity scoring exists and measured evidence can show whether multiple levels are warranted | With complexity scoring |
 | **`AC-037` is specifiable but not measurable** (D-34 decision 6). Its `DB §4.4` query needs complexity scores; `FR-033` and `COMPLEXITY_ASSESSMENT` are unimplemented and `ARTIFACT_TYPES` holds only the three job-description artifacts. **No `AC-037` satisfaction may be claimed** | With complexity scoring |
+| **Sprint 3 is proceeding with the Sprint 2 quality gate unrun** (D-37). M-08 has not been run, and Sprint 3's stated dependency is a *passed* gate. Sprint 3 work is confined to transport and presentation, and **no prompt fragment may be authored or activated** while this deviation stands. Closed by running the rubric review — a partial one over the 13 committed recordings costs nothing | Before any Sprint 3 reasoning work |
 | **`AIQ-4` is blocked by the zero-spend constraint, not by engineering** (D-33). Weights and thresholds cannot be calibrated: computed Stage 3 features exist for 11 of 44 cases, 10 are usable, **none is a `low`-band example**, and four parameters against 10 points spanning two classes is overfitting. Closing it requires Stage 3 output for the remaining 33 cases — provider execution and capture, currently prohibited. **Stage 11 cannot be responsibly implemented until this is resolved** | Budget decision |
 | **CF-7's cap has no computable trigger** (D-33). `sufficiency` was withdrawn as the trigger after four frozen cases (`br-006`, `br-007`, `br-009`, `br-011`) proved `thin` compatible with `high`. No field represents an unknown that *blocks a recommendation* (`FR-044`). Either add a materiality representation or record that CF-7 is specification-only | Before Stage 11 |
 | **CF-3's cap is only as precise as Stage 3's conflict detection** (D-33). `br-011` carries a model-emitted conflict flag while its author records the constraints as mutually consistent — a false positive that would wrongly cap a `high` case | With conflict-detection review |
