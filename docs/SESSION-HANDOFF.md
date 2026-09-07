@@ -293,6 +293,7 @@ In Git Bash set `MSYS_NO_PATHCONV=1` or paths get rewritten to `C:/Program Files
 
 | Commit | What |
 |---|---|
+| `1c0a86c` | M-19 Phase 4a — sealed column rename + data-format startup guard, D-57 |
 | `7c0f7e2` | M-19 Phase 4 — monitoring, alerting, restore drill, data policy, D-56 |
 | `a7d06c2` | M-19 Phase 3 — application-level encryption, durable purge outbox, D-55 |
 | `d7fd2e0` | M-19 Phase 2 — TLS edge, same-origin client, proxy trust, IP-hash salt, D-54 |
