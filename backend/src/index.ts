@@ -19,6 +19,7 @@ import type { ProviderAdapter } from "./provider/capability.js";
 import type { TokenRate } from "./provider/cost.js";
 import { FOUNDATION_FRAGMENT_KEYS } from "./nie/prompt.js";
 import { createAnalysisRunner } from "./orchestrator/analysis-runner.js";
+import { createAnalysisEventLog } from "./events/analysis-event-log.js";
 import {
   isMetered,
   resolveExecutionMode,
@@ -143,6 +144,12 @@ const main = async (): Promise<void> => {
           modelKey: "replay",
         };
 
+  // One log, two ends: the runner publishes into it, the API streams from it.
+  // Both halves are wired here because neither may reach for the other —
+  // `AD-02`/`AP-3` keep transport out of the NIE, and the orchestrator does
+  // not know an HTTP layer exists.
+  const eventLog = createAnalysisEventLog();
+
   const runner = await createAnalysisRunner({
     prisma: database.prisma,
     tracePrisma: traceDatabase.prisma,
@@ -157,6 +164,11 @@ const main = async (): Promise<void> => {
     onError: (error) => {
       reportError(error);
     },
+    eventSink: {
+      emit: (analysisId, event) => {
+        eventLog.publish(analysisId, event);
+      },
+    },
   });
 
   const app = await buildApp({
@@ -164,7 +176,18 @@ const main = async (): Promise<void> => {
     database,
     checkProvider,
     checkTemplates,
-    startExecution: runner.startExecution,
+    startExecution: (analysisId) => {
+      // Opened before execution starts so a client that connects immediately
+      // finds a log rather than a 410. `API-020` returns before reasoning
+      // begins, so this race is the normal case, not the edge one.
+      eventLog.open(analysisId);
+      runner.startExecution(analysisId);
+    },
+    eventLog,
+    // Awaited by the route, unlike `startExecution`: a retry is one Stage 9
+    // call and the caller reports its outcome (`API-032`).
+    retryArtifact: (analysisId, artifactType) =>
+      runner.retryArtifact(analysisId, artifactType),
   });
 
   reportError = (error) => {

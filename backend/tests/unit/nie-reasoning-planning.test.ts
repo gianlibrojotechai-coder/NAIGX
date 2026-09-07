@@ -44,14 +44,17 @@ test("gap analysis is planned for postings, and architecture is not", () => {
   assert.ok(!plan.requiredAnalyses.includes("architecture_analysis"));
 });
 
-test("paths the specification maps to no module get an empty plan", () => {
-  // `unsupported` is settled — `FR-092` declines before reasoning.
+test("only unsupported gets an empty plan", () => {
+  // `unsupported` is settled — `FR-092` declines before reasoning, so there is
+  // nothing to plan.
   assert.deepEqual(planReasoning("unsupported").requiredAnalyses, []);
 
-  // `existing_workflow` is **not** settled: `FR-021` requires analyses, but
-  // `AI §4.2` maps the path to no module and none is implemented. An empty plan
-  // records that gap; naming a module here would invent the mapping.
-  assert.deepEqual(planReasoning("existing_workflow").requiredAnalyses, []);
+  // `existing_workflow` was empty until `docs/15` D-40 found the mapping in
+  // `AI §7.1` rather than `AI §4.2`. It routes now, and this asserts the
+  // resolution rather than the gap it replaced.
+  assert.deepEqual(planReasoning("existing_workflow").requiredAnalyses, [
+    "workflow_review",
+  ]);
 });
 
 test("every classification type produces a plan", () => {
@@ -68,13 +71,16 @@ test("every classification type produces a plan", () => {
 });
 
 test("planned modules name real stages, not a parallel vocabulary", () => {
-  // The module vocabulary is `stageKey`s from the registry (`AI` App. A), so a
-  // renamed stage breaks here rather than drifting silently.
+  // The module vocabulary is stage keys, so a renamed stage breaks here rather
+  // than drifting silently. `workflow_review` is Stage 6’s second generator
+  // (`docs/15` D-40) and shares its number — the same shape Stage 9 uses for
+  // per-generator prompts (`docs/12` D-29).
   assert.equal(stageByNumber(6).stageKey, "architecture_analysis");
   assert.equal(stageByNumber(7).stageKey, "recommendation_generation");
   assert.deepEqual([...REASONING_MODULES].sort(), [
     "architecture_analysis",
     "recommendation_generation",
+    "workflow_review",
   ]);
 });
 

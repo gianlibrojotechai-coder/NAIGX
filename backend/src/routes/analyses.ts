@@ -25,9 +25,10 @@
  *     that 404s would be worse than omitting it.
  *   · `anonymous_token` — token issuance belongs to authentication, which is
  *     Sprint 5 (`M-15`).
- *   · `classification_override` — `API-020`'s design note scopes it to
- *     re-submission after an `FR-014` correction, and that flow does not
- *     exist. Accepting a field with no behaviour would be a false contract.
+ * `classification_override` was previously absent for want of the flow it
+ * belongs to. That flow now exists: `FR-014` correction re-submits the same
+ * content with the type fixed, and `API §7.5` creates a **new** analysis
+ * rather than mutating the original.
  *
  * ⚠️ OWNERSHIP IS NOT ENFORCED. `API-021` and `API-026` specify owner auth,
  * and no authentication layer exists until Sprint 5. Anyone holding an
@@ -39,7 +40,20 @@ import { randomUUID } from "node:crypto";
 
 import type { FastifyPluginAsync } from "fastify";
 
-import { AppError, notFoundError } from "../http/errors.js";
+import type { AnalysisEventLog } from "../events/analysis-event-log.js";
+import { readAnalysis } from "../db/analysis-reader.js";
+import {
+  AppError,
+  insufficientContextError,
+  invalidStateError,
+  notFoundError,
+  unsupportedInputTypeError,
+} from "../http/errors.js";
+import {
+  CLASSIFICATION_TYPES,
+  isRetryableArtifactType,
+  type ClassificationType,
+} from "../nie/contracts.js";
 import { sendSuccess } from "../http/responses.js";
 import type { PrismaClient } from "../generated/prisma/client.js";
 
@@ -64,12 +78,40 @@ export interface AnalysisRouteOptions {
    * is the durable record (`SA §12`), so a process restart loses the in-flight
    * run, not the submission.
    */
-  readonly startExecution?: (analysisId: string) => void;
+  readonly startExecution?: (
+    analysisId: string,
+    classificationOverride?: ClassificationType,
+  ) => void;
+  /**
+   * The event log `API-025` streams from.
+   *
+   * Optional: without it the endpoint reports that streaming is unavailable and
+   * clients use `API-026` polling, which `SA AR-06` requires to exist anyway.
+   */
+  readonly eventLog?: AnalysisEventLog;
+  /**
+   * Regenerates one failed artifact from stored reasoning (`API-032`).
+   *
+   * Optional on the same principle as `startExecution`: an instance without a
+   * reasoning stack still serves every read endpoint, and a retry request
+   * against it reports the capability as unavailable rather than pretending.
+   *
+   * @returns the outcome the endpoint reports. Throws nothing provider-shaped;
+   * the composition root normalises before it gets here.
+   */
+  readonly retryArtifact?: (
+    analysisId: string,
+    artifactType: string,
+  ) => Promise<void>;
 }
 
 interface CreateBody {
   readonly content?: unknown;
   readonly source_type?: unknown;
+  /** `FR-014` / `API §7.5` — the user's corrected type. */
+  readonly classification_override?: unknown;
+  /** The analysis this one corrects, for `FR-064` lineage. Optional. */
+  readonly supersedes_analysis_id?: unknown;
 }
 
 /** `DB §4.2` SOURCE_TYPE. Mirrors the persisted enum exactly. */
@@ -138,15 +180,113 @@ function validateCreate(body: CreateBody): {
   return { content, sourceType: (raw as SourceType | undefined) ?? "paste" };
 }
 
+/**
+ * `FR-014` / `API §7.5` — the user's corrected classification.
+ *
+ * ⚠️ `unsupported` IS REFUSED. It is a refusal outcome (`FR-092`), not a frame
+ * anything can be reasoned under: fixing it would ask the pipeline to decline
+ * on the user's own instruction, producing no analysis and consuming the
+ * submission. A user who believes their input is out of scope simply does not
+ * submit it.
+ */
+function validateOverride(raw: unknown): ClassificationType | undefined {
+  if (raw === undefined) return undefined;
+
+  const correctable = CLASSIFICATION_TYPES.filter(
+    (type) => type !== "unsupported",
+  );
+
+  if (
+    typeof raw !== "string" ||
+    !(correctable as readonly string[]).includes(raw)
+  ) {
+    throw new AppError(
+      "validation_failed",
+      `\`classification_override\` must be one of: ${correctable.join(", ")}.`,
+      {
+        field: "classification_override",
+        action:
+          "Omit the field to let NAIGX determine the type, or name one of the correctable types.",
+        details: { correctable_types: correctable },
+      },
+    );
+  }
+  return raw as ClassificationType;
+}
+
+/**
+ * The analysis being corrected, when one was named (`FR-064` lineage).
+ *
+ * Optional: `API §7.5` describes the correction as a plain submission with the
+ * same content and an override, and requires only that "the original analysis
+ * remains retrievable" — which is true whether or not the new one points at
+ * it. Recording the link when the client supplies it makes the correction
+ * legible in history rather than leaving two unrelated analyses of the same
+ * text.
+ */
+function validateSupersedes(raw: unknown): string | undefined {
+  if (raw === undefined) return undefined;
+  if (typeof raw !== "string" || raw.trim() === "") {
+    throw new AppError(
+      "validation_failed",
+      "`supersedes_analysis_id` must be the id of the analysis being corrected.",
+      {
+        field: "supersedes_analysis_id",
+        action: "Send the original analysis id, or omit the field.",
+      },
+    );
+  }
+  return raw;
+}
+
 export const analysisRoutes: FastifyPluginAsync<AnalysisRouteOptions> = (
   app,
-  { prisma, hashContent, startExecution },
+  { prisma, hashContent, startExecution, eventLog, retryArtifact },
 ) => {
   // --- API-020 — create ---------------------------------------------------
   app.post("/analyses", async (request, reply) => {
-    const { content, sourceType } = validateCreate(
-      (request.body ?? {}) as CreateBody,
+    const body = (request.body ?? {}) as CreateBody;
+    const { content, sourceType } = validateCreate(body);
+
+    // `FR-014` / `API §7.5` — CORRECTION IS A SUBMISSION, NOT AN EDIT.
+    //
+    // "The contract deliberately does not mutate the original analysis." A
+    // correction re-submits the same content with the type fixed, and a **new**
+    // analysis is created: `DB DP-3` makes analyses immutable, and re-running
+    // reasoning under a different frame produces a genuinely different
+    // analysis. An update would destroy both what the system originally
+    // concluded and the accuracy signal the comparison provides.
+    //
+    // Nothing here mutates the original row. It is read only to confirm it
+    // exists, and remains retrievable exactly as it was.
+    const classificationOverride = validateOverride(
+      body.classification_override,
     );
+    const supersedesAnalysisId = validateSupersedes(
+      body.supersedes_analysis_id,
+    );
+
+    if (supersedesAnalysisId !== undefined) {
+      // A lineage pointer to an analysis that does not exist would be worse
+      // than none: it would claim a history nobody can follow. The column is
+      // also a real FK, so an unknown id would fail at the database with a
+      // message that names a constraint rather than the problem.
+      const original = await prisma.analysis.findUnique({
+        where: { analysisId: supersedesAnalysisId },
+        select: { analysisId: true },
+      });
+      if (original === null) {
+        throw new AppError(
+          "validation_failed",
+          "The analysis this submission says it corrects does not exist.",
+          {
+            field: "supersedes_analysis_id",
+            action:
+              "Send the id of an analysis that exists, or omit the field to submit this as a new analysis.",
+          },
+        );
+      }
+    }
 
     // One transaction: an analysis without its input is a row nothing can be
     // reasoned from, and `DB §4.2` makes the relation required.
@@ -171,6 +311,9 @@ export const analysisRoutes: FastifyPluginAsync<AnalysisRouteOptions> = (
         // Issuing the token at creation is what Sprint 5 must add; storing a
         // hash of one is what makes the row legal in the meantime.
         anonymousTokenHash: hashContent(randomUUID()),
+        // `FR-064` lineage. The original is preserved (`DP-3`); this only
+        // records which analysis this one corrects.
+        ...(supersedesAnalysisId !== undefined ? { supersedesAnalysisId } : {}),
         input: {
           create: {
             rawContent: content,
@@ -185,17 +328,250 @@ export const analysisRoutes: FastifyPluginAsync<AnalysisRouteOptions> = (
     // Reasoning starts once the row exists, and is deliberately not awaited:
     // the response must precede it. Where no executor is wired the analysis
     // stays `queued`, which the status endpoint reports rather than hides.
-    startExecution?.(analysis.analysisId);
+    startExecution?.(analysis.analysisId, classificationOverride);
 
     // 202, not 201: reasoning has not completed. `API-020` acceptance —
     // "Returns before reasoning completes."
     return sendSuccess(
       request,
       reply,
-      { analysis_id: analysis.analysisId, status: analysis.status },
+      {
+        analysis_id: analysis.analysisId,
+        status: analysis.status,
+        // Echoed so a client can confirm the correction was accepted before
+        // any stage has run. Absent on an ordinary submission, matching how
+        // every other optional field in this API reports "not applicable".
+        ...(classificationOverride !== undefined
+          ? { classification_override: classificationOverride }
+          : {}),
+        ...(supersedesAnalysisId !== undefined
+          ? { supersedes_analysis_id: supersedesAnalysisId }
+          : {}),
+      },
       202,
     );
   });
+
+  // --- API-025 — event stream ---------------------------------------------
+  //
+  // Server-Sent Events: a plain HTTP response that stays open and pushes
+  // `data:` frames. Chosen over WebSockets by `SA AD-04` because the traffic is
+  // one-directional — the server narrates, the client listens — and SSE
+  // reconnects on its own, carrying `Last-Event-ID` so the server knows where
+  // to resume.
+  //
+  // ⚠️ THE STREAM IS A CONVENIENCE, NEVER THE RECORD. `API-025`: "Stream
+  // failure never fails the analysis." Everything here is also reachable
+  // through `API-026` polling and `API-021` retrieval, which is why a dropped
+  // connection, a restarted process or an absent event log all degrade to
+  // "use the other endpoints" rather than to lost work.
+  app.get<{ Params: { id: string } }>(
+    "/analyses/:id/events",
+    async (request, reply) => {
+      const analysisId = request.params.id;
+
+      const analysis = await prisma.analysis.findUnique({
+        where: { analysisId },
+        select: { status: true },
+      });
+      if (analysis === null) throw notFoundError();
+
+      if (eventLog === undefined) {
+        // No stream on this instance. A 503 with the corrective step, rather
+        // than an empty stream that looks like a slow analysis forever.
+        throw new AppError(
+          "service_unavailable",
+          "Event streaming is not available on this instance.",
+          {
+            action:
+              "Poll `/analyses/{id}/status` and retrieve the analysis when it completes.",
+          },
+        );
+      }
+
+      // `Last-Event-ID` is set by the browser automatically on reconnect. A
+      // client may also pass it explicitly after a manual retry.
+      const header = request.headers["last-event-id"];
+      const resumeFrom = Number.parseInt(
+        Array.isArray(header) ? (header[0] ?? "") : (header ?? ""),
+        10,
+      );
+      const afterSequence = Number.isFinite(resumeFrom) ? resumeFrom : 0;
+
+      const subscription = eventLog.subscribe(
+        analysisId,
+        afterSequence,
+        () => undefined,
+      );
+      if (subscription === undefined) {
+        // The analysis exists but its log does not — it finished before this
+        // process started, or the log was evicted. `SA AD-05` accepts that
+        // in-flight state is lost on restart; the stored analysis is not.
+        throw new AppError(
+          "expired",
+          "No live event stream exists for this analysis.",
+          {
+            action:
+              "Retrieve the completed analysis from `/analyses/{id}`, or poll `/analyses/{id}/status`.",
+          },
+        );
+      }
+      subscription.unsubscribe();
+
+      reply.raw.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+        // Proxies that buffer would defeat the point of streaming.
+        "X-Accel-Buffering": "no",
+      });
+
+      const write = (sequenced: {
+        sequence: number;
+        event: { type: string };
+      }): void => {
+        // The SSE frame format: `id:` is what comes back as `Last-Event-ID`,
+        // `event:` names the type so a client can listen selectively, and the
+        // blank line terminates the frame.
+        reply.raw.write(
+          `id: ${String(sequenced.sequence)}\n` +
+            `event: ${sequenced.event.type}\n` +
+            `data: ${JSON.stringify(sequenced.event)}\n\n`,
+        );
+      };
+
+      const live = eventLog.subscribe(
+        analysisId,
+        afterSequence,
+        (sequenced) => {
+          write(sequenced);
+          if (
+            sequenced.event.type === "complete" ||
+            sequenced.event.type === "error"
+          ) {
+            // `API §7.4`: the terminal event is always emitted before close, so a
+            // closed stream without one is a fault the client can detect.
+            reply.raw.end();
+          }
+        },
+      );
+
+      if (live === undefined) {
+        reply.raw.end();
+        return reply;
+      }
+
+      if (eventLog.isComplete(analysisId)) {
+        // Replay already delivered the terminal event; nothing further comes.
+        reply.raw.end();
+        return reply;
+      }
+
+      request.raw.on("close", () => {
+        live.unsubscribe();
+      });
+
+      // Fastify must not try to send its own body — this response is ours now.
+      return reply;
+    },
+  );
+
+  // --- API-032 — retry a failed artifact ----------------------------------
+  //
+  // `FR-091`: "Retry of a failed artifact is available without re-running the
+  // full analysis." `API §7.6` scopes it — "reuses stored reasoning; no stage
+  // 1-8 re-run" — and `API-032` calls it "the sole permitted mutation to a
+  // terminal analysis ... permitted because it completes rather than alters
+  // the record (`DB DP-3`)".
+  //
+  // `API §7.8` permits this anonymously. It is one of four things an anonymous
+  // caller may do, listed beside creating, retrieving and subscribing — so no
+  // auth gate is added here, and none is being deferred either.
+  app.post<{ Params: { id: string; type: string } }>(
+    "/analyses/:id/artifacts/:type/retry",
+    async (request, reply) => {
+      const { id: analysisId, type: artifactType } = request.params;
+
+      const analysis = await prisma.analysis.findUnique({
+        where: { analysisId },
+        select: { status: true },
+      });
+      if (analysis === null) throw notFoundError();
+
+      // `API-032` calls this "the sole permitted mutation to a **terminal**
+      // analysis". A run still in flight may yet produce the artifact itself,
+      // and retrying underneath it would race the pipeline for the same plan
+      // entry.
+      if (analysis.status === "queued" || analysis.status === "running") {
+        throw invalidStateError(
+          "This analysis is still running, so its artifacts are not final yet.",
+          "Wait for the analysis to finish, then retry anything that failed.",
+          { status: analysis.status },
+        );
+      }
+
+      // `API-032` validation: "Artifact must currently be in `failed` state."
+      const entry = await prisma.artifactPlanEntry.findFirst({
+        where: { analysisId, artifactType },
+        select: { outcome: true },
+      });
+      if (entry === null) throw notFoundError();
+
+      if (entry.outcome !== "failed") {
+        // The message names the state the artifact *is* in. `FR-005` requires
+        // an error to state a corrective action, and "invalid state" alone
+        // leaves the caller nothing to do.
+        throw invalidStateError(
+          entry.outcome === "generated"
+            ? "This artifact generated successfully, so there is nothing to retry."
+            : entry.outcome === "omitted"
+              ? "This artifact was deliberately omitted rather than attempted, so there is nothing to retry."
+              : "This artifact has not been attempted yet, so there is nothing to retry.",
+          entry.outcome === "omitted"
+            ? "Omission is a decision, not a failure. Submit a new analysis if you want a different plan."
+            : "Retrieve the analysis to see the artifact's current state.",
+          { artifact_type: artifactType, current_outcome: entry.outcome },
+        );
+      }
+
+      // A rendered artifact is a deterministic function of reasoning already
+      // stored (`docs/15` D-40), so a second attempt recomputes the identical
+      // document and fails identically. Refusing is the honest answer: a
+      // failure here is a defect in the renderer, and a retry button that
+      // cannot help would imply otherwise. The `artifact_failed` event says
+      // the same thing through `retryAvailable`, from the same predicate.
+      if (!isRetryableArtifactType(artifactType)) {
+        throw invalidStateError(
+          "This artifact is rendered from reasoning that is already stored, not generated, so retrying it would produce exactly the same document.",
+          "Its failure indicates a defect to report rather than a transient error to retry. Submit a new analysis if the underlying reasoning should change.",
+          { artifact_type: artifactType, deterministic: true },
+        );
+      }
+
+      if (retryArtifact === undefined) {
+        throw new AppError(
+          "service_unavailable",
+          "Artifact regeneration is not available on this instance.",
+          { action: "Try again later, or submit a new analysis." },
+        );
+      }
+
+      await retryArtifact(analysisId, artifactType);
+
+      // `202 Accepted` per `API-032`, with the stream to watch. The work is
+      // done by the time we reply — but the contract is 202, and a client that
+      // followed `events_url` for the outcome stays correct either way.
+      return sendSuccess(
+        request,
+        reply,
+        {
+          status: "accepted",
+          events_url: `/analyses/${analysisId}/events`,
+        },
+        202,
+      );
+    },
+  );
 
   // --- API-026 — status ---------------------------------------------------
   app.get<{ Params: { id: string } }>(
@@ -227,160 +603,55 @@ export const analysisRoutes: FastifyPluginAsync<AnalysisRouteOptions> = (
   );
 
   // --- API-021 — retrieve -------------------------------------------------
+  //
+  // The read itself lives in `src/db/analysis-reader.ts`, shared with `API-040`
+  // export so that the JSON view and the exported document cannot disagree
+  // about what an analysis contains.
   app.get<{ Params: { id: string } }>(
     "/analyses/:id",
     async (request, reply) => {
-      const analysis = await prisma.analysis.findUnique({
-        where: { analysisId: request.params.id },
-        include: {
-          input: { select: { characterCount: true, sourceType: true } },
-          classification: true,
-          intentRecord: true,
-          contextElements: true,
-          recommendations: { include: { alternatives: true } },
-          requiredCapabilities: {
-            orderBy: { ordinal: "asc" },
-            include: { matches: true, gaps: true },
-          },
-          artifactPlanEntries: { include: { artifact: true } },
-        },
-      });
-      if (analysis === null) throw notFoundError();
+      const stored = await readAnalysis(prisma, request.params.id);
+      if (stored === null) throw notFoundError();
 
-      // One verdict per job-description analysis. Indexed rather than filtered
-      // by type: the column is free text (`docs/12` D-10) and a reader should
-      // not have to know the string this path happens to write.
-      const verdict = analysis.recommendations[0];
-
-      return sendSuccess(request, reply, {
-        analysis_id: analysis.analysisId,
-        status: analysis.status,
-        created_at: analysis.createdAt.toISOString(),
-        completed_at: analysis.completedAt?.toISOString() ?? null,
-        derived_title: analysis.derivedTitle,
-        sufficiency_level: analysis.sufficiencyLevel,
-        overall_confidence_band: analysis.overallConfidenceBand,
-        degraded: analysis.degradationFlag,
-        timed_out: analysis.timeoutFlag,
-        input: analysis.input
-          ? {
-              character_count: analysis.input.characterCount,
-              source_type: analysis.input.sourceType,
-            }
-          : null,
-        // `FR-014` — the determined type is visible and its override recorded,
-        // so a reader can tell a correction from an original. `FR-015` —
-        // "the final output records that classification was low-confidence",
-        // which is why `was_low_confidence` is carried rather than inferred
-        // from the score.
-        classification: analysis.classification
-          ? {
-              determined_type: analysis.classification.determinedType,
-              confidence: analysis.classification.confidence,
-              candidate_types: analysis.classification.candidateTypes,
-              was_low_confidence: analysis.classification.wasLowConfidence,
-              user_override_type: analysis.classification.userOverrideType,
-              overridden_at:
-                analysis.classification.overriddenAt?.toISOString() ?? null,
-            }
-          : null,
-
-        // The problem as understood, which `FR-040` puts first.
-        intent: analysis.intentRecord
-          ? {
-              primary_objective: analysis.intentRecord.primaryObjective,
-              inferred_scope: analysis.intentRecord.inferredScope,
-              objective_provenance: analysis.intentRecord.objectiveProvenance,
-            }
-          : null,
-
-        // `FR-043` — stated and inferred are distinguished wherever displayed,
-        // so provenance travels with every element rather than being derived.
-        context: analysis.contextElements.map((element) => ({
-          content: element.content,
-          category: element.category,
-          provenance: element.provenance,
-          specificity_score: element.specificityScore,
-          source_span_start: element.sourceSpanStart,
-          source_span_end: element.sourceSpanEnd,
-          inference_basis: element.inferenceBasis,
-          resolution_hint: element.resolutionHint,
-        })),
-
-        // `FR-044` — unknowns are listed prominently with what would resolve
-        // them, not left for a reader to filter out of the context set.
-        unknowns: analysis.contextElements
-          .filter((element) => element.provenance === "unknown")
-          .map((element) => ({
-            content: element.content,
-            resolution_hint: element.resolutionHint,
+      // `API §9.3` — TWO DOMAIN ERRORS THAT ARE NOT FAILURES.
+      //
+      // "The request was well-formed and processed correctly; the *content*
+      // cannot be analyzed." Both are 422, and both are raised here rather
+      // than at submission because execution is asynchronous: `API-020`
+      // returns 202 before Stage 1 has run, so the refusal cannot be known
+      // while the caller is still on the creating request. §9.4's flow places
+      // these after classification, which is where they are detected — this is
+      // where they become visible.
+      //
+      // Until now they were detected, recorded on the pipeline result, and
+      // discarded. A refused analysis came back 200 with empty sections, which
+      // is indistinguishable from a run that produced nothing for some other
+      // reason. `PV §5` calls the insufficient case a defining product moment;
+      // serving it as an empty success wasted it.
+      const refusal = stored.view.refusal;
+      if (refusal !== null) {
+        if (refusal.code === "unsupported_input_type") {
+          // `FR-092` — say which types *are* supported. A refusal that does
+          // not name an alternative leaves the user with nothing to try.
+          throw unsupportedInputTypeError(
+            CLASSIFICATION_TYPES.filter((type) => type !== "unsupported"),
+          );
+        }
+        // `AI §5.4` — the unknowns are the answer, not decoration. They carry
+        // what is missing and what would resolve it, which is the whole reason
+        // `API §9.3` refuses to accept a generic error here.
+        throw insufficientContextError(
+          refusal.unknowns.map((unknown) => ({
+            content: unknown.content,
+            resolutionHint: unknown.resolution_hint,
           })),
+        );
+      }
 
-        // `FR-042` — the rationale travels with the conclusion.
-        //
-        // `confidence_band` and `confidence_factors` are read from the row and
-        // will be null: Stage 11 is deferred (`docs/12` D-33), so no measured
-        // confidence exists. Null is the honest answer; a value here would be
-        // invented. `FR-045` is therefore **not** satisfied.
-        verdict: verdict
-          ? {
-              decision: verdict.conclusion,
-              rationale: verdict.rationale,
-              // `FR-034` — the criteria the decision was weighed against, and
-              // what was rejected. `FR-042` puts the rationale beside the
-              // conclusion; these are what let a reader disagree with the
-              // standard rather than only with the verdict.
-              criteria_applied: verdict.criteriaApplied,
-              confidence_band: verdict.confidenceBand,
-              confidence_factors: verdict.confidenceFactors,
-              alternatives: verdict.alternatives.map((alternative) => ({
-                alternative: alternative.alternative,
-                rejection_reason: alternative.rejectionReason,
-              })),
-            }
-          : null,
-
-        // What the posting requires, what is already evidenced, and what is
-        // not — grouped so a gap is never separated from the requirement it
-        // belongs to (`docs/12` D-28).
-        requirements: analysis.requiredCapabilities.map((requirement) => ({
-          id: requirement.externalId,
-          name: requirement.name,
-          necessity: requirement.necessity,
-          provenance: requirement.provenance,
-          kind: requirement.kind,
-          matched: requirement.matches.map((match) => ({
-            capability_id: match.capabilityId,
-            strength: match.strength,
-            evidence_ref: match.evidenceRef,
-          })),
-          gaps: requirement.gaps.map((gap) => ({
-            priority: gap.priority,
-            why_it_matters: gap.whyItMatters,
-            decisive: gap.decisive,
-          })),
-        })),
-
-        decisive_gaps: analysis.requiredCapabilities
-          .filter((requirement) => requirement.gaps.some((gap) => gap.decisive))
-          .map((requirement) => requirement.externalId),
-
-        // `FR-091` — omitted and failed stay distinguishable, and the content
-        // of a failed artifact is never presented. `DB §4.4`: "only `valid`
-        // artifacts are presentable."
-        artifacts: analysis.artifactPlanEntries.map((entry) => ({
-          artifact_type: entry.artifactType,
-          planned: entry.planned,
-          outcome: entry.outcome,
-          inclusion_reason: entry.inclusionReason,
-          omission_reason: entry.omissionReason,
-          validation_status: entry.artifact?.validationStatus ?? null,
-          content:
-            entry.artifact?.validationStatus === "valid"
-              ? entry.artifact.content
-              : null,
-        })),
-      });
+      // The view is the response body. `ownership` is deliberately not spread
+      // in: `API-021` carries no owner field, so the reader returns it beside
+      // the view rather than inside it.
+      return sendSuccess(request, reply, stored.view);
     },
   );
 

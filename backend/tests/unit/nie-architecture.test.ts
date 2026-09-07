@@ -303,3 +303,108 @@ test("an identifier one past the end is rejected — the br-001 failure", () => 
     },
   );
 });
+
+// --- FR-023, the technical-assessment path (`docs/15` D-40) --------------
+//
+// The assessment path exists so the user can *defend* an answer under
+// questioning, not merely hold one. `FR-023` therefore requires trade-offs the
+// approach accepts and at least one named rejected alternative with its
+// reason. Both are bound to this path: `FR-020` asks the requirement path for
+// neither, so the parser takes the requirement as a flag rather than applying
+// it everywhere.
+
+const withTradeOffs = (extra: Record<string, unknown>) =>
+  JSON.stringify({
+    summary: "Automated invoice capture and approval routing",
+    data_flow_description: "Email → ingestion → validation → Xero",
+    components: [component()],
+    ...extra,
+  });
+
+test("the requirement path is not asked for trade-offs and omits them", () => {
+  const parsed = parseArchitecture(architecture([component()]), context);
+
+  assert.equal(parsed.tradeOffs, undefined);
+  assert.equal(parsed.rejectedApproaches, undefined);
+});
+
+test("an assessment naming no rejected alternative is refused", () => {
+  assert.throws(
+    () =>
+      parseArchitecture(
+        withTradeOffs({
+          trade_offs: [{ choice: "Polling", accepted: "Up to 5 minutes lag" }],
+        }),
+        context,
+        true,
+      ),
+    (error: unknown) =>
+      error instanceof StageError &&
+      /at least one rejected alternative/.test(error.message),
+    "FR-023: a solution presented without alternatives cannot be defended",
+  );
+});
+
+test("an assessment stating no accepted trade-off is refused", () => {
+  assert.throws(
+    () =>
+      parseArchitecture(
+        withTradeOffs({
+          rejected_approaches: [
+            {
+              approach: "Webhooks",
+              rejection_reason: "Xero does not emit one",
+            },
+          ],
+        }),
+        context,
+        true,
+      ),
+    StageError,
+  );
+});
+
+test("a complete assessment architecture parses both", () => {
+  const parsed = parseArchitecture(
+    withTradeOffs({
+      trade_offs: [{ choice: "Polling", accepted: "Up to 5 minutes lag" }],
+      rejected_approaches: [
+        { approach: "Webhooks", rejection_reason: "Xero does not emit one" },
+      ],
+    }),
+    context,
+    true,
+  );
+
+  assert.equal(parsed.tradeOffs?.[0]?.choice, "Polling");
+  assert.equal(parsed.rejectedApproaches?.[0]?.approach, "Webhooks");
+  assert.equal(
+    parsed.rejectedApproaches?.[0]?.rejectionReason,
+    "Xero does not emit one",
+  );
+});
+
+test("a rejected approach without a reason is refused", () => {
+  // "It was worse" is not a reason, and neither is an absent field. The reason
+  // is the part the user has to be able to say out loud.
+  assert.throws(
+    () =>
+      parseArchitecture(
+        withTradeOffs({
+          trade_offs: [{ choice: "Polling", accepted: "Lag" }],
+          rejected_approaches: [{ approach: "Webhooks" }],
+        }),
+        context,
+        true,
+      ),
+    StageError,
+  );
+});
+
+test("trade_offs must be an array when present, on any path", () => {
+  assert.throws(
+    () => parseArchitecture(withTradeOffs({ trade_offs: "none" }), context),
+    (error: unknown) =>
+      error instanceof StageError && /must be an array/.test(error.message),
+  );
+});

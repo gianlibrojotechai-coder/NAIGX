@@ -40,7 +40,8 @@ Design for what the context supports. Where an unknown element makes part of the
 design uncertain, prefer the simpler structure and let the unknown stand.
 
 Respond with a single JSON object containing exactly these three top-level
-keys — `summary`, `data_flow_description` and `components` — and no others:
+keys — `summary`, `data_flow_description` and `components` — and no others,
+except where the section below adds two for one specific path:
 
 {
   "summary": "...",
@@ -57,4 +58,25 @@ keys — `summary`, `data_flow_description` and `components` — and no others:
       "grounded_in_context_indices": [0]
     }
   ]
+}
+
+ON THE TECHNICAL-ASSESSMENT PATH ONLY
+
+When the classification is `technical_assessment`, the output is something the
+user must be able to defend under questioning, not merely a design. Add two
+further top-level keys:
+
+- `trade_offs` — what this approach gives up in exchange for what it gains.
+  Each entry states the `choice` made and what is `accepted` as its cost. A
+  cost stated as a benefit is not a trade-off.
+- `rejected_approaches` — **at least one** named alternative that was
+  considered and not taken. Each entry gives the `approach` and the
+  `rejection_reason`. "It was worse" is not a reason; say what it was worse at,
+  in terms of this context.
+
+Both keys are omitted entirely on every other path.
+
+{
+  "trade_offs": [{ "choice": "...", "accepted": "..." }],
+  "rejected_approaches": [{ "approach": "...", "rejection_reason": "..." }]
 }

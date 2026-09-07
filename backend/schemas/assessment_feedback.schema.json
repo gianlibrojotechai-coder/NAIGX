@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://naigx/schemas/assessment_feedback.schema.json",
+  "title": "Assessment Feedback",
+  "description": "Stage 9 artifact for the technical_assessment path (FR-023, AI §9.1). Rendered from the Stage 6 architecture and its trade-off reasoning.\n\nAT LEAST ONE REJECTED APPROACH IS MANDATORY. FR-023: 'At least one rejected alternative approach is named with the reason for rejection.' minItems 1 is that requirement, expressed where it can be checked. A solution presented without alternatives cannot be defended under questioning, which is what this artifact is for — FR-023 is explicit that the output is 'structured for the user to understand and defend, not to submit verbatim'.\n\nTRADE-OFFS ARE EQUALLY MANDATORY. An approach that costs nothing is either trivial or misdescribed.",
+  "type": "object",
+  "required": ["approach", "trade_offs", "rejected_approaches"],
+  "properties": {
+    "approach": {
+      "type": "object",
+      "required": ["summary", "data_flow", "components"],
+      "properties": {
+        "summary": { "$ref": "#/$defs/nonEmptyString" },
+        "data_flow": { "$ref": "#/$defs/nonEmptyString" },
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "responsibility", "failure_handling"],
+            "properties": {
+              "name": { "$ref": "#/$defs/nonEmptyString" },
+              "responsibility": { "$ref": "#/$defs/nonEmptyString" },
+              "failure_handling": { "$ref": "#/$defs/nonEmptyString" }
+            }
+          }
+        }
+      }
+    },
+    "trade_offs": {
+      "type": "array",
+      "minItems": 1,
+      "description": "What the approach accepts (FR-023).",
+      "items": {
+        "type": "object",
+        "required": ["choice", "accepted"],
+        "properties": {
+          "choice": { "$ref": "#/$defs/nonEmptyString" },
+          "accepted": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "rejected_approaches": {
+      "type": "array",
+      "minItems": 1,
+      "description": "FR-023 requires at least one, named with its reason.",
+      "items": {
+        "type": "object",
+        "required": ["approach", "rejection_reason"],
+        "properties": {
+          "approach": { "$ref": "#/$defs/nonEmptyString" },
+          "rejection_reason": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1, "pattern": "\\S" }
+  }
+}

@@ -22,6 +22,9 @@ import {
 } from "./http/request-context.js";
 import { healthRoutes, type HealthCheck } from "./routes/health.js";
 import { analysisRoutes } from "./routes/analyses.js";
+import type { ClassificationType } from "./nie/contracts.js";
+import { exportRoutes } from "./routes/exports.js";
+import type { AnalysisEventLog } from "./events/analysis-event-log.js";
 
 /**
  * `DB §4.2` `ANALYSIS_INPUT.content_hash`.
@@ -52,7 +55,17 @@ export interface AppDependencies {
    */
   readonly hashContent?: (content: string) => string;
   /** Starts reasoning for a created analysis. Absent means submissions queue and stay queued. */
-  readonly startExecution?: (analysisId: string) => void;
+  readonly startExecution?: (
+    analysisId: string,
+    classificationOverride?: ClassificationType,
+  ) => void;
+  /** The event log `API-025` streams from. Absent means no streaming endpoint. */
+  readonly eventLog?: AnalysisEventLog;
+  /** `API-032` — regenerate one failed artifact from stored reasoning. */
+  readonly retryArtifact?: (
+    analysisId: string,
+    artifactType: string,
+  ) => Promise<void>;
 }
 
 export async function buildApp({
@@ -62,6 +75,8 @@ export async function buildApp({
   checkTemplates,
   hashContent = defaultHashContent,
   startExecution,
+  eventLog,
+  retryArtifact,
 }: AppDependencies): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
@@ -97,7 +112,12 @@ export async function buildApp({
     prisma: database.prisma,
     hashContent,
     ...(startExecution !== undefined ? { startExecution } : {}),
+    ...(eventLog !== undefined ? { eventLog } : {}),
+    ...(retryArtifact !== undefined ? { retryArtifact } : {}),
   });
+
+  // `API-040`. Registered after the analysis routes it reads through.
+  await app.register(exportRoutes, { prisma: database.prisma });
 
   return app;
 }

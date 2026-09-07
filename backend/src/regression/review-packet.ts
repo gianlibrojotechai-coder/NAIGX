@@ -9,16 +9,19 @@
  * may not be counted as the independent reviewer, in any capacity, for any
  * criterion." A generated pass or fail would not merely be inadmissible — it
  * would contaminate the record it was written into, because §3.3 makes the
- * verdict-plus-evidence pair the unit of retention. The two criteria that
- * arrive pre-marked are marked **not assessable**, which is a statement about
- * *absent material*, not a judgment about reasoning.
+ * verdict-plus-evidence pair the unit of retention. Where a criterion arrives
+ * pre-marked it is marked **not assessable**, which is a statement about
+ * *absent material*, never a judgment about reasoning.
  *
- * WHAT THE PACKETS CANNOT DO. They cannot make `M-08` passable. `docs/10`
- * §3.5 requires all seven criteria to pass per analysis, and `C-3` and `C-6`
- * have no material in these recordings — so no packet here can yield a rubric
- * pass however good the reasoning is. They also cannot satisfy §4.1 sampling
- * (≥20 analyses per input type; eleven `business_requirement` recordings
- * exist). This is partial evidence, and every packet says so on its face.
+ * ASSESSABILITY IS DERIVED FROM THE RECORDING, NOT ASSUMED FROM ITS VINTAGE.
+ * `C-3` and `C-6` were once hard-coded not-assessable. That was true of the
+ * 2026-08-14 captures and would have become false the moment a
+ * job-description case was recorded — those reach Stage 7 and artifact
+ * generation, so both criteria have material. See `assessabilityOf`.
+ *
+ * WHETHER A PASS IS REACHABLE therefore varies per packet, and the header says
+ * which. What no packet can do is satisfy §4.1 sampling or §4.3 reviewer
+ * independence, so a review of any set built here is reported as partial.
  *
  * DETERMINISM. Same recordings and same corpus produce byte-identical packets.
  * No clock, no randomness, no filesystem ordering dependence — a packet that
@@ -27,6 +30,7 @@
 
 import { createHash } from "node:crypto";
 
+import { STAGES } from "../nie/stages.js";
 import type { CorpusCase } from "./corpus.js";
 import type { CaseRecording } from "./recording-store.js";
 
@@ -108,27 +112,128 @@ export const RUBRIC_CRITERIA = [
 export type CriterionId = (typeof RUBRIC_CRITERIA)[number]["id"];
 
 /**
- * Criteria with no material in these recordings, and the evidence for saying so.
+ * Whether a criterion has material in *this* recording, and why not when it
+ * does not.
  *
- * Recorded as *not assessable* per `docs/10` §3.4's precedent for `C-7`:
- * where the material a criterion requires is absent, the honest record is
- * not-assessable, never a pass. A pass inferred from missing data is the
- * failure mode this whole document exists to prevent.
+ * ⚠️ DERIVED, NEVER ASSUMED. `C-3` and `C-6` were once hard-coded
+ * not-assessable, which was accurate for the 2026-08-14 recordings and became
+ * a lie the moment a job-description case was captured: those reach Stage 7
+ * and artifact generation, so both criteria have material. A packet builder
+ * that decided by corpus vintage rather than by content would have told a
+ * reviewer to skip the only two criteria the capture was bought to unblock.
+ *
+ * Not-assessable is a statement about **absent material**, never a judgment
+ * about reasoning — `docs/10` §3.4's precedent for `C-7`.
  */
-export const NOT_ASSESSABLE: Readonly<Record<string, string>> = {
-  "C-3":
-    "NOT ASSESSABLE. C-3's required evidence is the artifact set produced and whether " +
-    "the plan's inclusion and omission reasons justify it (ARTIFACT_PLAN_ENTRY). These " +
-    "recordings contain no artifact plan and no artifacts: they were captured 2026-08-14, " +
-    "before Stages 8 and 9 existed. The regression suite records the same gap as the " +
-    "deferred `artifact_set` assertion (deferred to Stages 8-9).",
-  "C-6":
-    "NOT ASSESSABLE. C-6's required evidence is stated criteria plus at least one " +
-    "rejected alternative with a reason (FR-034). That is a Stage 7 output. These " +
-    "recordings contain no Stage 7 recommendation: they were captured 2026-08-14, before " +
-    "Stage 7 existed. The regression suite records the same gap as the deferred " +
-    "`do_not_automate_conclusion` assertion (deferred to Stage 7).",
+export interface CriterionAssessability {
+  readonly assessable: boolean;
+  /** Present only when not assessable; rendered as the verdict. */
+  readonly reason: string | null;
+}
+
+const NOT_ASSESSABLE_PREFIX = "NOT ASSESSABLE.";
+
+const assessable: CriterionAssessability = { assessable: true, reason: null };
+
+const blocked = (reason: string): CriterionAssessability => ({
+  assessable: false,
+  reason: `${NOT_ASSESSABLE_PREFIX} ${reason}`,
+});
+
+/** The recorded output of one stage, parsed if it parses. */
+const stageOutput = (
+  recording: CaseRecording,
+  stageKey: string,
+): Record<string, unknown> | undefined => {
+  const stage = recording.stages.find((s) => s.stageKey === stageKey);
+  if (stage === undefined) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(unfence(stage.output));
+    return parsed !== null && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>)
+      : undefined;
+  } catch {
+    return undefined;
+  }
 };
+
+/**
+ * `C-3` — the artifact set produced.
+ *
+ * Evidence is the presence of an artifact-generating stage. The inclusion and
+ * omission reasons `docs/10` names live in `ARTIFACT_PLAN_ENTRY`, which is
+ * persisted rather than recorded, so a recording carries the *set* but not the
+ * plan's reasoning — stated in the note so the reviewer is not left looking
+ * for something that was never captured.
+ */
+const proportionality = (recording: CaseRecording): CriterionAssessability => {
+  const artifactStages = new Set(
+    STAGES.filter((s) => s.producesArtifactTypes.length > 0).map(
+      (s) => s.stageKey,
+    ),
+  );
+  const produced = recording.stages.filter((s) =>
+    artifactStages.has(s.stageKey),
+  );
+
+  if (produced.length === 0) {
+    return blocked(
+      "C-3's required evidence is the artifact set produced (ARTIFACT_PLAN_ENTRY). " +
+        "This recording contains no artifact-generating stage — either it predates " +
+        "Stages 8-9, or its path routes to architecture only and never reaches them.",
+    );
+  }
+  return assessable;
+};
+
+/**
+ * `C-6` — stated criteria plus at least one rejected alternative (`FR-034`).
+ *
+ * Checked against the recorded verdict rather than inferred from the stage's
+ * presence: a Stage 7 output captured before `FR-034` landed has a verdict and
+ * still carries neither field.
+ */
+const defensibility = (recording: CaseRecording): CriterionAssessability => {
+  const output = stageOutput(recording, "recommendation_generation");
+  if (output === undefined) {
+    return blocked(
+      "C-6's required evidence is stated criteria plus at least one rejected " +
+        "alternative with a reason (FR-034), which is a Stage 7 output. This " +
+        "recording contains no Stage 7 recommendation — either it predates the " +
+        "stage, or its path produces no recommendation at all.",
+    );
+  }
+
+  const verdict = output["verdict"];
+  const record =
+    verdict !== null && typeof verdict === "object"
+      ? (verdict as Record<string, unknown>)
+      : {};
+  const criteria = record["criteria_applied"];
+  const alternatives = record["alternatives"];
+
+  const hasCriteria = typeof criteria === "string" && criteria.trim() !== "";
+  const hasAlternative = Array.isArray(alternatives) && alternatives.length > 0;
+
+  if (!hasCriteria || !hasAlternative) {
+    return blocked(
+      "C-6 requires stated criteria plus at least one rejected alternative " +
+        `(FR-034). This recording's verdict carries ${hasCriteria ? "criteria but no alternative" : hasAlternative ? "an alternative but no criteria" : "neither"} — ` +
+        "it was captured before Stage 7 produced them.",
+    );
+  }
+  return assessable;
+};
+
+/** The per-criterion assessability of one recording. */
+export function assessabilityOf(
+  recording: CaseRecording,
+): Readonly<Record<string, CriterionAssessability>> {
+  return {
+    "C-3": proportionality(recording),
+    "C-6": defensibility(recording),
+  };
+}
 
 /**
  * A stable reviewer-facing identifier.
@@ -241,19 +346,34 @@ export interface ReviewPacket {
   readonly content: string;
 }
 
-const HEADER = [
-  "> **This is not an M-08 pass, and cannot become one.**",
-  "> `docs/10` §3.5 requires all seven criteria to pass per analysis. Two criteria",
-  "> (C-3, C-6) have no material in this recording and are marked not assessable",
-  "> below, so no packet in this set can yield a rubric pass. §4.1 also requires",
-  "> ≥20 analyses per input type; this set has fewer. This is partial evidence for",
-  "> one input type, and must be reported as partial and single-reviewer (§4.3).",
-  "",
-  "> **Corpus evidence, not current-runtime evidence.** These are provider responses",
-  "> captured on 2026-08-14 and replayed since. Per `docs/12` D-24 they are **not**",
-  "> evidence that the prompts now in force produce these responses. A verdict here",
-  "> describes the reasoning as it was captured, not as the system reasons today.",
-].join("\n");
+/**
+ * The header, which states the ceiling this packet actually has.
+ *
+ * Written from the recording rather than fixed, because the ceiling moved: a
+ * recording with every criterion assessable can in principle reach a
+ * seven-of-seven pass, and telling its reviewer otherwise would be false.
+ */
+const header = (blockedIds: readonly string[]): string => {
+  const lines = [
+    blockedIds.length > 0
+      ? "> **This packet cannot yield a rubric pass.**"
+      : "> **This packet is not an M-08 pass.**",
+    blockedIds.length > 0
+      ? `> \`docs/10\` §3.5 requires all seven criteria to pass. ${blockedIds.join(" and ")} ` +
+        "have no material in this recording and are marked not assessable below."
+      : "> All seven criteria have material here, so a pass is reachable — but a pass" +
+        "\n> is a reviewer's judgment, and M-08 additionally needs an adequate sample" +
+        "\n> (§4.1) and a qualifying reviewer (§4.3).",
+    "> Any review of this set is reported as partial and, unless a second human" +
+      "\n> reviews the same packets, single-reviewer (§4.3).",
+    "",
+    "> **Corpus evidence, not current-runtime evidence.** These are captured provider",
+    "> responses, replayed since. Per `docs/12` D-24 they are **not** evidence that the",
+    "> prompts now in force produce these responses. A verdict here describes the",
+    "> reasoning as it was captured, not as the system reasons today.",
+  ];
+  return lines.join("\n");
+};
 
 /** Builds one packet. Pure: no clock, no filesystem, no randomness. */
 export function buildPacket(
@@ -265,9 +385,15 @@ export function buildPacket(
 ): ReviewPacket {
   const id = reviewerId(corpusCase.caseId);
   const candidates = comparisonCandidates(id, peers, corpusCase.inputType);
+  // Derived from this recording, not from the corpus vintage.
+  const assessability = assessabilityOf(recording);
+  const blockedIds = Object.entries(assessability)
+    .filter(([, state]) => !state.assessable)
+    .map(([criterionId]) => criterionId)
+    .sort();
   const lines: string[] = [];
 
-  lines.push(`# Review packet ${id}`, "", HEADER, "");
+  lines.push(`# Review packet ${id}`, "", header(blockedIds), "");
   lines.push("---", "", "## 1 · The submitted input", "");
   lines.push("```text", corpusCase.inputText, "```", "");
   lines.push(
@@ -356,9 +482,14 @@ export function buildPacket(
       );
     }
 
-    const preset = NOT_ASSESSABLE[criterion.id];
-    if (preset !== undefined) {
-      lines.push(`**Verdict:** ${preset}`, "", "**Evidence:** see above.", "");
+    const state = assessability[criterion.id];
+    if (state !== undefined && !state.assessable) {
+      lines.push(
+        `**Verdict:** ${state.reason ?? "NOT ASSESSABLE."}`,
+        "",
+        "**Evidence:** see above.",
+        "",
+      );
     } else {
       lines.push(
         "**Verdict:** ` pass / fail / not assessable `",
@@ -374,10 +505,15 @@ export function buildPacket(
   lines.push(
     "### Overall",
     "",
-    "Per §3.5 an analysis passes only when all seven criteria pass. C-3 and C-6 are",
-    "not assessable here, so this analysis cannot be recorded as a rubric pass.",
+    blockedIds.length > 0
+      ? `Per §3.5 an analysis passes only when all seven criteria pass. ${blockedIds.join(" and ")} ` +
+          "are not assessable here, so this analysis cannot be recorded as a rubric pass."
+      : "Per §3.5 this analysis passes only if all seven criteria pass. All seven have " +
+          "material, so a pass is reachable — it is yours to determine.",
     "",
-    "- **Overall:** ` fail / not assessable `  (a pass is not reachable — see above)",
+    blockedIds.length > 0
+      ? "- **Overall:** ` fail / not assessable `  (a pass is not reachable — see above)"
+      : "- **Overall:** ` pass / fail `",
     "- **Notes:**",
     "",
     "> ",

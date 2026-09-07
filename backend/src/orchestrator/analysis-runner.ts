@@ -22,15 +22,18 @@
  * unhandled rejection.
  */
 
+import type { ClassificationType } from "../nie/contracts.js";
 import type { PrismaClient } from "../generated/prisma/client.js";
 import type { PrismaClient as TracePrismaClient } from "../generated/prisma-trace/client.js";
 import { createFragmentResolver } from "../db/fragment-resolver.js";
 import { createFragmentUsageSink } from "../db/fragment-usage-sink.js";
 import { createStageTraceSink } from "../db/stage-trace-sink.js";
 import { createStageResultSink } from "../db/analysis-result-sink.js";
+import { readRecommendation } from "../db/recommendation-reader.js";
 import { createProviderInvocationRecorder } from "../db/provider-invocation-recorder.js";
 import { createProviderInvoker } from "../provider/invoke.js";
 import type { ProviderAdapter } from "../provider/capability.js";
+import type { AnalysisEventSink } from "../nie/ports.js";
 import type { TokenRate } from "../provider/cost.js";
 import { createPipeline } from "../nie/pipeline.js";
 import { loadCapabilityProfile } from "../nie/capability-profile.js";
@@ -54,12 +57,29 @@ export interface AnalysisRunnerDependencies {
   readonly providerKey: string;
   readonly modelKey: string;
   readonly onError?: (error: unknown) => void;
+  /** Receives progress events (`FR-041`). Absent means nothing is watching. */
+  readonly eventSink?: AnalysisEventSink;
 }
 
 export interface AnalysisRunner {
   readonly mode: ExecutionMode;
   /** Fire-and-forget: `API-020` returns before reasoning completes. */
-  readonly startExecution: (analysisId: string) => void;
+  readonly startExecution: (
+    analysisId: string,
+    classificationOverride?: ClassificationType,
+  ) => void;
+  /**
+   * `API-032` — regenerate one failed artifact from stored reasoning.
+   *
+   * Awaited, unlike `startExecution`: a retry is a single Stage 9 call rather
+   * than a whole analysis, and the caller has something to report when it
+   * settles. It reuses the same pipeline object, so the retry composes the
+   * same fragments and writes the same traces as the attempt it replaces.
+   */
+  readonly retryArtifact: (
+    analysisId: string,
+    artifactType: string,
+  ) => Promise<void>;
 }
 
 /**
@@ -104,6 +124,11 @@ export async function createAnalysisRunner(
   // operator's authored inventory. A missing profile is carried, not thrown:
   // requirements, workflows and assessments still run, and a posting halts at
   // Stage 7 with the reason the pipeline already gives (`docs/12` D-27).
+  // One sink, shared by the live pipeline and by a retry: both write through
+  // the same `DB §4.4` path, so a regenerated artifact is stored exactly as a
+  // first attempt would have been.
+  const resultSink = createStageResultSink(deps.prisma);
+
   let capabilityProfile: CapabilityProfile | undefined;
   try {
     capabilityProfile = loadCapabilityProfile();
@@ -122,7 +147,8 @@ export async function createAnalysisRunner(
     fragmentUsageSink: createFragmentUsageSink(deps.prisma),
     // Progressive persistence (`DB §6.2`): each stage commits as it completes,
     // so a later failure keeps what earlier stages produced (`FR-091`).
-    resultSink: createStageResultSink(deps.prisma),
+    resultSink,
+    ...(deps.eventSink !== undefined ? { eventSink: deps.eventSink } : {}),
     modelVersionId: modelVersion.modelVersionId,
     modelKey: modelVersion.modelKey,
     ...(capabilityProfile !== undefined ? { capabilityProfile } : {}),
@@ -134,10 +160,70 @@ export async function createAnalysisRunner(
     mode: deps.mode,
     runPipeline: (input) => pipeline.run(input),
     ...(deps.onError !== undefined ? { onError: deps.onError } : {}),
+    ...(deps.eventSink !== undefined ? { eventSink: deps.eventSink } : {}),
   });
 
   return {
     mode: deps.mode,
+
+    async retryArtifact(analysisId, artifactType) {
+      // Read back what Stage 7 stored. `API-032` reuses reasoning rather than
+      // recomputing it, so this is the only input the regeneration gets.
+      const recommendation = await readRecommendation(deps.prisma, analysisId);
+      if (recommendation === null) {
+        throw new Error(
+          `Analysis ${analysisId} has no stored recommendation to regenerate ${artifactType} from`,
+        );
+      }
+
+      const classification = await deps.prisma.classification.findFirst({
+        where: { analysisId },
+        select: { determinedType: true },
+      });
+      if (classification === null) {
+        throw new Error(`Analysis ${analysisId} has no stored classification`);
+      }
+
+      const regenerated = await pipeline.regenerateArtifact({
+        analysisId,
+        classifiedAs: classification.determinedType,
+        recommendation,
+      });
+
+      // `DB §4.4` stores the outcome either way — a second failure is a
+      // labelled failure, not a silent no-op. Nothing is written when the
+      // generator returned nothing parseable, because there is no document to
+      // store and the plan entry already says `failed`.
+      if (regenerated.content !== undefined) {
+        await resultSink.persistArtifact?.(analysisId, {
+          artifactType: regenerated.artifactType,
+          content: regenerated.content,
+          depthLevel: "standard",
+          generationAttemptCount: regenerated.generationAttemptCount,
+          validationStatus: regenerated.validationStatus,
+        });
+      }
+
+      // The stream reports the retry's outcome exactly as the first attempt
+      // did (`API §7.4`), so a client watching sees the artifact replace its
+      // own failure rather than having to re-fetch to notice.
+      deps.eventSink?.emit(
+        analysisId,
+        regenerated.validationStatus === "valid"
+          ? {
+              type: "artifact",
+              artifactType: regenerated.artifactType,
+              content: regenerated.content,
+            }
+          : {
+              type: "artifact_failed",
+              artifactType: regenerated.artifactType,
+              reason: "The retry did not produce a document that validated.",
+              retryAvailable: true,
+            },
+      );
+    },
+
     startExecution: (analysisId) => {
       // Never awaited, and never allowed to become an unhandled rejection: the
       // executor already writes a terminal status, so this only surfaces the

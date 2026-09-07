@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://naigx/schemas/mermaid_diagram.schema.json",
+  "title": "Mermaid Diagram",
+  "description": "Stage 9 artifact for the technical_assessment path (AI §9.1). Rendered from the architecture components rather than generated.\n\nNODES MATCH COMPONENTS BY CONSTRUCTION. AI §9.1 requires it, and rendering rather than generating is how it is guaranteed: a diagram naming a component the architecture does not have has no way to occur. node_count is carried so the correspondence is checkable without parsing the diagram source.\n\nWHY THE SOURCE IS A STRING. Mermaid is a text format; storing it as structured nodes and edges would mean re-serialising it before anything could render it, and the renderer is the consumer.",
+  "type": "object",
+  "required": ["diagram", "node_count"],
+  "properties": {
+    "diagram": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^flowchart ",
+      "description": "Mermaid source. Begins with a flowchart declaration or no renderer will accept it."
+    },
+    "node_count": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Component count. A diagram of nothing is not a diagram."
+    }
+  }
+}

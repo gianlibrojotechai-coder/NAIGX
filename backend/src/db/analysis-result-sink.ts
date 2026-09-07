@@ -29,11 +29,13 @@ import type {
   ArchitectureResult,
   ArtifactPlanEntry,
   ClassificationResult,
+  ClassificationType,
   ContextResult,
   GapItem,
   IntentResult,
   MatchedCapability,
   RecommendationResult,
+  WorkflowFinding,
 } from "../nie/contracts.js";
 import type { PersistedArtifact, StageResultSink } from "../nie/ports.js";
 import { requirePublishedSchemaId } from "./artifact-schema-publisher.js";
@@ -57,6 +59,17 @@ export function createStageResultSink(prisma: PrismaClient): StageResultSink {
   const contextElementIds = new Map<string, readonly string[]>();
 
   /**
+   * Architecture component ids in order, per analysis.
+   *
+   * `RiskItem.component_id` is NOT NULL with a foreign key (`FR-032`,
+   * `DB §4.3` — "a risk that cannot name what it affects cannot be stored"),
+   * and a Stage 6W finding names its step by *index*. Holding the ids from our
+   * own component write is what lets a finding resolve one without re-querying
+   * by name, exactly as `contextElementIds` does for grounding.
+   */
+  const componentIds = new Map<string, readonly string[]>();
+
+  /**
    * Plan entry ids by artifact type, per analysis.
    *
    * Stage 9 stores an artifact against the plan entry that decided it should
@@ -69,6 +82,7 @@ export function createStageResultSink(prisma: PrismaClient): StageResultSink {
     async persistClassification(
       analysisId: string,
       classification: ClassificationResult,
+      overriddenBy?: ClassificationType,
     ): Promise<void> {
       await prisma.classification.create({
         data: {
@@ -77,6 +91,17 @@ export function createStageResultSink(prisma: PrismaClient): StageResultSink {
           confidence: classification.confidence,
           candidateTypes: [...classification.candidateTypes],
           wasLowConfidence: classification.wasLowConfidence,
+          // `FR-014` — "override events are recorded for M-6". Written on the
+          // *new* analysis, because `API §7.5` creates one rather than
+          // mutating the original: `DB DP-3` makes analyses immutable, and an
+          // update would destroy both what the system originally concluded and
+          // the accuracy signal that comparison provides.
+          //
+          // Absent, not null, when nothing was overridden — the same rule the
+          // halt columns follow.
+          ...(overriddenBy !== undefined
+            ? { userOverrideType: overriddenBy, overriddenAt: new Date() }
+            : {}),
         },
       });
     },
@@ -417,6 +442,7 @@ export function createStageResultSink(prisma: PrismaClient): StageResultSink {
         );
       }
 
+      const created: string[] = [];
       await prisma.$transaction(async (tx) => {
         const model = await tx.architectureModel.create({
           data: {
@@ -446,6 +472,7 @@ export function createStageResultSink(prisma: PrismaClient): StageResultSink {
             },
             select: { componentId: true },
           });
+          created.push(row.componentId);
 
           // The `FR-030` traceability chain, made queryable. The referenced
           // context elements are already committed by Stage 3.
@@ -464,6 +491,54 @@ export function createStageResultSink(prisma: PrismaClient): StageResultSink {
                 relevance: GROUNDING_RELEVANCE,
               };
             }),
+          });
+        }
+      });
+
+      componentIds.set(analysisId, created);
+    },
+
+    /**
+     * Stage 6W findings, as `RISK_ITEM` rows (`FR-032`, `docs/15` D-40).
+     *
+     * Each finding names a step of the reviewed workflow, and those steps were
+     * persisted as `ArchitectureComponent` rows by `persistArchitecture`
+     * immediately before this — which is what makes the NOT NULL
+     * `component_id` satisfiable on a path that designs no architecture.
+     *
+     * `docs/09` §2 severity and likelihood are stored as given; the derived
+     * score and band are computed at presentation and never stored.
+     */
+    async persistWorkflowFindings(
+      analysisId: string,
+      findings: readonly WorkflowFinding[],
+    ): Promise<void> {
+      if (findings.length === 0) return;
+
+      const ids = componentIds.get(analysisId);
+      if (ids === undefined) {
+        throw new Error(
+          `Cannot persist findings for analysis ${analysisId}: no components were persisted first`,
+        );
+      }
+
+      await prisma.$transaction(async (tx) => {
+        for (const finding of findings) {
+          const componentId = ids[finding.componentIndex];
+          if (componentId === undefined) {
+            throw new Error(
+              `Finding names step ${String(finding.componentIndex)}, which was not persisted`,
+            );
+          }
+          await tx.riskItem.create({
+            data: {
+              analysisId,
+              componentId,
+              description: finding.description,
+              severity: finding.severity,
+              likelihood: finding.likelihood,
+              mitigation: finding.remediation,
+            },
           });
         }
       });

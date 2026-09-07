@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://naigx/schemas/risk_assessment.schema.json",
+  "title": "Risk Assessment",
+  "description": "Stage 9 artifact for the existing_workflow path (FR-032, AI §9.1). Rendered from the Stage 6W findings.\n\nEVERY RISK NAMES A COMPONENT AND A MITIGATION. FR-032 states it and DB §4.3 enforces it with a NOT NULL column: a risk that cannot name what it affects cannot be stored. Both fields are required here for the same reason — a risk register of unattributed risks is a list of worries.\n\nSeverity and likelihood are the 1-5 integer scales of docs/09 §2. Score and band are derived at presentation, never stored, so they are absent here.",
+  "type": "object",
+  "required": ["risks"],
+  "properties": {
+    "risks": {
+      "type": "array",
+      "description": "May be empty — a sound workflow carries no risks, and says so.",
+      "items": {
+        "type": "object",
+        "required": ["component", "description", "severity", "likelihood", "mitigation"],
+        "properties": {
+          "component": { "$ref": "#/$defs/nonEmptyString" },
+          "description": { "$ref": "#/$defs/nonEmptyString" },
+          "severity": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "likelihood": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "mitigation": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "no_risks_statement": {
+      "$ref": "#/$defs/nonEmptyString",
+      "description": "Present when risks is empty, carrying FR-021's explicit soundness statement."
+    }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1, "pattern": "\\S" }
+  }
+}

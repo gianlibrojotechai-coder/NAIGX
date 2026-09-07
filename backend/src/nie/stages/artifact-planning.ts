@@ -22,13 +22,14 @@
  */
 
 import {
-  ARTIFACT_TYPES,
   IMPLEMENTED_ARTIFACT_TYPES,
+  PATH_ARTIFACT_TYPES,
   isBuildableKind,
   type ArtifactOutcome,
   type ArtifactPlanEntry,
   type ArtifactType,
   type GapItem,
+  type RecommendationForArtifacts,
   type RecommendationResult,
   type RequiredCapability,
 } from "../contracts.js";
@@ -49,7 +50,7 @@ import {
  * principle: never ask the model to compute what the application can derive.
  */
 export function eligibleGaps(
-  recommendation: RecommendationResult,
+  recommendation: RecommendationForArtifacts,
 ): readonly GapItem[] {
   if (recommendation.verdict.decision !== "build_first") return [];
 
@@ -81,7 +82,13 @@ export function planArtifacts(
   const eligible = eligibleGaps(recommendation);
   const implemented = new Set<string>(IMPLEMENTED_ARTIFACT_TYPES);
 
-  return ARTIFACT_TYPES.map((artifactType: ArtifactType): ArtifactPlanEntry => {
+  // Only this path's artifacts (`AI §9.1`). Walking the whole catalogue would
+  // record an omission for every artifact of every other path — a Mermaid
+  // diagram "omitted" from a job-description analysis answers a question
+  // nobody asked.
+  const types = PATH_ARTIFACT_TYPES["job_description"];
+
+  return types.map((artifactType: ArtifactType): ArtifactPlanEntry => {
     if (!implemented.has(artifactType)) {
       return {
         artifactType,

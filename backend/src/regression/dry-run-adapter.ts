@@ -109,7 +109,19 @@ const recommendationFrom = (profile: CapabilityProfile): string | undefined => {
       decision: "build_first",
       rationale:
         "Dry-run placeholder verdict: one requirement is evidenced and one is not",
+      // `FR-034` / `AI-031`. The rehearsal has to satisfy the same contract the
+      // paid capture will, or it certifies a path the real run cannot take —
+      // which is exactly what a dry run exists to prevent.
+      criteria_applied:
+        "Dry-run placeholder criteria: must-have technical requirements weighed against evidenced capabilities",
       decisive_gaps: ["req-2"],
+      alternatives: [
+        {
+          alternative: "Apply now without building",
+          rejection_reason:
+            "Dry-run placeholder: the decisive gap has no evidence behind it",
+        },
+      ],
     },
   });
 };

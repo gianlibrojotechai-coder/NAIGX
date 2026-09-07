@@ -110,9 +110,11 @@ test("every fragment the composer requires exists", () => {
   for (const key of required) {
     assert.ok(authored.has(key), `composer requires fragment "${key}"`);
   }
-  // Stage 9 registers per generator (`AID-08`), so the sixth stage key is
-  // `portfolio_suggestions` rather than a shared `artifact_generation`.
-  assert.equal(required.length, 14, "4 foundation + 6 stage + 4 type modifier");
+  // Stage 9 registers per generator (`AID-08`), so one stage key is
+  // `portfolio_suggestions` rather than a shared `artifact_generation`. Stage 6
+  // does the same for the same reason (`docs/15` D-40): `workflow_review` and
+  // `architecture_analysis` are two jobs with two prompts, never one.
+  assert.equal(required.length, 15, "4 foundation + 7 stage + 4 type modifier");
 });
 
 test("fragment classes map onto the DB §4.5 vocabulary", () => {

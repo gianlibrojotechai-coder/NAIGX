@@ -39,6 +39,7 @@ import { parseIntent } from "../../src/nie/stages/intent.js";
 import { parseContext } from "../../src/nie/stages/context-extraction.js";
 import { parseCapabilityProfile } from "../../src/nie/capability-profile.js";
 import { composePrompt } from "../../src/nie/prompt.js";
+import type { AnalysisEvent } from "../../src/nie/events.js";
 import type {
   FragmentUsageRecord,
   ResolvedFragment,
@@ -355,6 +356,7 @@ const buildHarness = async (
 ) => {
   const traces: StageTraceRecord[] = [];
   const usages: FragmentUsageRecord[] = [];
+  const events: AnalysisEvent[] = [];
 
   const pipeline = createPipeline({
     invoker: createProviderInvoker({
@@ -390,11 +392,16 @@ const buildHarness = async (
     },
     modelVersionId: "33333333-3333-4333-8333-333333333333",
     modelKey: "test-model",
+    eventSink: {
+      emit: (_analysisId, event) => {
+        events.push(event);
+      },
+    },
     ...(options.withProfile === false ? {} : { capabilityProfile: profile }),
     now: () => new Date(0),
   });
 
-  return { pipeline, traces, usages };
+  return { pipeline, traces, usages, events };
 };
 
 const harness = async (
@@ -405,10 +412,11 @@ const harness = async (
   >;
   traces: StageTraceRecord[];
   usages: FragmentUsageRecord[];
+  events: AnalysisEvent[];
 }> => {
-  const { pipeline, traces, usages } = await buildHarness(options);
+  const { pipeline, traces, usages, events } = await buildHarness(options);
   const result = await pipeline.run({ analysisId: ANALYSIS_ID, text: INPUT });
-  return { result, traces, usages };
+  return { result, traces, usages, events };
 };
 
 // --- the slice runs end to end -------------------------------------------
@@ -1047,4 +1055,88 @@ test("a regeneration that fails again still fails closed", async () => {
   );
   assert.equal(entry?.outcome, "failed");
   assert.ok(entry?.inclusionReason, "the reason it was planned survives");
+});
+
+// --- progress events (API-025, FR-041) -----------------------------------
+
+test("the run narrates itself in the order API §7.4 specifies", async () => {
+  const { events } = await harness();
+  const types = events.map((e) => e.type);
+
+  assert.deepEqual(
+    types,
+    [
+      "classification",
+      "understanding",
+      "reasoning_complete",
+      "plan",
+      "artifact",
+    ],
+    "each stage announces itself as it finishes (FR-041)",
+  );
+
+  // `API §7.4`: the client must know what to expect before results arrive, so
+  // the layout does not jump as artifacts land.
+  assert.ok(
+    types.indexOf("plan") < types.indexOf("artifact"),
+    "plan precedes any artifact event",
+  );
+});
+
+test("a failed artifact is announced, not dropped", async () => {
+  // `FR-091` — "tried and failed" must stay distinguishable from the "chose
+  // not to" the plan event already carried.
+  const invalid = JSON.parse(PORTFOLIO_OUTPUT) as {
+    consolidation_rationale?: string;
+  };
+  delete invalid.consolidation_rationale;
+
+  const { events } = await harness({ portfolio: JSON.stringify(invalid) });
+  const failure = events.find((e) => e.type === "artifact_failed");
+
+  assert.ok(failure, "the failure reaches the stream");
+  assert.ok(
+    !events.some((e) => e.type === "artifact"),
+    "and no artifact event claims success",
+  );
+});
+
+test("no event carries a prompt, fragment, provider or raw error", async () => {
+  // `API §8.2` keeps stage-internal reasoning content off this channel, and
+  // `AI-006` keeps provider identity off it entirely. Checked on the serialised
+  // payloads, because that is what actually reaches a client.
+  const invalid = JSON.parse(PORTFOLIO_OUTPUT) as {
+    consolidation_rationale?: string;
+  };
+  delete invalid.consolidation_rationale;
+
+  const { events } = await harness({ portfolio: JSON.stringify(invalid) });
+  const body = JSON.stringify(events).toLowerCase();
+
+  for (const forbidden of [
+    "fragment",
+    "prompt",
+    "anthropic",
+    "claude",
+    "instructions",
+    "stage_trace",
+    "consolidation_rationale",
+  ]) {
+    assert.ok(!body.includes(forbidden), `an event leaked "${forbidden}"`);
+  }
+});
+
+test("the understanding event carries unknowns with their resolution hints", async () => {
+  // `FR-044` — unknowns surface early, while the run is still going, rather
+  // than only in the final retrieval.
+  const { events } = await harness();
+  const understanding = events.find((e) => e.type === "understanding");
+
+  assert.ok(understanding && understanding.type === "understanding");
+  assert.equal(typeof understanding.primaryObjective, "string");
+  assert.ok(
+    understanding.contextCounts.stated >= 0 &&
+      understanding.contextCounts.inferred >= 0,
+    "counts by provenance, not the elements themselves",
+  );
 });

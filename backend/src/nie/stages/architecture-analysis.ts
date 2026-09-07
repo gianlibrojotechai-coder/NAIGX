@@ -22,9 +22,11 @@
 import {
   ArchitectureTraceabilityError,
   StageError,
+  type AcceptedTradeOff,
   type ArchitectureComponentDraft,
   type ArchitectureResult,
   type ContextResult,
+  type RejectedApproach,
 } from "../contracts.js";
 import {
   asRecord,
@@ -111,6 +113,17 @@ function parseComponent(
 export function parseArchitecture(
   responseText: string,
   context: ContextResult,
+  /**
+   * Whether the `FR-023` trade-off obligations apply.
+   *
+   * `AI §7.1` maps RM-5 Trade-off Evaluation to both the requirement and
+   * assessment paths, but only `FR-023` makes it an acceptance criterion: "at
+   * least one rejected alternative approach is named with the reason for
+   * rejection", and "trade-offs accepted by the proposed approach are stated".
+   * `FR-020` asks for neither, so requiring them everywhere would fail the
+   * requirement path against a rule nothing states about it.
+   */
+  requireTradeOffs = false,
 ): ArchitectureResult {
   const record = parseStructured(STAGE_NUMBER, STAGE_KEY, responseText);
 
@@ -165,7 +178,78 @@ export function parseArchitecture(
     }
   }
 
-  return { summary, dataFlowDescription, components };
+  // `FR-023` — a design nobody can question is a design nobody can defend.
+  // Parsed on every path, because a requirement analysis may volunteer them,
+  // and *required* only where the specification requires them.
+  const tradeOffs = parseTradeOffs(record);
+  const rejectedApproaches = parseRejectedApproaches(record);
+
+  if (requireTradeOffs) {
+    if (rejectedApproaches.length === 0) {
+      return fail(
+        "the assessment path must name at least one rejected alternative approach with its reason (FR-023) — a solution presented without alternatives cannot be defended under questioning",
+      );
+    }
+    if (tradeOffs.length === 0) {
+      return fail(
+        "the assessment path must state the trade-offs the proposed approach accepts (FR-023) — an approach that costs nothing is either trivial or misdescribed",
+      );
+    }
+  }
+
+  return {
+    summary,
+    dataFlowDescription,
+    components,
+    ...(tradeOffs.length > 0 ? { tradeOffs } : {}),
+    ...(rejectedApproaches.length > 0 ? { rejectedApproaches } : {}),
+  };
+}
+
+/**
+ * `FR-023` trade-offs, parsed leniently and required selectively.
+ *
+ * An absent key yields an empty list rather than an error, and
+ * `parseArchitecture` decides whether that is acceptable for the path in hand.
+ * The requirement path is never asked for these, so absence there is correct.
+ */
+function parseTradeOffs(
+  record: Record<string, unknown>,
+): readonly AcceptedTradeOff[] {
+  const raw = record["trade_offs"];
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) {
+    return fail("trade_offs must be an array when present");
+  }
+
+  return raw.map((value, index) => {
+    const label = `trade_offs[${String(index)}]`;
+    const entry = asRecord(CTX, value, label);
+    return {
+      choice: requireString(CTX, entry, "choice"),
+      accepted: requireString(CTX, entry, "accepted"),
+    };
+  });
+}
+
+/** `FR-023` / `AI-031` — what was considered and not taken, with the reason. */
+function parseRejectedApproaches(
+  record: Record<string, unknown>,
+): readonly RejectedApproach[] {
+  const raw = record["rejected_approaches"];
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) {
+    return fail("rejected_approaches must be an array when present");
+  }
+
+  return raw.map((value, index) => {
+    const label = `rejected_approaches[${String(index)}]`;
+    const entry = asRecord(CTX, value, label);
+    return {
+      approach: requireString(CTX, entry, "approach"),
+      rejectionReason: requireString(CTX, entry, "rejection_reason"),
+    };
+  });
 }
 
 export const ARCHITECTURE_STAGE = {

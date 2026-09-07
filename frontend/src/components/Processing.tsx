@@ -24,15 +24,33 @@ const STATUS_COPY: Record<AnalysisStatus, string> = {
   timed_out: "The run timed out.",
 };
 
+/** What each event means, in the order the pipeline emits them (`API §7.4`). */
+const MILESTONES: Record<string, string> = {
+  classification: "Worked out what kind of input this is",
+  understanding: "Extracted the problem and its context",
+  insufficient_context:
+    "Stopped — the input does not support a reliable answer",
+  reasoning_complete: "Finished reasoning",
+  plan: "Decided which artifacts to produce",
+  artifact: "Produced an artifact",
+  artifact_failed: "An artifact was attempted and did not validate",
+  complete: "Done",
+  error: "The run failed",
+};
+
 export function Processing({
   status,
   elapsedSeconds,
   connectionWarning,
+  progress,
+  streaming,
   onCancel,
 }: {
   status: AnalysisStatus | null;
   elapsedSeconds: number;
   connectionWarning: string | null;
+  progress: readonly { type: string }[];
+  streaming: boolean;
   onCancel: () => void;
 }) {
   return (
@@ -52,10 +70,39 @@ export function Processing({
             {status === null ? "Submitting…" : STATUS_COPY[status]}
           </p>
           <p className="text-sm text-slate-500 mt-3">
-            Elapsed {formatDuration(elapsedSeconds)} · checking every 2 seconds.
-            Results appear once the run finishes — this build retrieves the
-            whole analysis at the end rather than streaming it.
+            Elapsed {formatDuration(elapsedSeconds)}
+            {streaming
+              ? " · following progress live"
+              : " · checking every 2 seconds"}
+            .
           </p>
+
+          {/* `FR-041` — what has actually completed, as it completes. Only
+              events the server sent appear here; nothing is predicted. */}
+          {progress.length > 0 && (
+            <ol className="mt-4 space-y-1.5">
+              {progress.map((event, index) => (
+                <li
+                  key={`${event.type}-${String(index)}`}
+                  className="flex items-start gap-2 text-sm text-slate-700"
+                >
+                  <span
+                    aria-hidden="true"
+                    className={
+                      event.type === "artifact_failed" || event.type === "error"
+                        ? "text-rose-600"
+                        : "text-emerald-600"
+                    }
+                  >
+                    {event.type === "artifact_failed" || event.type === "error"
+                      ? "✕"
+                      : "✓"}
+                  </span>
+                  <span>{MILESTONES[event.type] ?? event.type}</span>
+                </li>
+              ))}
+            </ol>
+          )}
 
           {connectionWarning !== null && (
             <p

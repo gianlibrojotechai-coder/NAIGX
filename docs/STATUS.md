@@ -7,9 +7,9 @@
 
 ## Current Position
 
-- **Current sprint:** Sprint 3 (Paths and presentation) of seven — Sprint 0 through Sprint 6 — entered under a recorded deviation, `docs/12` D-37, **amended 2026-09-07 by [D-39](14-D-39-D-37-Amendment.md)**.
-- **Current milestones:** M-12 (Frontend foundation) — first increment shipped. M-10 and M-11 open and unstarted. M-08 unrun and carried from Sprint 2.
-- **Overall state.** The `business_requirement` and `job_description` reasoning paths run end to end through eight of twelve NIE stages, persist completely to Postgres, and are retrievable and presentable through the API and a working single-page frontend. One genuine live-provider run has been executed and cost $0.2732. Sprint 2's quality gate was never run. Sprint 3 began within D-37's transport-and-presentation boundary; D-39 has since widened it to a bounded set of reasoning prerequisites, because the gate proved unreachable without them. `FR-034` landed 2026-09-07: Stage 7 now requires stated criteria and a rejected alternative, and the `AIP-4` NOT NULL invariant is restored. That is engineering complete, not evidence complete — no analysis carries that evidence until fragment v3 is activated, which needs a capture nobody has authorised.
+- **Current sprint:** Sprint 4 (Handoff surface) of seven — Sprint 0 through Sprint 6. Sprint 3 was entered under a recorded deviation, `docs/12` D-37, **amended 2026-09-07 by [D-39](14-D-39-D-37-Amendment.md)**; its exit criterion is still not claimed, and Sprint 3 milestones are carried rather than closed.
+- **Current milestones:** M-14 (Degradation) — **complete**. **Sprint 4's deliverable list is now complete**: refusal handling (`API §9.3`), `FR-006` input persistence and `FR-014` classification correction all landed 2026-09-07. M-13 (Export) — **Markdown and PDF both built and gate-green**, under three recorded deviations; `SA AQ-3` is resolved by [D-43](18-D-43-PDF-Rendering-Approach.md). M-12 (Frontend foundation) — **implementation complete, not demonstrated**: hierarchy, layered depth, streaming and all five artifact presenters are built; `FR-045` stays partial under D-33, and the Sprint 3 exit criterion is not claimed. M-11 (All analysis paths) — the authorised scope is implemented, with documented deferments; the milestone is earned by measurement, and no path has been measured. M-10 open and unstarted. M-08 unrun and carried from Sprint 2.
+- **Overall state.** All four reasoning paths — `business_requirement`, `job_description`, `existing_workflow`, `technical_assessment` — now run end to end through eight of twelve NIE stages and persist to Postgres. `business_requirement` and `job_description` are additionally retrievable and presentable through the API and a working single-page frontend; the two paths M-11 added are exercised offline only, because their prompt fragments are inactive under D-39. One genuine live-provider run has been executed and cost $0.2732. Sprint 2's quality gate was never run. Sprint 3 began within D-37's transport-and-presentation boundary; D-39 has since widened it to a bounded set of reasoning prerequisites, because the gate proved unreachable without them. `FR-034` landed 2026-09-07: Stage 7 now requires stated criteria and a rejected alternative, and the `AIP-4` NOT NULL invariant is restored. That is engineering complete, not evidence complete — no analysis carries that evidence until fragment v3 is activated, which needs a capture nobody has authorised. **Sprint 4 has since delivered M-14 degradation, M-13 export in both formats, and `API §9.3` refusal handling**, all without provider spend: a completed analysis can be exported as a self-contained Markdown document or as a typeset PDF with its diagram rendered, and each artifact copied individually — through one server-side serialiser shared by all three. **M-13 is engineering complete**; what remains on it is operational and is stated as such below. Three deviations govern that work — D-41 permits anonymous export and withholds the `M-4` metric, D-42 removes the response fields that metric would have identified, and [D-43](18-D-43-PDF-Rendering-Approach.md) resolves `SA AQ-3` in favour of a headless system browser, which is what finally renders the Mermaid diagram that no document library can.
 
 ---
 
@@ -24,24 +24,79 @@ Earned against evidence, not against the roadmap's checkboxes.
 | **M-03** Backend foundation | Fastify app, `/health` with dependency probes, structured logging, request/correlation IDs (`src/app.ts`, `src/http/`) |
 | **M-04** Provider independence | Boundary check 8: 3 adapters (anthropic, replay, stub) exercised through the abstraction by `tests/contract/provider-conformance.test.ts` |
 | **M-06** Traceability | 323 `stage_trace` and 77 `provider_invocation` rows in the trace store; boundary check 6 confirms every stage module is reachable only through `pipeline.ts`, which traces on success and failure. Analysis `d797492d` was fully diagnosed from its trace without re-running — the `FR-100` claim, demonstrated. |
-| **M-09** Regression safety | Boundary check 7; 14 fragments manifest-verified; fail-closed activation gate in `src/regression/activation-gate.ts` |
+| **M-09** Regression safety | Boundary check 7; 15 fragments manifest-verified; fail-closed activation gate in `src/regression/activation-gate.ts` |
 
 **Increments completed within Sprint 3** (not milestones in themselves):
 
 - **API-020 / API-021 / API-026** — create, retrieve, poll. `src/routes/analyses.ts`.
 - **Orchestrator and composition root** — `src/orchestrator/`, replay default, live explicit, no silent fallback.
 - **Job-description persistence** — 7 enums, 5 models, migration `20260906120000_job_description_persistence` applied; `prisma migrate status` reports up to date. Verified by 13 real-Postgres tests.
-- **`ARTIFACT_SCHEMA` publication** — `portfolio_suggestions` v1 published (`artifact_schema` = 1 row); `schemas:check` green.
+- **`ARTIFACT_SCHEMA` publication** — 5 artifact types published v1 (`portfolio_suggestions`, `workflow_recommendation`, `risk_assessment`, `assessment_feedback`, `mermaid_diagram`); `schemas:check` green.
 - **M-12 first increment** — single-page frontend: paste → submit → poll → render, with the 8-part hierarchy, provenance legend, null-confidence honesty, and failed/omitted artifact handling.
 - **Informed regeneration** — Stage 9 forwards schema violations into its single retry. Offline-covered only; see Non-Claims.
+- **M-11 authorised scope** ([D-40](15-D-40-Existing-Workflow-Module-Mapping.md)) — the two remaining paths implemented. Stage 6 gained a second generator (`workflow_review`), the architecture contract gained accepted trade-offs and named rejected approaches on the assessment path, and four artifact types were built: Workflow Recommendation, Risk Assessment, Assessment Feedback, Mermaid Diagram. All four are *rendered* from reasoning already done rather than generated, so they cost nothing and cannot disagree with their source. Findings persist as `RISK_ITEM` rows with **no migration** — D-40 records why. 5 artifact schemas published; 594 tests green.
+- **M-12 artifact presenters** — the four M-11 artifact types are rendered rather than merely listed. The hardcoded "section 5 is portfolio suggestions" became a type→presenter registry, so the artifact block is whatever the classified path produced and the closing sections renumber after it. Risk score and band are **derived at presentation from `docs/09` §2 and never stored**, so a scale revision cannot silently change what an old row means. Mermaid is dynamically imported, keeping it out of the main bundle (285.94 kB, from 269.77 kB). An artifact type with no presenter still appears in Artifact status, so nothing is dropped for want of a view.
+
+**Increments completed within Sprint 4:**
+
+- **M-14 degradation — complete.** `FR-091`, `FR-093`, `FR-094`, `NFR-011`, `API-032`. The substantive find was that **`FR-094` timeout was entirely absent**: `timed_out` sat in the status enum and `timeoutFlag` was readable through `API-021`/`API-026`, but nothing ever set either, so every over-long run reported a plain completion. A deadline race now writes `status: "timed_out"`, both flags and the terminal event; preservation is inherited free from `DB §6.2` progressive persistence, because the timeout abandons *waiting* and rolls nothing back. `API-032` retry reuses stored reasoning through a `regenerateArtifact` seam on the pipeline and **does not re-run stages 1–8**, with four refusal paths each naming a corrective action — succeeded, omitted, still running, and **deterministic rendered artifact**, the last because a retry would recompute the identical document. `artifact_failed` gained the `retryAvailable` field `API §7.4` requires, computed by the same predicate the endpoint uses, so the stream cannot advertise a retry the API refuses. `FR-093` was **verified, not rebuilt** — `ProviderError` has no field a provider name could occupy.
+- **M-13 export — both formats built.** `API-040` returns a self-contained Markdown document for a terminal analysis. **One serialiser, on the server**, shared by the download and by `FR-053` copy-to-clipboard: copying an artifact is a partial export of that artifact, which is exactly what `FR-052`'s `artifact_types` selection specifies, so the frontend holds no Markdown writer that could drift. `API-021`'s previously inline read was extracted to `src/db/analysis-reader.ts` and both the JSON view and the export now consume the same object, so anything visible through the API is exportable by construction. The document carries provenance with its legend spelled out, the confidence-unavailable state with its reason, `FR-051` metadata and the professional-review disclaimer, and `FR-091`'s omitted-versus-failed distinction in a section accounting for every planned artifact. **M-14's degradation labels are an input**: a timed-out or degraded analysis is exportable and says so above everything else. Risk score and band are derived at export from `docs/09` §2 exactly as on screen, and the scale version travels with them.
+- **Two deviations recorded for export, both about not inventing things.** [D-41](16-D-41-Anonymous-Export-Deviation.md) permits anonymous export — `API-040` specifies `Auth: Required`, and authentication is M-15, Sprint 5 — and writes **no `EXPORT` row without a real owner**, leaving `M-4` unmeasured rather than populated with rows attributable to nobody. [D-42](17-D-42-Export-Response-Contract.md) follows from it: `export_id`, `download_url` and `expires_at` are **unsatisfiable** under D-41 (the id would key no row, the URL is built from that id, and `DB §4.4` stores no file to expire), so they are structurally absent rather than null or fabricated, the document is the response body, and the status is `200` rather than `201` because nothing is created. `API-041` stays specified and unimplemented — it is reachable only via an `export_id` that is never issued.
+- **Refusal handling — `API §9.3`'s "two domain errors that are not failures".** A defect, not a new feature: the pipeline **already** declined an unsupported input at Stage 1 (`FR-092`) and stopped an insufficient one at Stage 3 (`AI §5.4`), and the orchestrator computed the halt, used it for its own return value and **discarded it**. The row was written as a plain `completed`, so `API-021` served a refused analysis as an ordinary 200 with every section empty — indistinguishable from a run that quietly produced nothing, and the precise silence `PV §5` calls a defining product moment. Now: `halted_at_stage` and `halt_reason` persist through an **additive** migration (two nullable columns, a CHECK that they are set together, **no backfill**); the shared `analysis-reader` derives a `refusal` that `API-021`, Markdown and PDF all read from one place; `API-021` answers **422** — `unsupported_input_type` naming the four types that *are* supported (`FR-092`), `insufficient_context` carrying the unknowns with their resolution hints (`AI §5.4`); the frontend has a distinct `refused` phase and a `RefusalView` rather than an error box; and the export produces a refusal document instead of eight headings over nothing. **Null means "no refusal", never "unknown"** — nothing was invented for any historical row.
+- **`FR-006` input persistence across failure.** A user's pasted text is no longer destroyed by *our* failure. `localStorage` in their own browser — no server storage and no identity, because `FR-006` is about not losing what was typed, not about syncing it, and a server-side draft would need an owner that `M-15` has not delivered. Saved as it is typed (debounced) and again before the request leaves, so a crash, a closed tab or a submission that never returns all survive. **Cleared on successful retrieval and nowhere else** — a failed or refused run is exactly when the text is still needed, so `reset` deliberately keeps it and "submit a different input" after an `insufficient_context` refusal starts from what the user wrote rather than from a blank box. Recovery is **offered, never applied**: silently repopulating the textarea would leave the user unsure whose text they are looking at. Every access is wrapped — `localStorage` throws in a private window and when site data is blocked, and a storage fault must never take down the form.
+- **`FR-014` classification correction** (`API §7.5`). Previously the determination was visible and **not** correctable; the field was documented as absent rather than stubbed. Now: `POST /analyses` accepts `classification_override`, and a correction **creates a new analysis** — `API §7.5` "deliberately does not mutate the original", because `DB DP-3` makes analyses immutable and an update "would destroy both the record of what the system originally concluded and the accuracy signal". The original is never written to. The corrected run **fixes Stage 1 rather than running it**: the type was decided by the user, so asking a model to determine it would spend a request to produce an answer that is then discarded — the correction therefore costs **nothing**. `userOverrideType`/`overriddenAt` are written on the *new* analysis for `M-6`, and `supersedesAnalysisId` records the lineage when the client names it. `unsupported` is refused as a correction: it is a refusal outcome, not a frame anything can be reasoned under.
+- **PDF export, and `SA AQ-3` resolved** ([D-43](18-D-43-PDF-Rendering-Approach.md)). The open question was decided by experiment rather than by argument: **Mermaid cannot parse without a DOM** — `DOMPurify.addHook is not a function` — so every library that composes a PDF without a browser can typeset the text and silently drop the diagram `FR-050` requires. A probe built to fail (node count and labels checked, because Mermaid renders its *errors* as diagrams; all network aborted, so a hidden CDN could not pass) **passed**: 4 nodes, correct labels, a real PDF. The implementation is the smallest form of that — `playwright-core` (14 MB, downloads nothing) driving a Chromium-family browser **already on the machine**, discovered at `NAIGX_BROWSER_PATH` or from a per-platform list. **PDF is a rendering of the Markdown, not a second document**: `AnalysisView` → Markdown → HTML → PDF, with the serialiser still the single source of substance. Where no browser exists the request is refused with `503` naming Markdown — never Markdown under a PDF content type.
 
 **Defect fixes earned along the way:** jsonb key-order comparison in the schema publisher; `API-020` violating `analysis_exactly_one_owner_check` (every submission 500'd against a real database before this).
+
+### M-12 limitations — three, stated rather than discovered later
+
+These are evidence and infrastructure gaps, not open code. The renderers are implemented, gate-green, and unproven in the one environment that matters.
+
+1. **There is no frontend test infrastructure.** `frontend/package.json` defines `dev`, `build`, `lint` and `preview` — no test script and no runner. The four presenters therefore have **no automated regression protection**. What was done instead was a one-off seam check: the documents the backend actually renders were fed to the frontend narrowing functions, confirming all four are schema-valid and accepted, that the soundness and no-risks statements survive the empty-findings paths, and that malformed documents are rejected rather than half-read. **That script was temporary and is not in any suite.** Adding a runner was deliberately out of scope and remains an open decision.
+2. **Mermaid rendering is unverified in a browser.** An attempt to parse the generated source headlessly failed with `DOMPurify.addHook is not a function` — Mermaid requires a DOM even to parse, so the render path cannot be exercised outside a browser. The component's failure branch exists precisely because that path is unproven: on a parse failure it shows the stored source rather than a blank box.
+3. **No stored `existing_workflow` or `technical_assessment` analysis exists to render.** Their prompt fragments are authored and **inactive** under D-39, and no recording exists for either path. The presenters are verified against documents the backend produces, **not** against one retrieved through `API-021`. This is the specific reason the Sprint 3 exit criterion is not claimed.
+
+### M-13 — implemented, versus measured or verified
+
+**M-13 is engineering complete.** Every deliverable is built, gate-green and covered by tests. What is *not* complete is the evidence, and the two are recorded separately here because conflating them is how a project starts believing its own roadmap.
+
+| Criterion | Implemented | Measured / verified |
+|---|---|---|
+| `FR-050` export as a self-contained document | **Yes**, Markdown and PDF | Markdown exercised in tests against constructed analyses; **no stored `existing_workflow` or `technical_assessment` analysis has ever been exported** |
+| `FR-050` "diagrams render in the export" | **Yes** — PDF draws the Mermaid diagram; Markdown carries its source | Verified by a test asserting node count and labels, **on Windows against Chrome only** |
+| `FR-051` metadata, disclaimer, no marketing | **Yes** | Test-covered, including a phrase check on both the document and the stylesheet |
+| `FR-052` partial export names omissions | **Yes** | Test-covered |
+| `FR-053` copy as formatted Markdown | **Yes**, per artifact, via the same endpoint | Test-covered on the API; **the browser control itself has no automated coverage** — there is still no frontend test runner (M-12 limitation 1) |
+| `AC-008` presentation-ready in both formats | **Testable** | **Not claimed.** No human has judged an exported PDF against it |
+| `NFR-005` export p95 ≤ 10 s | n/a | **Not measured, and not being measured.** See limitation 3 |
+| Linux / deployment behaviour | Code written for it | **Unverified.** Deferred to M-19; see limitation 1 |
+
+**Dependency and resource impact of the PDF path**, recorded because it is the part of M-13 that outlives the milestone:
+
+| | |
+|---|---|
+| `playwright-core` | 14 MB. Downloads **no** browser, unlike `playwright` (~300 MB) |
+| `mermaid` | 83 MB installed; only its 3.5 MB browser bundle is read at runtime. The rest is its dependency tree (cytoscape, katex, d3) |
+| `marked` | 0.5 MB, MIT, zero dependencies |
+| **Total added to `backend/node_modules`** | **~155 MB** |
+| **Host requirement** | A Chromium-family browser — `apt-get install -y chromium`, ~120–150 MB plus shared libraries — or `NAIGX_BROWSER_PATH`. **This is the real cost**, and it is operational rather than code |
+| Per export | One browser process, launched per request and closed in a `finally`. ~2.4 s observed once, unloaded. Leak-free rather than fast |
+| Markdown export | Needs **none** of the above |
+
+### M-13 limitations — three, stated rather than discovered later
+
+1. **PDF needs a browser on the machine, and that is unverified outside Windows.** `SA AQ-3` is resolved ([D-43](18-D-43-PDF-Rendering-Approach.md)) and PDF is built, but it renders through a Chromium-family browser the machine must already have. The Linux candidate paths and the `--no-sandbox` argument are written for a container deployment **that does not exist yet**, and the classic Linux failure is a missing shared library rather than a missing browser. Verified on Windows against Chrome and on nothing else; that verification belongs with M-19 deployment. Where no browser is found the request is refused with `503` naming Markdown — never Markdown under a PDF content type.
+2. **The Markdown export has never rendered a real `existing_workflow` or `technical_assessment` analysis.** Same root cause as M-12 limitation 3, inherited: no stored analysis of either path exists. The workflow, risk, assessment and diagram renderers are covered by unit tests against documents in the shape the backend produces and validated by the published schemas, **not** against anything retrieved from the database. The Mermaid export path is therefore unverified end to end for the same reason the browser render is.
+3. **`NFR-005` — export p95 ≤ 10s — is unmeasured, and stays unmeasured.** No load measurement exists anywhere in this project and none was invented for this increment. Markdown is a single indexed read plus a pure in-memory transformation; PDF adds a browser launch, observed at roughly 2.4 s wall on a developer machine with no load. **That observation is not a p95 and must not be quoted as one** — D-43 §6 records why it was taken at all. Under concurrency the per-request browser launch is the first thing that would need attention, and concurrency has not been measured either.
 
 ---
 
 ## In Progress
 
-Nothing is mid-implementation. The working tree is green at every gate and no increment is half-built. The packet audit is stopped rather than paused — 11 packets remain unreviewed by design, not by interruption. Fragment v3 is authored and awaiting an activation decision; that is a deliberate resting state, not work in progress.
+Nothing is mid-implementation. **M-13 shipped Markdown and stopped there deliberately** — PDF is a separate increment waiting on `SA AQ-3`, not a half-built one. `API-041` is unimplemented by decision rather than by interruption.
+
+The working tree is green at every gate and no increment is half-built. The packet audit is stopped rather than paused — 11 packets remain unreviewed by design, not by interruption. Fragment v3 is authored and awaiting an activation decision; that is a deliberate resting state, not work in progress.
 
 ---
 
@@ -50,17 +105,24 @@ Nothing is mid-implementation. The working tree is green at every gate and no in
 | Item | State |
 |---|---|
 | **M-05** NIE pipeline operational | **Not met.** 8 of 12 stages implemented (1, 2, 3, 5, 6, 7, 8, 9). Stages 4, 10, 11, 12 are `implemented: false` in `src/nie/stages.ts`. |
-| **M-07** Structured generation | **Mechanism met, coverage thin.** Validation is enforced before presentation and only `valid` artifacts are presentable. But one artifact type exists (`portfolio_suggestions`); `risk analysis`, `complexity scoring`, `platform recommendation` (the `FR-034` *artifact*, distinct from the Stage 7 criteria/alternatives now implemented), and `Mermaid diagram` are unbuilt. |
+| **M-07** Structured generation | **Mechanism met, coverage improved but incomplete.** Validation is enforced before presentation and only `valid` artifacts are presentable. Five artifact types now exist, are published, and have frontend presenters: `portfolio_suggestions`, `workflow_recommendation`, `risk_assessment`, `assessment_feedback`, `mermaid_diagram`. Still unbuilt: `platform_recommendation` (the `FR-034` *artifact*, distinct from the Stage 7 criteria/alternatives), Platform Comparison (deferred by D-40), and complexity scoring (blocked by D-33/D-35/D-36). |
+| **`business_requirement` produces no artifacts — OPEN SCOPE DECISION** | It is now the only path of four that reasons and then hands the user nothing but an architecture; its artifact block renders empty, which is honest but thin. `platform_recommendation` is what would close it. **Deliberately not implemented** — it is reasoning work rather than presentation, it was explicitly excluded from M-12, and it would need a further prompt fragment that D-39 keeps inactive until a capture. **M-07 cannot close while this stands.** Recorded here as a decision awaiting the owner, not as an oversight. |
 | **M-10** Classification accuracy ≥95% | **Unstarted and currently unmeasurable** — see Blocked. |
-| **M-11** All analysis paths | **2 of 4.** `business_requirement` and `job_description` run. `existing_workflow` (`FR-021`) and `technical_assessment` (`FR-023`) do not — both need new prompt fragments, and D-39 keeps those paths closed. |
-| **M-12** Frontend foundation | **Partially earned.** Hierarchy and layered depth done. **Streaming is not** — `API-025` unimplemented, so `FR-041` is unmet and the Sprint 3 exit criteria on stream resumption cannot be attempted. |
+| **`FR-014` correction is session-scoped** | Implemented, with a real limit: the correction re-submits "the same content" (`API §7.5` step 1) and `API-021` does not return the text — `AnalysisInput` carries a character count and a source type, not the content. The session that submitted it holds the text, so **an analysis opened by id alone cannot be corrected** and the control is hidden rather than offered and broken. History is `M-15`; this closes with it. |
+| **M-11** All analysis paths | **4 of 4 implemented, 0 of 4 measured.** All four paths now run end to end offline. `existing_workflow` reaches Stage 6W Workflow Review; `technical_assessment` reaches Architecture Analysis under `FR-023`'s trade-off and rejected-alternative requirements. **This is engineering complete, not milestone complete** — the milestone is earned by measurement against the corpus, and no path has been measured. The two new prompt fragments are authored and **inactive** per D-39, so neither path can be run live until a capture is authorised. Documented deferments remain inside the two paths: Platform Comparison deferred, Complexity Score blocked by D-33/D-35/D-36, Edge Cases & Practices excluded by `MVP §5.3`. |
+| **M-12** Frontend foundation | **Implementation complete; the milestone is not demonstrated.** The `docs/08` milestone line asks for "results presentation with hierarchy, layered depth, streaming" and all three are built, including presenters for the four M-11 artifact types. Against the five Sprint 3 frontend deliverables: input surface (`FR-001`/`UX-002`) **met**; hierarchy and layered depth (`FR-040`) **met**; unknowns and insufficiency disclosure (`FR-044`) **met**; progressive rendering from the event stream (`FR-041`) **met** via `API-025` SSE with `Last-Event-ID` resumption; rationale, provenance and confidence (`FR-042`–`FR-045`) **partial** — rationale and provenance are displayed, `FR-045` confidence is **not met** because Stage 11 is deferred by D-33 and the UI states there is no band rather than inventing one. **The Sprint 3 exit criterion "all four paths produce presented results a practitioner can evaluate unaided" is NOT demonstrated** — see the three limitations below. |
 | Stage 11 confidence | Deferred by `docs/12` D-33. `confidence_band` is null everywhere and the UI says so. `FR-045` unmet. |
 | **Architecture unknown disposition** ([D-38](13-D-38-Architecture-Unknown-Disposition.md)) | **Specification gap. Remediation now authorised by [D-39](14-D-39-D-37-Amendment.md); activation still gated on a capture.** Stage 6 can cite an unknown context element without recording how it was handled; the output contract has no field for assumed/excluded/deferred. Measured across the 10 architecture-bearing recordings: **71 unknowns, 20 cited (28%)**, citation rate ranging 0–100% between comparable cases, and one recording citing 5 of 5 while acknowledging none. Remediation — an `unknown_disposition[]` field plus a disposition check through the existing regeneration path — may now be authored and tested, but cannot be activated without a capture. |
 | `VALIDATION_EVENT` attribution | Table exists with correct columns; **0 rows**. Nothing writes it. |
 | `analysis.model_version_id` | Written only by `src/harness/run.ts`. Null for every analysis created through the API — `AI-004` drift attribution is being lost. |
 | `provider_invocation.attempt_number` | Reports `1` for both Stage 9 attempts; the regeneration does not thread it. |
 | Backend binds `0.0.0.0` | `HOST` is a hardcoded constant in `src/index.ts:28` with no env override. Reachable on the LAN. |
-| Uncommitted work | The M-08 reviewer-packet tooling and its generated bundle. Everything else is pushed. |
+| Uncommitted work | **Everything from M-11, M-12, M-14 and M-13, plus D-40, D-41 and D-42.** Last commit is `c7f23b3`. Nothing has been committed since. |
+| **`M-4` export rate** | **Unmeasurable until M-15**, by decision — [D-41](16-D-41-Anonymous-Export-Deviation.md) §5. Anonymous export volume in this period is **not recoverable retrospectively**, because the rows are not being written and cannot be backfilled. `MVP §3.2` calls `M-4` the primary behavioural trust signal; it records nothing today. |
+| **`API-041` download** | **Specified, unimplemented.** Reachable only through an `export_id`, and D-42 issues none. Regeneration from the analysis id is what an anonymous caller has, and it is `API-040` called again. |
+| **`SA AQ-3` PDF rendering approach** | **Resolved 2026-09-07** by [D-43](18-D-43-PDF-Rendering-Approach.md) — a headless system browser via `playwright-core`. Decided by experiment; the probe is described in D-43 §2. |
+| **Chromium on the deployment host** | **New operational dependency.** PDF export needs `apt-get install -y chromium` (~120–150 MB) or `NAIGX_BROWSER_PATH`. Unverified on Linux, because nothing is deployed. Markdown is unaffected and needs nothing. |
+| **`NFR-005` export latency** | **Unmeasured.** No load measurement exists in this project. |
 
 ---
 
@@ -69,10 +131,10 @@ Nothing is mid-implementation. The working tree is green at every gate and no in
 | Blocked | Exact blocker |
 |---|---|
 | **M-10** classification accuracy | 13 recordings exist, all `br-*` and `un-*`. Measuring ≥95% across a 44-case corpus spanning 5 categories requires capture against the other three types — a live-provider spend, which is deferred by owner decision. |
-| **M-11** remaining two paths | D-39 authorises fragment work only for the M-08 prerequisites and explicitly keeps `FR-021` and `FR-023` closed. Unblocking needs a further decision. |
+| **M-11** measurement | The paths are built; measuring them is not. `stage.workflow_review` and the amended `stage.architecture_analysis` are authored and inactive per D-39, and no recording exists for an `ew-*` or `ta-*` case. Both need an activation decision and a live capture. |
 | **M-08** closure — two independent blockers | **(1) No qualifying reviewer.** `docs/10` §4.3 excludes AI review in any capacity, for any criterion; §8 ambiguity A-1 records that the independent reviewer "has not been named" and "requires owner action before M-08". **(2) C-6 has no stored evidence.** The engineering is done; activation and a capture are not. See below. |
 | **C-6 — engineering complete, evidence prerequisite not** | The `FR-034` implementation landed 2026-09-07 (see *FR-034 / C-6* below). Stage 7 now requires stated criteria and ≥1 rejected alternative; they persist and reach API-021 and the UI. **C-6 is still not assessable**, because no stored analysis carries that evidence yet: the active fragment is v2, which does not ask for it. Assessability needs activation, then a capture. |
-| **C-3 — structurally available on the JD path, not passed** | `job_description` reaches Stages 8–9 and produces `ARTIFACT_PLAN_ENTRY` rows with inclusion and omission reasons — C-3's required evidence. That makes the criterion *assessable* for that path; it is **not a pass**, and a human reviewer still has to judge it. `business_requirement` and `technical_assessment` route to architecture only, so they produce no artifact set and C-3 stays unassessable for them however much is captured. |
+| **C-3 — structurally available on the JD path, not passed** | `job_description` reaches Stages 8–9 and produces `ARTIFACT_PLAN_ENTRY` rows with inclusion and omission reasons — C-3's required evidence. That makes the criterion *assessable* for that path; it is **not a pass**, and a human reviewer still has to judge it. As of M-11, `existing_workflow` and `technical_assessment` also produce artifact plans and artifacts, so C-3 is structurally available on three of four paths — **in code, not in any stored analysis**, since no recording exists for either new path. `business_requirement` still routes to architecture only and produces no artifact set, so C-3 stays unassessable for it however much is captured. |
 | Consequence for §3.5 | Until an activated fragment produces stored criteria and alternatives, **no analysis of any type can be recorded as a rubric pass**, because a seven-of-seven verdict is unreachable. |
 | `AC-037` artifact-set testability | `docs/08` Appendix C item 9: unmeasurable until complexity scoring exists. |
 
@@ -87,10 +149,12 @@ Deliberate, evidence-backed deferrals.
 | **Second live-provider smoke test** for informed regeneration | Owner, 2026-09-07 | NAIGX is otherwise complete. Explicitly not to be run before then. |
 | **M-08 formal quality-gate review** | Owner, 2026-09-06 (`docs/12` D-37) | The rubric review is run. **Partially attempted 2026-09-07 and stopped** — see below. Still not passed. |
 | **Stage 11 / confidence weights** | `docs/12` D-32, D-33 | The corpus can supply weights; it currently refuses the cap rule. |
-| **`API-025` SSE** | Owner, at M-12 scoping | Polling is sufficient for now; `SA AR-06` required the fallback in the same sprint regardless. |
 | **`VALIDATION_EVENT` attribution** | `docs/12` D-37 out-of-scope list | A dedicated increment. The live failure of `d797492d` is the argument for doing it. |
 | **Schema-as-Output-Contract** | Diagnosis of `d797492d`, 2026-09-07 | Larger change; outside D-39's bounded scope. |
-| Authentication, history, export | Roadmap Sprints 4–5 | On plan, not skipped. |
+| Authentication and history | Roadmap Sprint 5 | On plan, not skipped. **Export no longer waits on it** — D-41 decoupled them. |
+| **PDF verification on Linux** | D-43 §6, 2026-09-07 | **M-19 deployment.** PDF is verified on Windows against Chrome and nowhere else. Verifying Linux needs a host or container that does not exist yet, and building one *for this milestone alone* was explicitly ruled out. Markdown is unaffected. |
+| **Browser pooling for PDF** | D-43 §3.6 | Export volume justifies it. A browser is launched per request today — leak-free rather than fast, and nothing measured argues for changing that yet. |
+| **`M-4` instrumentation** | [D-41](16-D-41-Anonymous-Export-Deviation.md) | M-15 supplies the identity that makes the metric meaningful. Its start date is recorded as the M-15 date, never the M-13 date. |
 
 ---
 
@@ -105,10 +169,21 @@ Statements that must **not** be made, regardless of how the work looks.
 4. **The Sprint 2 quality gate is not claimed as passed**, and its requirements are not waived.
 5. **No production deployment exists.** Nothing is deployed anywhere. M-19 is untouched, and there is no hosting, monitoring, or rollback to speak of.
 6. **Do not claim production Zapier experience.** Not evidenced by this project or the capability profile.
-7. **`FR-041` progressive streaming is not met.** Results arrive whole, after the run finishes.
+7. **`FR-041` streaming is implemented but its Sprint 3 exit criteria are unproven.** `API-025` SSE with `Last-Event-ID` resumption exists and the browser consumes it. **Stream resumption after a forced disconnect has not been demonstrated**, and no streaming-versus-polling comparison has been run. Implemented is not demonstrated.
 8. **`FR-045` confidence display is not met.** No confidence is computed; null is displayed honestly as unavailable.
+9. **M-12 is not claimed as passed, and the Sprint 3 exit criterion is not claimed.** The presenters are implemented and gate-green. No `existing_workflow` or `technical_assessment` analysis has ever been rendered from stored data, the Mermaid render has never run in a browser, and there is no frontend test suite. "All four paths produce presented results a practitioner can evaluate unaided" is a statement about four paths that have been *presented*; two of them have only been *coded*.
 9. **The 44-case corpus is not exercised end to end.** The last regression run (`4ea7eef7`, 2026-08-14) covered 13 cases in `recorded` mode, with `artifact_set`, `confidence_band` and `do_not_automate_conclusion` assertions deferred. Its own attestation: this is "NOT evidence that the current prompt produces these responses."
 10. **`FR-004` claimability is unmet.** Anonymous analyses store an owner hash whose token is never issued, so no analysis is claimable.
+11. **`API-040` is not implemented to specification.** It is implemented to D-41 plus [D-42](17-D-42-Export-Response-Contract.md). It returns no `export_id`, no `download_url` and no `expires_at`; it writes no `EXPORT` row; it returns `200` rather than `201`; and it is reachable without authentication, which `API-040` and `API §7.8` both forbid. Every one of those is recorded, and none is a reinterpretation of the specification.
+12. **`M-4` is not instrumented, in whole or in part.** No export row exists. A chart implying the metric existed before M-15 would be the exact lie D-41 was written to avoid.
+13. **PDF export is built but unproven on the platform it will deploy to.** Both formats exist, so the `FR-050` format requirement is met in code; `AC-008` ("presentation-ready in both formats") is now **testable and not claimed** — no human has judged a PDF against it. Diagrams **do** render into the PDF, verified by a test that checks node count and labels rather than byte count, because Mermaid draws its own errors as diagrams. **Verified on Windows only.**
+14. **`NFR-005` is not met and not measured.** Nothing in this project measures export latency. The ~2.4 s figure in D-43 is a single observation taken while deciding, on one machine, with no load — not a p95, not a benchmark, and not to be quoted as either.
+15. **The export has never been run against a real `existing_workflow` or `technical_assessment` analysis**, because none is stored. Four of the five artifact renderers are exercised only against constructed documents.
+16. **Refusal handling has never been exercised end to end from a real submission.** Both paths are covered from the pipeline result forward — orchestrator, persistence, retrieval, 422, export — and against real Postgres. What is **not** covered is a real input actually classifying as `unsupported` or scoring `insufficient`, because that needs a provider run and none was authorised. The refusals are reproduced from constructed pipeline results, not observed.
+17. **The frontend refusal state has no automated test.** There is still no frontend test runner (M-12 limitation 1), and adding one remains out of scope by standing instruction. `RefusalView` and the `refused` phase are typecheck- and build-verified only; the 422 envelope they narrow **is** pinned, from the backend side.
+18. **Sprint 4's deliverables are complete; its exit criteria are not all demonstrated.** Every row of the roadmap's Sprint 4 table is implemented and gate-green. Two exit criteria remain unproven for reasons recorded elsewhere: "a complete analysis exports as a third-party-presentable document" is **implemented but not judged by a human** (`AC-008`), and "every failure mode yields labelled partial results" is covered for the modes that can be reproduced offline — no failure mode has been observed against a live provider.
+19. **`FR-006` and `FR-014` have no automated frontend coverage.** Both are largely frontend behaviour, there is still no frontend test runner (M-12 limitation 1), and adding one remains out of scope by standing instruction. `draftStorage.ts`, the recovery banner and the correction control are typecheck- and build-verified only. What **is** pinned, from the backend, is the API contract they depend on: 11 tests cover the correction endpoint including that the original analysis is never written to.
+20. **The classification correction has never been run end to end against a provider.** The seam is proven — an overridden run makes no classification call, and an ordinary one does — but no corrected analysis has been produced from a real submission, because that needs a capture nobody has authorised.
 
 ---
 
@@ -174,6 +249,16 @@ The single place to read what is and is not permitted right now.
 | **Provider spend** | **Not authorised.** No capture, no live run, no corpus work. Cumulative spend remains $0.9860 |
 | **Human reviewer** | Not secured. `docs/10` §8 ambiguity A-1 still open |
 | **2026-09-07 AI packet audit** | **Inadmissible** as M-08 evidence under `docs/10` §4.3. Engineering findings only — it produced [D-38](13-D-38-Architecture-Unknown-Disposition.md) |
+| **[D-41](16-D-41-Anonymous-Export-Deviation.md)** | Active. Anonymous export permitted; **no `EXPORT` row and no `M-4` signal** until a real authenticated owner exists. Ownership checks are written now and enforced when there is something to enforce. `APIQ-2` resolved as the direct on-demand response |
+| **[D-42](17-D-42-Export-Response-Contract.md)** | Active. `export_id`, `download_url` and `expires_at` are **absent, not null**; the document is the response body; success is `200`. Extends D-41 and invents nothing |
+| **Export authentication** | **Not built, and not being deferred quietly** — D-41 §6 leaves whether anonymous export survives M-15 as an owner decision. `API §7.8` currently says it should not |
+| **[D-43](18-D-43-PDF-Rendering-Approach.md)** | Active. `SA AQ-3` resolved: headless system browser via `playwright-core`, no bundled browser, no paid service. PDF is a rendering of the Markdown — **no second content model** |
+| **`FR-006` input persistence** | **Built.** Client-side only — `localStorage`, no server storage, no identity |
+| **`FR-014` correction** | **Built.** Creates a new analysis; the original is never mutated (`API §7.5`, `DB DP-3`). Skips Stage 1, so a correction costs nothing |
+| **Sprint 4 deliverables** | **Complete.** Exit criteria not all demonstrated — see Non-Claims 18 |
+| **Refusal handling** | **Built.** `API §9.3` 422s on retrieval, halt persisted additively, no historical data invented. Never exercised from a real provider run |
+| **PDF export** | **Built.** Needs a Chromium-family browser on the host; refuses with a corrective action where there is none, never silently downgraded |
+| **M-15 authentication** | **Not pulled forward, in whole or in part.** D-41 §7 and the owner's explicit instruction |
 
 **Closing D-39 requires all four conditions in that record** — C-3 assessable, C-6 assessable, a qualifying reviewer with an adequate corpus, and the full seven-criterion review run with its result recorded. Until then no Sprint 2 milestone may be reported as met.
 
@@ -203,7 +288,30 @@ Cumulative provider spend across the whole project to date: **$0.9860** (77 invo
 
 ## Next Recommended Increment
 
-**Owner decision: authorise the JD capture and fragment activation, or not.**
+**Two independent decisions, either of which unblocks real work.**
+
+**A. Decide whether the Chromium dependency is acceptable on the deployment host** — and, if so, verify PDF on Linux. `SA AQ-3` itself is closed by [D-43](18-D-43-PDF-Rendering-Approach.md); what is open is operational. PDF export works and is unverified anywhere but Windows, because nothing is deployed. Verifying it needs either a container for the app (there is none — `docker-compose.yml` runs Postgres only) or a host with `chromium` installed. **Markdown needs none of this**, so the decision is about PDF alone and can wait without blocking export.
+
+**B. Authorise the JD capture and fragment activation, or not.** Unchanged, and still the gate on M-08, M-10 and M-11 measurement.
+
+**C. Sprint 4 is deliverable-complete as of 2026-09-07.** Nothing remains on its list.
+
+### The next roadmap milestone
+
+**M-15 — Authentication and history (Sprint 5).** `docs/08` lists Sprint 5 as M-15 through M-20, and M-15 is first because everything else in that sprint depends on identity: history (`FR-060`–`FR-063`) needs an owner, `M-16` instrumentation needs `M-4` to mean something, account settings and deletion need an account, and `API-050` feedback is `Auth: Required`.
+
+**M-15 also closes four things this project is currently carrying as debt**, each recorded above:
+
+| Carried debt | How M-15 closes it |
+|---|---|
+| `FR-004` claimability unmet — `API-020` stores an anonymous token nobody is issued | Token issuance and the claim-on-signup flow |
+| **D-41 / D-42** — no `EXPORT` row, no `M-4`, no `export_id` | An authenticated owner exists, so the row is written and the fields become real |
+| Ownership unenforced on `API-021`, `API-026`, `API-040` | The branches are already written and read `user_id`; M-15 supplies the identity |
+| `FR-014` correction is session-scoped | History makes the stored content retrievable, so any analysis becomes correctable |
+
+⚠️ **M-15 is explicitly out of bounds under the standing constraint** ("do not pull M-15 authentication forward"), which was written while Sprint 4 was open. Sprint 4 is now closed, so that constraint has served its purpose and starting Sprint 5 is an owner decision rather than a deviation.
+
+**M-19 deployment also acquires a new prerequisite** from [D-43](18-D-43-PDF-Rendering-Approach.md): a Chromium-family browser on the host, and the Linux verification deferred there.
 
 `FR-034` is implemented and offline-verified, so the engineering half of D-39's condition 2 is done and condition 1 was already met on the JD path. What remains between here and a runnable M-08 is not code:
 
@@ -214,6 +322,8 @@ Cumulative provider spend across the whole project to date: **$0.9860** (77 invo
 
 Steps 1 and 2 are one spend decision. Step 3 is a resourcing decision and is independent of it.
 
+Decision B would also close **M-13 limitation 2** as a side effect: a stored `technical_assessment` analysis is the only thing standing between the Mermaid export path and end-to-end verification.
+
 Still authorised under D-39 and not started:
 
 - **D-38 remediation** — `unknown_disposition[]` plus its disposition check. Independent of `FR-034`; also unactivatable without a capture
@@ -223,7 +333,7 @@ Still permitted and still non-reasoning, if preferred first:
 - `analysis.model_version_id` is never written on the API path — `AI-004` drift attribution is lost on every run
 - `provider_invocation.attempt_number` always reports `1`
 - The backend binds `0.0.0.0` with no env override
-- `API-025` SSE — named in D-37 as in scope; would close `FR-041` and two Sprint 3 exit criteria
+- `API-025` SSE — implemented; closing the two Sprint 3 exit criteria still needs a forced-disconnect test and a streaming/polling comparison
 
 `VALIDATION_EVENT` is **not** in that list: D-37's out-of-scope section names it, so it needs an explicit deviation of the kind `ARTIFACT` persistence received.
 
@@ -234,9 +344,9 @@ Still permitted and still non-reasoning, if preferred first:
 | | |
 |---|---|
 | Branch | `main`, in sync with `origin/main` |
-| HEAD | `d9f0479e69f5529aff606b7b55d9e06a919dfb46` — "Record D-37 and add STATUS.md as the current-state source of truth", 2026-09-07 |
-| Working tree | **Dirty**, 5 entries — the M-08 reviewer-packet tooling only |
-| Unpushed | None. 0 commits ahead of `origin/main`. |
+| HEAD | `c7f23b3` — "Make FR-034 assessable at Stage 7, and amend D-37 to allow it", 2026-09-07 |
+| Working tree | **Dirty and substantial** — all of M-11, M-12, M-14 and M-13, plus D-40, D-41 and D-42. Nothing has been committed since `c7f23b3`. |
+| Unpushed | None committed, so none pushed. The uncommitted work is the exposure. |
 
 Pushed 2026-09-07 in three commits: `3df4c55` (persistence, publication, orchestrator, API, jsonb fix, `API-020` owner fix, informed regeneration), `edd4401` (M-12 frontend), `d9f0479` (D-37 and this file).
 
@@ -250,7 +360,7 @@ All run 2026-09-07 against the current working tree.
 
 | Gate | Result |
 |---|---|
-| Backend tests | **524 tests · 522 pass · 0 fail · 2 skipped** |
+| Backend tests | **708 tests · 706 pass · 0 fail · 2 skipped** |
 | Backend typecheck | pass (`src` + tests) |
 | Backend lint (oxlint) | pass |
 | Backend format (prettier) | pass |
@@ -258,13 +368,17 @@ All run 2026-09-07 against the current working tree.
 | Frontend typecheck | pass |
 | Frontend lint | pass |
 | Frontend production build | pass |
-| `prisma migrate status` | Database schema is up to date (3 migrations) |
-| `schemas:check` | 1 artifact schema published and matching |
-| `fragments:check` | 14 fragments match the manifest (v3 authored, **not activated**) |
+| `prisma migrate status` | Database schema is up to date |
+| `schemas:check` | 5 artifact schemas published and matching |
+| `fragments:check` | 15 fragments match the manifest (v3 and the two M-11 fragments authored, **not activated**) |
 
-The 2 skips are credential-gated live-provider tests, skipped by design. Database-backed tests **run** — both stores are reachable.
+The 2 skips are credential-gated live-provider tests, skipped by design. Database-backed tests **run** — both stores are reachable. **`FR-014` correction added 11 tests**, including a **control test**: one asserts that an overridden run never reaches a provider for classification, and its pair asserts that an ordinary run *does* — without the second, the first would pass for the wrong reason if Stage 1 stopped calling anything at all. **Refusal handling added 25 tests**: 19 offline (both halt paths persisted, both 422 shapes with their payloads, the export refusal document, and — deliberately — that completed, degraded, timed-out and historical-null analyses are all **unchanged**) and 6 against real Postgres (round-trip of both refusals, the additive-migration guarantee, and both halves of the CHECK constraint). **M-13 added 65 tests**: 32 unit for the Markdown document and the `docs/09` §2 risk scale (every matrix cell pinned against the published table), 17 integration for `API-040` (including the D-42 behaviours that most need protecting from a later "fix" that mints an id), and 16 for the PDF path — 9 unit on Markdown → HTML, 7 integration through a real browser. **The 7 browser tests skip where no Chromium-family browser exists**, the way the live-provider tests skip without credentials; a skip there means PDF was not exercised on that run, not that it passed.
 
-**Database state:** primary — 20 analyses, 1 recommendation, 21 required capabilities, 1 artifact, 1 artifact schema, 261 context elements, 14 active fragment versions. Trace — 323 stage traces, 77 provider invocations, **0 validation events**.
+⚠️ **The 2 skips in this run are the live-provider tests, not the browser tests.** Chrome was present, so **all 7 browser tests ran and passed** and the browser-skip count was **0**. The distinction matters when reading a future run: "2 skipped" with a browser present is the normal result, while "9 skipped" would mean PDF went unexercised entirely.
+
+⚠️ **The skip count is only meaningful with Docker running.** When Docker Desktop is down, Postgres is unreachable and the skips rise sharply — this run showed 29 skipped before Docker was started and 2 after, with the same 656 tests. Start Docker before reading anything into a skip count.
+
+**Database state:** primary — 20 analyses, 1 recommendation, 21 required capabilities, 1 artifact, 1 artifact schema, 261 context elements, 14 active fragment versions. Trace — 323 stage traces, 77 provider invocations, **0 validation events**. **`EXPORT` — 0 rows, by decision (D-41).**
 
 ---
 
@@ -277,4 +391,9 @@ Recorded, not silently reconciled. **This file does not amend the roadmap or the
 3. **D-37's out-of-scope list names "`ARTIFACT` persistence and the `VALIDATION_EVENT` attribution."** `ARTIFACT` persistence was subsequently implemented under an explicit owner decision ("model ARTIFACT now", 2026-09-06). D-37 has not been amended to reflect that. `VALIDATION_EVENT` remains out of scope and unimplemented.
 4. **Roadmap Appendix C item 6** lists `AIQ-5` fragment storage as Sprint 1 and open; it was resolved earlier. Appendix C has been stale before on this exact item.
 5. **M-05 is listed as a Sprint 1–2 milestone** but 4 of 12 stages remain unimplemented. It is neither claimed nor formally carried forward anywhere.
-6. **Sprint 3 exit criteria include stream resumption and a streaming/polling comparison.** `API-025` is not implemented, so two of five exit criteria are currently unattemptable.
+6. **Sprint 3 exit criteria include stream resumption and a streaming/polling comparison.** `API-025` is now implemented, so both are attemptable — neither has been attempted.
+7. **`API-040` forbids anonymous export in three places** — its own `Auth: Required` row, `API §7.8`'s "Not permitted" table, and `DB §4.4`'s non-null `user_id` — and the implementation permits it. [D-41](16-D-41-Anonymous-Export-Deviation.md) records the deviation; `docs/07` is unamended.
+8. **`API-040`'s output contract is unconditional and the implementation returns none of it.** [D-42](17-D-42-Export-Response-Contract.md) explains why each of the three fields is unsatisfiable under D-41; `docs/07` §6.5 is unamended and still specifies them.
+9. **`SA AQ-3` was due Sprint 4 and is open.** The investigation is complete — Mermaid needs a DOM, so only a headless browser renders diagrams — but no approach has been chosen, so the question stands rather than resolves.
+10. **`API §9.4`'s error flow places the two 422s inside request processing**, which assumes a synchronous analysis. Execution is asynchronous — `API-020` returns 202 before Stage 1 runs — so the refusal cannot be known while the creating request is open, and the 422 is raised on `API-021` retrieval instead. The status codes and payloads are exactly as `API §9.3` specifies; only the endpoint that carries them differs, and `docs/07` is unamended.
+11. **`SA §14` deployment assumes a Node runtime and nothing else.** PDF export adds a Chromium-family browser as a host requirement. No deployment document records it, because no deployment exists; [D-43](18-D-43-PDF-Rendering-Approach.md) §5 states the cost and M-19 is where it lands.

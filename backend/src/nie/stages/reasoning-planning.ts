@@ -30,10 +30,10 @@ import { producesArchitecture, type ClassificationType } from "../contracts.js";
 /**
  * The reasoning modules Stage 5 may select.
  *
- * `AI §4.2` names exactly two and maps both: "Stage 5 selects modules by type.
- * Architecture design applies to requirements and assessments; gap analysis
- * applies to postings." `API §12` groups stages 5-7 as "Reasoning", so the
- * selectable modules are the two reasoning stages that follow this one.
+ * `AI §7.1` is the authority — its *Applies to* column maps every module to
+ * the paths it serves. `AI §4.2` describes the paths in prose and is **not**
+ * that mapping; reading it as one is what left the workflow path unrouted
+ * until `docs/15` D-40.
  *
  * Values are `stageKey`s from the stage registry rather than a parallel
  * vocabulary — `stages.ts` derives those mechanically from `AI` App. A, and a
@@ -42,6 +42,7 @@ import { producesArchitecture, type ClassificationType } from "../contracts.js";
 export const REASONING_MODULES = [
   "architecture_analysis",
   "recommendation_generation",
+  "workflow_review",
 ] as const;
 export type ReasoningModule = (typeof REASONING_MODULES)[number];
 
@@ -82,13 +83,19 @@ export function planReasoning(classifiedAs: ClassificationType): ReasoningPlan {
     requiredAnalyses.push("recommendation_generation");
   }
 
-  // `existing_workflow` and `unsupported` fall through to an empty plan.
-  // `unsupported` is correct and settled — `FR-092` declines before reasoning.
-  // `existing_workflow` is **not** settled: `FR-021` requires an architecture
-  // review, risk analysis, edge cases and optimisation recommendations, but
-  // `AI §4.2` maps that path to no module and no reasoning stage implements it.
-  // Naming one here would invent the mapping the specification omits, so the
-  // gap is left visible rather than filled.
+  // `FR-021` via `AI §7.1`, resolved by `docs/15` D-40. The workflow path maps
+  // to RM-1, RM-2, RM-3, RM-6, RM-7 and RM-8 — and pointedly **not** RM-4
+  // Architecture Design, because this path reviews the workflow it was given
+  // rather than designing a replacement. RM-6 Platform Selection is routed but
+  // its artifact is deferred to M-07; RM-8 Complexity is blocked by D-33,
+  // D-35 and D-36. What remains is the review itself, which carries RM-3 and
+  // RM-7 as its findings.
+  if (classifiedAs === "existing_workflow") {
+    requiredAnalyses.push("workflow_review");
+  }
+
+  // `unsupported` falls through to an empty plan, which is correct and settled:
+  // `FR-092` declines before reasoning.
 
   return { requiredAnalyses, depthLevel: "standard" };
 }

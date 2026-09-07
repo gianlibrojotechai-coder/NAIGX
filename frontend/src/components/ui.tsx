@@ -24,20 +24,31 @@ export function Section({
   children,
   defaultOpen = true,
   accent,
+  action,
 }: {
   title: string;
   step: number;
   subtitle?: string | undefined;
   children: ReactNode;
   defaultOpen?: boolean;
+  /** Non-interactive marker — a badge. Rendered inside the toggle. */
   accent?: ReactNode;
+  /**
+   * An interactive control, rendered *beside* the toggle rather than inside it.
+   *
+   * ⚠️ It cannot go in `accent`. A button nested inside the header button is
+   * invalid HTML, and the browser resolves it by breaking one of the two — so
+   * a copy control placed there would either not fire or would collapse the
+   * section instead of copying.
+   */
+  action?: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const contentId = useId();
 
   return (
     <section className="border border-slate-200 rounded-lg bg-white overflow-hidden">
-      <h2>
+      <h2 className="flex items-center">
         <button
           type="button"
           onClick={() => {
@@ -45,7 +56,7 @@ export function Section({
           }}
           aria-expanded={open}
           aria-controls={contentId}
-          className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-inset"
+          className="flex-1 min-w-0 flex items-center gap-3 px-5 py-4 text-left hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-inset"
         >
           <span className="shrink-0 w-6 h-6 rounded-full bg-slate-900 text-white text-xs font-semibold grid place-items-center">
             {step}
@@ -66,6 +77,9 @@ export function Section({
             ▶
           </span>
         </button>
+        {action !== undefined && (
+          <span className="shrink-0 pr-5 pl-2">{action}</span>
+        )}
       </h2>
       {open && (
         <div id={contentId} className="px-5 pb-5 pt-1">

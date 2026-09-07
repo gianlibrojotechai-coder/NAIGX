@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://naigx/schemas/workflow_recommendation.schema.json",
+  "title": "Workflow Recommendation",
+  "description": "Stage 9 artifact for the existing_workflow path (FR-021, docs/15 D-40). Rendered from the Stage 6W review rather than generated, so it cannot disagree with the reasoning it reports.\n\nSTRUCTURE PRECEDES FINDINGS, structurally. FR-021's first acceptance criterion is that the output identifies the current structure before evaluating it, so current_structure is required and non-empty regardless of whether anything was found wrong.\n\nSILENCE IS NOT SOUNDNESS. FR-021 requires a sound workflow to yield an explicit statement rather than an empty list. That rule is not expressible in JSON Schema — it is a conditional on the emptiness of findings — and is enforced in parseWorkflowReview. Schema-valid is necessary, not sufficient.",
+  "type": "object",
+  "required": ["current_structure", "findings", "optimisations"],
+  "properties": {
+    "current_structure": {
+      "type": "object",
+      "required": ["summary", "data_flow", "steps"],
+      "properties": {
+        "summary": { "$ref": "#/$defs/nonEmptyString" },
+        "data_flow": { "$ref": "#/$defs/nonEmptyString" },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "description": "At least one. A review of no structure is not a review.",
+          "items": {
+            "type": "object",
+            "required": ["name", "responsibility", "inputs", "outputs", "failure_handling"],
+            "properties": {
+              "name": { "$ref": "#/$defs/nonEmptyString" },
+              "responsibility": { "$ref": "#/$defs/nonEmptyString" },
+              "inputs": { "$ref": "#/$defs/nonEmptyString" },
+              "outputs": { "$ref": "#/$defs/nonEmptyString" },
+              "failure_handling": { "$ref": "#/$defs/nonEmptyString" }
+            }
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "description": "May be empty — a sound workflow is a valid outcome (FR-021).",
+      "items": {
+        "type": "object",
+        "required": ["step", "description", "severity", "remediation"],
+        "properties": {
+          "step": {
+            "$ref": "#/$defs/nonEmptyString",
+            "description": "The step this concerns. FR-021 rejects generic best-practice statements, and a finding naming no step is one."
+          },
+          "description": { "$ref": "#/$defs/nonEmptyString" },
+          "severity": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "remediation": {
+            "$ref": "#/$defs/nonEmptyString",
+            "description": "Concrete, per FR-021. An issue with no remediation is a complaint."
+          }
+        }
+      }
+    },
+    "optimisations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/nonEmptyString" }
+    },
+    "soundness_statement": {
+      "$ref": "#/$defs/nonEmptyString",
+      "description": "Required by FR-021 when findings is empty. The conditional is enforced by the parser, not here."
+    }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1, "pattern": "\\S" }
+  }
+}

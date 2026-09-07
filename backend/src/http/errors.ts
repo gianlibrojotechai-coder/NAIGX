@@ -133,3 +133,92 @@ export const internalError = (cause: unknown): AppError =>
       "Try again in a few moments. If the problem persists, quote the correlation ID from this response.",
     cause,
   });
+
+/**
+ * `409 invalid_state` — the request is well-formed, the resource is not in a
+ * state that permits it.
+ *
+ * `API-032` names it for a retry of an artifact that is not failed. The
+ * message must say what state the resource *is* in, because "invalid state" on
+ * its own gives the caller nothing to do — the same rule `FR-005` applies to
+ * validation errors, applied to conflicts.
+ */
+export const invalidStateError = (
+  message: string,
+  action: string,
+  details?: Readonly<Record<string, unknown>>,
+): AppError =>
+  new AppError("invalid_state", message, {
+    action,
+    ...(details !== undefined ? { details } : {}),
+  });
+
+/**
+ * `422 insufficient_context` — Stage 3 determined that any analysis would be
+ * substantially invented (`AI §5.4`, `API §9.3`).
+ *
+ * **Not a failure.** `API §9.3`: "The request was well-formed and processed
+ * correctly; the *content* cannot be analyzed", and `AI §11.7` calls the
+ * refusal a quality behaviour. The unknowns travel with it because `PV §5`
+ * identifies this as a defining product moment and `API §9.3` is explicit that
+ * "returning a generic error here would waste the most valuable thing the
+ * system determined".
+ */
+export const insufficientContextError = (
+  unknowns: readonly {
+    readonly content: string;
+    readonly resolutionHint: string | null;
+  }[],
+): AppError =>
+  new AppError(
+    "insufficient_context",
+    "This analysis stopped because the input does not say enough to reason about without inventing the missing parts.",
+    {
+      action:
+        "Add the details listed below and submit again. NAIGX would rather refuse than guess.",
+      details: {
+        unknowns: unknowns.map((unknown) => ({
+          missing: unknown.content,
+          would_resolve: unknown.resolutionHint,
+        })),
+      },
+    },
+  );
+
+/**
+ * `422 unsupported_input_type` — classified outside scope (`FR-092`).
+ *
+ * `FR-092` requires the user to be told *which* types are supported, not
+ * merely that theirs is not: a refusal that does not say what would work
+ * leaves the user with nothing to try.
+ */
+export const unsupportedInputTypeError = (
+  supportedTypes: readonly string[],
+): AppError =>
+  new AppError(
+    "unsupported_input_type",
+    "This input was determined to be outside what NAIGX analyses.",
+    {
+      action:
+        "Submit a business requirement, an existing workflow, a job description, or a technical assessment.",
+      details: { supported_types: supportedTypes },
+    },
+  );
+
+/**
+ * `504 analysis_timeout` — the run exceeded its maximum duration (`FR-094`).
+ *
+ * `FR-094` requires the user to be told it timed out *and may be retried*, and
+ * requires completed artifacts to be presented rather than discarded. So this
+ * is raised only where a timeout blocks the request being made; retrieval of a
+ * timed-out analysis returns what was preserved, at 200.
+ */
+export const analysisTimeoutError = (): AppError =>
+  new AppError(
+    "analysis_timeout",
+    "The analysis exceeded the maximum time allowed and was stopped.",
+    {
+      action:
+        "Whatever finished before the cutoff has been kept and is retrievable. Submit again to retry the rest.",
+    },
+  );

@@ -33,6 +33,10 @@ export const STAGE_FRAGMENT_KEYS: Readonly<Record<string, string>> = {
   intent_detection: "stage.intent",
   context_extraction: "stage.context_extraction",
   architecture_analysis: "stage.architecture_analysis",
+  // Stage 6's second generator (`docs/15` D-40): the existing-workflow path
+  // reviews the workflow it was given rather than designing one, so it needs
+  // its own framing rather than a variant of the design prompt.
+  workflow_review: "stage.workflow_review",
   recommendation_generation: "stage.recommendation_generation",
   // Stage 9 registers per generator, not per stage: generators are independent
   // (`AID-08`), so each carries its own fragment rather than sharing one.

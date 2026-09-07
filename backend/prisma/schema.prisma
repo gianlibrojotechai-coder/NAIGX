@@ -212,6 +212,19 @@ model Analysis {
   sufficiencyLevel      SufficiencyLevel? @map("sufficiency_level")
   degradationFlag       Boolean           @default(false) @map("degradation_flag")
   timeoutFlag           Boolean           @default(false) @map("timeout_flag")
+  /// The stage at which reasoning stopped by design, and why (`API §9.3`).
+  ///
+  /// A REFUSAL IS NOT A FAILURE AND NOT A COMPLETION. `FR-092` declines an
+  /// unsupported input at Stage 1; `AI §5.4` stops an insufficient one at
+  /// Stage 3, and calls that "a designed outcome, not an error". Both were
+  /// previously computed and then discarded, so a refused analysis was stored
+  /// as `completed` and read back as an ordinary result with empty sections.
+  ///
+  /// Nullable, and null means **no refusal** rather than "unknown": every
+  /// analysis stored before this column existed reached its own outcome, and
+  /// backfilling a reason for one would invent a refusal that never happened.
+  haltedAtStage         Int?              @map("halted_at_stage")
+  haltReason            String?           @map("halt_reason")
   /// `FR-064` re-analysis lineage; the original is preserved (DP-3).
   supersedesAnalysisId  String?           @map("supersedes_analysis_id") @db.Uuid
 

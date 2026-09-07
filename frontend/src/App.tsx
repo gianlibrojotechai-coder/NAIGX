@@ -22,11 +22,13 @@
 import { JobDescriptionForm } from "./components/JobDescriptionForm";
 import { Processing } from "./components/Processing";
 import { AnalysisView } from "./components/AnalysisView";
+import { RefusalView } from "./components/RefusalView";
 import { isOffline } from "./api/analyses";
 import { useAnalysis } from "./useAnalysis";
 
 function App() {
-  const { state, submit, reset, retryRetrieval } = useAnalysis();
+  const { state, submit, reset, retryRetrieval, correctClassification } =
+    useAnalysis();
 
   const showForm = state.phase === "idle" || state.phase === "submitting";
 
@@ -58,6 +60,8 @@ function App() {
             status={state.status}
             elapsedSeconds={state.elapsedSeconds}
             connectionWarning={state.connectionWarning}
+            progress={state.progress}
+            streaming={state.streaming}
             onCancel={reset}
           />
         )}
@@ -112,6 +116,12 @@ function App() {
           </div>
         )}
 
+        {/* `API §9.3` — a refusal is a determination, not a failure, and gets
+            its own presentation rather than an empty result or an error box. */}
+        {state.phase === "refused" && state.refusal !== null && (
+          <RefusalView refusal={state.refusal} onStartOver={reset} />
+        )}
+
         {state.phase === "done" && state.analysis !== null && (
           <>
             <div className="flex justify-end">
@@ -123,7 +133,16 @@ function App() {
                 Analyse another posting
               </button>
             </div>
-            <AnalysisView analysis={state.analysis} />
+            <AnalysisView
+              analysis={state.analysis}
+              // `FR-014` — offered only when this session holds the content the
+              // correction must re-submit (`API §7.5` step 1). An analysis
+              // opened without it cannot be corrected, and hiding the control
+              // beats offering one that would fail.
+              {...(state.submittedContent !== null
+                ? { onCorrectClassification: correctClassification }
+                : {})}
+            />
           </>
         )}
       </main>

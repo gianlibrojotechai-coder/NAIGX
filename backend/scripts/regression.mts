@@ -214,7 +214,22 @@ if (command === "capture") {
     };
     let captureStore = store;
     let quarantine: ((record: CaptureFailureRecord) => void) | undefined;
-    let dryRunProfile: CapabilityProfile | undefined;
+
+    // ⚠️ LOADED FOR BOTH PATHS, NOT JUST THE DRY RUN.
+    //
+    // Stage 7 refuses to run without an inventory to compare against
+    // (`FR-022`), so a job-description case captured without one halts after
+    // Stage 3 — no verdict, no criteria, no artifact plan. It records
+    // *something*, which is what makes the failure expensive: a paid capture
+    // would bill for three stages and produce a recording that cannot support
+    // the evidence it was bought for.
+    //
+    // This was gated on `dryRun` until 2026-09-07 and never noticed, because
+    // no job-description case had ever been captured. Loading it here means
+    // the paid path cannot diverge from the rehearsal that approved it.
+    const { loadCapabilityProfile } =
+      await import("../src/nie/capability-profile.js");
+    const capabilityProfile: CapabilityProfile = loadCapabilityProfile();
 
     if (dryRun) {
       const scratch = fs.mkdtempSync(
@@ -225,14 +240,10 @@ if (command === "capture") {
       // the repository, diagnostic or otherwise.
       quarantine = (record) =>
         writeFailureRecord(record, path.join(scratch, "failures"));
-      // The job-description path needs an inventory to compare against, and
-      // Stage 7 refuses a match citing anything not in it — so the dry run is
-      // given the real `profile.yaml` rather than a fabricated one.
-      const { loadCapabilityProfile } =
-        await import("../src/nie/capability-profile.js");
-      dryRunProfile = loadCapabilityProfile();
+      // The dry-run adapter answers from the same inventory the pipeline is
+      // given, so a rehearsal exercises the real matching rules.
       adapterFor = (corpusCase) =>
-        createDryRunAdapter(corpusCase, dryRunProfile);
+        createDryRunAdapter(corpusCase, capabilityProfile);
       adapterId = DRY_RUN_ADAPTER_ID;
       modelKey = "dry-run";
       rate = {
@@ -284,9 +295,7 @@ if (command === "capture") {
     const report = await captureCases({
       cases,
       adapterFor,
-      ...(dryRunProfile !== undefined
-        ? { capabilityProfile: dryRunProfile }
-        : {}),
+      capabilityProfile,
       resolver: resolverFor(prisma),
       store: captureStore,
       rate,

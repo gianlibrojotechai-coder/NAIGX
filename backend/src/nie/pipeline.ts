@@ -24,6 +24,7 @@ import type { InvocationContext, ProviderInvoker } from "../provider/invoke.js";
 import {
   ArchitectureTraceabilityError,
   StageError,
+  isRetryableArtifactType,
   type ArchitectureResult,
   type ArtifactOutcome,
   type ClassificationResult,
@@ -34,7 +35,10 @@ import {
   type PipelineResult,
   type PortfolioSuggestions,
   type RecommendationResult,
-  type RecommendationResult as ContractRecommendationResult,
+  type ArtifactPlanEntry,
+  type ArtifactType,
+  type RecommendationForArtifacts,
+  type WorkflowReviewResult,
 } from "./contracts.js";
 import { composePrompt, type ComposedPrompt } from "./prompt.js";
 import type { CapabilityProfile } from "./capability-profile.js";
@@ -46,7 +50,16 @@ import {
   planArtifacts,
 } from "./stages/artifact-planning.js";
 import { parsePortfolioSuggestions } from "./stages/portfolio-suggestions.js";
+import {
+  classificationEvent,
+  insufficientContextEvent,
+  planEvent,
+  reasoningCompleteEvent,
+  understandingEvent,
+  type AnalysisEvent,
+} from "./events.js";
 import type {
+  AnalysisEventSink,
   FragmentResolver,
   FragmentUsageRecord,
   FragmentUsageSink,
@@ -64,6 +77,17 @@ import {
   proceedsToReasoning as contextProceeds,
 } from "./stages/context-extraction.js";
 import { parseArchitecture } from "./stages/architecture-analysis.js";
+import {
+  parseWorkflowReview,
+  WorkflowReviewGroundingError,
+} from "./stages/workflow-review.js";
+import {
+  planDerivedArtifacts,
+  renderAssessmentFeedback,
+  renderMermaidDiagram,
+  renderRiskAssessment,
+  renderWorkflowRecommendation,
+} from "./stages/derived-artifacts.js";
 import { planReasoning } from "./stages/reasoning-planning.js";
 import {
   ArtifactSchemaError,
@@ -85,6 +109,8 @@ export interface PipelineDependencies {
    * that is a caller's choice rather than a silent loss.
    */
   readonly resultSink?: StageResultSink;
+  /** Receives progress events (`FR-041`). Absent means no stream is watching. */
+  readonly eventSink?: AnalysisEventSink;
   readonly modelVersionId: string;
   readonly modelKey: string;
   /**
@@ -244,6 +270,19 @@ export function stageProviderInputs(
 export interface PipelineInput {
   readonly analysisId: string;
   readonly text: string;
+  /**
+   * A user-corrected classification (`FR-014`, `API §7.5`).
+   *
+   * When present, Stage 1 does not run: the type is **fixed** rather than
+   * determined. `FR-014` requires reclassification to "re-run the pipeline
+   * from `FR-011` with the user's type fixed", and asking a model to classify
+   * text whose classification has already been decided would spend a request
+   * to produce an answer that is then discarded.
+   *
+   * `unsupported` is not accepted here and the route refuses it: it is a
+   * refusal outcome, not a frame anything can be reasoned under.
+   */
+  readonly classificationOverride?: ClassificationType;
 }
 
 interface StageRun<T> {
@@ -271,6 +310,21 @@ interface StageRun<T> {
    * repeatable.
    */
   readonly regenerateOnce?: (error: unknown) => RegenerationDecision;
+  /**
+   * Overrides the fragment and trace key for a stage with more than one
+   * generator.
+   *
+   * Stage 9 established the shape: `docs/12` D-29 makes its registry key the
+   * *generator* (`portfolio_suggestions`) because "a shared
+   * `artifact_generation` key would give two generators one prompt". Stage 6
+   * is now the second such stage — it designs an architecture on the
+   * requirement and assessment paths, and reviews a submitted workflow on the
+   * workflow path (`docs/15` D-40). Two jobs, two prompts, one stage number.
+   *
+   * The stage *number* is never overridden: `AP-8`/`FR-100` trace by stage, and
+   * a variant that renumbered itself would break the twelve-stage inventory.
+   */
+  readonly stageKey?: string;
 }
 
 /**
@@ -294,7 +348,7 @@ export type RegenerationDecision = boolean | { readonly addendum: string };
  * generator nothing about what to build.
  */
 export const eligibleGapsView = (
-  recommendation: ContractRecommendationResult,
+  recommendation: RecommendationForArtifacts,
   eligible: readonly GapItem[],
 ): readonly Record<string, unknown>[] => {
   const nameOf = new Map(
@@ -315,6 +369,22 @@ export function createPipeline(deps: PipelineDependencies) {
   const guard = async (work: () => Promise<void>): Promise<void> => {
     try {
       await work();
+    } catch (error) {
+      deps.onRecordError?.(error);
+    }
+  };
+
+  /**
+   * Emits a progress event, and never lets delivery fail the analysis.
+   *
+   * `API-025`: "Stream failure never fails the analysis." A disconnected
+   * client is a delivery problem; the reasoning it would have described has
+   * already happened and is already persisted. Guarded for the same reason
+   * trace writes are (`DB §6.2`).
+   */
+  const emit = (analysisId: string, event: AnalysisEvent): void => {
+    try {
+      deps.eventSink?.emit(analysisId, event);
     } catch (error) {
       deps.onRecordError?.(error);
     }
@@ -368,7 +438,11 @@ export function createPipeline(deps: PipelineDependencies) {
     input: PipelineInput,
     spec: StageRun<T>,
   ): Promise<T> => {
-    const stage = stageByNumber(spec.stageNumber);
+    const registered = stageByNumber(spec.stageNumber);
+    const stage = {
+      ...registered,
+      stageKey: spec.stageKey ?? registered.stageKey,
+    };
     const stageTraceId = newId();
     const startedAt = now();
 
@@ -521,15 +595,112 @@ export function createPipeline(deps: PipelineDependencies) {
     preferLowVariance: true,
   });
 
+  /**
+   * Renders, validates, persists and announces the artifacts a path derives
+   * from reasoning it has already done (`docs/15` D-40).
+   *
+   * These make no provider call — see `derived-artifacts.ts` — but they are
+   * artifacts in every other respect: validated against their published schema
+   * (`FR-039`), stored valid or failed (`DB §4.4`), and announced with the
+   * outcome a reader needs to tell "produced" from "tried and failed"
+   * (`FR-091`). A rendering bug therefore surfaces as a schema failure rather
+   * than as a malformed artifact nobody checked.
+   */
+  const emitDerivedArtifacts = async (
+    input: PipelineInput,
+    plan: readonly ArtifactPlanEntry[],
+    renderers: Partial<Record<string, () => Record<string, unknown>>>,
+  ): Promise<readonly ArtifactPlanEntry[]> => {
+    let updated = plan;
+
+    for (const entry of plan) {
+      const render = renderers[entry.artifactType];
+      if (!entry.planned || render === undefined) continue;
+
+      const content = render();
+      let outcome: ArtifactOutcome = "generated";
+      let reason = "";
+      try {
+        validateArtifact(entry.artifactType, content);
+      } catch (error) {
+        outcome = "failed";
+        reason =
+          error instanceof ArtifactSchemaError
+            ? "Rendered but did not satisfy its output schema."
+            : "Rendering did not produce a usable document.";
+      }
+
+      await deps.resultSink?.persistArtifact?.(input.analysisId, {
+        artifactType: entry.artifactType,
+        content,
+        depthLevel: "standard",
+        // Rendered, not generated: there is no second attempt to make, because
+        // a deterministic renderer given the same input produces the same
+        // output. Regeneration is a remedy for sampling, not for arithmetic.
+        generationAttemptCount: 1,
+        validationStatus: outcome === "generated" ? "valid" : "failed",
+      });
+
+      emit(
+        input.analysisId,
+        outcome === "generated"
+          ? { type: "artifact", artifactType: entry.artifactType, content }
+          : {
+              type: "artifact_failed",
+              artifactType: entry.artifactType,
+              reason,
+              retryAvailable: isRetryableArtifactType(entry.artifactType),
+            },
+      );
+
+      updated = withOutcome(updated, entry.artifactType, outcome);
+    }
+
+    return updated;
+  };
+
   /** Runs stages 1-3 in the `FR-010` order, halting where the spec halts. */
   const run = async (input: PipelineInput): Promise<PipelineResult> => {
-    const classification: ClassificationResult = await runStage(input, {
-      stageNumber: 1,
-      structuredInput: { text: input.text },
-      buildRequest: (prompt) =>
-        request(prompt, "input_classification", input.text),
-      parse: parseClassification,
-    });
+    // `FR-014` — a corrected classification replaces Stage 1 rather than
+    // competing with it. Recorded as a deterministic stage so the trace shows
+    // *why* this analysis has the type it has (`FR-017`: orchestration
+    // "explicit and inspectable"), and so a reader can tell a user's decision
+    // from a model's.
+    //
+    // ⚠️ `confidence: 1` IS NOT A MODEL MEASUREMENT. There is no ambiguity
+    // about the frame this analysis ran under — the user fixed it — and
+    // `wasLowConfidence` is false for the same reason. What marks the value as
+    // user-supplied rather than measured is `userOverrideType` on the stored
+    // row, which `API-021` returns and the UI and export both surface. A
+    // reader that ignored that column would misread this number, which is why
+    // nothing in this project displays confidence without it.
+    const classification: ClassificationResult =
+      input.classificationOverride === undefined
+        ? await runStage(input, {
+            stageNumber: 1,
+            structuredInput: { text: input.text },
+            buildRequest: (prompt) =>
+              request(prompt, "input_classification", input.text),
+            parse: parseClassification,
+          })
+        : {
+            determinedType: input.classificationOverride,
+            confidence: 1,
+            candidateTypes: [input.classificationOverride],
+            wasLowConfidence: false,
+            mixedDetected: false,
+          };
+
+    if (input.classificationOverride !== undefined) {
+      await recordDeterministicStage(input, {
+        stageNumber: 1,
+        structuredInput: {
+          text: input.text,
+          classification_override: input.classificationOverride,
+        },
+        structuredOutput: classification,
+      });
+    }
 
     // Persisted as the stage completes, not batched at the end (`DB §6.2`).
     // Deliberately unguarded: unlike a trace write, a primary-domain failure
@@ -538,7 +709,9 @@ export function createPipeline(deps: PipelineDependencies) {
     await deps.resultSink?.persistClassification(
       input.analysisId,
       classification,
+      input.classificationOverride,
     );
+    emit(input.analysisId, classificationEvent(classification));
 
     if (!classificationProceeds(classification)) {
       // `FR-011`/`FR-092`: `unsupported` declines with an explanation and no
@@ -584,8 +757,18 @@ export function createPipeline(deps: PipelineDependencies) {
     });
 
     await deps.resultSink?.persistContext(input.analysisId, context);
+    // The problem as understood, which `FR-040` puts first and `FR-041` wants
+    // visible before the slow stages run.
+    emit(input.analysisId, understandingEvent(intent, context));
 
     if (!contextProceeds(context)) {
+      emit(
+        input.analysisId,
+        insufficientContextEvent(
+          "Context insufficient; any design would be substantially invented (AI §5.4)",
+          context,
+        ),
+      );
       // `AI §5.4`: "Analysis does not proceed to reasoning." The system states
       // what is missing — the `unknown` elements carry their resolution hints.
       return {
@@ -653,6 +836,7 @@ export function createPipeline(deps: PipelineDependencies) {
         parse: (text) => parseRecommendation(text, context, profile),
       });
 
+      emit(input.analysisId, reasoningCompleteEvent(null, recommendation));
       await deps.resultSink?.persistRecommendation?.(
         input.analysisId,
         recommendation,
@@ -670,6 +854,10 @@ export function createPipeline(deps: PipelineDependencies) {
       // `DB §4.4`: the plan is written at Stage 8, including the entries that
       // were planned *out* — omission and failure stay distinguishable only if
       // the omissions are stored too (`FR-091`, `AIP-8`).
+      // `API §7.4`: `plan` precedes any `artifact` event, so the client knows
+      // what to expect before results arrive. Guaranteed by position — Stage 8
+      // completes before Stage 9 starts.
+      emit(input.analysisId, planEvent(artifactPlan));
       await deps.resultSink?.persistArtifactPlan?.(
         input.analysisId,
         artifactPlan,
@@ -757,11 +945,41 @@ export function createPipeline(deps: PipelineDependencies) {
       // plan entry below carries the label a reader needs.
       let portfolioSuggestions: PortfolioSuggestions | undefined;
       let outcome: ArtifactOutcome = "generated";
+      // `API §7.4` specifies a failure reason on this event, so one is sent —
+      // but a *classified* one, never the raw error. An error message can carry
+      // a replay fixture key, a parser dump, or provider text, and `API §9.5`
+      // and `AI-006` keep all three off a client channel. Which class it was is
+      // the part a reader can act on; the detail is on the stage trace, where
+      // an operator can read it (`DB §8.4`).
+      let failureReason = "";
       try {
         portfolioSuggestions = await generate();
-      } catch {
+      } catch (error) {
         outcome = "failed";
+        failureReason =
+          error instanceof ArtifactSchemaError
+            ? "Generated but did not satisfy its output schema."
+            : "Generation did not produce a usable document.";
       }
+
+      // `FR-091` — a failed artifact is announced, not dropped. The stream has
+      // to distinguish "tried and failed" from the "chose not to" the `plan`
+      // event already carried.
+      emit(
+        input.analysisId,
+        outcome === "generated" && portfolioSuggestions !== undefined
+          ? {
+              type: "artifact",
+              artifactType: "portfolio_suggestions",
+              content: lastPortfolioWire,
+            }
+          : {
+              type: "artifact_failed",
+              artifactType: "portfolio_suggestions",
+              reason: failureReason,
+              retryAvailable: isRetryableArtifactType("portfolio_suggestions"),
+            },
+      );
 
       // `DB §4.4`: the artifact is stored either way. A `failed` row is what a
       // reader sees instead of an absence, and only a `valid` one is
@@ -788,6 +1006,76 @@ export function createPipeline(deps: PipelineDependencies) {
           outcome,
         ),
         ...(portfolioSuggestions !== undefined ? { portfolioSuggestions } : {}),
+      };
+    }
+
+    // `FR-021` via `AI §7.1`, resolved by `docs/15` D-40. Stage 6's second
+    // generator: this path reviews the workflow it was given rather than
+    // designing a replacement, so it runs here instead of
+    // `architecture_analysis` and never alongside it.
+    if (reasoningPlan.requiredAnalyses.includes("workflow_review")) {
+      const review: WorkflowReviewResult = await runStage(input, {
+        stageNumber: 6,
+        // Stage 6's other prompt. The number is the stage; the key is the job.
+        stageKey: "workflow_review",
+        classifiedAs: classification.determinedType,
+        structuredInput: { classification, intent, context },
+        buildRequest: (prompt) =>
+          request(
+            prompt,
+            "workflow_review",
+            stageHandoff({
+              classification,
+              intent,
+              context: contextHandoffView(context),
+            }),
+          ),
+        parse: (text) => parseWorkflowReview(text, context),
+        // The same single regeneration `AI §3.2` grants Stage 6, for the same
+        // failure: a citation resolving to nothing is worth one more attempt,
+        // and nothing else is.
+        regenerateOnce: (error) =>
+          error instanceof WorkflowReviewGroundingError,
+      });
+
+      // `docs/15` D-40: the identified structure is *observed*, not designed,
+      // and persists through the architecture entities because that is what
+      // they model. `FR-032` then holds unchanged — a risk names a step of the
+      // workflow under review.
+      const observed: ArchitectureResult = {
+        summary: review.summary,
+        dataFlowDescription: review.dataFlowDescription,
+        components: review.structure,
+      };
+      await deps.resultSink?.persistArchitecture(input.analysisId, observed);
+      await deps.resultSink?.persistWorkflowFindings?.(
+        input.analysisId,
+        review.findings,
+      );
+      emit(input.analysisId, reasoningCompleteEvent(review.summary));
+
+      const workflowPlan = planDerivedArtifacts(
+        "existing_workflow",
+        `The review identified ${String(review.structure.length)} step(s) and ${String(review.findings.length)} finding(s).`,
+      );
+      emit(input.analysisId, planEvent(workflowPlan));
+      await deps.resultSink?.persistArtifactPlan?.(
+        input.analysisId,
+        workflowPlan,
+      );
+
+      const rendered = await emitDerivedArtifacts(input, workflowPlan, {
+        workflow_recommendation: () => renderWorkflowRecommendation(review),
+        risk_assessment: () => renderRiskAssessment(review),
+      });
+
+      return {
+        classification,
+        intent,
+        context,
+        architecture: observed,
+        workflowReview: review,
+        artifactPlan: rendered,
       };
     }
 
@@ -818,16 +1106,159 @@ export function createPipeline(deps: PipelineDependencies) {
             context: contextHandoffView(context),
           }),
         ),
-      parse: (text) => parseArchitecture(text, context),
+      // `FR-023` binds trade-offs and a named rejected approach to the
+      // assessment path only. `FR-020` asks the requirement path for neither,
+      // so requiring them everywhere would fail a path against a rule nothing
+      // states about it.
+      parse: (text) =>
+        parseArchitecture(
+          text,
+          context,
+          classification.determinedType === "technical_assessment",
+        ),
       regenerateOnce: (error) => error instanceof ArchitectureTraceabilityError,
     });
 
+    emit(input.analysisId, reasoningCompleteEvent(architecture.summary));
     await deps.resultSink?.persistArchitecture(input.analysisId, architecture);
 
-    return { classification, intent, context, architecture };
+    // `FR-023` — the assessment path turns its architecture into something the
+    // user can defend. `AI §9.1` gives it Assessment Feedback and a Mermaid
+    // diagram, both derivable from what Stage 6 just produced. The requirement
+    // path's own artifact set is M-07 work and plans nothing here, which
+    // `PATH_ARTIFACT_TYPES` states as an empty list.
+    const assessmentPlan = planDerivedArtifacts(
+      classification.determinedType,
+      `The assessment produced ${String(architecture.components.length)} component(s) with ${String(architecture.rejectedApproaches?.length ?? 0)} rejected approach(es).`,
+    );
+
+    if (assessmentPlan.length === 0) {
+      return { classification, intent, context, architecture };
+    }
+
+    emit(input.analysisId, planEvent(assessmentPlan));
+    await deps.resultSink?.persistArtifactPlan?.(
+      input.analysisId,
+      assessmentPlan,
+    );
+
+    const rendered = await emitDerivedArtifacts(input, assessmentPlan, {
+      assessment_feedback: () => renderAssessmentFeedback(architecture),
+      mermaid_diagram: () => renderMermaidDiagram(architecture),
+    });
+
+    return {
+      classification,
+      intent,
+      context,
+      architecture,
+      artifactPlan: rendered,
+    };
   };
 
-  return { run };
+  /**
+   * Stage 9 for one artifact, from stored reasoning (`API-032`, `FR-091`).
+   *
+   * WHY THE PIPELINE OWNS THIS RATHER THAN THE ROUTE. Everything a
+   * regeneration needs is already here — prompt composition, the provider
+   * invoker, the trace sink, the fragment-usage sink, the single informed
+   * retry. A route that rebuilt those would be a second Stage 9 that could
+   * drift from the first, and boundary check 6 exists precisely so a stage is
+   * not reachable except through this module. Calling `runStage` means a retry
+   * is traced exactly like the original attempt (`AP-8`, `FR-100`) — indeed
+   * the trace is the only place the two attempts can be told apart.
+   *
+   * IT DOES NOT RE-RUN STAGES 1-8. `API-032`: "reuses stored reasoning state;
+   * does not re-run stages 1-8". The recommendation arrives already loaded
+   * from the database, so no classification, extraction or Stage 7 call
+   * happens — which is what makes a retry cheap enough to offer at all, and
+   * what keeps it a *retry* rather than a second analysis (`API §7.6`).
+   *
+   * ⚠️ THE ARTIFACT IS RETURNED, NOT PERSISTED. Writing it is the caller's
+   * job through the sinks, exactly as in a live run: `SA §3.4` keeps the NIE
+   * away from the database, and this is not the place to make an exception.
+   */
+  const regenerateArtifact = async (input: {
+    readonly analysisId: string;
+    readonly classifiedAs: ClassificationType;
+    readonly recommendation: RecommendationForArtifacts;
+  }): Promise<RegeneratedArtifact> => {
+    const eligible = eligibleGaps(input.recommendation);
+    let lastWire: unknown;
+    let attempts = 1;
+
+    // `runStage` wants a `PipelineInput`; the text is only used to build a
+    // request for stages that read the original input, and Stage 9 does not —
+    // it reads the reasoning. Passing the empty string keeps the seam honest
+    // about that rather than re-loading input this stage never consults.
+    const stageInput: PipelineInput = {
+      analysisId: input.analysisId,
+      text: "",
+    };
+
+    try {
+      await runStage(stageInput, {
+        stageNumber: 9,
+        classifiedAs: input.classifiedAs,
+        structuredInput: { recommendation: input.recommendation, retry: true },
+        buildRequest: (prompt) =>
+          request(
+            prompt,
+            "portfolio_suggestions",
+            stageHandoff({
+              eligible_gaps: eligibleGapsView(input.recommendation, eligible),
+              matched_capabilities: input.recommendation.matched,
+              verdict: input.recommendation.verdict,
+            }),
+          ),
+        parse: (text) => {
+          const wire = parseStructured(9, "portfolio_suggestions", text);
+          lastWire = wire;
+          validateArtifact("portfolio_suggestions", wire);
+          return parsePortfolioSuggestions(text, eligible);
+        },
+        // The same single informed regeneration a first attempt gets
+        // (`FR-039`, `AI §3.2`). A retry is a fresh attempt at the stage, not
+        // a licence to loop: `API-032` regenerates once per request, and a
+        // caller wanting another asks again.
+        regenerateOnce: (error) => {
+          if (!(error instanceof ArtifactSchemaError)) return false;
+          attempts += 1;
+          return { addendum: correctionFor(error) };
+        },
+      });
+
+      return {
+        artifactType: "portfolio_suggestions",
+        content: lastWire,
+        validationStatus: "valid",
+        generationAttemptCount: attempts,
+      };
+    } catch {
+      // `FR-091` again: a failed retry stores a *labelled failure*, not an
+      // absence. The document that failed is returned when there was one, so
+      // `DB §4.4` can keep it for diagnosis exactly as the first attempt did.
+      // The error itself is not propagated — it can carry parser or provider
+      // detail, and `API §9.5`/`AI-006` keep both off a client channel.
+      return {
+        artifactType: "portfolio_suggestions",
+        content: lastWire,
+        validationStatus: "failed",
+        generationAttemptCount: attempts,
+      };
+    }
+  };
+
+  return { run, regenerateArtifact };
+}
+
+/** What a single-artifact regeneration produced (`API-032`). */
+export interface RegeneratedArtifact {
+  readonly artifactType: ArtifactType;
+  /** The wire document, or `undefined` when nothing parseable came back. */
+  readonly content: unknown;
+  readonly validationStatus: "valid" | "failed";
+  readonly generationAttemptCount: number;
 }
 
 export { StageError };

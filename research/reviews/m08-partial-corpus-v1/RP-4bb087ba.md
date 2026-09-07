@@ -1,16 +1,14 @@
 # Review packet RP-4bb087ba
 
-> **This is not an M-08 pass, and cannot become one.**
-> `docs/10` §3.5 requires all seven criteria to pass per analysis. Two criteria
-> (C-3, C-6) have no material in this recording and are marked not assessable
-> below, so no packet in this set can yield a rubric pass. §4.1 also requires
-> ≥20 analyses per input type; this set has fewer. This is partial evidence for
-> one input type, and must be reported as partial and single-reviewer (§4.3).
+> **This packet cannot yield a rubric pass.**
+> `docs/10` §3.5 requires all seven criteria to pass. C-3 and C-6 have no material in this recording and are marked not assessable below.
+> Any review of this set is reported as partial and, unless a second human
+> reviews the same packets, single-reviewer (§4.3).
 
-> **Corpus evidence, not current-runtime evidence.** These are provider responses
-> captured on 2026-08-14 and replayed since. Per `docs/12` D-24 they are **not**
-> evidence that the prompts now in force produce these responses. A verdict here
-> describes the reasoning as it was captured, not as the system reasons today.
+> **Corpus evidence, not current-runtime evidence.** These are captured provider
+> responses, replayed since. Per `docs/12` D-24 they are **not** evidence that the
+> prompts now in force produce these responses. A verdict here describes the
+> reasoning as it was captured, not as the system reasons today.
 
 ---
 
@@ -512,7 +510,7 @@ Fill this in. A verdict without evidence is not recorded as a verdict (§3.3).
 
 *Evidence to record:* The artifact set produced, and whether the plan's inclusion and omission reasons justify it (ARTIFACT_PLAN_ENTRY)
 
-**Verdict:** NOT ASSESSABLE. C-3's required evidence is the artifact set produced and whether the plan's inclusion and omission reasons justify it (ARTIFACT_PLAN_ENTRY). These recordings contain no artifact plan and no artifacts: they were captured 2026-08-14, before Stages 8 and 9 existed. The regression suite records the same gap as the deferred `artifact_set` assertion (deferred to Stages 8-9).
+**Verdict:** NOT ASSESSABLE. C-3's required evidence is the artifact set produced (ARTIFACT_PLAN_ENTRY). This recording contains no artifact-generating stage — either it predates Stages 8-9, or its path routes to architecture only and never reaches them.
 
 **Evidence:** see above.
 
@@ -558,7 +556,7 @@ Fill this in. A verdict without evidence is not recorded as a verdict (§3.3).
 
 *Note:* Direct instrument for M-9.
 
-**Verdict:** NOT ASSESSABLE. C-6's required evidence is stated criteria plus at least one rejected alternative with a reason (FR-034). That is a Stage 7 output. These recordings contain no Stage 7 recommendation: they were captured 2026-08-14, before Stage 7 existed. The regression suite records the same gap as the deferred `do_not_automate_conclusion` assertion (deferred to Stage 7).
+**Verdict:** NOT ASSESSABLE. C-6's required evidence is stated criteria plus at least one rejected alternative with a reason (FR-034), which is a Stage 7 output. This recording contains no Stage 7 recommendation — either it predates the stage, or its path produces no recommendation at all.
 
 **Evidence:** see above.
 
@@ -582,8 +580,7 @@ Fill this in. A verdict without evidence is not recorded as a verdict (§3.3).
 
 ### Overall
 
-Per §3.5 an analysis passes only when all seven criteria pass. C-3 and C-6 are
-not assessable here, so this analysis cannot be recorded as a rubric pass.
+Per §3.5 an analysis passes only when all seven criteria pass. C-3 and C-6 are not assessable here, so this analysis cannot be recorded as a rubric pass.
 
 - **Overall:** ` fail / not assessable `  (a pass is not reachable — see above)
 - **Notes:**

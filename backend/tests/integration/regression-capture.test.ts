@@ -73,6 +73,7 @@ const resolver: FragmentResolver = {
 const corpusCase = (overrides: Record<string, string> = {}): CorpusCase => {
   const fields = {
     case_id: "cc-001",
+    input_type: "business_requirement",
     expected_classification: "business_requirement",
     special_class: "null",
     bound: "at_or_above_threshold",
@@ -81,7 +82,7 @@ const corpusCase = (overrides: Record<string, string> = {}): CorpusCase => {
   return parseCorpusCase(
     [
       `case_id: ${fields["case_id"] as string}`,
-      "input_type: business_requirement",
+      `input_type: ${fields["input_type"] as string}`,
       "content: |",
       ...TEXT.split("\n").map((l) => `  ${l}`),
       `character_count: ${String(TEXT.length)}`,
@@ -637,5 +638,71 @@ test("the quarantine writer files outside the recording store entirely", async (
     // The recording store sees nothing: different root, and the gate only ever
     // reads `<recording root>/<corpus version>/*.json`.
     assert.deepEqual(createRecordingStore(root).list("corpus-v1"), []);
+  });
+});
+
+// --- the capability profile reaches both capture paths --------------------
+
+test("the capture script loads the capability profile before the dry-run branch", () => {
+  // ⚠️ REGRESSION, and the expensive kind. `capabilityProfile` was loaded only
+  // inside `if (dryRun)`, so a *paid* job-description capture ran with none —
+  // and Stage 7 refuses without an inventory to compare against (`FR-022`).
+  // The run would have billed three stages per case and produced recordings
+  // with no verdict, no criteria and no artifact plan: exactly the evidence
+  // the capture would have been bought for.
+  //
+  // Asserted against the source because the seam is a CLI entry point. The
+  // behavioural half is the test below, which shows what its absence costs.
+  const script = fs.readFileSync(
+    path.join(process.cwd(), "scripts", "regression.mts"),
+    "utf8",
+  );
+
+  const load = script.indexOf("loadCapabilityProfile()");
+  const branch = script.indexOf("if (dryRun) {");
+
+  assert.ok(load > 0, "the script loads a capability profile");
+  assert.ok(branch > 0, "the dry-run branch exists");
+  assert.ok(
+    load < branch,
+    "the profile must load before the dry-run branch, or the paid path runs without one",
+  );
+  assert.ok(
+    !script.includes("dryRunProfile"),
+    "a dry-run-only profile variable is what caused this defect",
+  );
+  assert.match(
+    script,
+    /capabilityProfile,/,
+    "and it must be passed to captureCases unconditionally",
+  );
+});
+
+test("without a profile a job-description case never reaches Stage 7", async () => {
+  // The behaviour the assertion above protects. Stage 7 is where the JD path
+  // earns C-6's evidence, and it does not start without an inventory.
+  await withRoot(async (root) => {
+    const target = corpusCase({
+      case_id: "jd-profile-check",
+      input_type: "job_description",
+      expected_classification: "job_description",
+    });
+
+    await captureCases(options(root, [target]));
+
+    const verified = createRecordingStore(root).read(
+      "corpus-v1",
+      "jd-profile-check",
+    );
+    const stages = verified?.recording.stages.map((s) => s.stageKey) ?? [];
+
+    assert.ok(
+      !stages.includes("recommendation_generation"),
+      "a capture with no capability profile cannot produce a verdict",
+    );
+    assert.ok(
+      !stages.includes("portfolio_suggestions"),
+      "and therefore no artifact either — C-3 and C-6 would both be starved",
+    );
   });
 });

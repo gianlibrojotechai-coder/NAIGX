@@ -26,7 +26,7 @@ import {
   buildPackets,
   buildUnblindingIndex,
   reviewerId,
-  NOT_ASSESSABLE,
+  assessabilityOf,
   RUBRIC_CRITERIA,
   buildIndex,
   type PacketInput,
@@ -266,7 +266,7 @@ test("an overall pass is not reachable and the packet says so", () => {
 
   for (const packet of buildPackets(inputs)) {
     assert.match(packet.content, /cannot be recorded as a rubric pass/);
-    assert.match(packet.content, /This is not an M-08 pass/);
+    assert.match(packet.content, /cannot yield a rubric pass/);
     assert.ok(
       !packet.content.includes("**Overall:** pass"),
       "no overall pass is pre-filled",
@@ -276,19 +276,25 @@ test("an overall pass is not reachable and the packet says so", () => {
 
 // --- C-3 and C-6 ----------------------------------------------------------
 
-test("C-3 and C-6 are marked not assessable, with the reason", () => {
+test("the historical br/unsupported recordings still mark C-3 and C-6 not assessable", () => {
+  // Derived, not assumed — and for these recordings the derivation must reach
+  // the same answer the old hard-coding did, or the fix would have changed
+  // what the committed evidence says.
   const { inputs } = packetInputs();
-  const packet = buildPacket(inputs[0] as PacketInput);
 
-  assert.match(packet.content, /C-3 · Proportional/);
-  assert.ok(packet.content.includes(NOT_ASSESSABLE["C-3"] as string));
-  assert.match(packet.content, /ARTIFACT_PLAN_ENTRY/);
-  assert.match(packet.content, /artifact_set/);
+  for (const input of inputs) {
+    const state = assessabilityOf(input.recording);
+    assert.equal(state["C-3"]?.assessable, false, input.corpusCase.caseId);
+    assert.equal(state["C-6"]?.assessable, false, input.corpusCase.caseId);
 
-  assert.match(packet.content, /C-6 · Defensible/);
-  assert.ok(packet.content.includes(NOT_ASSESSABLE["C-6"] as string));
-  assert.match(packet.content, /FR-034/);
-  assert.match(packet.content, /do_not_automate_conclusion/);
+    const packet = buildPacket(input);
+    assert.match(packet.content, /C-3 · Proportional/);
+    assert.match(packet.content, /C-6 · Defensible/);
+    assert.ok(packet.content.includes(state["C-3"]?.reason as string));
+    assert.ok(packet.content.includes(state["C-6"]?.reason as string));
+    assert.match(packet.content, /ARTIFACT_PLAN_ENTRY/);
+    assert.match(packet.content, /FR-034/);
+  }
 });
 
 test("the five assessable criteria are left blank", () => {
@@ -296,11 +302,6 @@ test("the five assessable criteria are left blank", () => {
   const body = buildPacket(inputs[0] as PacketInput).content;
 
   for (const id of ["C-1", "C-2", "C-4", "C-5", "C-7"]) {
-    assert.equal(
-      NOT_ASSESSABLE[id],
-      undefined,
-      `${id} must not be pre-marked — it is the reviewer's to decide`,
-    );
     const section = body.slice(body.indexOf(`#### ${id} ·`));
     assert.match(
       section.slice(0, section.indexOf("####", 4) + 1 || undefined),
@@ -355,10 +356,7 @@ test("the corpus-versus-runtime distinction travels with the packet", () => {
 
   for (const packet of buildPackets(inputs)) {
     assert.match(packet.content, /D-24/);
-    assert.match(
-      packet.content,
-      /not.*evidence that the prompts now in force/s,
-    );
+    assert.match(packet.content, /are \*\*not\*\* evidence that the/);
   }
 });
 
@@ -525,4 +523,192 @@ test("the index is deterministic", () => {
     buildIndex(buildPackets(inputs), stages),
     buildIndex(buildPackets([...inputs].reverse()), stages),
   );
+});
+
+// --- assessability is derived, not assumed --------------------------------
+//
+// The packet builder once hard-coded C-3 and C-6 as not assessable. That was
+// true of the 2026-08-14 recordings and would have become false the moment a
+// job-description case was captured — telling a reviewer to skip the only two
+// criteria the capture was bought to unblock.
+
+/** A recording shaped like a captured job-description case. */
+const jdRecording = (
+  overrides: { verdict?: Record<string, unknown>; stages?: string[] } = {},
+): CaseRecording => {
+  const verdict = overrides.verdict ?? {
+    decision: "build_first",
+    rationale: "One decisive gap has no evidence behind it.",
+    criteria_applied:
+      "Must-have technical requirements weighed against evidence.",
+    decisive_gaps: ["req-2"],
+    alternatives: [
+      { alternative: "Apply now", rejection_reason: "The gap is decisive." },
+    ],
+  };
+  const keys = overrides.stages ?? [
+    "input_classification",
+    "intent_detection",
+    "context_extraction",
+    "recommendation_generation",
+    "portfolio_suggestions",
+  ];
+
+  return {
+    caseId: "jd-test",
+    corpusVersion: "corpus-v1",
+    inputTextHash: "hash",
+    fragmentsManifestVersion: "fragments-v1",
+    fragmentsCompositionHash: "hash",
+    capturedAt: "2026-09-07T00:00:00.000Z",
+    provider: { adapter: "test", modelKey: "test" },
+    lowVarianceSampling: false,
+    stages: keys.map((stageKey) => ({
+      stageKey,
+      output:
+        stageKey === "recommendation_generation"
+          ? JSON.stringify({ verdict })
+          : JSON.stringify({ ok: true }),
+      inputTokens: 10,
+      outputTokens: 10,
+      latencyMs: 1,
+    })),
+  } as CaseRecording;
+};
+
+test("a JD recording reaching Stage 7 and artifact generation is not pre-marked", () => {
+  const state = assessabilityOf(jdRecording());
+
+  assert.equal(
+    state["C-3"]?.assessable,
+    true,
+    "an artifact-generating stage ran, so the artifact set is material",
+  );
+  assert.equal(
+    state["C-6"]?.assessable,
+    true,
+    "the verdict carries criteria and a rejected alternative (FR-034)",
+  );
+});
+
+test("a JD packet offers all seven criteria to the reviewer", () => {
+  const packet = buildPacket({
+    corpusCase: {
+      caseId: "jd-test",
+      inputType: "job_description",
+      inputText: "A posting.",
+      characterCount: 10,
+      expectedArtifactSet: [],
+      expectedOmissions: [],
+      rationale: "unused",
+    } as unknown as PacketInput["corpusCase"],
+    recording: jdRecording(),
+  });
+
+  for (const criterion of RUBRIC_CRITERIA) {
+    const section = packet.content.slice(
+      packet.content.indexOf(`#### ${criterion.id} ·`),
+    );
+    assert.match(
+      section.slice(0, 900),
+      /` pass \/ fail \/ not assessable `/,
+      `${criterion.id} must be the reviewer's to decide`,
+    );
+  }
+
+  assert.ok(
+    !packet.content.includes("cannot be recorded as a rubric pass"),
+    "a pass is reachable here, and the packet must not claim otherwise",
+  );
+  assert.match(packet.content, /a pass is reachable/);
+});
+
+test("genuinely missing evidence still reads NOT ASSESSABLE", () => {
+  // The property that keeps the fix honest: deriving must not become
+  // permitting. Each of these is a real absence, not a vintage.
+  const noArtifact = assessabilityOf(
+    jdRecording({
+      stages: [
+        "input_classification",
+        "intent_detection",
+        "context_extraction",
+        "recommendation_generation",
+      ],
+    }),
+  );
+  assert.equal(noArtifact["C-3"]?.assessable, false);
+  assert.match(String(noArtifact["C-3"]?.reason), /^NOT ASSESSABLE\./);
+  assert.match(String(noArtifact["C-3"]?.reason), /artifact-generating stage/);
+  assert.equal(noArtifact["C-6"]?.assessable, true, "Stage 7 is still present");
+
+  const noStage7 = assessabilityOf(
+    jdRecording({ stages: ["input_classification"] }),
+  );
+  assert.equal(noStage7["C-6"]?.assessable, false);
+  assert.match(String(noStage7["C-6"]?.reason), /no Stage 7 recommendation/);
+
+  // A pre-FR-034 verdict: Stage 7 ran, but produced neither field.
+  const preFr034 = assessabilityOf(
+    jdRecording({
+      verdict: {
+        decision: "build_first",
+        rationale: "x",
+        decisive_gaps: ["req-2"],
+      },
+    }),
+  );
+  assert.equal(
+    preFr034["C-6"]?.assessable,
+    false,
+    "a verdict without criteria or alternatives is not C-6 material",
+  );
+  assert.match(String(preFr034["C-6"]?.reason), /neither/);
+
+  // Criteria without an alternative is still short of FR-034.
+  const criteriaOnly = assessabilityOf(
+    jdRecording({
+      verdict: {
+        decision: "build_first",
+        rationale: "x",
+        criteria_applied: "y",
+        decisive_gaps: ["req-2"],
+        alternatives: [],
+      },
+    }),
+  );
+  assert.equal(criteriaOnly["C-6"]?.assessable, false);
+  assert.match(
+    String(criteriaOnly["C-6"]?.reason),
+    /criteria but no alternative/,
+  );
+});
+
+test("deriving assessability still generates no verdict", () => {
+  // Assessable means "the reviewer may judge this", never "it passed".
+  const packet = buildPacket({
+    corpusCase: {
+      caseId: "jd-test",
+      inputType: "job_description",
+      inputText: "A posting.",
+      characterCount: 10,
+      expectedArtifactSet: [],
+      expectedOmissions: [],
+      rationale: "unused",
+    } as unknown as PacketInput["corpusCase"],
+    recording: jdRecording(),
+  });
+
+  const verdicts = packet.content
+    .split("\n")
+    .filter((line) => line.startsWith("**Verdict:**"));
+
+  assert.equal(verdicts.length, RUBRIC_CRITERIA.length);
+  for (const line of verdicts) {
+    assert.ok(
+      line.includes("` pass / fail / not assessable `") ||
+        line.includes("NOT ASSESSABLE"),
+      `a verdict was pre-decided: ${line}`,
+    );
+  }
+  assert.ok(!packet.content.includes("**Overall:** pass"));
 });

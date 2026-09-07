@@ -10,11 +10,14 @@
  * satisfiable by an in-memory object.
  */
 
+import type { AnalysisEvent } from "./events.js";
+import type { WorkflowFinding } from "./contracts.js";
 import type {
   ArtifactPlanEntry,
   ArtifactType,
   ArchitectureResult,
   ClassificationResult,
+  ClassificationType,
   ContextResult,
   RecommendationResult,
   IntentResult,
@@ -112,9 +115,16 @@ export interface StageTraceSink {
  * analysis nobody can retrieve would be a lie.
  */
 export interface StageResultSink {
+  /**
+   * @param overriddenBy - the user's corrected type (`FR-014`, `API §7.5`).
+   * Present only on a correction re-run, and recorded so a reader can tell a
+   * user's decision from a model's determination. `DB §4.2` keeps them in
+   * separate columns for exactly that reason.
+   */
   persistClassification(
     analysisId: string,
     classification: ClassificationResult,
+    overriddenBy?: ClassificationType,
   ): Promise<void>;
   persistIntent(analysisId: string, intent: IntentResult): Promise<void>;
   persistContext(analysisId: string, context: ContextResult): Promise<void>;
@@ -130,6 +140,18 @@ export interface StageResultSink {
   persistArchitecture(
     analysisId: string,
     architecture: ArchitectureResult,
+  ): Promise<void>;
+  /**
+   * Stage 6W findings, as `RISK_ITEM` rows (`FR-032`, `docs/15` D-40).
+   *
+   * Written after `persistArchitecture`, because `RiskItem.component_id` is a
+   * foreign key to the component a finding names — and on this path those
+   * components are the steps of the reviewed workflow. Optional like the other
+   * additions here, so a caller with no database is unaffected.
+   */
+  persistWorkflowFindings?(
+    analysisId: string,
+    findings: readonly WorkflowFinding[],
   ): Promise<void>;
   /**
    * Stage 8 (`DB §4.4` ARTIFACT_PLAN_ENTRY). Optional, for the same reason
@@ -162,4 +184,22 @@ export interface PersistedArtifact {
   readonly generationAttemptCount: number;
   /** `DB §4.4` — only `valid` artifacts are presentable. */
   readonly validationStatus: "valid" | "failed";
+}
+
+/**
+ * Receives progress events as the analysis produces them (`FR-041`).
+ *
+ * Optional, like every other sink here: a caller that only wants the final
+ * result — the unit tests, the regression capture, the harness — supplies
+ * nothing and the pipeline behaves exactly as before.
+ *
+ * ⚠️ EMISSION MUST NEVER FAIL AN ANALYSIS. `API-025` is explicit that "stream
+ * failure never fails the analysis", and `SA AR-06` keeps polling as the
+ * fallback for exactly this reason. A disconnected browser, a full buffer or a
+ * throwing subscriber is a delivery problem; the reasoning already happened and
+ * is already persisted. The pipeline therefore guards these calls the same way
+ * it guards trace writes.
+ */
+export interface AnalysisEventSink {
+  emit(analysisId: string, event: AnalysisEvent): void;
 }

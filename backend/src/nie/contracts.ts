@@ -157,6 +157,14 @@ export interface PipelineResult {
   readonly artifactPlan?: readonly ArtifactPlanEntry[];
   /** Stage 9, present only when the plan included `portfolio_suggestions`. */
   readonly portfolioSuggestions?: PortfolioSuggestions;
+  /**
+   * Stage 6W, existing-workflow path only (`FR-021`, `docs/15` D-40).
+   *
+   * Carried beside `architecture` rather than instead of it: the architecture
+   * field holds the *observed* structure this review identified, and this holds
+   * the evaluation of it.
+   */
+  readonly workflowReview?: WorkflowReviewResult;
   /** Why the pipeline stopped early, if it did. */
   readonly haltedAt?: { readonly stageNumber: number; readonly reason: string };
 }
@@ -230,10 +238,111 @@ export interface ArchitectureComponentDraft {
   readonly groundedInContextIndices: readonly number[];
 }
 
+/**
+ * A trade-off the proposed approach accepts (`FR-023`, `AI §7.1` RM-5).
+ *
+ * `FR-023`: "Trade-offs accepted by the proposed approach are stated." A design
+ * that names no cost is either trivial or dishonest, and the assessment path
+ * exists to produce something the user can defend under questioning.
+ */
+export interface AcceptedTradeOff {
+  readonly choice: string;
+  readonly accepted: string;
+}
+
+/**
+ * An approach considered and not taken (`FR-023`, `AI-031`).
+ *
+ * The same shape `RejectedAlternative` takes on a Stage 7 verdict, and for the
+ * same reason: `FR-023` requires "at least one rejected alternative approach
+ * named with the reason for rejection", which has to be countable rather than
+ * inferable from prose.
+ */
+export interface RejectedApproach {
+  readonly approach: string;
+  readonly rejectionReason: string;
+}
+
 export interface ArchitectureResult {
   readonly summary: string;
   readonly dataFlowDescription: string;
   readonly components: readonly ArchitectureComponentDraft[];
+  /**
+   * Present on the `technical_assessment` path (`FR-023`, RM-5 Trade-off
+   * Evaluation); absent on `business_requirement`, which `AI §7.1` also maps
+   * to RM-5 but which `FR-020` does not require to state trade-offs.
+   *
+   * Optional rather than empty-by-default so the two paths stay
+   * distinguishable in the contract: "produced none" and "was not asked" are
+   * different facts.
+   */
+  readonly tradeOffs?: readonly AcceptedTradeOff[];
+  /** Present on the `technical_assessment` path. `FR-023` requires ≥1. */
+  readonly rejectedApproaches?: readonly RejectedApproach[];
+}
+
+// --- Stage 6W, existing-workflow path (`FR-021`, `docs/15` D-40) ----------
+
+/** `docs/09` §2 — the 1–5 integer scales risks are scored on. */
+export const FINDING_SEVERITIES = [1, 2, 3, 4, 5] as const;
+
+/**
+ * One issue found in the submitted workflow.
+ *
+ * `FR-021`: "Each issue carries severity and a concrete remediation", and
+ * "identified issues are specific to the submitted workflow, not generic
+ * best-practice statements". The component reference is what makes the second
+ * enforceable — a finding that cannot name the step it concerns is the generic
+ * statement the requirement rejects, and `FR-032` applies the same rule to
+ * risks with a NOT NULL column.
+ */
+export interface WorkflowFinding {
+  /** Index into `structure`, so a finding always names the step it concerns. */
+  readonly componentIndex: number;
+  readonly description: string;
+  /** `docs/09` §2 severity, 1–5. */
+  readonly severity: number;
+  /** `docs/09` §2 likelihood, 1–5. */
+  readonly likelihood: number;
+  readonly remediation: string;
+}
+
+/**
+ * Stage 6W output — the workflow as it is, then what is wrong with it.
+ *
+ * ORDER IS THE REQUIREMENT, not a convention. `FR-021`: "Output identifies the
+ * workflow's current structure before evaluating it." The structure is
+ * described first because an evaluation of a structure nobody has stated is an
+ * evaluation the reader cannot check.
+ *
+ * `docs/15` D-40: the identified structure is *observed*, not designed. It is
+ * persisted through `ArchitectureModel`/`ArchitectureComponent` because that is
+ * what those entities model, and the analysis's classification is what
+ * distinguishes a transcription from a recommendation.
+ */
+export interface WorkflowReviewResult {
+  /** What the submitted workflow does, described before it is judged. */
+  readonly summary: string;
+  readonly dataFlowDescription: string;
+  /** The steps of the workflow under review. */
+  readonly structure: readonly ArchitectureComponentDraft[];
+  /**
+   * Empty is a valid, meaningful answer.
+   *
+   * `FR-021`: "A sound workflow yields an explicit statement that no material
+   * issues were found, not manufactured criticism." An empty findings list with
+   * a stated `soundnessStatement` is that outcome; the parser requires the
+   * statement precisely so silence cannot pass for approval.
+   */
+  readonly findings: readonly WorkflowFinding[];
+  /**
+   * Required when `findings` is empty — the explicit "no material issues"
+   * statement `FR-021` asks for. Absent when findings exist, because the
+   * findings are the answer.
+   */
+  readonly soundnessStatement?: string;
+  /** Optimisation recommendations (`FR-021`). Free text, one per entry. */
+  readonly optimisations: readonly string[];
 }
 
 /**
@@ -383,12 +492,38 @@ export interface RecommendationVerdict {
   readonly alternatives: readonly RejectedAlternative[];
 }
 
-/** What Stage 7 produces on the job-description path. */
-export interface RecommendationResult {
-  readonly requiredCapabilities: readonly RequiredCapability[];
+/**
+ * The part of a Stage 7 recommendation that Stage 9 reads.
+ *
+ * WHY THIS EXISTS SEPARATELY. `API-032` regenerates a failed artifact by
+ * *reusing stored reasoning*, and what storage can honestly return is not the
+ * whole of `RecommendationResult`: `groundedInContextIndices` are positions in
+ * the Stage 3 element list, while the database records grounding as references
+ * to context element **ids** and `CONTEXT_ELEMENT` has no ordinal column.
+ * Recovering positions after the fact would mean re-deriving an order nothing
+ * ever recorded.
+ *
+ * So Stage 9's input is declared as exactly what it consumes. A live run
+ * passes the full result, which satisfies this by structure; a retry passes
+ * what came back from storage. Neither has to pretend.
+ *
+ * Declared here rather than in `db/` because `AD-02`/`AP-3` forbid the NIE
+ * importing persistence and boundary check 2 enforces it — the NIE states the
+ * shape it needs, and the persistence layer produces something assignable.
+ */
+export interface RecommendationForArtifacts {
+  readonly requiredCapabilities: readonly Omit<
+    RequiredCapability,
+    "groundedInContextIndices"
+  >[];
   readonly matched: readonly MatchedCapability[];
   readonly gaps: readonly GapItem[];
   readonly verdict: RecommendationVerdict;
+}
+
+/** What Stage 7 produces on the job-description path. */
+export interface RecommendationResult extends RecommendationForArtifacts {
+  readonly requiredCapabilities: readonly RequiredCapability[];
 }
 
 // --- Stage 8 / Stage 9, job-description path (`docs/12` D-29) -------------
@@ -403,14 +538,87 @@ export interface RecommendationResult {
  * cannot name at all would be neither.
  */
 export const ARTIFACT_TYPES = [
+  // Job-description path (`docs/12` D-29).
   "skill_gap_analysis",
   "portfolio_suggestions",
   "interview_guidance",
+  // Existing-workflow path (`FR-021`, `docs/15` D-40). Platform Comparison and
+  // Complexity Score are `AI §9.1` artifacts of this path too: the first is
+  // deferred to M-07, the second blocked by D-33/D-35/D-36. Edge Cases is
+  // excluded by `MVP §5.3`. None is declared, because a declared type with no
+  // generator would have to be planned and omitted on every run.
+  "workflow_recommendation",
+  "risk_assessment",
+  // Technical-assessment path (`FR-023`).
+  "assessment_feedback",
+  "mermaid_diagram",
 ] as const;
 export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
 
+/**
+ * Which artifacts belong to which path (`AI §9.1`).
+ *
+ * ⚠️ ARTIFACT TYPES ARE PER PATH, NOT GLOBAL. `AI §9.1`'s *Applies to* column
+ * maps every artifact to the paths that produce it, and a planner that walked
+ * the whole catalogue would have to record an omission reason on every
+ * artifact of every *other* path — telling a job-description reader that a
+ * Mermaid diagram was "omitted", which is true of a question nobody asked.
+ *
+ * `business_requirement` is empty because its artifacts — business analysis,
+ * architecture recommendation, platform comparison, risk assessment,
+ * complexity score, diagram — are M-07 work and unbuilt. An empty list plans
+ * nothing, which is the honest state.
+ */
+export const PATH_ARTIFACT_TYPES: Readonly<
+  Record<ClassificationType, readonly ArtifactType[]>
+> = {
+  business_requirement: [],
+  existing_workflow: ["workflow_recommendation", "risk_assessment"],
+  job_description: [
+    "skill_gap_analysis",
+    "portfolio_suggestions",
+    "interview_guidance",
+  ],
+  technical_assessment: ["assessment_feedback", "mermaid_diagram"],
+  // `FR-092` declines before reasoning; nothing is planned for a refusal.
+  unsupported: [],
+};
+
 /** The generators that exist. Phase 3A ships one (`docs/12` D-29). */
-export const IMPLEMENTED_ARTIFACT_TYPES = ["portfolio_suggestions"] as const;
+export const IMPLEMENTED_ARTIFACT_TYPES = [
+  "portfolio_suggestions",
+  "workflow_recommendation",
+  "risk_assessment",
+  "assessment_feedback",
+  "mermaid_diagram",
+] as const;
+
+/**
+ * Artifact types produced by a provider call, as opposed to rendered.
+ *
+ * THIS IS WHAT MAKES RETRY MEANINGFUL. `API-032` regenerates a failed artifact
+ * "without re-running the analysis", and `FR-091` requires that retry be
+ * available. Both assume the second attempt can differ from the first — which
+ * is true of a sampled generation and false of arithmetic. The four rendered
+ * artifacts (`docs/15` D-40) are deterministic functions of reasoning already
+ * stored, so a retry would recompute the identical document, fail identically,
+ * and charge the user a request to learn nothing.
+ *
+ * A rendered artifact that failed its schema is a **defect in the renderer**,
+ * and the honest response to a retry request is to say so rather than to
+ * perform a gesture. `API-032` returns `invalid_state` for those.
+ */
+export const GENERATED_ARTIFACT_TYPES = ["portfolio_suggestions"] as const;
+
+/**
+ * Whether a failed artifact of this type is worth attempting again.
+ *
+ * Read by the `artifact_failed` event, whose `API §7.4` payload is "Type,
+ * failure reason, **retry availability**", and by `API-032` itself. One
+ * predicate, so the stream cannot advertise a retry the endpoint refuses.
+ */
+export const isRetryableArtifactType = (artifactType: string): boolean =>
+  (GENERATED_ARTIFACT_TYPES as readonly string[]).includes(artifactType);
 
 /**
  * `DB §4.4` — what became of a planned artifact.

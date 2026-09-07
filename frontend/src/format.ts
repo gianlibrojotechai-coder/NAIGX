@@ -57,3 +57,62 @@ export const formatElapsed = (
   if (Number.isNaN(start) || Number.isNaN(end) || end < start) return null;
   return formatDuration(Math.round((end - start) / 1000));
 };
+
+// --- risk scales (`docs/09` §2, scale version `risk-v1`) --------------------
+//
+// Severity and likelihood are stored; the score and band are **derived at
+// presentation and never stored**. That is deliberate — a stored band would
+// silently mean something different the day the scale is revised, and
+// `scale_version` exists precisely so a comparison across revisions cannot
+// happen by accident. Deriving here keeps one definition, in one place.
+
+const SEVERITY_LABELS = [
+  "Minimal",
+  "Low",
+  "Moderate",
+  "High",
+  "Critical",
+] as const;
+
+const LIKELIHOOD_LABELS = [
+  "Rare",
+  "Unlikely",
+  "Possible",
+  "Likely",
+  "Almost certain",
+] as const;
+
+/** `docs/09` §2.1. Out-of-range scores are reported, not clamped. */
+export const severityLabel = (score: number): string =>
+  SEVERITY_LABELS[score - 1] ?? `Unrecognised (${String(score)})`;
+
+/** `docs/09` §2.2. */
+export const likelihoodLabel = (score: number): string =>
+  LIKELIHOOD_LABELS[score - 1] ?? `Unrecognised (${String(score)})`;
+
+export type RiskBand = "Low" | "Moderate" | "High" | "Very high" | "Critical";
+
+/** `docs/09` §2.3 — Risk Score = Severity × Likelihood, 1 to 25. */
+export const riskScore = (severity: number, likelihood: number): number =>
+  severity * likelihood;
+
+/** `docs/09` §2.4 — contiguous integer ranges over that product. */
+export const riskBand = (score: number): RiskBand => {
+  if (score <= 4) return "Low";
+  if (score <= 9) return "Moderate";
+  if (score <= 14) return "High";
+  if (score <= 19) return "Very high";
+  return "Critical";
+};
+
+/** The badge tone a band earns. Never the only carrier of the meaning. */
+export const riskTone = (
+  band: RiskBand,
+): "neutral" | "info" | "warning" | "danger" =>
+  band === "Low"
+    ? "neutral"
+    : band === "Moderate"
+      ? "info"
+      : band === "High"
+        ? "warning"
+        : "danger";

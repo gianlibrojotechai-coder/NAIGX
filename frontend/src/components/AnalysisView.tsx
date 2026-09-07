@@ -5,8 +5,18 @@
  * understood to lead and to be visible without scrolling, then conclusions,
  * then supporting detail. The order below is that requirement:
  *
- *   1 the job as understood · 2 classification · 3 verdict · 4 requirements
- *   5 portfolio suggestions · 6 unknowns · 7 provenance · 8 artifact status
+ *   1 the input as understood · 2 classification · 3 verdict · 4 requirements
+ *   5… the artifacts this path produced · then unknowns · provenance ·
+ *   artifact status
+ *
+ * THE ARTIFACT BLOCK IS PATH-DEPENDENT, THE REST IS NOT. Sections 1-4 and the
+ * closing three are asked of every analysis; what sits between them is
+ * whatever the classified path actually produced — portfolio suggestions on
+ * the job-description path, a workflow review and risk register on the
+ * existing-workflow path, assessment feedback and a diagram on the assessment
+ * path. `ARTIFACT_PRESENTERS` is that mapping, and an artifact type absent
+ * from it still appears in Artifact status, so nothing goes unmentioned merely
+ * because no view has been written for it yet.
  *
  * NOTHING IS INVENTED. Every field that the store can hold as null renders as
  * an explicit statement of unavailability. This is most conspicuous with
@@ -20,8 +30,14 @@
  * which is the difference `FR-091` exists to preserve.
  */
 
+import type { ReactNode } from "react";
+
 import {
+  asAssessmentFeedback,
+  asMermaidDiagram,
   asPortfolioSuggestions,
+  asRiskAssessment,
+  asWorkflowRecommendation,
   type Analysis,
   type ArtifactEntry,
   type Requirement,
@@ -33,7 +49,16 @@ import {
   verdictLabel,
   verdictMeaning,
 } from "../format";
+import { AssessmentFeedbackView } from "./AssessmentFeedback";
+import { ClassificationCorrection } from "./ClassificationCorrection";
+import {
+  CopyArtifactButton,
+  ExportAnalysisButton,
+} from "./ExportControls";
+import { MermaidDiagramView } from "./MermaidDiagram";
 import { PortfolioSuggestionsView } from "./PortfolioSuggestions";
+import { RiskAssessmentView } from "./RiskAssessment";
+import { WorkflowRecommendationView } from "./WorkflowRecommendation";
 import {
   Badge,
   Field,
@@ -184,16 +209,173 @@ function ArtifactStatusRow({ entry }: { entry: ArtifactEntry }) {
   );
 }
 
+// --- the artifact block ----------------------------------------------------
+
+/**
+ * How one artifact type is presented, when the path produced one.
+ *
+ * `render` returns null when the stored document cannot be read as its type.
+ * That is a real case — the content is opaque, and narrowing it is the only
+ * honest way to render it — so the presenter reports the failure rather than
+ * drawing half an object.
+ */
+interface ArtifactPresenter {
+  readonly title: string;
+  readonly subtitle: string;
+  readonly render: (content: unknown) => ReactNode | null;
+}
+
+const ARTIFACT_PRESENTERS: Readonly<Record<string, ArtifactPresenter>> = {
+  portfolio_suggestions: {
+    title: "Portfolio suggestions",
+    subtitle: "What to build to close the decisive gaps",
+    render: (content) => {
+      const suggestions = asPortfolioSuggestions(content);
+      return suggestions === null ? null : (
+        <PortfolioSuggestionsView suggestions={suggestions} />
+      );
+    },
+  },
+  workflow_recommendation: {
+    title: "Workflow review",
+    subtitle: "The workflow as identified, then what is wrong with it",
+    render: (content) => {
+      const recommendation = asWorkflowRecommendation(content);
+      return recommendation === null ? null : (
+        <WorkflowRecommendationView recommendation={recommendation} />
+      );
+    },
+  },
+  risk_assessment: {
+    title: "Risk assessment",
+    subtitle: "Each risk scored, attributed to a step, and mitigated",
+    render: (content) => {
+      const assessment = asRiskAssessment(content);
+      return assessment === null ? null : (
+        <RiskAssessmentView assessment={assessment} />
+      );
+    },
+  },
+  assessment_feedback: {
+    title: "Assessment feedback",
+    subtitle: "The approach, its accepted costs, and the alternatives rejected",
+    render: (content) => {
+      const feedback = asAssessmentFeedback(content);
+      return feedback === null ? null : (
+        <AssessmentFeedbackView feedback={feedback} />
+      );
+    },
+  },
+  mermaid_diagram: {
+    title: "Architecture diagram",
+    subtitle: "The components, drawn from the design rather than beside it",
+    render: (content) => {
+      const diagram = asMermaidDiagram(content);
+      return diagram === null ? null : <MermaidDiagramView diagram={diagram} />;
+    },
+  },
+};
+
+/**
+ * One artifact, in whichever of its five states it is actually in.
+ *
+ * The four non-rendering states are the point. `FR-091` requires a gap to be
+ * labelled rather than left blank, and "was never planned", "was deliberately
+ * omitted", "was generated and failed its schema" and "is stored but could not
+ * be read" are four different facts a reader needs kept apart.
+ */
+function ArtifactSection({
+  entry,
+  presenter,
+  step,
+  analysisId,
+}: {
+  entry: ArtifactEntry;
+  presenter: ArtifactPresenter;
+  step: number;
+  analysisId: string;
+}) {
+  const rendered =
+    entry.validation_status === "valid" ? presenter.render(entry.content) : null;
+
+  return (
+    <Section
+      step={step}
+      title={presenter.title}
+      subtitle={presenter.subtitle}
+      // `FR-053` — every artifact has a copy control. Offered only where there
+      // is a valid document to copy: a control on a failed artifact would copy
+      // content `DB §4.4` says is not presentable.
+      //
+      // `action`, not `accent`: the accent slot renders inside the section's
+      // own toggle button, and a button inside a button is invalid HTML.
+      action={
+        rendered === null ? undefined : (
+          <CopyArtifactButton
+            analysisId={analysisId}
+            artifactType={entry.artifact_type}
+          />
+        )
+      }
+    >
+      {entry.outcome === "omitted" ? (
+        <Unavailable>
+          Omitted — a decision, not a failure.
+          {entry.omission_reason !== null && ` ${entry.omission_reason}.`}
+        </Unavailable>
+      ) : entry.validation_status === "failed" ? (
+        <div className="border border-rose-300 bg-rose-50 rounded-md p-4">
+          <h3 className="font-medium text-rose-900">
+            Generated, but it failed validation
+          </h3>
+          <p className="text-sm text-rose-900 mt-1">
+            The document did not conform to its published schema, so its content
+            is not shown — a document that failed its contract is not evidence
+            of anything. It is retained server-side for diagnosis, and
+            re-running the analysis is the way to get a valid one.
+          </p>
+        </div>
+      ) : entry.outcome !== "generated" ? (
+        <Unavailable>
+          This artifact was planned but no outcome was recorded. The run did not
+          reach it.
+        </Unavailable>
+      ) : rendered === null ? (
+        <Unavailable>
+          The stored artifact could not be read as {presenter.title.toLowerCase()}
+          . It is retained server-side; nothing is shown here rather than a
+          partial document presented as whole.
+        </Unavailable>
+      ) : (
+        rendered
+      )}
+    </Section>
+  );
+}
+
 // --- the view --------------------------------------------------------------
 
-export function AnalysisView({ analysis }: { analysis: Analysis }) {
-  const portfolioEntry = analysis.artifacts.find(
-    (entry) => entry.artifact_type === "portfolio_suggestions",
-  );
-  const suggestions =
-    portfolioEntry?.validation_status === "valid"
-      ? asPortfolioSuggestions(portfolioEntry.content)
-      : null;
+export function AnalysisView({
+  analysis,
+  onCorrectClassification,
+  correcting = false,
+}: {
+  analysis: Analysis;
+  /** `FR-014` — re-runs with the type fixed. Absent hides the control. */
+  onCorrectClassification?: (type: string) => void;
+  correcting?: boolean;
+}) {
+  /**
+   * The artifacts this path produced *and* has a view for, in plan order.
+   *
+   * Plan order is the pipeline's own order, which is the order the reasoning
+   * produced them in. Anything without a presenter is skipped here and still
+   * appears in Artifact status, so it is never silently dropped.
+   */
+  const presentable = analysis.artifacts.flatMap((entry) => {
+    const presenter = ARTIFACT_PRESENTERS[entry.artifact_type];
+    return presenter === undefined ? [] : [{ entry, presenter }];
+  });
 
   const inferredCount = analysis.context.filter(
     (element) => element.provenance === "inferred",
@@ -247,8 +429,12 @@ export function AnalysisView({ analysis }: { analysis: Analysis }) {
           tutorial", and a legend folded inside a closed section explains
           nothing — while the badges it decodes appear on requirements and
           suggestions that are open by default. */}
-      <div className="border border-slate-200 bg-white rounded-lg px-5 py-3">
+      <div className="border border-slate-200 bg-white rounded-lg px-5 py-3 flex items-start justify-between gap-4 flex-wrap">
         <ProvenanceLegend />
+        {/* `FR-050`. Beside the legend rather than at the foot of the page:
+            the export carries the same provenance distinctions the legend
+            decodes, and the two belong in the same glance. */}
+        <ExportAnalysisButton analysisId={analysis.analysis_id} />
       </div>
 
       {/* 1 · the job as understood — leads, per FR-040 */}
@@ -321,6 +507,19 @@ export function AnalysisView({ analysis }: { analysis: Analysis }) {
             )}
           </dl>
         )}
+
+        {/* `FR-014` — "a control allows reclassification to any supported
+            type". It re-submits rather than editing; `API §7.5` creates a new
+            analysis and keeps this one. */}
+        {analysis.classification !== null &&
+          onCorrectClassification !== undefined && (
+            <ClassificationCorrection
+              determinedType={analysis.classification.determined_type}
+              wasLowConfidence={analysis.classification.was_low_confidence}
+              onCorrect={onCorrectClassification}
+              busy={correcting}
+            />
+          )}
       </Section>
 
       {/* 3 · verdict */}
@@ -464,47 +663,22 @@ export function AnalysisView({ analysis }: { analysis: Analysis }) {
         )}
       </Section>
 
-      {/* 5 · portfolio suggestions */}
-      <Section
-        step={5}
-        title="Portfolio suggestions"
-        subtitle="What to build to close the decisive gaps"
-      >
-        {portfolioEntry === undefined ? (
-          <Unavailable>
-            No portfolio suggestions were planned for this analysis.
-          </Unavailable>
-        ) : portfolioEntry.outcome === "omitted" ? (
-          <Unavailable>
-            Omitted — a decision, not a failure.
-            {portfolioEntry.omission_reason !== null &&
-              ` ${portfolioEntry.omission_reason}.`}
-          </Unavailable>
-        ) : portfolioEntry.validation_status === "failed" ? (
-          <div className="border border-rose-300 bg-rose-50 rounded-md p-4">
-            <h3 className="font-medium text-rose-900">
-              Suggestions were generated but failed validation
-            </h3>
-            <p className="text-sm text-rose-900 mt-1">
-              The document did not conform to the portfolio-suggestions schema,
-              so its content is not shown — a document that failed its contract
-              is not evidence of anything. It is retained server-side for
-              diagnosis, and re-running the analysis is the way to get a valid
-              set.
-            </p>
-          </div>
-        ) : suggestions === null ? (
-          <Unavailable>
-            The stored artifact could not be read as portfolio suggestions.
-          </Unavailable>
-        ) : (
-          <PortfolioSuggestionsView suggestions={suggestions} />
-        )}
-      </Section>
+      {/* 5… · what this path produced. Nothing renders when the path has no
+          artifact types — `business_requirement` is currently one such path,
+          and an empty block is the honest rendering of that. */}
+      {presentable.map(({ entry, presenter }, index) => (
+        <ArtifactSection
+          key={entry.artifact_type}
+          entry={entry}
+          presenter={presenter}
+          step={5 + index}
+          analysisId={analysis.analysis_id}
+        />
+      ))}
 
-      {/* 6 · unknowns — FR-044, listed prominently rather than footnoted */}
+      {/* unknowns — FR-044, listed prominently rather than footnoted */}
       <Section
-        step={6}
+        step={5 + presentable.length}
         title="Unknowns"
         subtitle="What the posting does not say, and what would resolve it"
         accent={
@@ -541,9 +715,9 @@ export function AnalysisView({ analysis }: { analysis: Analysis }) {
         )}
       </Section>
 
-      {/* 7 · provenance — FR-043 */}
+      {/* provenance — FR-043 */}
       <Section
-        step={7}
+        step={6 + presentable.length}
         title="Provenance"
         subtitle={`What was stated versus inferred · ${String(statedCount)} stated, ${String(inferredCount)} inferred`}
         defaultOpen={false}
@@ -580,9 +754,11 @@ export function AnalysisView({ analysis }: { analysis: Analysis }) {
         )}
       </Section>
 
-      {/* 8 · artifact status — FR-091 */}
+      {/* artifact status — FR-091. Always last, and always present: it is the
+          one section that accounts for every planned artifact, including the
+          ones no view above knows how to draw. */}
       <Section
-        step={8}
+        step={7 + presentable.length}
         title="Artifact status"
         subtitle="What was planned, produced, omitted or failed"
         defaultOpen={artifactsNeedAttention}
