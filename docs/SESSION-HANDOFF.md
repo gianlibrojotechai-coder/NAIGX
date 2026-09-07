@@ -182,6 +182,6 @@ node tools/boundary-checks/check.mjs   # 8 enforcing · 0 failing
 | `docs/09` | Scoring scales — **§2 risk severity/likelihood/score/bands** |
 | `docs/10` | Reasoning quality rubric (**§4.3 excludes AI review**) |
 | `docs/12` | Decision record D-1 … D-37 |
-| `docs/13`–`docs/18` | D-38, D-39, D-40, D-41, D-42, D-43 as standalone records |
+| `docs/13`–`docs/21` | D-38 … D-46 as standalone records |
 
-**Numbering convention:** the next standalone decision record is **`docs/19` D-44**.
+**Numbering convention:** the next standalone decision record is **`docs/22` D-47**.
