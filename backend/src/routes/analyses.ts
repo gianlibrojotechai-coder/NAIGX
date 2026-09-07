@@ -23,25 +23,25 @@
  *
  *   · `events_url` — `API-025` (SSE) is not implemented; advertising a URL
  *     that 404s would be worse than omitting it.
- *   · `anonymous_token` — token issuance belongs to authentication, which is
- *     Sprint 5 (`M-15`).
+ *   · `events_url` remains the only absent element of the create response.
  * `classification_override` was previously absent for want of the flow it
  * belongs to. That flow now exists: `FR-014` correction re-submits the same
  * content with the type fixed, and `API §7.5` creates a **new** analysis
  * rather than mutating the original.
  *
- * ⚠️ OWNERSHIP IS NOT ENFORCED. `API-021` and `API-026` specify owner auth,
- * and no authentication layer exists until Sprint 5. Anyone holding an
- * analysis id can read it. Recorded rather than hidden; see the report
- * accompanying this file.
+ * OWNERSHIP IS ENFORCED (`M-15`, `NFR-026`). Every read here asks
+ * `mayAccessAnalysis`, the single predicate in `src/auth/principal.ts`. An
+ * owned analysis answers only to its owner; an unowned one answers only to the
+ * holder of the token issued when it was created. **An analysis id is a name,
+ * not a credential** — knowing one grants nothing.
  */
-
-import { randomUUID } from "node:crypto";
 
 import type { FastifyPluginAsync } from "fastify";
 
 import type { AnalysisEventLog } from "../events/analysis-event-log.js";
 import { readAnalysis } from "../db/analysis-reader.js";
+import { generateToken, hashToken } from "../auth/tokens.js";
+import { mayAccessAnalysis, type Principal } from "../auth/principal.js";
 import {
   AppError,
   insufficientContextError,
@@ -239,6 +239,30 @@ function validateSupersedes(raw: unknown): string | undefined {
   return raw;
 }
 
+/**
+ * Refuses a caller who may not act on this analysis (`NFR-026`).
+ *
+ * ⚠️ RAISES `not_found`, NEVER `forbidden`. Distinguishing "exists but is not
+ * yours" from "does not exist" tells an unauthenticated caller which ids are
+ * real, and analysis ids are the only thing standing between an attacker and
+ * a list of what this system has analysed. `API-021` lists `not_found` 404 in
+ * its errors; `forbidden` 403 belongs to endpoints where the caller is known
+ * and the resource is theirs to be refused.
+ */
+function requireAccess(
+  principal: Principal,
+  stored: {
+    view: { analysis_id: string };
+    ownership: { ownerUserId: string | null };
+  },
+): void {
+  const permitted = mayAccessAnalysis(principal, {
+    analysisId: stored.view.analysis_id,
+    ownerUserId: stored.ownership.ownerUserId,
+  });
+  if (!permitted) throw notFoundError();
+}
+
 export const analysisRoutes: FastifyPluginAsync<AnalysisRouteOptions> = (
   app,
   { prisma, hashContent, startExecution, eventLog, retryArtifact },
@@ -247,6 +271,23 @@ export const analysisRoutes: FastifyPluginAsync<AnalysisRouteOptions> = (
   app.post("/analyses", async (request, reply) => {
     const body = (request.body ?? {}) as CreateBody;
     const { content, sourceType } = validateCreate(body);
+
+    // `FR-004` — THE TOKEN IS NOW ACTUALLY ISSUED.
+    //
+    // Until M-15 this endpoint stored `hashContent(randomUUID())` and threw
+    // the UUID away, so the owner hash satisfied the database constraint and
+    // nobody held the credential. `FR-004` requires an anonymous analysis to
+    // be "claimable into history if the user authenticates within the same
+    // session", and it was not claimable by anyone. The recorded defect is
+    // closed here: the raw token is generated, returned once, and stored only
+    // as a hash.
+    //
+    // An authenticated caller gets no token — their analysis is owned from
+    // creation, and issuing an anonymous credential for it would create a
+    // second way to reach owned content.
+    const principal = request.principal;
+    const owner = principal.kind === "user" ? principal.userId : null;
+    const anonymousToken = owner === null ? generateToken() : null;
 
     // `FR-014` / `API §7.5` — CORRECTION IS A SUBMISSION, NOT AN EDIT.
     //
@@ -293,24 +334,20 @@ export const analysisRoutes: FastifyPluginAsync<AnalysisRouteOptions> = (
     const analysis = await prisma.analysis.create({
       data: {
         status: "queued",
-        // ⚠️ EVERY ANALYSIS NEEDS AN OWNER, AND THIS ONE HAS NO USER.
+        // ⚠️ EXACTLY ONE OWNER, AND NOW IT IS A REAL CHOICE.
         //
         // `DB §4.2` enforces `analysis_exactly_one_owner_check` — exactly one
         // of `user_id` or `anonymous_token_hash` (`DP-8`, `FR-004`: ownership
-        // is "never ambiguous and never absent"). Creating a row with neither
-        // is rejected by Postgres, so `FR-004`'s anonymous analysis is not an
-        // absent owner; it is an *anonymous* one, and the hash is how the
-        // database is told which.
+        // is "never ambiguous and never absent"). Until `M-15` this endpoint
+        // could only ever write the second, because there were no users; the
+        // branch below is what identity added.
         //
-        // The token itself is not issued to the client yet. `FR-004` also
-        // requires an anonymous analysis to be "claimable into history if the
-        // user authenticates within the same session", and that claim flow —
-        // token format, transport and lifetime — belongs to authentication in
-        // Sprint 5 (`M-15`). Until it exists, this owner is a placeholder
-        // nobody can present, so analyses created here are **not claimable**.
-        // Issuing the token at creation is what Sprint 5 must add; storing a
-        // hash of one is what makes the row legal in the meantime.
-        anonymousTokenHash: hashContent(randomUUID()),
+        // The anonymous hash is now a hash of a token somebody actually holds,
+        // which is what makes `FR-004` claimability real rather than recorded
+        // as an open defect.
+        ...(owner !== null
+          ? { userId: owner }
+          : { anonymousTokenHash: hashToken(anonymousToken as string) }),
         // `FR-064` lineage. The original is preserved (`DP-3`); this only
         // records which analysis this one corrects.
         ...(supersedesAnalysisId !== undefined ? { supersedesAnalysisId } : {}),
@@ -338,6 +375,10 @@ export const analysisRoutes: FastifyPluginAsync<AnalysisRouteOptions> = (
       {
         analysis_id: analysis.analysisId,
         status: analysis.status,
+        // Returned **once**, at creation, and never again — the store holds
+        // only its hash. `API §3.4`: it grants read and event-stream access to
+        // this analysis only, and expires 24 hours after issuance (D-45).
+        ...(anonymousToken !== null ? { anonymous_token: anonymousToken } : {}),
         // Echoed so a client can confirm the correction was accepted before
         // any stage has run. Absent on an ordinary submission, matching how
         // every other optional field in this API reports "not applicable".
@@ -372,9 +413,16 @@ export const analysisRoutes: FastifyPluginAsync<AnalysisRouteOptions> = (
 
       const analysis = await prisma.analysis.findUnique({
         where: { analysisId },
-        select: { status: true },
+        select: { status: true, userId: true },
       });
       if (analysis === null) throw notFoundError();
+
+      // `API-025` is owner-scoped. A stream is a read of the same content the
+      // retrieval endpoint guards, arriving in instalments.
+      requireAccess(request.principal, {
+        view: { analysis_id: analysisId },
+        ownership: { ownerUserId: analysis.userId },
+      });
 
       if (eventLog === undefined) {
         // No stream on this instance. A 503 with the corrective step, rather
@@ -494,9 +542,18 @@ export const analysisRoutes: FastifyPluginAsync<AnalysisRouteOptions> = (
 
       const analysis = await prisma.analysis.findUnique({
         where: { analysisId },
-        select: { status: true },
+        select: { status: true, userId: true },
       });
       if (analysis === null) throw notFoundError();
+
+      // `API §7.8` permits an anonymous caller to retry a failed artifact —
+      // one of four things it lists as permitted — so this is owner-scoped
+      // rather than authenticated-only. The anonymous holder of *this*
+      // analysis's token qualifies; a caller with someone else's does not.
+      requireAccess(request.principal, {
+        view: { analysis_id: analysisId },
+        ownership: { ownerUserId: analysis.userId },
+      });
 
       // `API-032` calls this "the sole permitted mutation to a **terminal**
       // analysis". A run still in flight may yet produce the artifact itself,
@@ -584,6 +641,7 @@ export const analysisRoutes: FastifyPluginAsync<AnalysisRouteOptions> = (
         // serialiser, and there is no path here by which artifact content
         // could reach a client.
         select: {
+          userId: true,
           status: true,
           createdAt: true,
           completedAt: true,
@@ -592,6 +650,13 @@ export const analysisRoutes: FastifyPluginAsync<AnalysisRouteOptions> = (
         },
       });
       if (analysis === null) throw notFoundError();
+
+      // Owner-scoped like every other read. A status is thin, but "this id is
+      // a real analysis and it completed" is still disclosure.
+      requireAccess(request.principal, {
+        view: { analysis_id: request.params.id },
+        ownership: { ownerUserId: analysis.userId },
+      });
 
       return sendSuccess(request, reply, {
         status: analysis.status,
@@ -612,6 +677,15 @@ export const analysisRoutes: FastifyPluginAsync<AnalysisRouteOptions> = (
     async (request, reply) => {
       const stored = await readAnalysis(prisma, request.params.id);
       if (stored === null) throw notFoundError();
+
+      // `NFR-026` — server-side ownership, before anything is disclosed.
+      //
+      // ⚠️ 404, NOT 403, FOR A NON-OWNER. A 403 would confirm the analysis
+      // exists, turning the id space into an oracle for whether a given
+      // analysis is real. `DB §5.5` says an anonymous analysis is "reachable
+      // only by its originating token"; unreachable is indistinguishable from
+      // absent, and that is the point.
+      requireAccess(request.principal, stored);
 
       // `API §9.3` — TWO DOMAIN ERRORS THAT ARE NOT FAILURES.
       //

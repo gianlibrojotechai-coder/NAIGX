@@ -18,7 +18,6 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
 
 import "dotenv/config";
 import pg from "pg";
@@ -36,6 +35,10 @@ import {
   loadArtifactSchemaDefinition,
 } from "../../src/nie/artifact-validation.js";
 import { buildApp } from "../../src/app.js";
+import { anonymousCredential } from "../helpers/anonymous-principal.js";
+
+/** Ownership is enforced from `M-15`; the seeded analysis carries this. */
+const credential = anonymousCredential();
 import type { AppConfig } from "../../src/config/env.js";
 import type { Database } from "../../src/db/client.js";
 import type {
@@ -85,7 +88,9 @@ const clients = () => {
 /** A bare analysis row. Every new table cascades from it, so cleanup is one delete. */
 const seedAnalysis = async (prisma: PrismaClient): Promise<string> => {
   const analysis = await prisma.analysis.create({
-    data: { status: "running", anonymousTokenHash: `test-${randomUUID()}` },
+    // A real credential, not a placeholder string: ownership is enforced
+    // from `M-15`, so the read below has to present the token this hashes.
+    data: { status: "running", anonymousTokenHash: credential.tokenHash },
   });
   return analysis.analysisId;
 };
@@ -616,6 +621,7 @@ const persistAndRetrieve = async (
   const response = await app.inject({
     method: "GET",
     url: `/analyses/${analysisId}`,
+    headers: credential.header,
   });
   await app.close();
 

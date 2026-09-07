@@ -23,6 +23,11 @@ import assert from "node:assert/strict";
 import { buildApp } from "../../src/app.js";
 import type { AppConfig } from "../../src/config/env.js";
 import type { Database } from "../../src/db/client.js";
+import {
+  anonymousCredential,
+  anonymousLookup,
+  noSessions,
+} from "../helpers/anonymous-principal.js";
 
 const config: AppConfig = {
   databaseUrl: "postgresql://unused",
@@ -138,11 +143,25 @@ const storedAnalysis = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+/**
+ * Ownership is enforced from `M-15`, so these requests present the anonymous
+ * credential for the analysis they read — exactly as a real client does.
+ */
+const credential = anonymousCredential();
+
 const database = (analysis: unknown): Database =>
   ({
     prisma: {
       healthCheck: { findFirst: () => Promise.resolve(null) },
-      analysis: { findUnique: () => Promise.resolve(analysis) },
+      session: noSessions,
+      analysis: {
+        findUnique: () => Promise.resolve(analysis),
+        ...anonymousLookup(credential, {
+          analysisId: ANALYSIS_ID,
+          userId:
+            (analysis as { userId?: string | null } | null)?.userId ?? null,
+        }),
+      },
     },
     disconnect: () => Promise.resolve(),
   }) as unknown as Database;
@@ -162,6 +181,7 @@ const post = async (body: ExportRequest, analysis?: unknown) => {
     method: "POST",
     url: `/analyses/${ANALYSIS_ID}/exports`,
     payload: body,
+    headers: credential.header,
   });
   await app.close();
   return res;
@@ -206,18 +226,24 @@ test("D-42 — success is 200, because nothing was created", async () => {
   assert.notEqual(res.statusCode, 201);
 });
 
-test("D-41 §4.4 — an owned analysis is refused while ownership cannot be verified", async () => {
-  // The branch that `M-15` supplies an identity to. Unreachable today because
-  // nothing sets `user_id`, which is why it is exercised here directly.
+test("an anonymous token does not export someone else's owned analysis", async () => {
+  // D-41 §4.4 wrote this branch before there was an identity to check, and it
+  // refused with `forbidden` 403 because verification was impossible rather
+  // than because the caller was wrong. `M-15` supplied the identity, so the
+  // refusal is now a real authorization decision — and it is **404**, for the
+  // reason `API-021` uses: a 403 would confirm the analysis exists, making the
+  // id space an oracle for what this system has analysed.
+  //
+  // The credential is valid; it simply belongs to nothing here. `mayAccess`
+  // refuses an anonymous principal on any owned analysis, because a claimed
+  // analysis has no anonymous credential any more.
   const res = await post(
     {},
     storedAnalysis({ userId: "99999999-9999-9999-9999-999999999999" }),
   );
-  const body = JSON.parse(res.body);
 
-  assert.equal(res.statusCode, 403);
-  assert.equal(body.error.code, "forbidden");
-  assert.match(body.error.action, /Sign in/);
+  assert.equal(res.statusCode, 404);
+  assert.equal(JSON.parse(res.body).error.code, "not_found");
 });
 
 // --- validation --------------------------------------------------------------

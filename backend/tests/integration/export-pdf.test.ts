@@ -32,6 +32,11 @@ import { renderExportHtml } from "../../src/export/html.js";
 import { findBrowser, renderPdf } from "../../src/export/pdf.js";
 import type { AppConfig } from "../../src/config/env.js";
 import type { Database } from "../../src/db/client.js";
+import {
+  anonymousCredential,
+  anonymousLookup,
+  noSessions,
+} from "../helpers/anonymous-principal.js";
 
 const executablePath = await findBrowser();
 const noBrowser = executablePath === null;
@@ -126,10 +131,17 @@ const database = (analysis: unknown): Database =>
   ({
     prisma: {
       healthCheck: { findFirst: () => Promise.resolve(null) },
-      analysis: { findUnique: () => Promise.resolve(analysis) },
+      session: noSessions,
+      analysis: {
+        findUnique: () => Promise.resolve(analysis),
+        ...anonymousLookup(credential, { analysisId: ANALYSIS_ID }),
+      },
     },
     disconnect: () => Promise.resolve(),
   }) as unknown as Database;
+
+/** Ownership is enforced from `M-15`; these reads present the credential. */
+const credential = anonymousCredential();
 
 const post = async (format: string, analysis: unknown = storedAnalysis()) => {
   const app = await buildApp({ config, database: database(analysis) });
@@ -137,6 +149,7 @@ const post = async (format: string, analysis: unknown = storedAnalysis()) => {
     method: "POST",
     url: `/analyses/${ANALYSIS_ID}/exports`,
     payload: { format },
+    headers: credential.header,
   });
   await app.close();
   return res;

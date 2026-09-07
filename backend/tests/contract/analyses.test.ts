@@ -21,6 +21,11 @@ import assert from "node:assert/strict";
 import { buildApp } from "../../src/app.js";
 import type { AppConfig } from "../../src/config/env.js";
 import type { Database } from "../../src/db/client.js";
+import {
+  anonymousCredential,
+  anonymousLookup,
+  noSessions,
+} from "../helpers/anonymous-principal.js";
 import { CONTENT_MAX, CONTENT_MIN } from "../../src/routes/analyses.js";
 
 const config: AppConfig = {
@@ -37,6 +42,11 @@ const CREATED_AT = new Date("2026-09-06T10:00:00.000Z");
 
 const storedAnalysis = {
   analysisId: ANALYSIS_ID,
+  // Present and null, as a real row is. `mayAccessAnalysis` fails closed on an
+  // unread ownership column — an omitted `userId` reads as `undefined`, which
+  // is "not selected", and treating that as unowned would be the dangerous
+  // direction for an authorization check.
+  userId: null,
   status: "completed",
   createdAt: CREATED_AT,
   completedAt: new Date("2026-09-06T10:00:20.000Z"),
@@ -66,6 +76,9 @@ interface Calls {
   findUnique: unknown[];
 }
 
+/** These reads present the analysis's own credential, as a client does. */
+const credential = anonymousCredential();
+
 const build = async (
   overrides: { findUnique?: (args: unknown) => Promise<unknown> } = {},
 ) => {
@@ -76,7 +89,10 @@ const build = async (
     database: {
       prisma: {
         healthCheck: { findFirst: () => Promise.resolve(null) },
+        // Ownership is enforced from `M-15`; the resolver asks these two.
+        session: noSessions,
         analysis: {
+          ...anonymousLookup(credential, { analysisId: ANALYSIS_ID }),
           create: (args: unknown) => {
             calls.create.push(args);
             return Promise.resolve({
@@ -246,6 +262,7 @@ test("status returns the lifecycle fields and never artifact content", async () 
   const response = await app.inject({
     method: "GET",
     url: `/analyses/${ANALYSIS_ID}/status`,
+    headers: credential.header,
   });
 
   assert.equal(response.statusCode, 200);
@@ -271,6 +288,7 @@ test("status on an unknown id is a 404 in the error envelope", async () => {
   const response = await app.inject({
     method: "GET",
     url: `/analyses/${ANALYSIS_ID}/status`,
+    headers: credential.header,
   });
 
   assert.equal(response.statusCode, 404);
@@ -290,6 +308,7 @@ test("retrieval reproduces the stored record", async () => {
   const response = await app.inject({
     method: "GET",
     url: `/analyses/${ANALYSIS_ID}`,
+    headers: credential.header,
   });
 
   assert.equal(response.statusCode, 200);
@@ -317,6 +336,7 @@ test("retrieval exposes no trace, fragment or provider detail", async () => {
   const response = await app.inject({
     method: "GET",
     url: `/analyses/${ANALYSIS_ID}`,
+    headers: credential.header,
   });
 
   // `API-021`: "Contains no stage traces, prompt fragments, or provider
@@ -343,6 +363,7 @@ test("retrieval on an unknown id is a 404", async () => {
   const response = await app.inject({
     method: "GET",
     url: `/analyses/${ANALYSIS_ID}`,
+    headers: credential.header,
   });
 
   assert.equal(response.statusCode, 404);

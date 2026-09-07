@@ -24,6 +24,11 @@ import type { AnalysisEvent } from "../../src/nie/events.js";
 import type { PipelineResult } from "../../src/nie/contracts.js";
 import type { AppConfig } from "../../src/config/env.js";
 import type { Database } from "../../src/db/client.js";
+import {
+  anonymousCredential,
+  anonymousLookup,
+  noSessions,
+} from "../helpers/anonymous-principal.js";
 import type { PrismaClient } from "../../src/generated/prisma/client.js";
 
 const ANALYSIS_ID = "bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb";
@@ -242,16 +247,28 @@ const database = (analysis: unknown): Database =>
   ({
     prisma: {
       healthCheck: { findFirst: () => Promise.resolve(null) },
-      analysis: { findUnique: () => Promise.resolve(analysis) },
+      session: noSessions,
+      analysis: {
+        findUnique: () => Promise.resolve(analysis),
+        ...anonymousLookup(credential, {
+          analysisId: ANALYSIS_ID,
+          userId:
+            (analysis as { userId?: string | null } | null)?.userId ?? null,
+        }),
+      },
     },
     disconnect: () => Promise.resolve(),
   }) as unknown as Database;
+
+/** Ownership is enforced from `M-15`; these reads present the credential. */
+const credential = anonymousCredential();
 
 const get = async (analysis: unknown) => {
   const app = await buildApp({ config, database: database(analysis) });
   const res = await app.inject({
     method: "GET",
     url: `/analyses/${ANALYSIS_ID}`,
+    headers: credential.header,
   });
   await app.close();
   return res;
@@ -263,6 +280,7 @@ const postExport = async (analysis: unknown, body: unknown = {}) => {
     method: "POST",
     url: `/analyses/${ANALYSIS_ID}/exports`,
     payload: body as Record<string, unknown>,
+    headers: credential.header,
   });
   await app.close();
   return res;

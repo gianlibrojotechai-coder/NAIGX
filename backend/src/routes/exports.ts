@@ -40,6 +40,7 @@
 import type { FastifyPluginAsync } from "fastify";
 
 import { readAnalysis } from "../db/analysis-reader.js";
+import { mayAccessAnalysis } from "../auth/principal.js";
 import { AppError, invalidStateError, notFoundError } from "../http/errors.js";
 import { ARTIFACT_TYPES } from "../nie/contracts.js";
 import { renderAnalysisMarkdown } from "../export/markdown.js";
@@ -137,24 +138,25 @@ export const exportRoutes: FastifyPluginAsync<ExportRouteOptions> = (
       const stored = await readAnalysis(prisma, request.params.id);
       if (stored === null) throw notFoundError();
 
-      // ⚠️ THE OWNERSHIP DECISION, WRITTEN NOW AND ENFORCED WHEN THERE IS
-      // SOMETHING TO ENFORCE (`D-41` §4.4, `D-42` §3.5).
+      // ⚠️ THE OWNERSHIP BRANCH D-41 §4.4 ASKED FOR, NOW SUPPLIED WITH AN
+      // IDENTITY RATHER THAN REPLACED.
       //
-      // `Analysis.user_id` is null for every analysis today — `API-020` stores
-      // an anonymous token hash instead — so this branch resolves to
-      // "anonymous, permitted" from data rather than from a stub. There is no
-      // authentication layer, so an analysis that *does* carry an owner cannot
-      // have its caller verified, and the only honest answer is to refuse.
-      // `M-15` supplies an identity to this branch rather than adding one.
-      if (stored.ownership.ownerUserId !== null) {
-        throw new AppError(
-          "forbidden",
-          "This analysis belongs to a registered account, and this instance cannot yet verify who is asking.",
-          {
-            action:
-              "Sign in and export from the account that owns this analysis.",
-          },
-        );
+      // D-41 wrote this check before there was anything to check, on the
+      // grounds that "the code path that decides 'is this caller the owner'
+      // exists from the start, so M-15 supplies an identity rather than a new
+      // branch". This is that moment: the shape is unchanged and the refusal
+      // for a non-owner is now a real one.
+      //
+      // 404 rather than 403, for the reason `API-021` uses: distinguishing
+      // "exists but is not yours" from "does not exist" makes the id space an
+      // oracle.
+      if (
+        !mayAccessAnalysis(request.principal, {
+          analysisId: stored.view.analysis_id,
+          ownerUserId: stored.ownership.ownerUserId,
+        })
+      ) {
+        throw notFoundError();
       }
 
       if (!TERMINAL_STATUSES.has(stored.view.status)) {
@@ -237,6 +239,63 @@ export const exportRoutes: FastifyPluginAsync<ExportRouteOptions> = (
       // no export id is seeing an accurate report that none exists.
       const filename = `naigx-analysis-${stored.view.analysis_id}`;
 
+      // ⚠️ D-41 §4.3 UNWINDS HERE, AND ONLY HERE.
+      //
+      // "The EXPORT row — and therefore the M-4 signal — is written **only
+      // when a real authenticated owner exists**. Until M-15 lands, that
+      // condition is never true." M-15 has landed, so the condition is now
+      // sometimes true, and this is the branch that was waiting for it.
+      //
+      // An anonymous export still writes nothing. `DB §4.4` types `user_id`
+      // NOT NULL because the table's whole purpose is instrumenting M-4, and
+      // D-41 §3 rejected minting an owner at length: "a metric with invented
+      // subjects is worse than a metric with missing rows".
+      //
+      // ⚠️ M-4's SERIES BEGINS TODAY, NOT AT M-13. D-41 §6: "M-4 begins
+      // reporting, with its start date recorded as the M-15 date rather than
+      // the M-13 date — a chart that implies the metric existed earlier would
+      // be the same lie this record exists to avoid." Nothing backfills.
+      const owner = stored.ownership.ownerUserId;
+      const exportRecord =
+        owner === null
+          ? null
+          : await prisma.export.create({
+              data: {
+                analysisId: stored.view.analysis_id,
+                userId: owner,
+                format,
+                // Omitted rather than set to `null`: Prisma distinguishes a
+                // JSON null from a SQL NULL, and `DB §4.4` wants the column
+                // NULL when the export was full. Omitting leaves it NULL.
+                ...(artifactTypes === undefined
+                  ? {}
+                  : { artifactSelection: [...artifactTypes] }),
+                // What the document asserted about itself, so a later reader
+                // knows what was exported without regenerating it. No business
+                // content: counts and states only.
+                metadataSnapshot: {
+                  included_types: exported.includedTypes,
+                  excluded_types: exported.excludedTypes,
+                  analysis_status: stored.view.status,
+                  degraded: stored.view.degraded,
+                  timed_out: stored.view.timed_out,
+                  refused: stored.view.refusal !== null,
+                },
+              },
+              select: { exportId: true },
+            });
+
+      // D-42 §3.2 — the three fields appear **only** when a row was written.
+      // Absent, never null, when none was: a caller seeing no export id is
+      // seeing an accurate report that none exists.
+      //
+      // `download_url` and `expires_at` stay absent even now, because D-41
+      // §4.5 resolved `APIQ-2` in favour of a direct response with no stored
+      // file — there is no URL to build and nothing to expire. `API-041`
+      // remains unimplemented for the same reason.
+      const exportIdHeader =
+        exportRecord === null ? {} : { "X-Export-Id": exportRecord.exportId };
+
       if (executablePath !== null) {
         // PDF is a *rendering* of the Markdown above, not a second document.
         // `renderAnalysisMarkdown` produced the substance; these two steps
@@ -253,6 +312,7 @@ export const exportRoutes: FastifyPluginAsync<ExportRouteOptions> = (
 
         return reply
           .code(200)
+          .headers(exportIdHeader)
           .header("Content-Type", "application/pdf")
           .header(
             "Content-Disposition",
@@ -263,6 +323,7 @@ export const exportRoutes: FastifyPluginAsync<ExportRouteOptions> = (
 
       return reply
         .code(200)
+        .headers(exportIdHeader)
         .header("Content-Type", "text/markdown; charset=utf-8")
         .header("Content-Disposition", `attachment; filename="${filename}.md"`)
         .send(exported.document);

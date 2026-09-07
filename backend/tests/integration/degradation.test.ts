@@ -26,6 +26,11 @@ import assert from "node:assert/strict";
 import { buildApp } from "../../src/app.js";
 import type { AppConfig } from "../../src/config/env.js";
 import type { Database } from "../../src/db/client.js";
+import {
+  anonymousCredential,
+  anonymousLookup,
+  noSessions,
+} from "../helpers/anonymous-principal.js";
 import type { AnalysisEvent } from "../../src/nie/events.js";
 import type { PipelineResult } from "../../src/nie/contracts.js";
 import type { PrismaClient } from "../../src/generated/prisma/client.js";
@@ -250,13 +255,15 @@ const retryApp = async (options: {
 }) => {
   const prisma = {
     healthCheck: { findFirst: () => Promise.resolve(null) },
+    session: noSessions,
     analysis: {
       findUnique: () =>
         Promise.resolve(
           options.analysisExists === false
             ? null
-            : { status: options.status ?? "completed" },
+            : { status: options.status ?? "completed", userId: null },
         ),
+      ...anonymousLookup(credential, { analysisId: ANALYSIS_ID }),
     },
     artifactPlanEntry: {
       findFirst: () =>
@@ -280,6 +287,13 @@ const retryApp = async (options: {
   });
 };
 
+/**
+ * `API §7.8` permits an anonymous caller to retry a failed artifact, so these
+ * requests present the credential for the analysis they act on. Ownership is
+ * enforced from `M-15`.
+ */
+const credential = anonymousCredential();
+
 const retry = (
   app: Awaited<ReturnType<typeof retryApp>>,
   type = "portfolio_suggestions",
@@ -287,6 +301,7 @@ const retry = (
   app.inject({
     method: "POST",
     url: `/analyses/${ANALYSIS_ID}/artifacts/${type}/retry`,
+    headers: credential.header,
   });
 
 test("retrying a failed generated artifact is accepted", async () => {

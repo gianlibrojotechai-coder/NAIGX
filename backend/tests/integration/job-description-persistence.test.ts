@@ -24,6 +24,11 @@ import { createStageResultSink } from "../../src/db/analysis-result-sink.js";
 import { buildApp } from "../../src/app.js";
 import type { AppConfig } from "../../src/config/env.js";
 import type { Database } from "../../src/db/client.js";
+import {
+  anonymousCredential,
+  anonymousLookup,
+  noSessions,
+} from "../helpers/anonymous-principal.js";
 import type { PrismaClient } from "../../src/generated/prisma/client.js";
 import type {
   ContextResult,
@@ -366,6 +371,10 @@ const storedAnalysis = (
   },
 ) => ({
   analysisId: ANALYSIS_ID,
+  // Present and null, as a real row is. An omitted ownership column reads as
+  // `undefined`, and `mayAccessAnalysis` fails closed on that — "not selected"
+  // must never be read as "unowned".
+  userId: null,
   status: "completed",
   createdAt: new Date("2026-09-06T10:00:00.000Z"),
   completedAt: new Date("2026-09-06T10:00:30.000Z"),
@@ -464,13 +473,20 @@ const storedAnalysis = (
   ],
 });
 
+/** Ownership is enforced from `M-15`; these reads present the credential. */
+const credential = anonymousCredential();
+
 const appWith = async (analysis: unknown) =>
   buildApp({
     config,
     database: {
       prisma: {
         healthCheck: { findFirst: () => Promise.resolve(null) },
-        analysis: { findUnique: () => Promise.resolve(analysis) },
+        session: noSessions,
+        analysis: {
+          findUnique: () => Promise.resolve(analysis),
+          ...anonymousLookup(credential, { analysisId: ANALYSIS_ID }),
+        },
       },
       disconnect: () => Promise.resolve(),
     } as unknown as Database,
@@ -484,6 +500,7 @@ test("API-021 returns the complete job-description answer", async () => {
   const response = await app.inject({
     method: "GET",
     url: `/analyses/${ANALYSIS_ID}`,
+    headers: credential.header,
   });
 
   assert.equal(response.statusCode, 200);
@@ -511,7 +528,11 @@ test("API-021 returns the complete job-description answer", async () => {
 test("API-021 exposes provenance and resolution hints", async () => {
   const app = await appWith(storedAnalysis());
   const { data } = (
-    await app.inject({ method: "GET", url: `/analyses/${ANALYSIS_ID}` })
+    await app.inject({
+      method: "GET",
+      url: `/analyses/${ANALYSIS_ID}`,
+      headers: credential.header,
+    })
   ).json() as { data: Record<string, unknown> };
 
   const elements = data["context"] as Record<string, unknown>[];
@@ -527,7 +548,11 @@ test("API-021 exposes provenance and resolution hints", async () => {
 test("API-021 reports null confidence rather than a fabricated band", async () => {
   const app = await appWith(storedAnalysis());
   const { data } = (
-    await app.inject({ method: "GET", url: `/analyses/${ANALYSIS_ID}` })
+    await app.inject({
+      method: "GET",
+      url: `/analyses/${ANALYSIS_ID}`,
+      headers: credential.header,
+    })
   ).json() as { data: Record<string, unknown> };
 
   const verdict = data["verdict"] as Record<string, unknown>;
@@ -539,7 +564,11 @@ test("API-021 reports null confidence rather than a fabricated band", async () =
 test("only a valid artifact's content is presentable", async () => {
   const valid = await appWith(storedAnalysis());
   const shown = (
-    await valid.inject({ method: "GET", url: `/analyses/${ANALYSIS_ID}` })
+    await valid.inject({
+      method: "GET",
+      url: `/analyses/${ANALYSIS_ID}`,
+      headers: credential.header,
+    })
   ).json() as { data: { artifacts: Record<string, unknown>[] } };
 
   const generated = shown.data.artifacts[0];
@@ -551,7 +580,11 @@ test("only a valid artifact's content is presentable", async () => {
     storedAnalysis({ validationStatus: "failed", content: { projects: [] } }),
   );
   const hidden = (
-    await failedApp.inject({ method: "GET", url: `/analyses/${ANALYSIS_ID}` })
+    await failedApp.inject({
+      method: "GET",
+      url: `/analyses/${ANALYSIS_ID}`,
+      headers: credential.header,
+    })
   ).json() as { data: { artifacts: Record<string, unknown>[] } };
 
   const failed = hidden.data.artifacts[0];
@@ -566,7 +599,11 @@ test("only a valid artifact's content is presentable", async () => {
 test("omitted and failed artifacts stay distinguishable", async () => {
   const app = await appWith(storedAnalysis());
   const { data } = (
-    await app.inject({ method: "GET", url: `/analyses/${ANALYSIS_ID}` })
+    await app.inject({
+      method: "GET",
+      url: `/analyses/${ANALYSIS_ID}`,
+      headers: credential.header,
+    })
   ).json() as { data: { artifacts: Record<string, unknown>[] } };
 
   const omitted = data.artifacts[1];
@@ -585,6 +622,7 @@ test("the widened response still exposes no trace, fragment or provider detail",
   const response = await app.inject({
     method: "GET",
     url: `/analyses/${ANALYSIS_ID}`,
+    headers: credential.header,
   });
 
   const raw = response.body.toLowerCase();
@@ -609,7 +647,11 @@ test("API-021 returns the criteria and the rejected alternatives", () => {
   // instrument — no more assessable than it was.
   return appWith(storedAnalysis()).then(async (app) => {
     const { data } = (
-      await app.inject({ method: "GET", url: `/analyses/${ANALYSIS_ID}` })
+      await app.inject({
+        method: "GET",
+        url: `/analyses/${ANALYSIS_ID}`,
+        headers: credential.header,
+      })
     ).json() as { data: Record<string, unknown> };
 
     const verdict = data["verdict"] as Record<string, unknown>;

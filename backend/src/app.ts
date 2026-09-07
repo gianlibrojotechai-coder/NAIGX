@@ -25,6 +25,11 @@ import { analysisRoutes } from "./routes/analyses.js";
 import type { ClassificationType } from "./nie/contracts.js";
 import { exportRoutes } from "./routes/exports.js";
 import type { AnalysisEventLog } from "./events/analysis-event-log.js";
+import { authRoutes } from "./routes/auth.js";
+import { registerAuthentication } from "./http/authenticate.js";
+import { createRateLimiter, type RateLimiter } from "./auth/rate-limit.js";
+import { createSessionService } from "./auth/sessions.js";
+import { createAuditSink } from "./db/audit-sink.js";
 
 /**
  * `DB §4.2` `ANALYSIS_INPUT.content_hash`.
@@ -66,6 +71,17 @@ export interface AppDependencies {
     analysisId: string,
     artifactType: string,
   ) => Promise<void>;
+  /**
+   * Salts the stored IP hash (`DB §4.1` — raw IP is never persisted).
+   *
+   * Defaulted so a test need not supply one; a deployment must, and
+   * `config/env.ts` is where that belongs when `M-19` arrives.
+   */
+  readonly ipSecret?: string;
+  /** Injected so a test can drive the rate limiter and token expiry. */
+  readonly now?: () => Date;
+  /** Shared so a test can inspect or reset it. */
+  readonly rateLimiter?: RateLimiter;
 }
 
 export async function buildApp({
@@ -77,6 +93,9 @@ export async function buildApp({
   startExecution,
   eventLog,
   retryArtifact,
+  ipSecret = "naigx-dev-ip-secret",
+  now = () => new Date(),
+  rateLimiter = createRateLimiter(),
 }: AppDependencies): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
@@ -92,6 +111,14 @@ export async function buildApp({
   // Registered after the request context so error responses can read the
   // correlation identifiers it establishes.
   registerErrorHandler(app);
+
+  // Authentication resolves a principal for every request and rejects none —
+  // `API §3.3` requires analysis creation and retrieval to work with no
+  // account, so authorization is each route's decision.
+  registerAuthentication(app, {
+    lookup: database.prisma,
+    now,
+  });
 
   await app.register(cors, {
     origin: config.corsOrigin,
@@ -114,6 +141,28 @@ export async function buildApp({
     ...(startExecution !== undefined ? { startExecution } : {}),
     ...(eventLog !== undefined ? { eventLog } : {}),
     ...(retryArtifact !== undefined ? { retryArtifact } : {}),
+  });
+
+  const audit = createAuditSink({
+    prisma: database.prisma,
+    onError: (error) => {
+      // A failed audit write must not fail the action it audits, but it must
+      // not vanish either.
+      app.log.error({ err: error }, "audit write failed");
+    },
+  });
+
+  await app.register(authRoutes, {
+    prisma: database.prisma,
+    sessions: createSessionService({
+      store: database.prisma,
+      audit,
+      ipSecret,
+      now,
+    }),
+    rateLimiter,
+    audit,
+    now,
   });
 
   // `API-040`. Registered after the analysis routes it reads through.

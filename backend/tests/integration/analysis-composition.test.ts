@@ -38,6 +38,9 @@ const CONTENT = "A job posting with enough substance to be worth analysing.";
 
 interface Row {
   analysisId: string;
+  /** The issued anonymous credential's hash, so reads can be authorized. */
+  anonymousTokenHash: string | null;
+  userId: string | null;
   status: string;
   createdAt: Date;
   completedAt: Date | null;
@@ -54,12 +57,35 @@ const store = () => {
 
   const prisma = {
     healthCheck: { findFirst: () => Promise.resolve(null) },
+    // Ownership is enforced from `M-15`, so the store must answer the two
+    // queries the principal resolver makes. This stub models the real
+    // predicates rather than returning the row unconditionally: the anonymous
+    // lookup matches on the stored hash and on `userId: null`, exactly as
+    // Postgres does.
+    session: { findFirst: () => Promise.resolve(null) },
     analysis: {
-      create: () => {
+      findFirst: ({
+        where,
+      }: {
+        where: { anonymousTokenHash: string; userId: null };
+      }) =>
+        Promise.resolve(
+          row !== null && row.anonymousTokenHash === where.anonymousTokenHash
+            ? { analysisId: row.analysisId, createdAt: row.createdAt }
+            : null,
+        ),
+      create: ({ data }: { data: { anonymousTokenHash?: string } }) => {
         row = {
           analysisId: ANALYSIS_ID,
+          // Stored so the anonymous lookup above can match the issued token.
+          anonymousTokenHash: data.anonymousTokenHash ?? null,
+          userId: null,
           status: "queued",
-          createdAt: new Date("2026-09-06T12:00:00.000Z"),
+          // `new Date()`, as a real create does. A fixed past instant would
+          // put the issued anonymous token beyond its 24-hour lifetime (D-45)
+          // the moment the wall clock moved past it, and the reads below would
+          // 404 for a reason that has nothing to do with what they test.
+          createdAt: new Date(),
           completedAt: null,
           derivedTitle: null,
           sufficiencyLevel: null,
@@ -186,8 +212,16 @@ test("a submission runs through to a terminal state and is retrievable", async (
     payload: { content: CONTENT },
   });
   assert.equal(created.statusCode, 202);
-  const { analysis_id } = (created.json() as { data: { analysis_id: string } })
-    .data;
+  // `FR-004` — the token is issued once, at creation, and is the only way to
+  // reach an anonymous analysis afterwards. Capturing it here is what a real
+  // client does; before `M-15` the id alone was enough, which was the defect.
+  const { analysis_id, anonymous_token } = (
+    created.json() as {
+      data: { analysis_id: string; anonymous_token: string };
+    }
+  ).data;
+  assert.ok(anonymous_token, "no anonymous token was issued");
+  const auth = { authorization: `Bearer ${anonymous_token}` };
 
   // The response precedes the run, so the assertions wait for it.
   await settled();
@@ -197,6 +231,7 @@ test("a submission runs through to a terminal state and is retrievable", async (
   const retrieved = await app.inject({
     method: "GET",
     url: `/analyses/${analysis_id}`,
+    headers: auth,
   });
   assert.equal(retrieved.statusCode, 200);
   assert.equal(
@@ -208,6 +243,7 @@ test("a submission runs through to a terminal state and is retrievable", async (
   const status = await app.inject({
     method: "GET",
     url: `/analyses/${analysis_id}/status`,
+    headers: auth,
   });
   assert.equal(
     (status.json() as { data: { status: string } }).data.status,
@@ -232,11 +268,15 @@ test("a degraded run is reported as degraded, not as success", async () => {
     ),
   );
 
-  await app.inject({
+  const created = await app.inject({
     method: "POST",
     url: "/analyses",
     payload: { content: CONTENT },
   });
+  // The issued credential is the only way to read the analysis afterwards.
+  const token = (created.json() as { data: { anonymous_token: string } }).data
+    .anonymous_token;
+  const auth = { authorization: `Bearer ${token}` };
   await settled();
 
   assert.equal(db.current()?.status, "completed");
@@ -245,6 +285,7 @@ test("a degraded run is reported as degraded, not as success", async () => {
   const status = await app.inject({
     method: "GET",
     url: `/analyses/${ANALYSIS_ID}/status`,
+    headers: auth,
   });
   assert.equal(
     (status.json() as { data: { degraded: boolean } }).data.degraded,
@@ -258,17 +299,22 @@ test("a failing run does not leave the analysis queued", async () => {
     Promise.reject(new Error("No recorded response for request key abc")),
   );
 
-  await app.inject({
+  const created = await app.inject({
     method: "POST",
     url: "/analyses",
     payload: { content: CONTENT },
   });
+  // The issued credential is the only way to read the analysis afterwards.
+  const token = (created.json() as { data: { anonymous_token: string } }).data
+    .anonymous_token;
+  const auth = { authorization: `Bearer ${token}` };
   await settled();
 
   assert.equal(db.current()?.status, "failed");
   const status = await app.inject({
     method: "GET",
     url: `/analyses/${ANALYSIS_ID}/status`,
+    headers: auth,
   });
   assert.equal(
     (status.json() as { data: { status: string } }).data.status,
