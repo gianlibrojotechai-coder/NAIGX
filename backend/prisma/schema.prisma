@@ -6,8 +6,12 @@
 // Deliberately NOT here:
 //   · Trace Store (§4.7)      — separate PostgreSQL database (`docs/12` D-2).
 //                               No foreign key crosses the store boundary (§1.4).
-//   · Artifact domain (§4.4)  — Artifact, ArtifactPlanEntry, Export.
-//   · Operational (§4.6)      — Feedback, AuditEvent.
+//   · ApiKey / Role only     — see below.
+//
+// Artifact (§4.4) and the Operational domain (§4.6) were both once excluded
+// here. Artifact and ArtifactPlanEntry landed in Sprint 3; Export, Feedback and
+// AuditEvent land in Sprint 5 (`M-15`), because each needs an owner and there
+// was nothing truthful to put in them before identity existed.
 //   · ApiKey / Role (§10.1)   — no entity specification exists; §10.4 says role and
 //                               permission tables are deliberately not built.
 //
@@ -145,9 +149,13 @@ model User {
   /// `NFR-030` — defaults false; requires an explicit affirmative act to set.
   trainingConsent Boolean   @default(false) @map("training_consent")
 
-  sessions Session[]
-  settings UserSettings?
-  analyses Analysis[]
+  sessions    Session[]
+  settings    UserSettings?
+  analyses    Analysis[]
+  exports     Export[]
+  feedback    Feedback[]
+  /// SET NULL, not cascade (§4.6). The event survives; the identity does not.
+  auditEvents AuditEvent[]
 
   @@index([deletedAt])
   @@map("user")
@@ -166,11 +174,50 @@ model Session {
   userAgentClass String    @map("user_agent_class")
   ipHash         String    @map("ip_hash")
 
-  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  user          User           @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  refreshTokens RefreshToken[]
 
   @@index([userId])
   @@index([expiresAt])
   @@map("session")
+}
+
+/// A single-use credential for obtaining the next access token ([D-44](../../docs/19-D-44-Refresh-Token-Table.md)).
+///
+/// ⚠️ NOT PART OF `DB §4.1`. That section gives SESSION one `token_hash` and
+/// states "no historical session retention", which cannot express `API-002`:
+/// reuse is detected by recognising a token that has **already been spent**, so
+/// a token deleted on rotation cannot be recognised on reuse at all. D-44
+/// records the contradiction and the resolution; `docs/06` is unamended.
+///
+/// ⚠️ A REFRESH TOKEN IS NOT AN ACCESS CREDENTIAL. It is resolvable from this
+/// table, and that must never make it usable as a `Bearer` credential on a
+/// protected resource route. Only `API-002` consults this table; the request
+/// authenticator never does.
+model RefreshToken {
+  refreshTokenId String    @id @default(uuid()) @map("refresh_token_id") @db.Uuid
+  sessionId      String    @map("session_id") @db.Uuid
+  /// Shared by every token rotated from one authentication, so revoking on
+  /// reuse is a single predicate over the family rather than a walk up a chain.
+  familyId       String    @map("family_id") @db.Uuid
+  /// Classified Credential (§13.2) — stored hashed, never raw.
+  tokenHash      String    @unique @map("token_hash")
+  issuedAt       DateTime  @default(now()) @map("issued_at")
+  expiresAt      DateTime  @map("expires_at")
+  /// Set when the token is spent. **A consumed row is retained**, because it is
+  /// what makes reuse recognisable (D-44 §3.5); it expires with the token.
+  consumedAt     DateTime? @map("consumed_at")
+  /// The token issued in its place. Null until rotated.
+  replacedById   String?   @map("replaced_by_id") @db.Uuid
+  /// Set when the family was revoked, whether by logout or by reuse detection.
+  revokedAt      DateTime? @map("revoked_at")
+
+  session Session @relation(fields: [sessionId], references: [sessionId], onDelete: Cascade)
+
+  @@index([familyId])
+  @@index([sessionId])
+  @@index([expiresAt])
+  @@map("refresh_token")
 }
 
 /// User preferences. Deliberately minimal (`FR-071`); growth here is drift.
@@ -248,6 +295,8 @@ model Analysis {
   riskItems            RiskItem[]
   complexityAssessment ComplexityAssessment?
   fragmentUsages       FragmentUsage[]
+  exports              Export[]
+  feedbackRecord       Feedback?
 
   /// `FR-061` history listing.
   @@index([userId, createdAt(sort: Desc)])
@@ -813,4 +862,95 @@ model Artifact {
   @@index([analysisId, artifactType])
   @@index([validationStatus])
   @@map("artifact")
+}
+
+// ---------------------------------------------------------------------------
+// §4.4 Artifact domain — EXPORT
+// §4.6 Operational domain — FEEDBACK, AUDIT_EVENT
+//
+// Added in Sprint 5 (`M-15`). Previously excluded because each needs an owner:
+// EXPORT instruments `M-4` per user, FEEDBACK is `Auth: Required`, and
+// AUDIT_EVENT records who did what. Before identity existed there was nothing
+// truthful to put in any of them.
+// ---------------------------------------------------------------------------
+
+/// Record of export generation (`DB §4.4`, `FR-050`). The record is persisted;
+/// the file is not — regeneration from immutable artifacts is deterministic
+/// (`SA §3.8`), and storing documents would duplicate the most sensitive
+/// content in the system for no benefit.
+///
+/// ⚠️ WRITTEN ONLY FOR A REAL OWNER ([D-41](../../docs/16-D-41-Anonymous-Export-Deviation.md)).
+/// `user_id` is NOT NULL by design: this table's whole purpose is instrumenting
+/// `M-4`, and a row attributable to nobody would corrupt the metric it exists
+/// to serve. An anonymous export writes nothing here and returns no
+/// `export_id` ([D-42](../../docs/17-D-42-Export-Response-Contract.md)).
+model Export {
+  exportId          String       @id @default(uuid()) @map("export_id") @db.Uuid
+  analysisId        String       @map("analysis_id") @db.Uuid
+  userId            String       @map("user_id") @db.Uuid
+  format            ExportFormat
+  /// Null means the full analysis; a list means an `FR-052` partial export.
+  artifactSelection Json?        @map("artifact_selection")
+  generatedAt       DateTime     @default(now()) @map("generated_at")
+  /// What the document asserted about itself, so a later reader can tell what
+  /// was exported without regenerating it.
+  metadataSnapshot  Json         @map("metadata_snapshot")
+
+  analysis Analysis @relation(fields: [analysisId], references: [analysisId], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@index([analysisId])
+  @@index([userId, generatedAt])
+  @@map("export")
+}
+
+/// User quality signal (`DB §4.6`, `FR-101`), source of `M-7`.
+///
+/// **The one permitted exception to `DP-3`.** Feedback is user-authored rather
+/// than system-generated, so a user revising their own assessment does not
+/// alter the analysis record. The analysis itself stays immutable.
+model Feedback {
+  feedbackId  String   @id @default(uuid()) @map("feedback_id") @db.Uuid
+  analysisId  String   @unique @map("analysis_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  helpful     Boolean
+  detail      String?
+  submittedAt DateTime @default(now()) @map("submitted_at")
+
+  analysis Analysis @relation(fields: [analysisId], references: [analysisId], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@index([helpful])
+  @@map("feedback")
+}
+
+/// Security-relevant action record (`DB §4.6`, `SA §10.7`).
+///
+/// ⚠️ NEVER CONTAINS USER BUSINESS CONTENT (`NFR-081`). There is no field an
+/// analysis input, artifact or prompt could occupy — absence by construction
+/// rather than by filtering.
+///
+/// ⚠️ `user_id` IS NULLIFIED ON ACCOUNT DELETION, NOT CASCADED. `DB §4.6`: the
+/// event that an action occurred survives; the identity attached to it does
+/// not. This is the **only** place in the schema where a user reference is
+/// severed rather than cascaded, and it is what lets `FR-073`'s deletion
+/// promise and the audit trail both hold.
+model AuditEvent {
+  auditEventId  String   @id @default(uuid()) @map("audit_event_id") @db.Uuid
+  userId        String?  @map("user_id") @db.Uuid
+  eventType     String   @map("event_type")
+  resourceType  String   @map("resource_type")
+  resourceId    String?  @map("resource_id")
+  occurredAt    DateTime @default(now()) @map("occurred_at")
+  correlationId String?  @map("correlation_id")
+  outcome       String
+  /// Pseudonymous (§13.2). Raw IP is never persisted (`NFR-025`).
+  ipHash        String?  @map("ip_hash")
+
+  user User? @relation(fields: [userId], references: [userId], onDelete: SetNull)
+
+  @@index([userId, occurredAt])
+  @@index([resourceType, resourceId])
+  @@index([correlationId])
+  @@map("audit_event")
 }
