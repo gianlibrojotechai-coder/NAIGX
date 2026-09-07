@@ -1,0 +1,31 @@
+# Root build context — used by `deploy/Dockerfile.edge`, which needs both
+# `frontend/` and `deploy/Caddyfile` and so cannot use a narrower context.
+#
+# `backend/.dockerignore` covers the backend image separately; this file must
+# stand on its own because Docker reads only the one belonging to the context
+# in use.
+
+**/node_modules
+**/dist
+**/.git
+**/.env
+**/.env.*
+!**/.env.example
+
+# Nothing in the image is built from these, and they are the bulk of the tree.
+research/
+prompts/
+docs/
+assets/
+tools/
+**/*.md
+!deploy/**/*.md
+
+# Local state and editor noise.
+**/.DS_Store
+**/*.log
+**/coverage
+**/.vscode
+**/.idea
+**/caddy_data
+**/caddy_config

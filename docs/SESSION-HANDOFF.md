@@ -45,7 +45,7 @@ These are standing instructions given explicitly. **They override default thorou
 | **M-16** Instrumentation | **Complete.** 7 automatable metrics report real values; M-6/M-8/M-9 stay manual |
 | **M-17** Accessibility | **Implemented, NOT verified.** 4 violations fixed, axe running. The manual WCAG walk is unwalked |
 | **M-18** Security | **Reviewed, NOT passed.** `NFR-027` found and fixed; `DB §13.1` app-level encryption unresolved |
-| **M-19** Deployment | **Phase 1 of 4 done.** See §7 |
+| **M-19** Deployment | **Phases 1–2 of 4 done.** See §7 |
 | **M-20** Performance | Unstarted |
 
 ### Sprint 5 deliverables still outstanding
@@ -71,8 +71,9 @@ These are standing instructions given explicitly. **They override default thorou
 | `docs/26` **D-51** | Self-hosted PostgreSQL; `DBQ-7` resolved at **7 days** |
 | `docs/27` **D-52** | Managed KMS (AWS), envelope encryption |
 | `docs/28` **D-53** | Both encryption layers, told apart; closes `DBQ-8` |
+| `docs/29` **D-54** | The edge — same-origin serving, proxy trust, IP-hash salt |
 
-**Numbering convention: the next standalone record is `docs/29` D-54.**
+**Numbering convention: the next standalone record is `docs/30` D-55.**
 
 ---
 
@@ -86,6 +87,10 @@ These are the defects that *passed every test* before being caught. They are the
 - **`NFR-021` ≠ application-level encryption.** `NFR-021` is *"encrypted at rest"* → `DB §13.1` maps it to **full-volume**. The application-level row carries **no NFR number**. The M-18 review conflated them; D-53 §1 splits them.
 - **Reading a row without selecting a field makes it `undefined`, not `null`.** An ownership guard using `=== null` failed open/closed wrongly. Fix the *fixtures*, never loosen the guard — "not selected" must never read as "unowned".
 - **Bash heredocs mangle backticks and regex backslashes.** Use the Write/Edit tools for anything containing them; several patches were silently corrupted this way.
+- **The production image could not start the app, and every test was green.** Prisma 7 emits `.ts` import specifiers and this project compiles with `verbatimModuleSyntax`, so `dist/generated/prisma/client.js` imported `./enums.ts` and `node dist/index.js` died with `ERR_MODULE_NOT_FOUND` before one line of application code. Invisible because `dev`, `test` and every CLI script run through **tsx**, which resolves `.ts` happily — only `npm start` and the container's `CMD` take that path. **Phase 1 verified PDF rendering and the migration paths inside this very image and still never ran its entrypoint.** Fixed with `importFileExtension = "js"` on both generators. If you change anything in the build, run the compiled output, not the source.
+- **Caddy sorts directives by its own order, not file order.** `handle` outranks a bare `respond`, so `respond @internal 404` written outside a `handle` block never ran — the catch-all `handle` matched first, was terminal, and served `index.html` with a **200** from `/internal/metrics`. It reads correctly top-to-bottom. Put every mutually-exclusive case in a `handle` block.
+- **Grepping a Vite bundle for the fallback string reports failure on a correct build.** `import.meta.env["VITE_API_BASE_URL"] ?? "http://localhost:3000"` compiles to a member read on an inlined object, so the default **stays in the output as text** even when the override worked. What discriminates is whether the inlined object *defines the key*.
+- **`request.ip` is meaningless until proxy trust is decided, and both defaults are wrong** (D-54 §4). Off behind a proxy → one global rate-limit bucket for everyone. On without one → `X-Forwarded-For` is client-supplied and the per-IP limit stops existing. Neither announces itself.
 
 ---
 
@@ -102,9 +107,17 @@ These are the defects that *passed every test* before being caught. They are the
 
 ---
 
-## 7. THE NEXT STEP — M-19 Phase 2
+## 7. THE NEXT STEP — M-19 Phase 3
 
-**Four phases, owner-approved. Phase 1 is committed (`54ac225`).**
+**Four phases, owner-approved. Phases 1 and 2 are committed.**
+
+The owner has taken the **KMS prerequisite** for Phase 3 (an AWS account and
+credentials). Build the envelope-encryption implementation behind the provider
+interface with an offline test double, and mark real KMS integration
+**unverified until credentials exist and an actual integration test passes**.
+Before provisioning a real key, **verify the provider's current official
+pricing** — D-52's ~$1/month is a decision-record estimate from its date, not a
+standing guarantee.
 
 ### ✅ Phase 1 — containerisation, non-root, Linux Chromium *(done)*
 
@@ -112,18 +125,25 @@ These are the defects that *passed every test* before being caught. They are the
 
 Verified in-container: PDF renders non-root with the sandbox on (36,676 bytes, `%PDF-`), and **fails without the profile** — that differential is the proof. Both Prisma migration paths load post-prune. Image is **2.04 GB**, almost all Chromium.
 
-### ▶ Phase 2 — TLS + configurable host/port *(next)*
+### ✅ Phase 2 — TLS, same-origin edge, configurable host/port *(done)*
 
-- **Caddy** in front, automatic Let's Encrypt, free. App binds loopback.
-- **`HOST` is hardcoded** at `backend/src/index.ts:50` (`0.0.0.0`) with no env override — that must become configuration.
-- A production `docker-compose` wiring the app, both databases, Caddy, **and `security_opt: seccomp=./deploy/seccomp/chromium.json`** (Phase 1's work is inert without it).
+Recorded as **[D-54](29-D-54-Edge-Topology-And-Proxy-Trust.md)**. Deploy guide: **[`deploy/README.md`](../deploy/README.md)**.
 
-### Phase 3 — encryption + durable purge queue
+`deploy/Caddyfile`, `deploy/Dockerfile.edge` (Caddy + the built client), `docker-compose.prod.yml`, `deploy/.env.example`, root `.dockerignore`. `HOST`/`TRUST_PROXY`/`NAIGX_IP_HASH_SECRET` are configuration; the seccomp profile is wired via `security_opt`.
+
+**Verified** against the built images with a stub backend over HTTP: API paths proxy, SPA fallback serves, `/internal/metrics` 404s **and never reaches the backend**, HSTS + `nosniff` + `DENY` + referrer-policy present, and SSE streams incrementally (lines at **467/846/1249 ms**, matching the origin — no proxy buffering). `trustProxy` proved by differential.
+
+⚠️ **TLS itself is UNVERIFIED.** No certificate has ever been issued by this config — ACME needs a public domain and DNS that do not exist yet. Everything *beneath* TLS is verified; the TLS layer is not. Do not report `NFR-020` as verified until the first real deploy.
+
+**Three defects this phase caught — all had passed a plausible check first.** See §5.
+
+### ▶ Phase 3 — encryption + durable purge queue *(next)*
 
 - Envelope encryption (D-52/D-53) on `raw_content`, `structured_input`, `structured_output`. Migration touches **both stores**.
 - ⚠️ **Encrypting `raw_content` breaks `FR-062` search.** `routes/history.ts:171` substring-matches that column in SQL and a database cannot match ciphertext — it would fail **silently**, returning empty results. D-53 §4 resolves it by decrypting and filtering in the application; semantics unchanged, search becomes `O(user's analyses)`.
 - Durable purge queue behind the existing `TracePurgeQueue` interface (a Postgres table). No API change.
-- **⚠️ BLOCKER — needs the owner.** A real KMS key requires an AWS account and credentials, which this agent cannot create. Build the provider interface and a test double so the logic and migration are testable offline, and flag the live-KMS verification as **unverified** until credentials exist. Do not substitute a local key to make it green — D-52 §4 forbids exactly that.
+- **⚠️ THE KMS PREREQUISITE IS THE OWNER'S, AND THEY HAVE TAKEN IT** (2026-09-08). Build the provider interface and an offline test double so the logic and migration are testable now; flag live-KMS integration **unverified until credentials exist and a real integration test passes**. Do not substitute a local key to make it green — D-52 §4 forbids exactly that.
+- **Check the price before provisioning.** D-52's ~$1/month is that record's estimate on its date, not a standing guarantee. Verify the provider's current official pricing and the expected usage against it first.
 
 ### Phase 4 — monitoring, alerting, rollback drill, data policy
 
@@ -158,7 +178,7 @@ Verified in-container: PDF renders non-root with the sandbox on (36,676 bytes, `
 
 ```bash
 # backend (from backend/)
-npm test              # 846 tests, 844 pass, 0 fail, 2 skipped
+npm test              # 853 tests, 851 pass, 0 fail, 2 skipped
 npm run typecheck
 npm run lint
 npm run format:check
@@ -176,12 +196,35 @@ node tools/boundary-checks/check.mjs   # 8 enforcing · 0 failing
 
 **Docker must be running** or the Postgres-backed and browser-backed suites skip. A skip means *not checked*, never *passed* — if the skip count rises above 2, start Docker before reading the result.
 
-**Container check (Phase 1):**
+**Container checks (Phases 1–2):**
+
+⚠️ The differential must call **`renderPdf`, not `findBrowser`**. `findBrowser`
+only locates the binary and **succeeds without the profile too** — it cannot
+tell you the sandbox is engaged. (An earlier version of this section named
+`findBrowser`; that was not the differential it claimed to be.)
+
 ```bash
-cd backend && docker build -t naigx-backend:m19 .
-# must PASS with the profile, and FAIL without it
-docker run --rm --security-opt seccomp=<abs>/deploy/seccomp/chromium.json naigx-backend:m19 \
-  node -e "import('/app/dist/export/pdf.js').then(m=>m.findBrowser()).then(console.log)"
+cd backend && docker build -t naigx-backend:m19p2 .
+
+R="import('/app/dist/export/pdf.js').then(m=>m.renderPdf('<h1>x</h1>',\
+{executablePath:'/usr/bin/chromium'})).then(b=>console.log('RENDERED',b.length))\
+.catch(e=>console.log('FAILED:',e.message))"
+
+# WITH the profile → RENDERED (~11 KB, %PDF-).  WITHOUT it → FAILED.
+docker run --rm --security-opt seccomp=<abs>/deploy/seccomp/chromium.json \
+  naigx-backend:m19p2 node -e "$R"
+docker run --rm naigx-backend:m19p2 node -e "$R"
+
+# Phase 2 — the image must actually START. Refuses without the salt; gets past
+# config to a database error with it. Both halves matter.
+docker run --rm -e NODE_ENV=production \
+  -e DATABASE_URL=postgresql://u:p@h:5432/naigx \
+  -e TRACE_DATABASE_URL=postgresql://u:p@h:5432/naigx_trace \
+  naigx-backend:m19p2 node dist/index.js     # → NAIGX_IP_HASH_SECRET required
+
+# Edge image: builds only if the client is same-origin and the Caddyfile parses.
+docker build -f deploy/Dockerfile.edge -t naigx-edge:m19p2 .
+docker compose -f docker-compose.prod.yml --env-file deploy/.env config
 ```
 In Git Bash set `MSYS_NO_PATHCONV=1` or paths get rewritten to `C:/Program Files/Git/...`.
 
@@ -214,7 +257,8 @@ In Git Bash set `MSYS_NO_PATHCONV=1` or paths get rewritten to `C:/Program Files
 | `docs/09` | Scoring scales — §2 risk severity/likelihood/bands |
 | `docs/10` | Reasoning quality rubric (**§4.3 excludes AI review**) |
 | `docs/12` | Decision records D-1 … D-37 |
-| `docs/13`–`docs/28` | D-38 … D-53, standalone |
+| `docs/13`–`docs/29` | D-38 … D-54, standalone |
+| `deploy/README.md` | **How to deploy, what is verified, and what is not** |
 | `docs/accessibility/WCAG-AA-CHECKLIST.md` | The manual M-17 walk. **Result table is empty** |
 | `docs/security/M-18-SECURITY-REVIEW.md` | The M-18 review, with its H-2 correction visible |
 | `deploy/seccomp/README.md` | Why the seccomp profile exists and what it trades |

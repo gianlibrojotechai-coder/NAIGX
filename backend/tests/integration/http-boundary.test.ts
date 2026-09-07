@@ -23,6 +23,8 @@ const config: AppConfig = {
   traceDatabaseUrl: "postgresql://unused-trace",
   provider: {},
   port: 0,
+  host: "127.0.0.1",
+  trustProxy: false,
   corsOrigin: "http://localhost:5173",
   logLevel: "silent",
 };
@@ -153,4 +155,50 @@ test("the app builds without binding a port", async () => {
   const app = await build();
   assert.equal(app.server.listening, false);
   await app.close();
+});
+
+// --- M-19 Phase 2: what `request.ip` resolves to --------------------------
+//
+// ⚠️ THIS IS A DIFFERENTIAL, AND IT HAS TO BE. Either half alone passes for
+// the wrong reason: with proxy trust off, an `X-Forwarded-For` that is
+// correctly ignored looks identical to one that was never sent, and with it
+// on, a header that is honoured looks identical to a socket address that
+// happens to match. Only the pair shows the setting is doing the work.
+//
+// It matters because `request.ip` is the per-IP authentication limit's bucket
+// key (`routes/auth.ts`, `authAttemptIp`) and the session IP hash. Wrong in
+// one direction, every client shares one bucket; wrong in the other, every
+// client picks its own.
+
+const ipEcho = async (trustProxy: boolean) => {
+  const app = await buildApp({
+    config: { ...config, trustProxy },
+    database: database(() => Promise.resolve(null)),
+  });
+  app.get("/__ip", (request) => ({ ip: request.ip }));
+  return app;
+};
+
+const requestIp = async (trustProxy: boolean): Promise<string> => {
+  const app = await ipEcho(trustProxy);
+  const res = await app.inject({
+    method: "GET",
+    url: "/__ip",
+    remoteAddress: "10.9.9.9",
+    headers: { "x-forwarded-for": "203.0.113.7" },
+  });
+  await app.close();
+  return JSON.parse(res.body).ip;
+};
+
+test("trustProxy=false ignores X-Forwarded-For and reports the socket peer", async () => {
+  // A client-supplied header must not be able to choose its own rate-limit
+  // identity when nothing trustworthy is in front of the process.
+  assert.equal(await requestIp(false), "10.9.9.9");
+});
+
+test("trustProxy=true reports the forwarded client, not the proxy", async () => {
+  // Behind Caddy the socket peer is the proxy. Reporting it would collapse
+  // every client into a single bucket.
+  assert.equal(await requestIp(true), "203.0.113.7");
 });

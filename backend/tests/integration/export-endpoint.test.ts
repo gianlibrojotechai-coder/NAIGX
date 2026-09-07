@@ -34,6 +34,8 @@ const config: AppConfig = {
   traceDatabaseUrl: "postgresql://unused-trace",
   provider: {},
   port: 0,
+  host: "127.0.0.1",
+  trustProxy: false,
   corsOrigin: "http://localhost:5173",
   logLevel: "silent",
 };

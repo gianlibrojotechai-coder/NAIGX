@@ -1,0 +1,95 @@
+# NAIGX edge — TLS termination and request routing (`M-19` Phase 2).
+#
+# Satisfies `NFR-020` ("all transport encrypted, TLS 1.2+") and the HSTS
+# requirement in `SA §10`. Caddy obtains and renews a Let's Encrypt certificate
+# on its own; there is no certificate to install, rotate, or forget. Its
+# defaults are TLS 1.2 minimum with modern cipher suites, so this file does not
+# restate them — pinning a narrower list here would be a configuration that
+# ages badly for no gain.
+#
+# `SA §9.1` puts a TLS-terminating proxy in front of the application tier. This
+# is that proxy for the single-instance topology D-50 sanctions.
+#
+# ⚠️ THE BACKEND MUST RUN WITH `TRUST_PROXY=true` BEHIND THIS FILE, and must
+# NOT when it is exposed directly. `request.ip` is the per-IP authentication
+# rate-limit bucket and the session IP hash; wrong in one direction every
+# client shares one bucket, wrong in the other every client picks its own.
+# `docker-compose.prod.yml` sets it in the same file that creates this proxy.
+
+{
+	# Where Let's Encrypt sends expiry and problem notices. Required: an ACME
+	# account with no contact address gets no warning when renewal starts
+	# failing, and the first symptom is then an expired certificate.
+	email {$ACME_EMAIL}
+}
+
+{$NAIGX_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		# `NFR-020` / `SA §10` — HSTS. Two years is the preload-list minimum;
+		# `preload` is stated but the domain is not submitted anywhere by this
+		# file, which is deliberate: submission is irreversible on a timescale
+		# measured in months and is the owner's decision, not a deploy's.
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+
+		# Caddy advertises itself by default. Nothing needs to know.
+		-Server
+	}
+
+	# NOTE — no `Content-Security-Policy` here, deliberately, and this is the
+	# one header worth explaining the absence of. The client renders Mermaid
+	# diagrams, which inject styles at runtime; a plausible-looking policy
+	# breaks that *silently* — the diagram simply does not appear, and nothing
+	# in the logs says why. A CSP belongs in Phase 4's hardening pass where it
+	# can be landed against a rendered diagram rather than against a guess.
+
+	# `/internal/*` is the operator surface (D-48). It carries its own token
+	# and does not depend on this block for its security — but it has no
+	# business being reachable from the internet at all, and Phase 4's metrics
+	# scrape reaches it over the compose network instead. 404 rather than 403:
+	# a refusal confirms the path exists.
+	#
+	# ⚠️ IT MUST BE A `handle` BLOCK, NOT A BARE `respond`. Caddy sorts
+	# directives by its own order, not by the order written in this file, and
+	# `handle` sorts ahead of `respond` — so a bare `respond @internal 404`
+	# never runs: the catch-all `handle` below matches first, is terminal, and
+	# cheerfully serves `index.html` with a 200. Verified: that exact mistake
+	# returned 200 from `/internal/metrics` in the routing check. Grouping all
+	# three cases as `handle` blocks makes them mutually exclusive and
+	# evaluated in written order.
+	@internal path /internal/*
+	handle @internal {
+		respond 404
+	}
+
+	# The API surface, enumerated rather than pattern-matched. An explicit list
+	# means a route added later is not silently exposed by a wildcard nobody
+	# revisited — it 404s at the edge until this file names it.
+	@api path /analyses /analyses/* /auth/* /users /users/* /health
+	handle @api {
+		reverse_proxy backend:3000 {
+			# ⚠️ REQUIRED FOR SSE. `GET /analyses/:id/events` is a live stream
+			# (`API-025`). With Caddy's default response buffering, events sit
+			# in the proxy until the connection closes and the client sees a
+			# stream that never delivers — which the client then treats as a
+			# dropped stream and falls back to polling from. Everything still
+			# "works", just never over the stream. -1 flushes immediately.
+			flush_interval -1
+		}
+	}
+
+	# Everything else is the single-page client. `try_files` sends unknown
+	# paths to `index.html` so a deep link like `/analyses/<id>` reloads
+	# correctly instead of 404ing — react-router owns those paths in the
+	# browser, and the server has never heard of them.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

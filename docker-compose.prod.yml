@@ -1,0 +1,209 @@
+# NAIGX production stack — `M-19` Phase 2, topology per [D-50](docs/25-D-50-Deployment-Topology.md).
+#
+# One instance, no staging. Caddy terminates TLS at the edge; the application
+# and both databases are reachable only on this file's private network.
+#
+#   docker compose -f docker-compose.prod.yml --env-file deploy/.env up -d --build
+#
+# ⚠️ MIGRATIONS ARE NOT APPLIED ON BOOT — `SA §9.3` requires them to be
+# reversible independently of code, which they cannot be if starting the app is
+# what runs them. Apply them deliberately, before bringing the app up:
+#
+#   docker compose -f docker-compose.prod.yml --env-file deploy/.env \
+#     run --rm migrate
+#
+# `docker-compose.yml` (unsuffixed) remains the DEVELOPMENT database only. This
+# file is standalone and does not extend it.
+
+name: naigx
+
+services:
+  # -------------------------------------------------------------------------
+  # Data tier — one Postgres server, two databases (`DB §1.4`).
+  #
+  # `scripts/init-trace-db.sql` creates the trace database, and it runs ONLY on
+  # first initialisation of an empty volume. On an existing volume, create it
+  # by hand — the command is in that script.
+  # -------------------------------------------------------------------------
+  postgres:
+    image: postgres:17
+    container_name: naigx-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-naigx}
+
+    # ⚠️ NO `ports:`, DELIBERATELY. The development compose publishes 5432 to
+    # the host; a production database that does the same is reachable from the
+    # internet the moment the host's firewall is anything less than perfect.
+    # Nothing outside this network needs it — `psql` runs via `docker exec`.
+
+    volumes:
+      - naigx_postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-trace-db.sql:/docker-entrypoint-initdb.d/10-init-trace-db.sql:ro
+
+    healthcheck:
+      # Both databases, not just the primary. A server that answers for `naigx`
+      # while `naigx_trace` was never created would pass a one-database check
+      # and then fail every trace write at runtime.
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB && pg_isready -U $$POSTGRES_USER -d naigx_trace",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+    networks: [naigx]
+
+  # -------------------------------------------------------------------------
+  # Migrations — one-shot, run explicitly, never on boot.
+  # -------------------------------------------------------------------------
+  migrate:
+    build:
+      context: ./backend
+    image: naigx-backend:latest
+    profiles: ["migrate"]
+    restart: "no"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-naigx}
+      TRACE_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/naigx_trace
+    # Both stores, in one command (`DB §1.4` — two schemas, two clients).
+    command: ["npm", "run", "prisma:deploy"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [naigx]
+
+  # -------------------------------------------------------------------------
+  # Application tier.
+  # -------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+    image: naigx-backend:latest
+    container_name: naigx-backend
+    restart: unless-stopped
+
+    # ⚠️ THIS LINE IS WHAT MAKES PHASE 1 REAL. The image runs non-root with
+    # `chromiumSandbox: true`, and Chromium's namespace sandbox needs syscalls
+    # Docker's default profile denies. Without this the PDF export fails to
+    # launch a browser — and the whole point of Phase 1 was that the sandbox is
+    # actually engaged, not merely that a PDF comes out. See
+    # `deploy/seccomp/README.md` for what the profile trades.
+    security_opt:
+      - seccomp=./deploy/seccomp/chromium.json
+
+    # ⚠️ NO `ports:`, DELIBERATELY — and this, not the bind address, is what
+    # keeps the app off the internet. `HOST` stays at its `0.0.0.0` default
+    # because inside a container that means "every interface of THIS
+    # container", which is exactly what Caddy needs to reach it. Setting
+    # `HOST=127.0.0.1` here would not harden anything; it would make the app
+    # unreachable from the proxy. Loopback is the right value for a bare
+    # process sharing a host with its proxy, which is not this topology.
+
+    environment:
+      NODE_ENV: production
+
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-naigx}
+      TRACE_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/naigx_trace
+
+      # ⚠️ MUST BE `true` HERE, AND ONLY HERE. Caddy is the socket peer for
+      # every request, so without this `request.ip` is Caddy for everybody: the
+      # per-IP authentication limit becomes one shared bucket and every session
+      # row records the proxy's address. Set on an unproxied instance it is
+      # worse — `X-Forwarded-For` becomes client-controlled and the per-IP
+      # limit stops existing. It is `true` in this file because this file is
+      # the one that puts a proxy in front.
+      TRUST_PROXY: "true"
+
+      # `DB §4.1` — raw IP is never persisted, `DB §13` classifies `ip_hash`
+      # Pseudonymous. The application refuses to start under NODE_ENV=production
+      # without this, because its development default is a constant published in
+      # this repository and IPv4 enumerates against it in seconds.
+      NAIGX_IP_HASH_SECRET: ${NAIGX_IP_HASH_SECRET:?NAIGX_IP_HASH_SECRET is required}
+
+      # D-48. Absent means the internal surface is disabled, which is a valid
+      # production posture — Phase 4 needs it set to scrape metrics.
+      NAIGX_OPERATOR_TOKEN: ${NAIGX_OPERATOR_TOKEN:-}
+
+      # Same origin behind the edge, so this allows nothing new; it is set so a
+      # request that somehow arrives cross-origin is still refused correctly.
+      CORS_ORIGIN: https://${NAIGX_DOMAIN:?NAIGX_DOMAIN is required}
+
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+      # ⚠️ `NAIGX_EXECUTION_MODE` IS INTENTIONALLY UNSET. Unset resolves to
+      # replay, which bills nothing. The standing no-provider-spend constraint
+      # means this file must not be the place a metered mode gets switched on
+      # by default.
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+    networks: [naigx]
+
+  # -------------------------------------------------------------------------
+  # Edge — TLS termination, static client, API routing.
+  # -------------------------------------------------------------------------
+  edge:
+    build:
+      # The repository root: this image needs `frontend/` and
+      # `deploy/Caddyfile`, which have no common subdirectory.
+      context: .
+      dockerfile: deploy/Dockerfile.edge
+    image: naigx-edge:latest
+    container_name: naigx-edge
+    restart: unless-stopped
+
+    ports:
+      - "80:80"
+      # 80 is not optional even though the site is HTTPS: it is where the
+      # ACME HTTP-01 challenge is answered and where Caddy redirects visitors
+      # from. Closing it means no certificate.
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+
+    environment:
+      NAIGX_DOMAIN: ${NAIGX_DOMAIN:?NAIGX_DOMAIN is required}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required}
+
+    volumes:
+      # ⚠️ CERTIFICATES LIVE HERE AND MUST SURVIVE A REDEPLOY. Let's Encrypt
+      # rate-limits issuance per domain per week; a stack that loses this
+      # volume re-requests on every deploy and eventually gets refused, with
+      # the site down until the window rolls over.
+      - naigx_caddy_data:/data
+      - naigx_caddy_config:/config
+
+    depends_on:
+      - backend
+
+    networks: [naigx]
+
+volumes:
+  naigx_postgres_data:
+  naigx_caddy_data:
+  naigx_caddy_config:
+
+networks:
+  naigx:
+    driver: bridge

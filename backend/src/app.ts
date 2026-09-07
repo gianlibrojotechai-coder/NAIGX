@@ -80,8 +80,11 @@ export interface AppDependencies {
   /**
    * Salts the stored IP hash (`DB §4.1` — raw IP is never persisted).
    *
-   * Defaulted so a test need not supply one; a deployment must, and
-   * `config/env.ts` is where that belongs when `M-19` arrives.
+   * Defaulted so a test need not supply one. A deployment must supply a real
+   * value, and since `M-19` Phase 2 that is `NAIGX_IP_HASH_SECRET`, which
+   * `config/env.ts` makes **mandatory under `NODE_ENV=production`** — the
+   * default below is a public constant and an IP hash salted with one is
+   * reversible by enumerating IPv4.
    */
   readonly ipSecret?: string;
   /** Injected so a test can drive the rate limiter and token expiry. */
@@ -125,6 +128,11 @@ export async function buildApp({
       level: config.logLevel,
     },
     genReqId: generateRequestId,
+    // What `request.ip` resolves to — the client, or the proxy in front of it.
+    // Configured rather than assumed; `AppConfig.trustProxy` explains why both
+    // possible defaults are unsafe. The per-IP authentication limit and the
+    // session IP hash are the two things that read it.
+    trustProxy: config.trustProxy,
   });
 
   // Applied to the root instance, before routes, so every route context

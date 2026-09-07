@@ -24,6 +24,11 @@
 generator client {
   provider = "prisma-client"
   output   = "../../src/generated/prisma-trace"
+
+  // Must match the primary schema's generator — see the long note there. Both
+  // clients are imported by the compiled entrypoint, so either one left at the
+  // default `.ts` extension breaks `node dist/index.js`.
+  importFileExtension = "js"
 }
 
 datasource db {

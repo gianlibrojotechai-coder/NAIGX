@@ -118,3 +118,93 @@ test("treats empty optional values as absent rather than invalid", () => {
   assert.equal(config.corsOrigin, "http://localhost:5173");
   assert.equal(config.logLevel, "info");
 });
+
+// --- M-19 Phase 2: bind address and proxy trust ---------------------------
+
+test("defaults HOST to every interface and accepts an override", () => {
+  // The default is what a container needs; the override is what a bare
+  // process sharing a host with its proxy needs.
+  assert.equal(loadConfig(valid).host, "0.0.0.0");
+  assert.equal(loadConfig({ ...valid, HOST: "127.0.0.1" }).host, "127.0.0.1");
+  assert.equal(loadConfig({ ...valid, HOST: "  ::1  " }).host, "::1");
+});
+
+test("rejects a blank HOST rather than widening the bind", () => {
+  // `HOST=` in a compose file is an unresolved substitution, not a request
+  // for the default. Treating it as one would widen the bind in response to a
+  // broken configuration — the failure direction that does not announce
+  // itself.
+  assert.throws(
+    () => loadConfig({ ...valid, HOST: "   " }),
+    (error: Error) => error.message.includes("HOST"),
+  );
+});
+
+test("defaults TRUST_PROXY to false — the safe value when unproxied", () => {
+  assert.equal(loadConfig(valid).trustProxy, false);
+  assert.equal(loadConfig({ ...valid, TRUST_PROXY: "" }).trustProxy, false);
+});
+
+test("parses TRUST_PROXY strictly and rejects anything ambiguous", () => {
+  for (const raw of ["true", "TRUE", "1"]) {
+    assert.equal(
+      loadConfig({ ...valid, TRUST_PROXY: raw }).trustProxy,
+      true,
+      `expected TRUST_PROXY='${raw}' to enable proxy trust`,
+    );
+  }
+  for (const raw of ["false", "False", "0"]) {
+    assert.equal(
+      loadConfig({ ...valid, TRUST_PROXY: raw }).trustProxy,
+      false,
+      `expected TRUST_PROXY='${raw}' to disable proxy trust`,
+    );
+  }
+
+  // ⚠️ THE POINT OF THE STRICT PARSE. A loose "any non-empty string is true"
+  // reading turns each of these into `true` — silently, and in the direction
+  // that lets a client set its own rate-limit identity.
+  for (const raw of ["flase", "yes", "no", "off", "maybe"]) {
+    assert.throws(
+      () => loadConfig({ ...valid, TRUST_PROXY: raw }),
+      (error: Error) => error.message.includes("TRUST_PROXY"),
+      `expected TRUST_PROXY='${raw}' to be rejected, not coerced`,
+    );
+  }
+});
+
+test("requires an IP hash salt in production and not outside it", () => {
+  // `DB §4.1` / `DB §13`. The development default is a constant in this
+  // repository; IPv4 is 2^32 values, so an `ip_hash` salted with it enumerates
+  // back to the address and stops being Pseudonymous. Production is the only
+  // environment where that default would become the deployed value.
+  assert.throws(
+    () => loadConfig({ ...valid, NODE_ENV: "production" }),
+    (error: Error) => error.message.includes("NAIGX_IP_HASH_SECRET"),
+  );
+  assert.throws(
+    () =>
+      loadConfig({
+        ...valid,
+        NODE_ENV: "production",
+        NAIGX_IP_HASH_SECRET: "",
+      }),
+    (error: Error) => error.message.includes("NAIGX_IP_HASH_SECRET"),
+  );
+
+  assert.equal(
+    loadConfig({
+      ...valid,
+      NODE_ENV: "production",
+      NAIGX_IP_HASH_SECRET: "a-real-secret",
+    }).ipHashSecret,
+    "a-real-secret",
+  );
+
+  // Development and test need no configuration at all.
+  assert.equal(loadConfig(valid).ipHashSecret, undefined);
+  assert.equal(
+    loadConfig({ ...valid, NODE_ENV: "test" }).ipHashSecret,
+    undefined,
+  );
+});

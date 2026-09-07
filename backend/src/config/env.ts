@@ -12,6 +12,21 @@ const DEFAULT_PORT = 3000;
 const DEFAULT_CORS_ORIGIN = "http://localhost:5173";
 const DEFAULT_LOG_LEVEL: LogLevel = "info";
 
+/**
+ * Every interface, which is what a container needs.
+ *
+ * ⚠️ THIS IS NOT THE SAME QUESTION AS "IS THE PORT EXPOSED". Inside a
+ * container, `0.0.0.0` means every interface *of that container's network
+ * namespace* — the app is reachable from Caddy on the compose network and from
+ * nowhere else, because the production compose publishes no port for it.
+ * Binding `127.0.0.1` inside a container would instead make it unreachable
+ * from the proxy, which is why loopback is the override rather than the
+ * default: it is the correct value for a bare-process deployment sharing a
+ * host with its proxy, and the wrong one for the containerised topology D-50
+ * sanctions.
+ */
+const DEFAULT_HOST = "0.0.0.0";
+
 const LOG_LEVELS = [
   "fatal",
   "error",
@@ -36,7 +51,45 @@ export interface AppConfig {
    * enforceable boundary.
    */
   readonly traceDatabaseUrl: string;
+  /** The interface to bind. See `DEFAULT_HOST` — the default is deliberate. */
+  readonly host: string;
   readonly port: number;
+  /**
+   * Whether `X-Forwarded-*` may be believed (`SA §9.1` puts a TLS-terminating
+   * proxy in front of the application tier).
+   *
+   * ⚠️ THIS DECIDES WHAT `request.ip` MEANS, AND IT IS WRONG IN BOTH
+   * DIRECTIONS BY DEFAULT.
+   *
+   * `false` behind a proxy collapses every client to the proxy's own address:
+   * the per-IP authentication limit (`authAttemptIp`) becomes one global
+   * bucket that any single client can exhaust for everyone, and every session
+   * row records the proxy's address as the user's (`DB §8`).
+   *
+   * `true` when *not* behind a proxy is worse: `X-Forwarded-For` is then a
+   * client-supplied header, so an attacker rotates it per request and the
+   * per-IP limit stops existing at all.
+   *
+   * There is no value that is safe in ignorance, so this is configuration with
+   * no inferred default — it is `false` because that is the safe answer for a
+   * directly exposed process, and the production compose that puts Caddy in
+   * front sets it to `true` in the same file that creates the proxy.
+   */
+  readonly trustProxy: boolean;
+  /**
+   * Salt for the stored session and audit IP hash (`DB §4.1` — "raw IP is
+   * never persisted"; `DB §13` classifies `ip_hash` **Pseudonymous**).
+   *
+   * ⚠️ AN UNSALTED-IN-PRACTICE HASH IS NOT PSEUDONYMOUS. IPv4 is 2^32 values;
+   * with a salt anybody can read out of the repository, the whole space is
+   * enumerable in seconds and `ip_hash` reverses to the address it was meant
+   * to stand in for. The dev default exists so a test and a local run need no
+   * configuration — so this is **required when `NODE_ENV=production`**, which
+   * is the one place the default would silently become the deployed value.
+   *
+   * Absent outside production means "use the development default".
+   */
+  readonly ipHashSecret?: string;
   readonly corsOrigin: string;
   readonly logLevel: LogLevel;
   /**
@@ -99,6 +152,19 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     );
   }
 
+  let host = DEFAULT_HOST;
+  const rawHost = env["HOST"]?.trim();
+  if (rawHost === "") {
+    // A set-but-empty `HOST` is usually a compose substitution that did not
+    // resolve. Quietly falling back to every interface would *widen* the bind
+    // in response to a broken configuration, so it is refused instead.
+    problems.push(
+      `HOST must not be blank — leave it unset to accept the default (${DEFAULT_HOST})`,
+    );
+  } else if (rawHost !== undefined) {
+    host = rawHost;
+  }
+
   let port = DEFAULT_PORT;
   const rawPort = env["PORT"]?.trim();
   if (rawPort !== undefined && rawPort !== "") {
@@ -110,6 +176,37 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     } else {
       port = parsed;
     }
+  }
+
+  // Strict, and deliberately not "any non-empty string is true". `TRUST_PROXY`
+  // decides whether a client-supplied header can set its own rate-limit
+  // identity, and the classic loose parse turns the typo `TRUST_PROXY=flase`
+  // into `true` — silently, in the direction that removes the limit.
+  let trustProxy = false;
+  const rawTrustProxy = env["TRUST_PROXY"]?.trim().toLowerCase();
+  if (rawTrustProxy !== undefined && rawTrustProxy !== "") {
+    if (rawTrustProxy === "true" || rawTrustProxy === "1") {
+      trustProxy = true;
+    } else if (rawTrustProxy !== "false" && rawTrustProxy !== "0") {
+      problems.push(
+        `TRUST_PROXY must be true, false, 1 or 0 (received "${rawTrustProxy}")`,
+      );
+    }
+  }
+
+  // `DB §4.1` / `DB §13`. Enforced only in production, because that is the
+  // only environment where falling back to the in-repository default would be
+  // a defect rather than a convenience.
+  const ipHashSecret = env["NAIGX_IP_HASH_SECRET"]?.trim();
+  if (
+    env["NODE_ENV"]?.trim() === "production" &&
+    (ipHashSecret === undefined || ipHashSecret === "")
+  ) {
+    problems.push(
+      "NAIGX_IP_HASH_SECRET is required when NODE_ENV=production — the " +
+        "development default is a constant in this repository, and an IP hash " +
+        "salted with a public constant is reversible by enumeration (DB §4.1)",
+    );
   }
 
   const rawCorsOrigin = env["CORS_ORIGIN"]?.trim();
@@ -175,7 +272,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     },
     databaseUrl: rawDatabaseUrl as string,
     traceDatabaseUrl: rawTraceDatabaseUrl as string,
+    host,
     port,
+    trustProxy,
+    ...(ipHashSecret !== undefined && ipHashSecret !== ""
+      ? { ipHashSecret }
+      : {}),
     corsOrigin,
     logLevel,
   };

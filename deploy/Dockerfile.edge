@@ -1,0 +1,77 @@
+# NAIGX edge image — Caddy, with the built client baked in (`M-19` Phase 2).
+#
+# Build context is the REPOSITORY ROOT, because this image needs both
+# `frontend/` and `deploy/Caddyfile`.
+#
+# The client is copied into the image rather than shared with Caddy through a
+# named volume. A volume would look equivalent and behave worse: Docker
+# populates a named volume only when it is empty, so the second deploy onward
+# would serve the *first* build's assets forever while every log line claimed
+# success. Baking them in makes "rebuilt" and "being served" the same event.
+
+# ---------------------------------------------------------------------------
+# Build the client.
+# ---------------------------------------------------------------------------
+FROM node:24-slim AS client
+
+WORKDIR /build
+
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+
+COPY frontend/ ./
+
+# ⚠️ SAME-ORIGIN, AND THE EMPTY STRING IS THE POINT.
+#
+# `src/api/client.ts` reads `import.meta.env["VITE_API_BASE_URL"] ?? "http://localhost:3000"`.
+# Behind this edge the API is served from the same origin as the client, so the
+# correct base is the empty string — `""` is not nullish, so it wins over the
+# default and every request becomes a relative one. That also removes CORS from
+# the deployed path entirely: there is no cross origin left to allow.
+#
+# If this variable failed to reach the build, the bundle would silently embed
+# `http://localhost:3000` and the deployed client would try to call the
+# visitor's own machine. The build below checks that it did.
+ENV VITE_API_BASE_URL=""
+
+RUN npm run build
+
+# The check, not a comment claiming the check.
+#
+# ⚠️ IT ASSERTS THE EMITTED VALUE, NOT THE ABSENCE OF THE DEFAULT STRING, and
+# the difference is the whole point. Vite compiles
+# `import.meta.env["VITE_API_BASE_URL"] ?? "http://localhost:3000"` into a
+# member read on an inlined object — so `http://localhost:3000` REMAINS in the
+# bundle as text even when the override worked perfectly and the expression
+# evaluates to `""`. Grepping for that string reports failure on a correct
+# build. What actually distinguishes the two cases is whether the inlined
+# object carries the key at all: when the variable does not reach the build,
+# Vite omits it and the `??` falls through for real.
+#
+# Quote style is the minifier's choice, so all three forms are accepted.
+RUN grep -rq \
+      -e 'VITE_API_BASE_URL:""' \
+      -e "VITE_API_BASE_URL:''" \
+      -e 'VITE_API_BASE_URL:``' \
+      dist/ \
+    || (echo "FATAL: the built client does not define VITE_API_BASE_URL as an empty string — the same-origin override did not reach the build, and the bundle will call http://localhost:3000" >&2; exit 1)
+
+# ---------------------------------------------------------------------------
+# Serve.
+# ---------------------------------------------------------------------------
+FROM caddy:2-alpine AS runtime
+
+COPY deploy/Caddyfile /etc/caddy/Caddyfile
+COPY --from=client /build/dist /srv
+
+# Fail the build on a malformed Caddyfile rather than at deploy time, when the
+# symptom is a proxy that will not start and a site that is simply down.
+#
+# The placeholders are given throwaway values purely to validate: a site
+# address that resolved to the empty string would fail for that reason alone
+# and tell us nothing about the rest of the file. The real values arrive from
+# the environment at run time.
+RUN NAIGX_DOMAIN=validate.example.com ACME_EMAIL=validate@example.com \
+    caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+EXPOSE 80 443

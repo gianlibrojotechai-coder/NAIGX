@@ -22,6 +22,24 @@
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
+
+  // ⚠️ WITHOUT THIS THE COMPILED BUILD CANNOT START. Prisma 7 defaults to
+  // emitting `.ts` import specifiers (`from './enums.ts'`), and this project
+  // compiles with `verbatimModuleSyntax`, which by design emits specifiers
+  // untouched. So `dist/generated/prisma/client.js` ends up importing
+  // `./enums.ts` — a file that does not exist next to the compiled output —
+  // and `node dist/index.js` dies with ERR_MODULE_NOT_FOUND before reaching a
+  // single line of application code.
+  //
+  // It stayed invisible because nothing that runs routinely uses the compiled
+  // output: `npm run dev`, `npm test` and the CLI scripts all go through tsx,
+  // which resolves `.ts` happily. Only `npm start` and the container's
+  // `CMD ["node", "dist/index.js"]` take this path. Caught in `M-19` Phase 2,
+  // by running the production image rather than reasoning about it.
+  //
+  // `js` also matches the convention the hand-written source already follows
+  // (`./config/env.js`), which TypeScript resolves back to the `.ts` file.
+  importFileExtension = "js"
 }
 
 datasource db {

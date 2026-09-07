@@ -47,8 +47,6 @@ const TRACE_PURGE_INTERVAL_MS = 60_000;
  */
 const ANONYMOUS_SWEEP_INTERVAL_MS = 60 * 60_000;
 
-const HOST = "0.0.0.0";
-
 /**
  * A replay run bills nothing, so its rate is nominal rather than configured.
  * Requiring real rates to run offline would make the free mode need the
@@ -216,6 +214,12 @@ const main = async (): Promise<void> => {
     database,
     checkProvider,
     checkTemplates,
+    // `DB §4.1`. Omitted rather than passed as `undefined` so `buildApp`'s own
+    // development default applies outside production; `loadConfig` refuses to
+    // start a production process that has not set it.
+    ...(config.ipHashSecret !== undefined
+      ? { ipSecret: config.ipHashSecret }
+      : {}),
     tracePurge,
     // `M-10` schema validity in `API-070`, read from the trace store.
     tracePrisma: traceDatabase.prisma,
@@ -325,10 +329,17 @@ const main = async (): Promise<void> => {
 
   await app.listen({
     port: config.port,
-    host: HOST,
+    host: config.host,
   });
 
-  app.log.info(`🚀 Backend running on http://localhost:${config.port}`);
+  // The bind address and the proxy setting are both stated, because both
+  // change what the process is exposed to and neither is visible from a
+  // request. `trustProxy` in particular decides whether `request.ip` is the
+  // client or the proxy, and a deployment that has it wrong looks healthy.
+  app.log.info(
+    { host: config.host, port: config.port, trustProxy: config.trustProxy },
+    "Listening",
+  );
 };
 
 main().catch((error: unknown) => {
