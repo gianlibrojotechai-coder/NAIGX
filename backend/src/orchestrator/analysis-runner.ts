@@ -28,6 +28,7 @@ import type { PrismaClient as TracePrismaClient } from "../generated/prisma-trac
 import { createFragmentResolver } from "../db/fragment-resolver.js";
 import { createFragmentUsageSink } from "../db/fragment-usage-sink.js";
 import { createStageTraceSink } from "../db/stage-trace-sink.js";
+import { createValidationEventSink } from "../db/validation-event-sink.js";
 import { createStageResultSink } from "../db/analysis-result-sink.js";
 import { readRecommendation } from "../db/recommendation-reader.js";
 import { createProviderInvocationRecorder } from "../db/provider-invocation-recorder.js";
@@ -144,6 +145,8 @@ export async function createAnalysisRunner(
     }),
     resolver: createFragmentResolver(deps.prisma),
     traceSink: createStageTraceSink(deps.tracePrisma),
+    // `M-10` — the table that had no writer until `M-16`.
+    validationSink: createValidationEventSink(deps.tracePrisma),
     fragmentUsageSink: createFragmentUsageSink(deps.prisma),
     // Progressive persistence (`DB §6.2`): each stage commits as it completes,
     // so a later failure keeps what earlier stages produced (`FR-091`).

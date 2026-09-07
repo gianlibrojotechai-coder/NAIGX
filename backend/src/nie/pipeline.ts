@@ -64,6 +64,7 @@ import type {
   FragmentUsageRecord,
   FragmentUsageSink,
   StageResultSink,
+  ValidationEventSink,
   StageTraceSink,
 } from "./ports.js";
 import { stageByNumber } from "./stages.js";
@@ -100,6 +101,11 @@ export interface PipelineDependencies {
   readonly invoker: ProviderInvoker;
   readonly resolver: FragmentResolver;
   readonly traceSink: StageTraceSink;
+  /**
+   * `M-10` schema validity. Optional: an instance with no trace store still
+   * validates artifacts, it simply records no measurement of having done so.
+   */
+  readonly validationSink?: ValidationEventSink;
   readonly fragmentUsageSink: FragmentUsageSink;
   /**
    * Receives each stage's result as it completes (`DB §6.2`, `FR-091`).
@@ -287,6 +293,14 @@ export interface PipelineInput {
 
 interface StageRun<T> {
   readonly stageNumber: number;
+  /**
+   * Receives this stage's trace id.
+   *
+   * Used by Stage 9 so a `VALIDATION_EVENT` can name the stage whose output
+   * it validated (`DB §4.7` — the reference is by identifier, not a foreign
+   * key, because the two rows live in the same store on different schedules).
+   */
+  readonly onStageTrace?: (stageTraceId: string) => void;
   readonly classifiedAs?: ClassificationType;
   readonly buildRequest: (prompt: ComposedPrompt) => CapabilityRequest;
   readonly parse: (responseText: string) => T;
@@ -407,6 +421,40 @@ export function createPipeline(deps: PipelineDependencies) {
    * the one stage whose output is pure policy would be the one stage nobody
    * could audit.
    */
+  /**
+   * `M-10` — schema validity, the metric with a table and no writer.
+   *
+   * Guarded like every other trace write: a measurement that failed to record
+   * must never fail the analysis it was measuring.
+   *
+   * ⚠️ `failureDetail` carries the validator's message, which names the schema
+   * rule that failed and never the content that failed it (`NFR-081`).
+   */
+  const recordValidation = async (event: {
+    stageTraceId: string | null;
+    artifactType: string;
+    passed: boolean;
+    failureDetail?: string;
+    regenerationTriggered: boolean;
+  }): Promise<void> => {
+    const sink = deps.validationSink;
+    const stageTraceId = event.stageTraceId;
+    if (sink === undefined || stageTraceId === null) return;
+
+    await guard(() =>
+      sink.record({
+        stageTraceId,
+        artifactType: event.artifactType,
+        validationClass: "schema",
+        passed: event.passed,
+        ...(event.failureDetail !== undefined
+          ? { failureDetail: event.failureDetail }
+          : {}),
+        regenerationTriggered: event.regenerationTriggered,
+      }),
+    );
+  };
+
   const recordDeterministicStage = async (
     input: PipelineInput,
     spec: {
@@ -414,12 +462,15 @@ export function createPipeline(deps: PipelineDependencies) {
       readonly structuredInput: unknown;
       readonly structuredOutput: unknown;
     },
-  ): Promise<void> => {
+  ): Promise<string> => {
     const stage = stageByNumber(spec.stageNumber);
     const startedAt = now();
+    // Generated once and returned, so a validation event can attach to the
+    // stage that produced the artifact it describes (`M-10`).
+    const stageTraceId = newId();
     await guard(() =>
       deps.traceSink.record({
-        stageTraceId: newId(),
+        stageTraceId,
         analysisId: input.analysisId,
         stageNumber: stage.stageNumber,
         stageKey: stage.stageKey,
@@ -432,6 +483,8 @@ export function createPipeline(deps: PipelineDependencies) {
         retryCount: 0,
       }),
     );
+
+    return stageTraceId;
   };
 
   const runStage = async <T>(
@@ -444,6 +497,7 @@ export function createPipeline(deps: PipelineDependencies) {
       stageKey: spec.stageKey ?? registered.stageKey,
     };
     const stageTraceId = newId();
+    spec.onStageTrace?.(stageTraceId);
     const startedAt = now();
 
     let outcome: "success" | "failure" = "failure";
@@ -613,6 +667,16 @@ export function createPipeline(deps: PipelineDependencies) {
   ): Promise<readonly ArtifactPlanEntry[]> => {
     let updated = plan;
 
+    // `M-10` — one Stage 9 trace for the rendered set, so each validation
+    // event names the stage that produced the artifact it describes. Rendered
+    // artifacts make no provider call, so this is a deterministic stage like
+    // Stage 5 and Stage 8.
+    const renderTraceId = await recordDeterministicStage(input, {
+      stageNumber: 9,
+      structuredInput: { rendered: plan.map((e) => e.artifactType) },
+      structuredOutput: { renderer: "derived-artifacts" },
+    });
+
     for (const entry of plan) {
       const render = renderers[entry.artifactType];
       if (!entry.planned || render === undefined) continue;
@@ -629,6 +693,22 @@ export function createPipeline(deps: PipelineDependencies) {
             ? "Rendered but did not satisfy its output schema."
             : "Rendering did not produce a usable document.";
       }
+
+      // `M-10` — recorded whether it passed or failed. A rate computed only
+      // from failures would have no denominator.
+      //
+      // `regenerationTriggered` is **false** here and structurally so: a
+      // rendered artifact is a deterministic function of reasoning already
+      // stored, so a second attempt would recompute the identical document
+      // (`docs/15` D-40, and the same reasoning `API-032` uses to refuse a
+      // retry for these types).
+      await recordValidation({
+        stageTraceId: renderTraceId,
+        artifactType: entry.artifactType,
+        passed: outcome === "generated",
+        ...(reason !== "" ? { failureDetail: reason } : {}),
+        regenerationTriggered: false,
+      });
 
       await deps.resultSink?.persistArtifact?.(input.analysisId, {
         artifactType: entry.artifactType,
@@ -881,11 +961,17 @@ export function createPipeline(deps: PipelineDependencies) {
       // Declared before the generator closes over them.
       let lastPortfolioWire: unknown;
       let portfolioAttempts = 1;
+      // `M-10` — captured so the validation event names the stage whose
+      // output it validated.
+      let portfolioTraceId: string | null = null;
 
       const generate = (): Promise<PortfolioSuggestions> =>
         runStage(input, {
           stageNumber: 9,
           classifiedAs: classification.determinedType,
+          onStageTrace: (id) => {
+            portfolioTraceId = id;
+          },
           structuredInput: { recommendation, artifactPlan },
           buildRequest: (prompt) =>
             request(
@@ -994,6 +1080,18 @@ export function createPipeline(deps: PipelineDependencies) {
           validationStatus: outcome === "generated" ? "valid" : "failed",
         });
       }
+
+      // `M-10` — the one artifact type with a real regeneration, so
+      // `regenerationTriggered` here reports something rather than being
+      // structurally false: `portfolioAttempts` exceeds one exactly when
+      // `FR-039`'s single informed retry was spent.
+      await recordValidation({
+        stageTraceId: portfolioTraceId,
+        artifactType: "portfolio_suggestions",
+        passed: outcome === "generated",
+        ...(outcome === "generated" ? {} : { failureDetail: failureReason }),
+        regenerationTriggered: portfolioAttempts > 1,
+      });
 
       return {
         classification,

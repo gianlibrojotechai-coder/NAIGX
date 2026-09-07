@@ -31,6 +31,7 @@ import { createRateLimiter, type RateLimiter } from "./auth/rate-limit.js";
 import { createSessionService } from "./auth/sessions.js";
 import { createAuditSink } from "./db/audit-sink.js";
 import { historyRoutes } from "./routes/history.js";
+import { instrumentationRoutes } from "./routes/instrumentation.js";
 import {
   createTracePurgeQueue,
   type TracePurgeQueue,
@@ -88,6 +89,13 @@ export interface AppDependencies {
   /** Shared so a test can inspect or reset it. */
   readonly rateLimiter?: RateLimiter;
   /**
+   * The trace store, for `M-10` schema validity in `API-070`.
+   *
+   * Optional: an instance without one reports zero validation events rather
+   * than refusing to serve metrics at all.
+   */
+  readonly tracePrisma?: import("./generated/prisma-trace/client.js").PrismaClient;
+  /**
    * The cross-store purge queue (`DB §5.4`).
    *
    * Injected so a test can drain it deterministically instead of waiting on a
@@ -110,6 +118,7 @@ export async function buildApp({
   now = () => new Date(),
   rateLimiter = createRateLimiter(),
   tracePurge,
+  tracePrisma,
 }: AppDependencies): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
@@ -194,6 +203,17 @@ export async function buildApp({
         },
         audit,
       }),
+  });
+
+  await app.register(instrumentationRoutes, {
+    prisma: database.prisma,
+    audit,
+    ...(tracePrisma !== undefined ? { tracePrisma } : {}),
+    // D-48. Absent disables `/internal/*` entirely rather than opening it.
+    ...(config.operatorToken !== undefined
+      ? { operatorToken: config.operatorToken }
+      : {}),
+    now,
   });
 
   // `API-040`. Registered after the analysis routes it reads through.

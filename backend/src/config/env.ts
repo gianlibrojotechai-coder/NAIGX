@@ -48,6 +48,15 @@ export interface AppConfig {
    * never in a trace or an error message. Nothing in this codebase logs
    * `AppConfig`, and nothing should start.
    */
+  /**
+   * The operator credential for `/internal/*` ([D-48](../../../docs/23-D-48-Operator-Authentication.md)).
+   *
+   * ⚠️ Credential class (`DB §13.2`): never logged, never echoed, never
+   * returned — including in an error. Absent means the internal surface is
+   * **disabled**, not open: a development default that let these endpoints
+   * answer without a credential would be the one that reached production.
+   */
+  readonly operatorToken?: string;
   readonly provider: {
     readonly apiKey?: string;
     readonly model?: string;
@@ -135,6 +144,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   };
 
   return {
+    // D-48. Read here and nowhere else; the value reaches `resolveOperator`
+    // and no other function.
+    ...(optional("NAIGX_OPERATOR_TOKEN") !== undefined
+      ? { operatorToken: optional("NAIGX_OPERATOR_TOKEN") as string }
+      : {}),
     provider: {
       // Read here and nowhere else — adapters receive values, never the
       // environment.

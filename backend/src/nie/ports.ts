@@ -114,6 +114,31 @@ export interface StageTraceSink {
  * `FR-060` retrieval reproduces what is stored; reporting success for an
  * analysis nobody can retrieve would be a lie.
  */
+/**
+ * Records a schema-validation outcome (`M-10`, `DB §4.7` VALIDATION_EVENT).
+ *
+ * ⚠️ THE TABLE HAS EXISTED SINCE SPRINT 1 AND NOTHING HAS EVER WRITTEN IT.
+ * `docs/STATUS.md` recorded that as an open item, and `M-10` — "outputs
+ * passing schema validation before presentation, target 100%" — was
+ * unmeasurable in consequence. `M-16` is the milestone that owns it.
+ *
+ * A port like every other trace write: the NIE declares it and the composition
+ * root supplies an implementation (`AD-02`/`AP-3`, boundary check 2).
+ * Optional, so an instance without a trace store still reasons.
+ */
+export interface ValidationEventSink {
+  record(event: {
+    readonly stageTraceId: string;
+    readonly artifactType: string;
+    /** `DB §4.7` ValidationClass. Only `schema` is produced today. */
+    readonly validationClass: "schema";
+    readonly passed: boolean;
+    /** Present only when `passed` is false. Never user content. */
+    readonly failureDetail?: string;
+    readonly regenerationTriggered: boolean;
+  }): Promise<void>;
+}
+
 export interface StageResultSink {
   /**
    * @param overriddenBy - the user's corrected type (`FR-014`, `API §7.5`).

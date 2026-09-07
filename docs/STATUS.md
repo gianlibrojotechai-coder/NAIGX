@@ -39,6 +39,26 @@ Earned against evidence, not against the roadmap's checkboxes.
 
 **Increments completed within Sprint 5:**
 
+- **M-16 instrumentation** ([D-48](23-D-48-Operator-Authentication.md)). `API-050` feedback, `VALIDATION_EVENT` writes, `API-070` `/internal/metrics`, and the `FR-102` lifecycle data. Every metric is computed from tables that already exist for their own reasons rather than from a parallel event pipeline — which satisfies `FR-102`'s "queryable without code changes" in the strongest available sense and avoids a second source of truth that can disagree with the first.
+- **`VALIDATION_EVENT` has a writer at last.** The table has existed since Sprint 1 with **0 rows**, carried in this file as an open item, and `M-10` — "outputs passing schema validation before presentation, 100%" — was unmeasurable in consequence. Both artifact paths now record an outcome whether they pass or fail, because a rate computed only from failures has no denominator. `regenerationTriggered` is structurally `false` for rendered artifacts (a deterministic renderer has nothing to retry, the same reasoning `API-032` uses to refuse them a retry) and reports a real value for `portfolio_suggestions`, the one type with `FR-039`'s single informed regeneration.
+- **`APIQ-6` resolved** ([D-48](23-D-48-Operator-Authentication.md)) — a static operator credential from configuration, resolved into a **distinct principal type** by a function that never reads sessions, refresh tokens or anonymous ownership. `APIQ-6` requires operator auth "separable from user auth", and the separation is structural: there is no role check to get wrong, which is what keeps `API §10.4`'s "one role and no permission model". Absent configuration **disables** `/internal/*` rather than opening it.
+
+### M-16 — the scope reading, recorded rather than assumed
+
+M-16's milestone line is "all `PRD §3.2` metrics reporting". **Three of the ten cannot be instrumented, by the PRD's own definition**, and the reading adopted here is that the seven automatable ones report real values while the three review-based ones are named as such:
+
+| Metric | Instrumented by `PRD §3.2` | State |
+|---|---|---|
+| M-1, M-2, M-3, M-4, M-5, M-7, M-10 | `FR-102` / `FR-101` | **Computed and reported** |
+| **M-6** classification accuracy | "manually sampled" | **Not computed.** A proxy would measure agreement with the classifier rather than correctness |
+| **M-8** recommendation explicability | "Manual review protocol" | **Not computed.** Whether a rationale traces to a stated constraint is a judgement, not a query |
+| **M-9** platform recommendation defensibility | "Manual review protocol" | **Not computed.** Its artifact is also unbuilt (`platform_recommendation`, M-07) |
+
+The three appear in `/internal/metrics` as **comments, never as series** — a series with no value scrapes as `0` and is indistinguishable from a measured zero, which is precisely the misreading `PRD §3.1` warns against when it says targets exist "to make the first real numbers interpretable". A test asserts they are never emitted as series.
+
+**No deviation record was written for `VALIDATION_EVENT`.** `docs/12` D-37 listed it out of scope, but D-37 was a **Sprint 3** constraint and `M-16` is the milestone the roadmap assigns this work to. The constraint expired with its sprint; recording a deviation from an expired constraint would misrepresent what is being deviated from.
+
+
 - **M-15 authentication and history — all seven phases, and verified live.** Sessions with opaque server-validated tokens (`API §3.1`), `scrypt` credential hashing from Node core (`NFR-022`, no native dependency), single-use refresh rotation with family-wide revocation on reuse, ownership enforced on every analysis read, history with a summary-only query boundary, account settings and deletion, and the anonymous claim and expiry. Four decision records govern it: [D-44](19-D-44-Refresh-Token-Table.md), [D-45](20-D-45-Anonymous-Expiry-And-Token-Lifetime.md), [D-46](21-D-46-In-Memory-Rate-Limiting.md), [D-47](22-D-47-Provisional-Rate-Limits.md).
 - **`FR-004` claimability closed — the defect this project carried since `API-020` was written.** That endpoint had always stored `hashContent(randomUUID())` and discarded the UUID, so the owner hash satisfied `analysis_exactly_one_owner_check` and **nobody held the credential**; an analysis "claimable into history" was claimable by no one. The token is now issued once at creation, returned once, and stored only as a hash. Claiming rewrites ownership, clears the hash and writes an `AUDIT_EVENT` (`DB §10.3`).
 - **Ownership enforced, and an id is never a credential.** `API-021`, `API-025`, `API-026`, `API-032` and `API-040` all ask one predicate. A non-owner receives **404, not 403**: a 403 confirms the analysis exists, turning the id space into an oracle for what this system has analysed. The anonymous principal is established **only** by a token whose hash matches a stored row — the analysis is the *result* of verification, never an input to it.
@@ -149,7 +169,7 @@ The working tree is green at every gate and no increment is half-built. The pack
 | **M-12** Frontend foundation | **Implementation complete; the milestone is not demonstrated.** The `docs/08` milestone line asks for "results presentation with hierarchy, layered depth, streaming" and all three are built, including presenters for the four M-11 artifact types. Against the five Sprint 3 frontend deliverables: input surface (`FR-001`/`UX-002`) **met**; hierarchy and layered depth (`FR-040`) **met**; unknowns and insufficiency disclosure (`FR-044`) **met**; progressive rendering from the event stream (`FR-041`) **met** via `API-025` SSE with `Last-Event-ID` resumption; rationale, provenance and confidence (`FR-042`–`FR-045`) **partial** — rationale and provenance are displayed, `FR-045` confidence is **not met** because Stage 11 is deferred by D-33 and the UI states there is no band rather than inventing one. **The Sprint 3 exit criterion "all four paths produce presented results a practitioner can evaluate unaided" is NOT demonstrated** — see the three limitations below. |
 | Stage 11 confidence | Deferred by `docs/12` D-33. `confidence_band` is null everywhere and the UI says so. `FR-045` unmet. |
 | **Architecture unknown disposition** ([D-38](13-D-38-Architecture-Unknown-Disposition.md)) | **Specification gap. Remediation now authorised by [D-39](14-D-39-D-37-Amendment.md); activation still gated on a capture.** Stage 6 can cite an unknown context element without recording how it was handled; the output contract has no field for assumed/excluded/deferred. Measured across the 10 architecture-bearing recordings: **71 unknowns, 20 cited (28%)**, citation rate ranging 0–100% between comparable cases, and one recording citing 5 of 5 while acknowledging none. Remediation — an `unknown_disposition[]` field plus a disposition check through the existing regeneration path — may now be authored and tested, but cannot be activated without a capture. |
-| `VALIDATION_EVENT` attribution | Table exists with correct columns; **0 rows**. Nothing writes it. |
+| `VALIDATION_EVENT` attribution | **Closed by M-16.** Both artifact paths now record a schema-validation outcome, so `M-10` is measurable. Rows accrue from the next analysis run onward; nothing is backfilled. |
 | `analysis.model_version_id` | Written only by `src/harness/run.ts`. Null for every analysis created through the API — `AI-004` drift attribution is being lost. |
 | `provider_invocation.attempt_number` | Reports `1` for both Stage 9 attempts; the regeneration does not thread it. |
 | Backend binds `0.0.0.0` | `HOST` is a hardcoded constant in `src/index.ts:28` with no env override. Reachable on the LAN. |
@@ -217,6 +237,11 @@ Statements that must **not** be made, regardless of how the work looks.
 15. **The export has never been run against a real `existing_workflow` or `technical_assessment` analysis**, because none is stored. Four of the five artifact renderers are exercised only against constructed documents.
 16. **Refusal handling has never been exercised end to end from a real submission.** Both paths are covered from the pipeline result forward — orchestrator, persistence, retrieval, 422, export — and against real Postgres. What is **not** covered is a real input actually classifying as `unsupported` or scoring `insufficient`, because that needs a provider run and none was authorised. The refusals are reproduced from constructed pipeline results, not observed.
 17. **The frontend refusal state has no automated test.** There is still no frontend test runner (M-12 limitation 1), and adding one remains out of scope by standing instruction. `RefusalView` and the `refused` phase are typecheck- and build-verified only; the 422 envelope they narrow **is** pinned, from the backend side.
+26. **M-16 does not report M-6, M-8 or M-9, and must never be described as reporting "all" `PRD §3.2` metrics without that qualification.** Three of the ten are manual review protocols by the PRD's own definition. See the scope reading above.
+27. **The metric values have no interpretive weight yet.** They are computed from a development database with a handful of analyses. `PRD §3.1` says the targets themselves are "provisional and unvalidated" with no baseline; the numbers now reporting are the first data, not a measurement against a target. Latency percentiles in particular are over single-digit sample counts, and the sample count is emitted beside each so a reader can see that.
+28. **`M-4` still has almost no data.** Its series began at the M-15 date and nothing is backfilled (D-41 §6).
+29. **The operator credential is a single shared secret** with no rotation and no per-operator attribution ([D-48](23-D-48-Operator-Authentication.md) §4). An audit event records *that* an operator read metrics, never *which* one — with one operator that distinction records nothing, and with a team it would matter.
+30. **`API-071`, `API-072` and `API-073` are not implemented, and the existence of operator authentication is not a reason to build them.** `API-073` in particular is "the highest-privilege read in the system" and requires every access to be independently audited; the credential is a prerequisite, not a licence. D-48 §5 states this.
 21. **M-15 is not claimed as passed against Sprint 5's exit criteria.** Its own milestone line — "analyses persist and retrieve exactly; deletion permanent and verified" — is met and verified. Sprint 5's *exit* criteria are wider: they include all `PRD §3.2` metrics reporting real values (M-16), WCAG 2.1 AA (M-17), a security review (M-18) and a production deploy with verified rollback (M-19). **None of those is started.**
 22. **`M-4` is instrumented and has no data.** The `EXPORT` row is written for an owned export from today. Its series begins at the M-15 date and nothing is backfilled — D-41 §6: "a chart that implies the metric existed earlier would be the same lie this record exists to avoid."
 23. **No security review has been performed.** M-18 is a separate milestone. The auth surface was written against the specification and tested, which is not the same as reviewed — and D-46 is a known finding it should receive rather than discover.
@@ -297,6 +322,9 @@ The single place to read what is and is not permitted right now.
 | **`FR-006` input persistence** | **Built.** Client-side only — `localStorage`, no server storage, no identity |
 | **`FR-014` correction** | **Built.** Creates a new analysis; the original is never mutated (`API §7.5`, `DB DP-3`). Skips Stage 1, so a correction costs nothing |
 | **Sprint 4 deliverables** | **Complete.** Exit criteria not all demonstrated — see Non-Claims 18 |
+| **M-16 instrumentation** | **Built.** Seven metrics computed; M-6/M-8/M-9 named as manual review and never emitted as series |
+| **`/internal/*`** | **Operator credential only** (D-48). A user or anonymous token is refused. Absent configuration disables the surface |
+| **`API-071`/`072`/`073`** | **Not implemented, and not authorised by D-48.** `API-073` needs its own scope |
 | **M-15 authentication** | **Built and live-verified.** Sessions, rotation with reuse detection, ownership enforcement, history, deletion, anonymous claim and expiry |
 | **`M-4` export rate** | **Instrumented, no data.** Series starts at the M-15 date; never backfilled (D-41 §6) |
 | **Rate limiting** | **In-memory only** (D-46). Single-instance; values provisional (D-47). `APIQ-3` open |
@@ -420,7 +448,7 @@ All run 2026-09-07 against the current working tree.
 
 | Gate | Result |
 |---|---|
-| Backend tests | **808 tests · 806 pass · 0 fail · 2 skipped** |
+| Backend tests | **832 tests · 830 pass · 0 fail · 2 skipped** |
 | Backend typecheck | pass (`src` + tests) |
 | Backend lint (oxlint) | pass |
 | Backend format (prettier) | pass |

@@ -217,6 +217,8 @@ const main = async (): Promise<void> => {
     checkProvider,
     checkTemplates,
     tracePurge,
+    // `M-10` schema validity in `API-070`, read from the trace store.
+    tracePrisma: traceDatabase.prisma,
     startExecution: (analysisId) => {
       // Opened before execution starts so a client that connects immediately
       // finds a log rather than a 410. `API-020` returns before reasoning
