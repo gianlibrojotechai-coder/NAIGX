@@ -1,9 +1,9 @@
 # NAIGX — Session Handoff
 
-**Written:** 2026-09-07
+**Written:** 2026-09-08
 **Purpose:** hand a new chat session everything it needs to continue building NAIGX without re-deriving context or re-litigating settled decisions.
 
-> **Read this first, then `docs/STATUS.md`.** STATUS.md is the authoritative current-state record. This file covers what happened in the most recent working session, what is *not yet reflected* in STATUS.md, and the exact next step.
+> **Read this first, then `docs/STATUS.md`.** STATUS.md is the authoritative current-state record. This file covers the most recent working sessions, and the exact next step.
 
 ---
 
@@ -13,7 +13,7 @@ Gian's **personal AI/automation intelligence system**. It analyses job descripti
 
 **It is explicitly NOT primarily a portfolio project.** Do not frame work as portfolio-building.
 
-**Stack:** TypeScript · Node 24 · Fastify · Prisma 7 · two PostgreSQL databases (primary + trace) · `node:test` · oxlint · prettier · React/Vite frontend.
+**Stack:** TypeScript · Node 24 · Fastify 5 · Prisma 7 · two PostgreSQL databases (primary + trace) · `node:test` · oxlint · prettier · React/Vite frontend · Docker.
 
 ---
 
@@ -24,125 +24,133 @@ These are standing instructions given explicitly. **They override default thorou
 - **"I'm vibe coding and learning the engineering concepts while building."** Keep explanations focused on: what we're building, why it exists, what's changing, what he needs to understand.
 - **"Build first. Learn along the way. Polish and optimize after the project is built."**
 - **"Don't optimize the workflow around exhaustive review cycles or theoretical future blockers."**
-- **"No additional audit/review cycle. Build forward."**
 - Do **not** repeatedly stop to investigate hypothetical future blockers. Surface a real blocker once, in one or two sentences, then keep building.
-- Treat M-08 / D-37 / D-39 as **documented project-state constraints, not reasons to stop**.
 - The goal is **BUILD COMPLETION**, not proving completion.
+- **Verify before claiming.** This owner consistently asks for the *actual* check to be run — a live server, a container, an official pricing page — rather than a reasoned assertion. Several real defects were caught only because of it (§5).
+- **Show the cheap option before spending.** Standing: before any paid infrastructure, present the current verified cost *and* the free alternative.
 
-**Escalate only for genuine forks** — decisions where proceeding under any assumption would be wrong. Recent examples that *were* worth asking: the export-vs-auth sequencing conflict (became D-41).
+**Escalate only for genuine forks** — decisions where proceeding under any assumption would be wrong.
 
 ---
 
 ## 3. Where the project is
 
-**Sprint 3 of seven (Sprint 0 → Sprint 6), moving into Sprint 4.**
-
-### Completed this session
+**Sprint 5 of seven (Sprint 0 → Sprint 6).** Sprint 4 is closed. Sprint 5 is most of the way through its deliverable list.
 
 | Milestone | State |
 |---|---|
-| **M-11** All analysis paths | **4 of 4 implemented, 0 of 4 measured.** All four reasoning paths run end to end offline. |
-| **M-12** Frontend foundation | **Implementation complete, not demonstrated.** Hierarchy, layered depth, streaming, and all five artifact presenters built. |
-| **M-14** Degradation | **Complete.** `FR-091`, `FR-093`, `FR-094`, `NFR-011`, `API-032`. |
-| **M-13** Export system | **Plan delivered, awaiting approval. No code written yet.** |
+| **M-13** Export | **Complete.** Markdown + PDF, one shared serialiser. PDF via headless Chromium (D-43) |
+| **M-14** Degradation | **Complete** |
+| **M-15** Auth + history | **Complete**, all 7 phases, verified against a live server |
+| **M-16** Instrumentation | **Complete.** 7 automatable metrics report real values; M-6/M-8/M-9 stay manual |
+| **M-17** Accessibility | **Implemented, NOT verified.** 4 violations fixed, axe running. The manual WCAG walk is unwalked |
+| **M-18** Security | **Reviewed, NOT passed.** `NFR-027` found and fixed; `DB §13.1` app-level encryption unresolved |
+| **M-19** Deployment | **Phase 1 of 4 done.** See §7 |
+| **M-20** Performance | Unstarted |
 
-### Decision records written this session
+### Sprint 5 deliverables still outstanding
 
-- **`docs/15` D-40** — Existing-workflow module mapping. `AI §4.2` is the *path* table; **`AI §7.1` is the reasoning-module table** with the *Applies to* column. The mapping was never missing — the code cited the wrong section. Also records that the observed workflow structure is stored through `ArchitectureModel`/`ArchitectureComponent` ("the entity is the same; the provenance is opposite"), which satisfies `RiskItem.component_id` NOT NULL **with no migration**.
-- **`docs/16` D-41** — Anonymous export deviation. See §6.
-
----
-
-## 4. What was built this session, in order
-
-### M-11 — the two remaining reasoning paths
-
-- **Stage 6W `workflow_review`** (`backend/src/nie/stages/workflow-review.ts`) — Stage 6's *second generator*. Three refusals from `FR-021`: structure stated before findings; every finding cites a resolvable step; empty findings require a `soundness_statement`. Traces under its own `stageKey` via a `stageKey` override on `runStage`.
-- **`technical_assessment`** — `parseArchitecture` gained a third parameter requiring `FR-023` accepted trade-offs and ≥1 named rejected alternative *with its reason*, on that path only.
-- **Four artifacts rendered, not generated** (`backend/src/nie/stages/derived-artifacts.ts`) — Workflow Recommendation, Risk Assessment, Assessment Feedback, Mermaid Diagram. **No provider call.** They restate reasoning already done, so rendering means the artifact cannot disagree with its source.
-- **Persistence with no migration** — `persistWorkflowFindings` writes `RiskItem` rows against components persisted immediately before.
-
-### M-12 — artifact presenters
-
-- Four React components + native Mermaid rendering (dynamically imported, stays out of the main bundle).
-- `AnalysisView.tsx`'s hardcoded "section 5 = portfolio suggestions" became a **type→presenter registry**; the artifact block is now whatever the classified path produced, and closing sections renumber after it.
-- **Risk score and band derived at presentation from `docs/09` §2, never stored** — a stored band would silently mean something different after a scale revision.
-
-### M-14 — degradation (Phase 1 of Sprint 4)
-
-- **`FR-094` timeout — was entirely absent.** `timed_out` sat in the status enum and `timeoutFlag` was readable through `API-021`/`API-026`, but **nothing ever set either**, so every over-long run reported a plain completion. Now a deadline race writes `status: "timed_out"` + both flags + the terminal event. Preservation is inherited free from `DB §6.2` progressive persistence — the timeout abandons *waiting*, it rolls nothing back.
-- **`API-032` retry** — route + `regenerateArtifact` seam on the pipeline. Reads stored reasoning via `src/db/recommendation-reader.ts`; **does not re-run stages 1–8**. Four refusal paths, each naming a corrective action: succeeded → 409, omitted → 409, still running → 409, **deterministic rendered artifact → 409** (a retry would recompute the identical document). No auth gate — `API §7.8` explicitly permits anonymous retry.
-- **`artifact_failed` gained `retryAvailable`** — `API §7.4` requires it; ours carried only type and reason. Same predicate the endpoint uses, so the stream cannot advertise a retry the API refuses.
-- **`FR-093` verified, not rebuilt** — `ProviderError` has no field a provider name could occupy.
+- **Data policy page** (`NFR-031`) — must be reachable *before first submission*. Phase 4.
+- **Alerting** (`NFR-082`, `NFR-085`) — Phase 4.
+- **M-17 manual WCAG walk** — needs a person with a screen reader. Unowned.
+- **M-08 rubric review** — needs a human reviewer. Unowned, carried from Sprint 2.
 
 ---
 
-## 5. Architectural decisions — do not re-litigate
+## 4. Decision records — the numbering
 
-- **`RecommendationForArtifacts` is deliberately narrower than `RecommendationResult`.** `groundedInContextIndices` are *positions* in the Stage 3 element list; the database stores grounding as `CONTEXT_REFERENCE` rows pointing at element **ids**, and `CONTEXT_ELEMENT` has no ordinal column. Recovering positions would re-derive an order nothing recorded. Stage 9 never reads that field. `StoredRecommendation` stays narrow on purpose.
-- **The NIE never imports persistence or transport** (`AD-02`/`AP-3`, boundary check 2). It declares ports; the composition root supplies implementations.
-- **Stage modules are reachable only through `pipeline.ts`** (boundary check 6). The `API-032` regeneration seam lives *in the pipeline* for this reason.
-- **`GENERATED_ARTIFACT_TYPES` vs rendered** — retryability is a property of how an artifact is produced. Only `portfolio_suggestions` is provider-generated.
-- **Mermaid requires a DOM even to parse.** Proven: `DOMPurify.addHook is not a function`. This kills any document-library PDF approach that must render diagrams.
-- **`sendSuccess(request, reply, data, status)`** takes status as its *fourth argument* and overrides any earlier `.code()`.
+`docs/12` holds D-1 … D-37. Everything after is a standalone file:
+
+| Record | Subject |
+|---|---|
+| `docs/13`–`docs/17` | D-38 … D-42 — architecture unknowns, D-37 amendment, workflow mapping, anonymous export, export response contract |
+| `docs/18` **D-43** | PDF via `playwright-core` + system browser |
+| `docs/19`–`docs/21` | D-44 refresh-token table · D-45 anonymous expiry + the 22 exempt legacy rows · D-46 in-memory rate limiting |
+| `docs/22`–`docs/24` | D-47 provisional rate limits · D-48 operator auth · D-49 accessibility verification |
+| `docs/25` **D-50** | Single instance, no staging |
+| `docs/26` **D-51** | Self-hosted PostgreSQL; `DBQ-7` resolved at **7 days** |
+| `docs/27` **D-52** | Managed KMS (AWS), envelope encryption |
+| `docs/28` **D-53** | Both encryption layers, told apart; closes `DBQ-8` |
+
+**Numbering convention: the next standalone record is `docs/29` D-54.**
 
 ---
 
-## 6. Standing constraints — every one is current
+## 5. Lessons that cost real time — do not re-learn these
+
+These are the defects that *passed every test* before being caught. They are the reason §2 says verify.
+
+- **`chromiumSandbox` defaults to `false` in Playwright.** Removing `--no-sandbox` from `args` is a **no-op** — Playwright injects the flag itself. The container built, ran non-root, rendered a valid PDF, and the sandbox was still off. `chromiumSandbox: true` is the fix. Caught only by a differential (render with vs without the seccomp profile).
+- **`marked` has two HTML paths.** Overriding `renderer.html` closes *block* HTML and leaves *inline* `<img onerror>` live, because inline HTML comes from a separate **tokenizer**. A renderer-only fix looks complete.
+- **axe on `file://` silently tests nothing.** Vite's absolute `/assets/` paths resolve to filesystem root, so the bundle never loads and axe reports 0 violations on an empty page. Serve over HTTP and assert `results.passes.length > 0`.
+- **`NFR-021` ≠ application-level encryption.** `NFR-021` is *"encrypted at rest"* → `DB §13.1` maps it to **full-volume**. The application-level row carries **no NFR number**. The M-18 review conflated them; D-53 §1 splits them.
+- **Reading a row without selecting a field makes it `undefined`, not `null`.** An ownership guard using `=== null` failed open/closed wrongly. Fix the *fixtures*, never loosen the guard — "not selected" must never read as "unowned".
+- **Bash heredocs mangle backticks and regex backslashes.** Use the Write/Edit tools for anything containing them; several patches were silently corrupted this way.
+
+---
+
+## 6. Architectural decisions — do not re-litigate
+
+- **The NIE never imports persistence or transport** (`AD-02`/`AP-3`, boundary check 2). Stage modules are reachable only through `pipeline.ts` (check 6).
+- **Anonymous authorization requires the token, never the id.** `analysisId` alone must never establish ownership. `mayAccessAnalysis` in `src/auth/principal.ts` is the single predicate.
+- **Access tokens and refresh tokens are distinct credential classes.** A refresh token must not authenticate a resource route just because it resolves. `resolvePrincipal` never reads `refresh_token`.
+- **Operator auth is separable by construction** (D-48). `resolveOperator` reads only the configured secret; there is no role check to get wrong. `/internal/*` accepts nothing else.
+- **Mermaid requires a DOM even to parse** (`DOMPurify.addHook is not a function`). This kills every document-library PDF approach.
+- **Risk score and band are derived at presentation** from `docs/09` §2, never stored.
+- **Rate limiter and trace-purge queue each sit behind one interface** with a single swap point — deliberate, so D-46 and the durable-queue work are implementation swaps.
+- **One instance is the sanctioned topology** (D-50). `SA §9.4` already assumed in-process jobs and SSE affinity. This makes D-46's in-memory limiter *correct*, and leaves `NFR-051` explicitly unmet.
+
+---
+
+## 7. THE NEXT STEP — M-19 Phase 2
+
+**Four phases, owner-approved. Phase 1 is committed (`54ac225`).**
+
+### ✅ Phase 1 — containerisation, non-root, Linux Chromium *(done)*
+
+`backend/Dockerfile` (non-root uid 1000, distribution Chromium), `backend/.dockerignore`, `deploy/seccomp/chromium.json` + README, `chromiumSandbox: true`, and a source-level regression guard that was **verified to fail** when flipped.
+
+Verified in-container: PDF renders non-root with the sandbox on (36,676 bytes, `%PDF-`), and **fails without the profile** — that differential is the proof. Both Prisma migration paths load post-prune. Image is **2.04 GB**, almost all Chromium.
+
+### ▶ Phase 2 — TLS + configurable host/port *(next)*
+
+- **Caddy** in front, automatic Let's Encrypt, free. App binds loopback.
+- **`HOST` is hardcoded** at `backend/src/index.ts:50` (`0.0.0.0`) with no env override — that must become configuration.
+- A production `docker-compose` wiring the app, both databases, Caddy, **and `security_opt: seccomp=./deploy/seccomp/chromium.json`** (Phase 1's work is inert without it).
+
+### Phase 3 — encryption + durable purge queue
+
+- Envelope encryption (D-52/D-53) on `raw_content`, `structured_input`, `structured_output`. Migration touches **both stores**.
+- ⚠️ **Encrypting `raw_content` breaks `FR-062` search.** `routes/history.ts:171` substring-matches that column in SQL and a database cannot match ciphertext — it would fail **silently**, returning empty results. D-53 §4 resolves it by decrypting and filtering in the application; semantics unchanged, search becomes `O(user's analyses)`.
+- Durable purge queue behind the existing `TracePurgeQueue` interface (a Postgres table). No API change.
+- **⚠️ BLOCKER — needs the owner.** A real KMS key requires an AWS account and credentials, which this agent cannot create. Build the provider interface and a test double so the logic and migration are testable offline, and flag the live-KMS verification as **unverified** until credentials exist. Do not substitute a local key to make it green — D-52 §4 forbids exactly that.
+
+### Phase 4 — monitoring, alerting, rollback drill, data policy
+
+- `/internal/metrics` **already emits Prometheus text format** (M-16), so scraping is nearly free.
+- Alerting per `NFR-082`, `NFR-085`.
+- **Restore drill** (D-51 §4) — a dump restored and verified, recorded with a date. A backup is not evidence; the restore is.
+- **Rollback drill on production** (D-50 §4) before the criterion is claimed.
+- **Data policy page** (`NFR-031`) stating the real retention windows including the **7-day backup window**.
+
+**M-19's criterion is "production deploy with monitoring, alerting, and verified rollback" — not just the five infrastructure prerequisites.**
+
+---
+
+## 8. Standing constraints — every one is current
 
 | Constraint | Source |
 |---|---|
 | **No provider spend, no live capture.** Replay mode is default and free. | Owner, repeatedly |
-| **Prompt fragments stay inactive.** Newly authored/changed fragments are recorded in the manifest but not activated. | **D-39** |
-| **Do not pull M-15 authentication forward.** | Owner, explicit |
-| **No M-08 packet review, no rubric verdicts.** AI review is excluded "in any capacity, for any criterion". | `docs/10` §4.3 |
-| **Do not implement `platform_recommendation`** / expand `business_requirement`. Recorded as an open M-07 scope decision. | Owner, explicit |
-| **Do not add frontend test infrastructure** (no Vitest) or other unrelated infrastructure. | Owner, explicit |
-| **D-41 in force:** anonymous export permitted; `EXPORT` row and the `M-4` metric written **only when a real owner exists**; `APIQ-2` resolved as direct on-demand response — no file storage, no signed URLs. | **D-41** |
-
----
-
-## 7. THE NEXT STEP
-
-**M-13 — Export System. The plan has been delivered and is awaiting the owner's approval. No export code has been written.**
-
-### Approved constraints for M-13
-
-- Markdown first, **then** PDF.
-- Provenance, confidence-unavailable state, metadata, and explicit omitted-artifact disclosure must survive export.
-- **One serialization model shared by export and `FR-053` copy-to-clipboard, so they cannot drift.**
-- No marketing content (`FR-051`).
-- **Markdown is the sanctioned fallback if PDF/diagram rendering proves problematic** — the roadmap says so itself.
-- M-14's degradation labels are an *input*: partial/failed/omitted artifacts stay clearly labelled rather than disappearing.
-
-### The plan as presented
-
-**Serialization architecture.** `API-040` is server-side, so the serializer must live in the backend — the frontend cannot hold its own copy. Extract `API-021`'s currently-inline read into `src/db/analysis-reader.ts`, then:
-
-```
-analysis-reader.ts ──> API-021 (JSON)
-                  └──> export/markdown.ts ──> API-040 (Markdown)
-                                          └──> export/pdf.ts (Markdown → HTML → PDF)
-```
-
-**Copy-to-clipboard is a partial export of one artifact** — `FR-052`'s `artifact_types` selection already specifies exactly this, so the copy control fetches from the same endpoint. One serializer; PDF is downstream of the same Markdown.
-
-**`SA §3.8` is the governing constraint:** *"Export is a pure transformation of stored artifacts. Never generates content, invokes the NIE, or alters analysis substance."*
-
-**PDF approach.** `SA AQ-3` is open and due this sprint. Because Mermaid needs a DOM, a document library (pdfkit/pdfmake) **cannot** render diagrams. The only real option is a **headless browser (Playwright)** — ~300MB dependency, CI implications. Recommendation: complete and ship Markdown first, attempt PDF as a separate increment.
-
-### Three blockers raised, awaiting the owner's response
-
-1. **PDF diagram rendering cannot be verified end-to-end this sprint.** Only `technical_assessment` produces a Mermaid diagram, and no stored analysis of that path exists (fragments inactive under D-39, no recording). Same blocker as M-12 limitation 3.
-2. **`API-040` returns `export_id` + `download_url` for a file that is never stored.** Under D-41 no `EXPORT` row is written anonymously, so `export_id` would reference nothing. Proposal: return the document directly from `API-040`; `API-041` regenerates from the analysis id; `export_id` present only when a row was actually written. **This is a further small deviation in the same family as D-41 — the owner was asked whether to amend D-41 to cover it, and has not yet answered.**
-3. **`NFR-005` (export ≤10s p95) is unmeasured** and will stay so; no load measurement exists in this project.
-
----
-
-## 8. Outstanding housekeeping
-
-- **`docs/STATUS.md` has NOT been updated for M-14 / Phase 1 / D-41.** It currently reflects state through M-12. Update it when M-13 lands, or sooner if asked.
-- **Nothing has been committed this session.** The working tree carries all of M-11, M-12, M-14 and D-40/D-41. Last commit is `c7f23b3`. Commit only when asked.
+| **Prompt fragments stay inactive.** | **D-39** |
+| **No M-08 packet review, no rubric verdicts.** AI review excluded "in any capacity, for any criterion". | `docs/10` §4.3 |
+| **Do not implement `platform_recommendation`** / expand `business_requirement`. | Owner, explicit |
+| **No frontend test infrastructure (no Vitest).** axe runs under `node:test`, which is not an exception to this. | Owner, explicit |
+| **No unrelated Sprint 3/4 rework.** | Owner, explicit |
+| **Do not close `NFR-021`/`DB §13.1` with a key in `.env` or OpenBao.** | **D-52** §4, owner explicit |
+| **Do not implement `API-071`/`072`/`073`.** Operator auth existing is not a licence. | **D-48** §5 |
+| **M-17 is not passed on a green axe run**; the manual walk is required. | **D-49** §3.3 |
+| **M-18 is not passed**, and must not be described as an independent review. | Owner, explicit |
 
 ---
 
@@ -150,38 +158,63 @@ analysis-reader.ts ──> API-021 (JSON)
 
 ```bash
 # backend (from backend/)
-npm test              # 607 tests, 605 pass, 0 fail, 2 skipped
+npm test              # 846 tests, 844 pass, 0 fail, 2 skipped
 npm run typecheck
 npm run lint
 npm run format:check
 npm run fragments:check   # 15 fragments match the manifest
 npm run schemas:check     # 5 artifact schemas published and matching
 
-# frontend (from frontend/)
-npx tsc -b && npm run lint && npm run build
+# frontend (from frontend/)  — NOTE: there is no `typecheck` script here
+npm run lint && npm run build
 
 # repo root
 node tools/boundary-checks/check.mjs   # 8 enforcing · 0 failing
 ```
 
-**Known environment note:** 2 tests skip when Docker Desktop is not running (Postgres unreachable). That is environmental, not a regression. When Docker is down the skip count rises sharply — start Docker before treating skips as meaningful.
+**The 2 skips are the live-provider tests** (`LIVE_PROVIDER_TESTS=1` + a key), and they must stay skipped under the no-spend constraint.
+
+**Docker must be running** or the Postgres-backed and browser-backed suites skip. A skip means *not checked*, never *passed* — if the skip count rises above 2, start Docker before reading the result.
+
+**Container check (Phase 1):**
+```bash
+cd backend && docker build -t naigx-backend:m19 .
+# must PASS with the profile, and FAIL without it
+docker run --rm --security-opt seccomp=<abs>/deploy/seccomp/chromium.json naigx-backend:m19 \
+  node -e "import('/app/dist/export/pdf.js').then(m=>m.findBrowser()).then(console.log)"
+```
+In Git Bash set `MSYS_NO_PATHCONV=1` or paths get rewritten to `C:/Program Files/Git/...`.
 
 ---
 
-## 10. Document map
+## 10. Git state
+
+**Branch `main`, clean, all work committed.** Recent:
+
+| Commit | What |
+|---|---|
+| `54ac225` | M-19 Phase 1 — containerise, non-root, sandbox actually enabled |
+| `ef90788` | M-19 decisions D-50 … D-53 + the M-18 mislabel correction |
+| `07d5a55` | M-18 security review |
+| `4b138ba` | M-17 accessibility |
+
+---
+
+## 11. Document map
 
 | File | What it is |
 |---|---|
-| `docs/STATUS.md` | **Authoritative current state.** Wins over any other doc on *current state* — but not on requirements. |
-| `docs/02-PRD` | `FR-*` and `NFR-*` requirements |
-| `docs/04-SA` | System architecture, `AQ-*` open questions |
-| `docs/05-AI` | Stage definitions, **`§7.1` is the reasoning-module table** |
-| `docs/06-DB` | Schema design, `DB §*` |
-| `docs/07-API` | `API-*` endpoint contracts, `§7.x` semantics, `§9.x` errors, `APIQ-*` |
+| `docs/STATUS.md` | **Authoritative current state.** Wins on *current state* — not on requirements |
+| `docs/02-PRD` | `FR-*`, `NFR-*`, `TC-*`, `AC-*` |
+| `docs/04-SA` | System architecture. **§9 is deployment**, §10 security, `AQ-*` |
+| `docs/05-AI` | Stage definitions; **§7.1 is the reasoning-module table** |
+| `docs/06-DB` | Schema. **§8.3 retention · §13 security/classification · `DBQ-*`** |
+| `docs/07-API` | `API-*` contracts, §7.x semantics, §9.x errors, `APIQ-*` |
 | `docs/08` | Engineering roadmap — sprints, milestones, exit criteria |
-| `docs/09` | Scoring scales — **§2 risk severity/likelihood/score/bands** |
+| `docs/09` | Scoring scales — §2 risk severity/likelihood/bands |
 | `docs/10` | Reasoning quality rubric (**§4.3 excludes AI review**) |
-| `docs/12` | Decision record D-1 … D-37 |
-| `docs/13`–`docs/24` | D-38 … D-49 as standalone records |
-
-**Numbering convention:** the next standalone decision record is **`docs/25` D-50**.
+| `docs/12` | Decision records D-1 … D-37 |
+| `docs/13`–`docs/28` | D-38 … D-53, standalone |
+| `docs/accessibility/WCAG-AA-CHECKLIST.md` | The manual M-17 walk. **Result table is empty** |
+| `docs/security/M-18-SECURITY-REVIEW.md` | The M-18 review, with its H-2 correction visible |
+| `deploy/seccomp/README.md` | Why the seccomp profile exists and what it trades |
