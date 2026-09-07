@@ -19,7 +19,7 @@
  * looking at.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 
 import {
   deleteAllAnalyses,
@@ -54,6 +54,8 @@ export function HistoryView({
   const [confirming, setConfirming] = useState<string | null>(null);
   const [confirmingAll, setConfirmingAll] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const searchId = useId();
+  const filterId = useId();
 
   const load = useCallback(
     async (cursor: string | null = null) => {
@@ -149,7 +151,15 @@ export function HistoryView({
 
       {/* `FR-062` — searchable by text, filterable by classification. */}
       <div className="flex flex-wrap gap-2 border-b border-slate-200 px-5 py-3">
+        {/* ⚠️ A PLACEHOLDER IS NOT A LABEL (WCAG 3.3.2, Level A). It vanishes
+            on focus, is not reliably announced, and leaves a screen-reader
+            user with an unnamed field. `sr-only` keeps the visual design and
+            gives the control a real accessible name. */}
+        <label className="sr-only" htmlFor={searchId}>
+          Search your history by the text you submitted
+        </label>
         <input
+          id={searchId}
           type="search"
           value={search}
           placeholder="Search the text you submitted…"
@@ -158,7 +168,11 @@ export function HistoryView({
           }}
           className="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
         />
+        <label className="sr-only" htmlFor={filterId}>
+          Filter history by input type
+        </label>
         <select
+          id={filterId}
           value={classification}
           onChange={(event) => {
             setClassification(event.target.value);

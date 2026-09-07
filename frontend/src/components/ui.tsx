@@ -72,7 +72,11 @@ export function Section({
           {accent}
           <span
             aria-hidden="true"
-            className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`}
+            // `slate-500` rather than `slate-400`: the glyph is decorative
+            // and `aria-hidden`, so `NFR-062` arguably exempts it — but
+            // arguing an exemption is a worse position than clearing the
+            // threshold, and nothing is lost by clearing it.
+            className={`shrink-0 text-slate-500 transition-transform ${open ? "rotate-90" : ""}`}
           >
             ▶
           </span>

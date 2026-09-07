@@ -67,6 +67,19 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50">
+      {/* WCAG 2.4.1 Bypass Blocks (Level A). Without this, a keyboard user
+          traverses the whole header — including the auth controls — on every
+          view before reaching the content they came for.
+
+          Visually hidden until focused, which is the point: it costs sighted
+          users nothing and is the first stop for anyone tabbing. */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-slate-900 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white"
+      >
+        Skip to main content
+      </a>
+
       <header className="border-b border-slate-200 bg-white">
         <div className="max-w-4xl mx-auto px-6 py-5 flex flex-wrap items-center gap-x-3 gap-y-1">
           <h1 className="text-xl font-bold tracking-tight text-slate-900">
@@ -103,7 +116,14 @@ function App() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+      {/* `tabIndex={-1}` so the skip link can move focus here. Without it the
+          browser scrolls but leaves focus in the header, and the next Tab
+          returns the user to where they were trying to leave. */}
+      <main
+        id="main"
+        tabIndex={-1}
+        className="max-w-4xl mx-auto px-6 py-8 space-y-6 focus:outline-none"
+      >
         {claimNotice !== null && (
           <p
             role="status"

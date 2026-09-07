@@ -19,6 +19,57 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { MermaidDiagram } from "../api/types";
 import { Badge } from "./ui";
 
+/**
+ * A textual equivalent of the diagram (`NFR-064`).
+ *
+ * ⚠️ A SCREEN READER MEETS AN SVG WITH NOTHING TO SAY ABOUT IT. Mermaid emits
+ * a graphic whose meaning is entirely visual, so the diagram is inaccessible
+ * without this — `NFR-064` requires "diagrams accompanied by a textual
+ * equivalent", and the source behind a collapsed button is not one: it is the
+ * same information in a form that still has to be parsed by eye.
+ *
+ * Derived from the same source the picture is drawn from, so the two cannot
+ * disagree. Node labels and edges are read out of the flowchart declaration
+ * rather than restated from somewhere else.
+ */
+function describeDiagram(source: string): string {
+  const nodes = new Map<string, string>();
+  const edges: { from: string; to: string }[] = [];
+
+  for (const line of source.split("\n")) {
+    const text = line.trim();
+
+    // `n0["Form Watcher"]` or `ext2[("Google Sheets")]`
+    const node = /^(\w+)\[\(?"([^"]+)"\)?\]$/.exec(text);
+    if (node?.[1] !== undefined && node[2] !== undefined) {
+      nodes.set(node[1], node[2]);
+      continue;
+    }
+
+    // `n0 --> n1`
+    const edge = /^(\w+)\s*--+>\s*(\w+)$/.exec(text);
+    if (edge?.[1] !== undefined && edge[2] !== undefined) {
+      edges.push({ from: edge[1], to: edge[2] });
+    }
+  }
+
+  if (nodes.size === 0) {
+    return "A flow diagram whose structure could not be read from its source.";
+  }
+
+  const name = (id: string): string => nodes.get(id) ?? id;
+  const steps = edges.map(
+    (edge) => `${name(edge.from)} connects to ${name(edge.to)}`,
+  );
+
+  return [
+    `Flow diagram with ${String(nodes.size)} components: ${[...nodes.values()].join(", ")}.`,
+    steps.length === 0
+      ? "No connections are declared between them."
+      : `Connections: ${steps.join("; ")}.`,
+  ].join(" ");
+}
+
 type RenderState =
   | { readonly status: "rendering" }
   | { readonly status: "rendered"; readonly svg: string }
@@ -30,6 +81,7 @@ export function MermaidDiagramView({ diagram }: { diagram: MermaidDiagram }) {
   const sourceId = useId();
   // Mermaid needs a DOM id unique per render; `useId` produces colons, which
   // are not valid in the CSS selectors Mermaid builds internally.
+  const description = describeDiagram(diagram.diagram);
   const domId = useRef(
     `mermaid-${Math.random().toString(36).slice(2, 10)}`,
   ).current;
@@ -86,13 +138,31 @@ export function MermaidDiagramView({ diagram }: { diagram: MermaidDiagram }) {
       )}
 
       {state.status === "rendered" && (
-        <div
-          className="border border-slate-200 rounded-md bg-white p-4 overflow-x-auto"
-          // The SVG is produced by Mermaid from stored source, under
-          // `securityLevel: "strict"`, which escapes label content rather than
-          // interpreting it. There is no other way to mount an SVG string.
-          dangerouslySetInnerHTML={{ __html: state.svg }}
-        />
+        <>
+          <div
+            // `NFR-064` — the graphic announces itself and carries its
+            // equivalent. Without `role="img"` a screen reader walks into the
+            // SVG's internal text nodes and reads label fragments in drawing
+            // order, which is worse than silence.
+            role="img"
+            aria-label={description}
+            className="border border-slate-200 rounded-md bg-white p-4 overflow-x-auto"
+            // The SVG is produced by Mermaid from stored source, under
+            // `securityLevel: "strict"`, which escapes label content rather
+            // than interpreting it. There is no other way to mount an SVG
+            // string.
+            dangerouslySetInnerHTML={{ __html: state.svg }}
+          />
+          {/* Visible to everyone, not only to assistive technology. A
+              description hidden from sighted users is one nobody proofreads,
+              and `NFR-064` asks for an equivalent rather than a substitute. */}
+          <details className="mt-2">
+            <summary className="cursor-pointer text-xs font-medium text-slate-700 hover:text-slate-900">
+              Read this diagram as text
+            </summary>
+            <p className="mt-2 text-sm text-slate-800">{description}</p>
+          </details>
+        </>
       )}
 
       {state.status === "failed" && (
