@@ -248,10 +248,118 @@ services:
 
     networks: [naigx]
 
+  # -------------------------------------------------------------------------
+  # Monitoring and alerting — `M-19` Phase 4, `NFR-082`, `NFR-085`.
+  #
+  # Prometheus scrapes the application's own `/internal/metrics`, which has
+  # emitted Prometheus text format since `M-16` — no exporter and no
+  # translation layer. Alertmanager is what turns a firing rule into a message
+  # a person receives; without it, alerting is a rule file nobody reads.
+  #
+  # ⚠️ NEITHER PUBLISHES A PORT. Both are reachable only on this network. The
+  # metrics carry no user content (`API §11.1`, and the module has no field
+  # content could occupy), but the operator token and the alert webhook are
+  # both credentials, and a publicly reachable Prometheus hands over the second
+  # to anyone who asks. Reach them with `docker compose port`-style tunnelling
+  # or an SSH forward, not by opening 9090.
+  # -------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: naigx-prometheus
+    restart: unless-stopped
+
+    # The operator token reaches Prometheus as a file, not as a config literal
+    # or an image layer. D-48's credential gates every scrape.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        printf '%s' "$$NAIGX_OPERATOR_TOKEN" > /etc/prometheus/operator-token
+        exec /bin/prometheus \
+          --config.file=/etc/prometheus/prometheus.yml \
+          --storage.tsdb.path=/prometheus \
+          --storage.tsdb.retention.time=90d
+
+    environment:
+      NAIGX_OPERATOR_TOKEN: ${NAIGX_OPERATOR_TOKEN:?NAIGX_OPERATOR_TOKEN is required for monitoring}
+
+    volumes:
+      - ./deploy/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - naigx_prometheus_data:/prometheus
+
+    depends_on:
+      - backend
+
+    networks: [naigx]
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.0
+    container_name: naigx-alertmanager
+    restart: unless-stopped
+
+    # ⚠️ THE WEBHOOK URL IS WRITTEN TO A FILE, because Alertmanager does no
+    # environment expansion in its config — `url: "${VAR}"` would post every
+    # alert to that literal string and log the failure where nobody looks.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        printf '%s' "$$NAIGX_ALERT_WEBHOOK" > /etc/alertmanager/webhook-url
+        exec /bin/alertmanager \
+          --config.file=/etc/alertmanager/alertmanager.yml \
+          --storage.path=/alertmanager
+
+    environment:
+      NAIGX_ALERT_WEBHOOK: ${NAIGX_ALERT_WEBHOOK:?NAIGX_ALERT_WEBHOOK is required — an alert that fires into nothing is not alerting}
+
+    volumes:
+      - ./deploy/monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - naigx_alertmanager_data:/alertmanager
+
+    networks: [naigx]
+
+  # -------------------------------------------------------------------------
+  # Backups — scheduled dumps of BOTH databases (`D-51` §4).
+  #
+  # ⚠️ THE DUMPS ARE WRITTEN TO A BIND MOUNT, NOT A DOCKER VOLUME, and that is
+  # the point: D-51 §4 requires backups stored **off the deployment host**, and
+  # a Docker volume lives on exactly the host whose loss the backup exists to
+  # survive. `NAIGX_BACKUP_DIR` should be a mount that leaves the machine —
+  # object storage, a network share, an attached remote filesystem. Pointing it
+  # at a local path satisfies the schedule and NOT the off-host requirement.
+  # -------------------------------------------------------------------------
+  backup:
+    image: postgres:17
+    container_name: naigx-backup
+    restart: unless-stopped
+
+    environment:
+      PGUSER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      PGHOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-naigx}
+      # `DBQ-7`, resolved at 7 days (D-51). Published in the data policy.
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+
+    volumes:
+      - ./deploy/backup.sh:/usr/local/bin/naigx-backup:ro
+      - ${NAIGX_BACKUP_DIR:?NAIGX_BACKUP_DIR is required — see D-51 §4 on off-host storage}:/backups
+
+    entrypoint: ["/bin/bash", "/usr/local/bin/naigx-backup", "loop"]
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    networks: [naigx]
+
 volumes:
   naigx_postgres_data:
   naigx_caddy_data:
   naigx_caddy_config:
+  naigx_prometheus_data:
+  naigx_alertmanager_data:
 
 networks:
   naigx:

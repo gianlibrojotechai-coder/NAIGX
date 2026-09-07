@@ -45,15 +45,19 @@ These are standing instructions given explicitly. **They override default thorou
 | **M-16** Instrumentation | **Complete.** 7 automatable metrics report real values; M-6/M-8/M-9 stay manual |
 | **M-17** Accessibility | **Implemented, NOT verified.** 4 violations fixed, axe running. The manual WCAG walk is unwalked |
 | **M-18** Security | **Reviewed, NOT passed.** `NFR-027` found and fixed; `DB §13.1` app-level encryption unresolved |
-| **M-19** Deployment | **Phases 1–3 of 4 done.** See §7 |
+| **M-19** Deployment | **All 4 phases built, milestone NOT passed.** Nothing is deployed. See §7 |
 | **M-20** Performance | Unstarted |
 
 ### Sprint 5 deliverables still outstanding
 
-- **Data policy page** (`NFR-031`) — must be reachable *before first submission*. Phase 4.
-- **Alerting** (`NFR-082`, `NFR-085`) — Phase 4.
+**All three remaining items need a human or a host. None is code.**
+
+- **A production host and domain** — M-19 cannot close without one, and neither can TLS, the rollback drill, or a restore drill against real data. Owner's to provision.
+- **An AWS account** for KMS — 4 skipped tests are the only thing that can verify `DB §13.1` row 3. Owner's, taken, not yet done.
 - **M-17 manual WCAG walk** — needs a person with a screen reader. Unowned.
 - **M-08 rubric review** — needs a human reviewer. Unowned, carried from Sprint 2.
+
+✅ Data policy page (`NFR-031`) and alerting (`NFR-082`, `NFR-085`) are done — Phase 4.
 
 ---
 
@@ -73,8 +77,9 @@ These are standing instructions given explicitly. **They override default thorou
 | `docs/28` **D-53** | Both encryption layers, told apart; closes `DBQ-8` |
 | `docs/29` **D-54** | The edge — same-origin serving, proxy trust, IP-hash salt |
 | `docs/30` **D-55** | Envelope format, the purge outbox, and the mixed backfill window |
+| `docs/31` **D-56** | Monitoring, alerting, and what a drill must produce to count |
 
-**Numbering convention: the next standalone record is `docs/31` D-56.**
+**Numbering convention: the next standalone record is `docs/32` D-57.**
 
 ---
 
@@ -91,6 +96,9 @@ These are the defects that *passed every test* before being caught. They are the
 - **The production image could not start the app, and every test was green.** Prisma 7 emits `.ts` import specifiers and this project compiles with `verbatimModuleSyntax`, so `dist/generated/prisma/client.js` imported `./enums.ts` and `node dist/index.js` died with `ERR_MODULE_NOT_FOUND` before one line of application code. Invisible because `dev`, `test` and every CLI script run through **tsx**, which resolves `.ts` happily — only `npm start` and the container's `CMD` take that path. **Phase 1 verified PDF rendering and the migration paths inside this very image and still never ran its entrypoint.** Fixed with `importFileExtension = "js"` on both generators. If you change anything in the build, run the compiled output, not the source.
 - **Caddy sorts directives by its own order, not file order.** `handle` outranks a bare `respond`, so `respond @internal 404` written outside a `handle` block never ran — the catch-all `handle` matched first, was terminal, and served `index.html` with a **200** from `/internal/metrics`. It reads correctly top-to-bottom. Put every mutually-exclusive case in a `handle` block.
 - **Grepping a Vite bundle for the fallback string reports failure on a correct build.** `import.meta.env["VITE_API_BASE_URL"] ?? "http://localhost:3000"` compiles to a member read on an inlined object, so the default **stays in the output as text** even when the override worked. What discriminates is whether the inlined object *defines the key*.
+- **Rolling back past the encryption boundary is a data-visibility incident, not a rollback** (D-56 §6). The pre-encryption build starts against the current schema, passes its health check, and serves every user a base64 envelope where their document should be — **without erroring**. The schema rolls back cleanly; the data format does not, and the schema check that usually stands in for rollback safety does not see it.
+- **`set -euo pipefail` kills a script inside a command substitution BEFORE it can print its own diagnostic.** Two defects in `restore-drill.sh` had this shape — the primary-only-backup case exited 2 with no output at all, on exactly the failure it was written to report clearly. Add `|| true` to any substitution whose failure you intend to *handle*.
+- **An alert on a misspelled series never fires, and Prometheus never says so.** It evaluates to an empty vector, indistinguishable from "the condition is not met". `naigx_full_analysis_p95` vs `naigx_full_analysis_latency_p95` cost exactly that; `tests/unit/alert-rules.test.ts` now checks the rules against the renderer's real output.
 - **`request.ip` is meaningless until proxy trust is decided, and both defaults are wrong** (D-54 §4). Off behind a proxy → one global rate-limit bucket for everyone. On without one → `X-Forwarded-For` is client-supplied and the per-IP limit stops existing. Neither announces itself.
 - **Encryption code that is subtly wrong still round-trips.** A reused IV round-trips. A truncated tag round-trips. Unauthenticated version metadata round-trips. So a seal/open test proves almost nothing on its own — `tests/unit/envelope.test.ts` is mostly assertions about what a round trip does *not* show, and the same logic applies to any crypto added later.
 - **A test that builds the app without a cipher proves nothing about encryption.** `buildApp` defaults to a pass-through cipher so unrelated unit tests need no key. That default silently made the `FR-062` search test pass over plaintext columns production does not have. Suites that touch the three encrypted fields must pass `createTestCipher()` — and the seed data must be sealed too, or the test still runs on plaintext.
@@ -112,9 +120,11 @@ These are the defects that *passed every test* before being caught. They are the
 
 ---
 
-## 7. THE NEXT STEP — M-19 Phase 4
+## 7. WHERE M-19 STANDS — all four phases built, milestone NOT passed
 
-**Four phases, owner-approved. Phases 1, 2 and 3 are committed.**
+**Four phases, owner-approved, all four committed.** ⚠️ Built is not deployed: see the gap table below Phase 4 before reporting anything about M-19.
+
+**The next step is a decision, not a task.** M-19 cannot close without a host and a domain — that is the owner's to provision, along with the AWS account Phase 3 needs. Until then the remaining M-19 work is unearnable, and **M-20 performance is the next milestone that can actually progress**.
 
 ⚠️ **THE ONE THING CARRIED INTO PHASE 4 FROM PHASE 3:** the KMS prerequisite is
 the owner's and they have taken it, but **no credentials exist yet**, so the
@@ -163,15 +173,31 @@ Recorded as **[D-55](30-D-55-Envelope-Format-And-Purge-Outbox.md)**, implementin
 
 **Pricing re-verified** 2026-09-08 against the official page: $1/month per key, 20,000 free requests — unchanged from D-52 §3. One nuance recorded: the free tier excludes asymmetric and `GenerateDataKeyPair` operations, and this design uses neither.
 
-### ▶ Phase 4 — monitoring, alerting, rollback drill, data policy *(next)*
+### ✅ Phase 4 — monitoring, alerting, drills, data policy *(built)*
 
-- `/internal/metrics` **already emits Prometheus text format** (M-16), so scraping is nearly free.
-- Alerting per `NFR-082`, `NFR-085`.
-- **Restore drill** (D-51 §4) — a dump restored and verified, recorded with a date. A backup is not evidence; the restore is.
-- **Rollback drill on production** (D-50 §4) before the criterion is claimed.
-- **Data policy page** (`NFR-031`) stating the real retention windows including the **7-day backup window**.
+Recorded as **[D-56](31-D-56-Monitoring-Alerting-And-The-Drills.md)**.
 
-**M-19's criterion is "production deploy with monitoring, alerting, and verified rollback" — not just the five infrastructure prerequisites.**
+`deploy/monitoring/` (Prometheus + Alertmanager + 8 rules), `deploy/backup.sh`, `deploy/restore-drill.sh`, `frontend/src/components/DataPolicy.tsx`, four operational metrics, and compose services for all of it.
+
+**Verified end to end** (2026-09-07): `promtool`/`amtool` accept the configs; Prometheus scraped `/internal/metrics` with the operator bearer token (`health: up`); every series an alert references resolved against live data; `CompletionRateBelowTarget` entered `pending` with its message rendered — *"Analysis completion rate 50% is below the NFR-010 target of 95%"*; and a test alert was **delivered to a webhook receiver** through Alertmanager. `NFR-031` reachability and the policy's numbers are asserted by an automated check, plus axe.
+
+**Restore drill PERFORMED and recorded** — [RESTORE-DRILL-LOG](deployment/RESTORE-DRILL-LOG.md). Both databases restored into scratch, 8 table row counts matched, one analysis spot-checked with its envelope intact. ⚠️ **Development database, not production.**
+
+### ⚠️ M-19 IS NOT PASSED, AND THIS IS THE IMPORTANT PART
+
+Its criterion is **"production deploy with monitoring, alerting, and verified rollback"**. All four phases are *built*; **nothing is deployed anywhere**.
+
+| Gap | Why it is open |
+|---|---|
+| **No production deployment** | No host, no domain. Everything below follows from this |
+| **Rollback drill NOT done** | D-50 §4 requires it *on production*. Only rehearsed — [ROLLBACK-DRILL-LOG](deployment/ROLLBACK-DRILL-LOG.md) |
+| **Restore drill was on dev data** | Mechanism proven; D-51 §4's obligation needs a real backup of deployed data |
+| **Off-host backup storage** | A property of where `NAIGX_BACKUP_DIR` points. No script can check it |
+| **TLS unverified** | No certificate has ever been issued (Phase 2) |
+| **KMS unverified** | 4 skipped tests; no credentials (Phase 3) |
+| **Alert delivery to a real person** | Verified as a mechanism. Alertmanager starts happily with an unreachable receiver — a first-deploy check |
+
+⚠️ **The rehearsal found one thing to know before any rollback is attempted:** rolling back past the Phase 3 encryption boundary is a **data-visibility incident, not a rollback**. The pre-encryption build starts, passes its health check, and hands every user a base64 envelope where their document should be — without erroring. See §5.
 
 ---
 
@@ -197,7 +223,7 @@ Recorded as **[D-55](30-D-55-Envelope-Format-And-Purge-Outbox.md)**, implementin
 
 ```bash
 # backend (from backend/)
-npm test              # 886 tests, 880 pass, 0 fail, 6 skipped
+npm test              # 891 tests, 885 pass, 0 fail, 6 skipped
 npm run typecheck
 npm run lint
 npm run format:check

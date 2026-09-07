@@ -1,0 +1,49 @@
+# Prometheus — scrape and rule loading (`M-19` Phase 4, `NFR-082`).
+#
+# Scrapes the application's own `/internal/metrics`, which has emitted
+# Prometheus text format since `M-16` (`API-070`). No exporter, no sidecar, no
+# translation layer: the endpoint was already the right shape.
+#
+# ⚠️ IT SCRAPES OVER THE COMPOSE NETWORK, NOT THROUGH THE EDGE. `deploy/Caddyfile`
+# answers 404 to `/internal/*` from the internet, deliberately — the operator
+# surface has no business being publicly reachable even with a token. Prometheus
+# reaches `backend:3000` directly, inside the private network, so the block at
+# the edge costs monitoring nothing.
+#
+# ⚠️ THE BEARER TOKEN IS REQUIRED AND IS NOT OPTIONAL TO GET RIGHT. D-48 gates
+# `/internal/*` on `NAIGX_OPERATOR_TOKEN`; without it every scrape returns 401
+# and Prometheus records the target as down — which looks exactly like the
+# application being down. Check `up{job="naigx"}` before believing an outage.
+
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  external_labels:
+    deployment: naigx
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  - job_name: naigx
+    metrics_path: /internal/metrics
+    # D-48's shared operator credential. Read from a file rather than inlined so
+    # the token is not baked into an image or committed with this config.
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/operator-token
+
+    static_configs:
+      - targets: ["backend:3000"]
+
+  # Prometheus watching itself. Cheap, and it is what distinguishes "the alert
+  # pipeline is quiet because everything is fine" from "the alert pipeline is
+  # not running".
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

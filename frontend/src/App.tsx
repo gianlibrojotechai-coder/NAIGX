@@ -20,6 +20,7 @@
  */
 
 import { JobDescriptionForm } from "./components/JobDescriptionForm";
+import { DataPolicy } from "./components/DataPolicy";
 import { Processing } from "./components/Processing";
 import { useEffect, useState } from "react";
 
@@ -47,6 +48,9 @@ function App() {
 
   const [user, setUser] = useState<AccountUser | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  // `NFR-031` — the policy must be reachable BEFORE first submission, so it is
+  // a peer of the form rather than something behind an account or a footer.
+  const [showPolicy, setShowPolicy] = useState(false);
   const [claimNotice, setClaimNotice] = useState<string | null>(null);
 
   /**
@@ -145,13 +149,41 @@ function App() {
           />
         )}
 
-        {showForm && (
-          <JobDescriptionForm
-            onSubmit={(content) => {
-              void submit(content);
+        {showPolicy && (
+          <DataPolicy
+            onClose={() => {
+              setShowPolicy(false);
             }}
-            busy={state.phase === "submitting"}
           />
+        )}
+
+        {showForm && (
+          <>
+            <JobDescriptionForm
+              onSubmit={(content) => {
+                void submit(content);
+              }}
+              busy={state.phase === "submitting"}
+            />
+
+            {/* `NFR-031` — "accessible before first submission". Beside the
+                form, not in a footer: a policy linked from a results page is
+                published after the decision it exists to inform. */}
+            {!showPolicy && (
+              <p className="text-sm text-slate-600">
+                Your text is encrypted and never used to train models.{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPolicy(true);
+                  }}
+                  className="underline underline-offset-2 hover:text-slate-900"
+                >
+                  How your data is handled
+                </button>
+              </p>
+            )}
+          </>
         )}
 
         {!showHistory && state.phase === "processing" && (

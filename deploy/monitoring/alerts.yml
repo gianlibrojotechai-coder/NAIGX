@@ -1,0 +1,139 @@
+# Alert rules — `NFR-082`, `NFR-085` (`M-19` Phase 4).
+#
+# `NFR-082` names three quantities: **error rate, latency percentiles, and
+# completion rate**, "monitored with alerting thresholds". `NFR-085` names one
+# threshold specifically: completion rate below `NFR-010`'s 95%.
+#
+# ⚠️ EVERY THRESHOLD BELOW IS PROVISIONAL EXCEPT THE COMPLETION RATE. 95% is
+# written into `NFR-010` and is not a judgement call. The latency bounds come
+# from `NFR-001`/`NFR-002`, which `M-20` is the milestone that measures under
+# load — so alerting on them now says "slower than the target", not "violating
+# a verified budget". They are recorded here rather than tuned, because a
+# threshold nobody wrote down is a threshold nobody can argue with later.
+#
+# ⚠️ THE METRICS ARE CUMULATIVE GAUGES OVER ALL TIME, NOT RATES OVER A WINDOW.
+# `naigx_analysis_completion_rate` is completed ÷ started since the database was
+# created. That has a real consequence: **a bad hour barely moves it once there
+# is history, and it swings wildly when there is almost none.** These rules are
+# therefore honest early-warning, not a latency SLO. Rate-windowed alerting
+# needs counters and `rate()`, which needs the metrics rewritten as counters —
+# out of scope here and named as the follow-up.
+
+groups:
+  - name: naigx-product
+    rules:
+      # --- NFR-085, the one threshold a requirement states outright ---------
+      - alert: CompletionRateBelowTarget
+        expr: naigx_analysis_completion_rate < 0.95 and naigx_analyses_started_total > 20
+        for: 15m
+        labels:
+          severity: critical
+          requirement: NFR-085
+        annotations:
+          summary: "Analysis completion rate {{ $value | humanizePercentage }} is below the NFR-010 target of 95%"
+          description: >-
+            NFR-010 requires ≥95% completion excluding user-caused validation
+            failures. The `> 20` guard exists because a ratio over a handful of
+            analyses is noise, not a signal — two failures out of ten would
+            page at 80% and mean nothing.
+
+      # --- NFR-082, error rate ---------------------------------------------
+      - alert: AnalysisErrorRateHigh
+        expr: >-
+          (naigx_analyses_terminal_unsuccessful_total / naigx_analyses_started_total) > 0.05
+          and naigx_analyses_started_total > 20
+        for: 15m
+        labels:
+          severity: warning
+          requirement: NFR-082
+        annotations:
+          summary: "Analysis error rate above 5%"
+          description: >-
+            Failed and timed-out analyses as a share of all started. The
+            complement of the completion rate above; alerted separately because
+            a rise here with a steady completion rate means analyses are
+            failing rather than stalling.
+
+      # --- NFR-082, latency percentiles ------------------------------------
+      - alert: FullAnalysisLatencyAboveTarget
+        expr: naigx_full_analysis_latency_p95 > 120 and naigx_full_analysis_latency_samples > 20
+        for: 30m
+        labels:
+          severity: warning
+          requirement: NFR-082
+        annotations:
+          summary: "Full-analysis p95 is {{ $value }}s, above the NFR-002 target of 120s"
+          description: >-
+            ⚠️ NOT a verified budget. NFR-002's p95 target is 120s and M-20 is
+            the milestone that measures it under load; this alert says the
+            observed value has drifted past the target, on whatever traffic
+            exists.
+
+      - alert: TimeToFirstArtifactAboveTarget
+        expr: naigx_time_to_first_artifact_p95 > 40 and naigx_time_to_first_artifact_samples > 20
+        for: 30m
+        labels:
+          severity: warning
+          requirement: NFR-082
+        annotations:
+          summary: "Time-to-first-artifact p95 is {{ $value }}s, above the 40s target"
+
+  - name: naigx-operational
+    rules:
+      # --- the deployment is not keeping a promise already made -------------
+      - alert: TracePurgeOverdue
+        expr: naigx_purge_outbox_overdue > 0
+        for: 5m
+        labels:
+          severity: critical
+          requirement: FR-073
+        annotations:
+          summary: "{{ $value }} trace purge(s) past the window quoted to the user"
+          description: >-
+            ⚠️ THIS IS A BROKEN PROMISE, NOT A BACKLOG. API-011 told the user
+            their traces would be gone within 24 hours. The deletion request
+            succeeded and the analysis is gone; only the outbox row knows the
+            trace half never happened. Nothing else in the system will ever
+            report this.
+
+      - alert: TracePurgeFailed
+        expr: naigx_purge_outbox_failed > 0
+        labels:
+          severity: critical
+          requirement: FR-073
+        annotations:
+          summary: "{{ $value }} trace purge instruction(s) exhausted their retries"
+          description: >-
+            Rows are retained rather than deleted precisely so this can fire.
+            Investigate the trace store, then re-drain — the instruction is
+            still in `trace_purge_outbox` with `failed_at` set.
+
+      # --- the encryption backfill is unfinished ----------------------------
+      - alert: EncryptionBackfillIncomplete
+        expr: naigx_encryption_plaintext_reads > 0
+        for: 10m
+        labels:
+          severity: critical
+          requirement: DB-13.1
+        annotations:
+          summary: "Stored values are being read unsealed — the encryption backfill is unfinished"
+          description: >-
+            ⚠️ THE ONLY SIGNAL THIS EXISTS. A partly-sealed table serves reads
+            perfectly well (D-55 §7): nothing errors, nothing looks wrong, and
+            DB §13.1 row 3 is quietly unmet. Run `encrypt status` and then
+            `encrypt backfill`. Non-zero here means confidential content is
+            sitting in plaintext right now.
+
+      # --- the basics -------------------------------------------------------
+      - alert: BackendDown
+        expr: up{job="naigx"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "The application is not scrapeable"
+          description: >-
+            ⚠️ CHECK THE TOKEN BEFORE DECLARING AN OUTAGE. `/internal/*` is
+            gated on NAIGX_OPERATOR_TOKEN (D-48); a wrong or missing token
+            makes every scrape 401 and the target read as down, which is
+            indistinguishable from the process being dead.

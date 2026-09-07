@@ -13,6 +13,56 @@ self-hosted PostgreSQL per [D-51](../docs/26-D-51-Self-Hosted-PostgreSQL.md).
 
 ---
 
+## What Phase 4 delivers
+
+| Requirement | Status |
+|---|---|
+| `NFR-082` — error rate, latency percentiles, completion rate monitored with thresholds | **Implemented and verified** end to end (scrape → rule → annotation → delivery) |
+| `NFR-085` — alert on completion rate below the `NFR-010` 95% threshold | **Implemented and verified.** Observed firing with a rendered message on live data |
+| `D-51` §4 — scheduled dumps of both databases, 7-day rotation | **Implemented** |
+| `D-51` §4 — restore drill, recorded with a date | **Performed and recorded** — [RESTORE-DRILL-LOG](../docs/deployment/RESTORE-DRILL-LOG.md). ⚠️ Development database, not production |
+| `D-50` §4 — verified production rollback drill | **NOT DONE.** Rehearsed only — [ROLLBACK-DRILL-LOG](../docs/deployment/ROLLBACK-DRILL-LOG.md) |
+| `NFR-031` — data policy accessible before first submission | **Implemented and verified** by an automated check |
+| `D-51` §4 — backups stored off the deployment host | **Configuration, unverifiable here.** A property of where `NAIGX_BACKUP_DIR` points |
+
+### ⚠️ What is NOT verified
+
+**The rollback drill has not happened.** [D-50](../docs/25-D-50-Deployment-Topology.md) §4
+requires it on the production deployment, which does not exist. The rehearsal
+found one thing worth knowing before any rollback is attempted:
+
+> ⚠️ **Rolling back past the Phase 3 encryption boundary is a data-visibility
+> incident, not a rollback.** The pre-encryption build starts fine against the
+> current schema, passes its health check — and serves every user a base64
+> envelope where their document should be, without erroring.
+
+**The restore drill ran against the development database.** The mechanism is
+proven; the obligation is not discharged until a drill runs against a real
+backup of deployed data.
+
+### Monitoring, verified
+
+Run 2026-09-07 against the built image and the real configs:
+
+- `promtool check config` and `check rules` — valid, 8 rules.
+- `amtool check-config` — valid.
+- Prometheus scraped `/internal/metrics` with the operator bearer token:
+  target `health: up`.
+- Every series an alert references resolved against live data. A unit test now
+  enforces that permanently — an alert on a misspelled series never fires and
+  Prometheus never says so.
+- `CompletionRateBelowTarget` entered `pending` with its message rendered:
+  *"Analysis completion rate 50% is below the NFR-010 target of 95%"*.
+- A test alert was **delivered to a webhook receiver** through Alertmanager.
+
+```bash
+# Send a test alert on a real deployment. Do this on first deploy: Alertmanager
+# starts happily with an unreachable receiver and only logs the failure.
+docker compose -f docker-compose.prod.yml --env-file deploy/.env \n  exec alertmanager wget -qO- --post-data '[{"labels":{"alertname":"DeployTest","severity":"critical"}}]' \n  --header 'Content-Type: application/json' http://localhost:9093/api/v2/alerts
+```
+
+---
+
 ## What Phase 3 delivers
 
 | Requirement | Status |
@@ -111,8 +161,23 @@ C=(docker compose -f docker-compose.prod.yml --env-file deploy/.env)
 "${C[@]}" run --rm encrypt backfill
 "${C[@]}" run --rm encrypt status   # must report zero plaintext rows
 
-# 5. The rest.
+# 5. The rest — app, edge, monitoring, alerting, backups.
 "${C[@]}" up -d --build
+
+# 6. ⚠️ PROVE ALERTING REACHES A HUMAN. Alertmanager starts happily with an
+#    unreachable receiver and only logs the failure — "the stack is up" is not
+#    evidence that a page would arrive.
+"${C[@]}" exec alertmanager wget -qO- \n  --header 'Content-Type: application/json' \n  --post-data '[{"labels":{"alertname":"DeployTest","severity":"critical"}}]' \n  http://localhost:9093/api/v2/alerts
+#    Confirm it arrived wherever NAIGX_ALERT_WEBHOOK points.
+
+# 7. ⚠️ THE RESTORE DRILL. A completed backup is not a verified backup.
+#    Record the result in docs/deployment/RESTORE-DRILL-LOG.md.
+"${C[@]}" exec postgres bash /usr/local/bin/naigx-backup once
+"${C[@]}" exec postgres bash /usr/local/bin/naigx-restore-drill
+
+# 8. ⚠️ THE ROLLBACK DRILL, before announcing the deployment (D-50 §4).
+#    Procedure and the four things "verified" requires:
+#    docs/deployment/ROLLBACK-DRILL-LOG.md
 ```
 
 ### Verify the deploy — actually run these

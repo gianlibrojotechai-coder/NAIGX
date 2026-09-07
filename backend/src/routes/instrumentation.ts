@@ -40,6 +40,11 @@ export interface InstrumentationRouteOptions {
   readonly tracePrisma?: TracePrismaClient;
   /** D-48. Absent disables `/internal/*` entirely. */
   readonly operatorToken?: string;
+  /**
+   * Read for `plaintextReads` only (`M-19` Phase 4) — the one signal that the
+   * encryption backfill is unfinished. Never for key material.
+   */
+  readonly cipher?: { readonly plaintextReads: number };
   readonly now?: () => Date;
 }
 
@@ -50,7 +55,7 @@ export const instrumentationRoutes: FastifyPluginAsync<
   InstrumentationRouteOptions
 > = (
   app,
-  { prisma, audit, tracePrisma, operatorToken, now = () => new Date() },
+  { prisma, audit, tracePrisma, cipher, operatorToken, now = () => new Date() },
 ) => {
   // --- API-050 — submit feedback -------------------------------------------
   app.put<{ Params: { id: string } }>(
@@ -138,7 +143,11 @@ export const instrumentationRoutes: FastifyPluginAsync<
     requireOperator(request.headers.authorization, operatorToken);
 
     const snapshot = await computeMetrics(
-      { prisma, ...(tracePrisma !== undefined ? { trace: tracePrisma } : {}) },
+      {
+        prisma,
+        ...(tracePrisma !== undefined ? { trace: tracePrisma } : {}),
+        ...(cipher !== undefined ? { cipher } : {}),
+      },
       now(),
     );
 

@@ -373,3 +373,95 @@ test(
     }
   },
 );
+
+// --- M-19 Phase 4: the data handling policy (`NFR-031`) ---------------------
+
+test(
+  "NFR-031 — the data policy is reachable before first submission",
+  { skip },
+  async () => {
+    // ⚠️ THE REQUIREMENT IS "BEFORE FIRST SUBMISSION", NOT "SOMEWHERE ON THE
+    // SITE". A policy linked only from a footer on a results page is published
+    // after the decision it exists to inform. This asserts the link is on the
+    // landing surface — the one a user sees while deciding whether to paste a
+    // confidential document into the box.
+    const site = await serveDist();
+    const browser = await chromium.launch({
+      executablePath: executablePath as string,
+      headless: true,
+      args: ["--no-sandbox"],
+    });
+    try {
+      const page = await openApp(browser, site.url);
+
+      const link = page.getByRole("button", {
+        name: /how your data is handled/i,
+      });
+      assert.equal(
+        await link.count(),
+        1,
+        "no data-policy link on the submission surface (NFR-031)",
+      );
+
+      await link.click();
+      await page.waitForSelector("#data-policy-heading", { timeout: 10_000 });
+
+      // The numbers are the point. A policy that omits the backup window makes
+      // the deletion promise false (`DB §12.4`, `DBQ-7`), so the published
+      // page must state it.
+      const text = (await page.textContent("main")) ?? "";
+      for (const required of [
+        "7 days", // traces, anonymous expiry, and the backup window
+        "30 days", // provider invocation / validation records
+        "24 hours", // the trace purge window quoted by API-011
+        "backups", // DBQ-7 — silence here is a broken promise
+        "never used to train",
+      ]) {
+        assert.ok(
+          text.toLowerCase().includes(required.toLowerCase()),
+          `the data policy does not state "${required}"`,
+        );
+      }
+    } finally {
+      await browser.close();
+      site.close();
+    }
+  },
+);
+
+test(
+  "the data policy has no automatically detectable WCAG A/AA violations",
+  { skip },
+  async () => {
+    const site = await serveDist();
+    const browser = await chromium.launch({
+      executablePath: executablePath as string,
+      headless: true,
+      args: ["--no-sandbox"],
+    });
+    try {
+      const page = await openApp(browser, site.url);
+      await page
+        .getByRole("button", { name: /how your data is handled/i })
+        .click();
+      await page.waitForSelector("#data-policy-heading", { timeout: 10_000 });
+
+      const results = await analyse(page);
+
+      // Same guard as every other check here: zero violations over zero rules
+      // is what an empty page looks like.
+      assert.ok(
+        results.passes.length > 0,
+        "axe evaluated no rules — the page probably rendered nothing",
+      );
+      assert.equal(
+        results.violations.length,
+        0,
+        `axe found ${String(results.violations.length)} violation(s):\n${describe(results)}`,
+      );
+    } finally {
+      await browser.close();
+      site.close();
+    }
+  },
+);

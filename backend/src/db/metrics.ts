@@ -32,6 +32,7 @@
  * so an operator endpoint cannot leak content by accident.
  */
 
+import { TRACE_PURGE_WINDOW_HOURS } from "./trace-purge.js";
 import type { PrismaClient } from "../generated/prisma/client.js";
 import type { PrismaClient as TracePrismaClient } from "../generated/prisma-trace/client.js";
 
@@ -60,6 +61,8 @@ export interface ManualMetric {
 export interface MetricsSnapshot {
   readonly computed: readonly ComputedMetric[];
   readonly manual: readonly ManualMetric[];
+  /** `M-19` Phase 4. Deployment health, kept separate from product metrics. */
+  readonly operational: readonly OperationalMetric[];
   readonly generatedAt: Date;
 }
 
@@ -96,6 +99,44 @@ export interface MetricsClients {
   readonly prisma: PrismaClient;
   /** Optional: `M-10` needs the trace store, and an instance may lack one. */
   readonly trace?: TracePrismaClient;
+  /**
+   * The field cipher, read for its plaintext counter only (`M-19` Phase 4).
+   *
+   * ⚠️ NEVER FOR ITS KEY. Only `plaintextReads` is touched — a number. Nothing
+   * in this module can reach key material, and nothing should be added that
+   * can: `API §11.1` already forbids exposing internals publicly, and metrics
+   * are the surface most likely to be scraped somewhere careless.
+   */
+  readonly cipher?: { readonly plaintextReads: number };
+}
+
+/**
+ * Operational metrics — `M-19` Phase 4, for alerting.
+ *
+ * ⚠️ THESE ARE NOT `PRD §3.2` PRODUCT METRICS, and the distinction is kept in
+ * the output as well as here. The ten product metrics measure whether the
+ * product works; these measure whether the *deployment* is keeping promises it
+ * has already made to users. Merging them would let an operational alert read
+ * as a product regression, and vice versa.
+ *
+ * Each one exists because Phase 3 created a failure that is otherwise silent:
+ *
+ *   · `purge_outbox_overdue` — `API-011` tells the user their traces go within
+ *     a stated window. A row older than that window is a **broken promise**,
+ *     not a slow one, and nothing else would ever say so.
+ *   · `purge_outbox_failed` — an instruction that exhausted its retries. The
+ *     row is retained precisely so this number can be non-zero.
+ *   · `encryption_plaintext_reads` — the ONLY signal that the encryption
+ *     backfill is unfinished. A partly-sealed table serves reads perfectly
+ *     well ([D-55](../../../docs/30-D-55-Envelope-Format-And-Purge-Outbox.md)
+ *     §7), so nothing misbehaves and nothing complains. Non-zero means
+ *     `DB §13.1` row 3 is not actually met, however green everything looks.
+ */
+export interface OperationalMetric {
+  readonly name: string;
+  readonly value: number;
+  readonly unit: "count";
+  readonly help: string;
 }
 
 /**
@@ -318,7 +359,59 @@ export async function computeMetrics(
     },
   ];
 
-  return { computed, manual: MANUAL_METRICS, generatedAt: now };
+  // --- operational (`M-19` Phase 4) ----------------------------------------
+  //
+  // Counted here rather than in a second endpoint so one scrape covers both,
+  // and so an operator cannot have monitoring configured while missing these.
+  const overdueBefore = new Date(
+    now.getTime() - TRACE_PURGE_WINDOW_HOURS * 60 * 60 * 1000,
+  );
+
+  const [purgePending, purgeOverdue, purgeFailed] = await Promise.all([
+    prisma.tracePurgeOutbox.count({ where: { failedAt: null } }),
+    // ⚠️ The alertable one. `API-011` quotes the user a window; a row still
+    // owed after it has passed is a promise already broken, and no other
+    // signal exists — the request succeeded, the analysis is gone, and only
+    // this row knows the trace half never happened.
+    prisma.tracePurgeOutbox.count({
+      where: { failedAt: null, enqueuedAt: { lt: overdueBefore } },
+    }),
+    prisma.tracePurgeOutbox.count({ where: { failedAt: { not: null } } }),
+  ]);
+
+  const operational: OperationalMetric[] = [
+    {
+      name: "purge_outbox_pending",
+      value: purgePending,
+      unit: "count",
+      help: "Trace-purge instructions accepted and not yet completed (DB §5.4 step 2).",
+    },
+    {
+      name: "purge_outbox_overdue",
+      value: purgeOverdue,
+      unit: "count",
+      help: `Purges still owed after the ${String(TRACE_PURGE_WINDOW_HOURS)}h window quoted to the user (API-011). Non-zero is a broken promise, not a backlog.`,
+    },
+    {
+      name: "purge_outbox_failed",
+      value: purgeFailed,
+      unit: "count",
+      help: "Purge instructions that exhausted their retries. Retained as evidence; never drained again.",
+    },
+    {
+      name: "encryption_plaintext_reads",
+      value: clients.cipher?.plaintextReads ?? 0,
+      unit: "count",
+      help: "Stored values read that were NOT sealed, since process start. Non-zero means the encryption backfill is unfinished (D-55 §7) — DB §13.1 row 3 is not met, however healthy everything else looks.",
+    },
+  ];
+
+  return {
+    computed,
+    manual: MANUAL_METRICS,
+    operational,
+    generatedAt: now,
+  };
 }
 
 /**
@@ -337,6 +430,20 @@ export function renderPrometheus(snapshot: MetricsSnapshot): string {
 
   for (const metric of snapshot.computed) {
     lines.push(`# HELP naigx_${metric.name} ${metric.id} (${metric.unit})`);
+    lines.push(`# TYPE naigx_${metric.name} gauge`);
+    lines.push(`naigx_${metric.name} ${String(metric.value)}`);
+  }
+
+  // ⚠️ A SEPARATE BLOCK, DELIBERATELY. These say whether the deployment is
+  // keeping promises already made to users; the series above say whether the
+  // product works. An alert on one must never read as a regression in the
+  // other, so they are not interleaved.
+  lines.push("");
+  lines.push(
+    "# Operational metrics (M-19 Phase 4). NOT PRD §3.2 product metrics.",
+  );
+  for (const metric of snapshot.operational) {
+    lines.push(`# HELP naigx_${metric.name} ${metric.help}`);
     lines.push(`# TYPE naigx_${metric.name} gauge`);
     lines.push(`naigx_${metric.name} ${String(metric.value)}`);
   }

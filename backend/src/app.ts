@@ -234,6 +234,7 @@ export async function buildApp({
   await app.register(instrumentationRoutes, {
     prisma: database.prisma,
     audit,
+    cipher,
     ...(tracePrisma !== undefined ? { tracePrisma } : {}),
     // D-48. Absent disables `/internal/*` entirely rather than opening it.
     ...(config.operatorToken !== undefined

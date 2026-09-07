@@ -1,0 +1,57 @@
+# Alertmanager — where an alert actually goes (`M-19` Phase 4, `NFR-082`).
+#
+# ⚠️ AN ALERT THAT FIRES INTO NOTHING IS NOT ALERTING. Prometheus evaluating a
+# rule and Alertmanager holding the result changes no one's behaviour; the
+# requirement is met when a human is told. That makes the receiver below the
+# load-bearing part of this file, not the routing.
+#
+# ⚠️ THE WEBHOOK URL IS REQUIRED AND IS NOT VERIFIED BY THIS FILE. Alertmanager
+# starts happily with an unreachable receiver and logs the delivery failure —
+# so "the stack is up" is not evidence that a page would arrive. The deploy
+# checklist in `deploy/README.md` sends a test alert for exactly this reason.
+#
+# D-50 puts one operator on one instance, so there is no on-call rotation to
+# model and no escalation policy to encode. One route, two severities.
+
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: operator
+  # Group by alert so a flapping condition is one thread, not a stream.
+  group_by: [alertname]
+  # Wait briefly before the first notification, so several rules tripping on
+  # the same underlying failure arrive together rather than as a pile.
+  group_wait: 30s
+  group_interval: 5m
+  # ⚠️ Deliberately long. A critical condition that stays broken should nag,
+  # but hourly nagging is how an operator learns to ignore the channel.
+  repeat_interval: 4h
+
+  routes:
+    # Criticals repeat sooner. Each of these is either user-visible or a
+    # promise already broken — see the rule annotations.
+    - matchers:
+        - severity = "critical"
+      receiver: operator
+      repeat_interval: 1h
+
+receivers:
+  - name: operator
+    webhook_configs:
+      # ⚠️ `url_file`, NOT `url: "${NAIGX_ALERT_WEBHOOK}"`. Alertmanager does no
+      # environment expansion in this file — that spelling would post every
+      # alert to the literal string `${NAIGX_ALERT_WEBHOOK}`, fail, and log the
+      # failure somewhere nobody is reading, which is the same outcome as
+      # having no alerting at all while looking configured.
+      #
+      # The URL is written to this path by the compose service from
+      # `NAIGX_ALERT_WEBHOOK`, so the secret stays out of the image and out of
+      # this file.
+      #
+      # Any endpoint that reaches a human works — a chat incoming-webhook, an
+      # email bridge, a phone app. A webhook rather than SMTP because SMTP
+      # needs a relay, a sender domain and deliverability care, all of which
+      # are more moving parts than this deployment should own.
+      - url_file: /etc/alertmanager/webhook-url
+        send_resolved: true
