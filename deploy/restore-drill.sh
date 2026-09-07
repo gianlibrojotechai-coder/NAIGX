@@ -142,7 +142,7 @@ compare_counts() {
 }
 
 compare_counts "$PRIMARY_DB" "$SCRATCH_PRIMARY" \
-  analysis analysis_input classification artifact "user" encryption_key
+  analysis analysis_input classification artifact "user" encryption_key data_format
 compare_counts "$TRACE_DB" "$SCRATCH_TRACE" stage_trace provider_invocation
 echo
 
@@ -166,7 +166,7 @@ else
   log "analysis_id ${SPOT_ID}"
 
   ROW="$(psql_q "$SCRATCH_PRIMARY" \
-    "SELECT length(raw_content), character_count, content_hash IS NOT NULL, left(raw_content, 9)
+    "SELECT length(raw_content_sealed), character_count, content_hash IS NOT NULL, left(raw_content_sealed, 9)
        FROM analysis_input WHERE analysis_id = '${SPOT_ID}';")"
   IFS='|' read -r RAW_LEN CHAR_COUNT HAS_HASH PREFIX <<< "$(echo "$ROW" | tr -d ' ')"
 

@@ -74,9 +74,9 @@ model StageTrace {
   stageNumber      Int      @map("stage_number")
   /// Stage key. The stage vocabulary is unsettled while `AIQ-10` is open.
   stageKey         String   @map("stage_key")
-  structuredInput  Json     @map("structured_input")
+  structuredInput  Json     @map("structured_input_sealed")
   /// Absent when the stage failed before producing output.
-  structuredOutput Json?    @map("structured_output")
+  structuredOutput Json?    @map("structured_output_sealed")
   startedAt        DateTime @default(now()) @map("started_at")
   durationMs       Int      @map("duration_ms")
   /// Vocabulary undefined by every authoritative document — typed as text.

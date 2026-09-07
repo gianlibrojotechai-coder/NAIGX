@@ -78,8 +78,9 @@ These are standing instructions given explicitly. **They override default thorou
 | `docs/29` **D-54** | The edge — same-origin serving, proxy trust, IP-hash salt |
 | `docs/30` **D-55** | Envelope format, the purge outbox, and the mixed backfill window |
 | `docs/31` **D-56** | Monitoring, alerting, and what a drill must produce to count |
+| `docs/32` **D-57** | Rollback across a data-format change — the sealed rename and the startup guard |
 
-**Numbering convention: the next standalone record is `docs/32` D-57.**
+**Numbering convention: the next standalone record is `docs/33` D-58.**
 
 ---
 
@@ -96,7 +97,7 @@ These are the defects that *passed every test* before being caught. They are the
 - **The production image could not start the app, and every test was green.** Prisma 7 emits `.ts` import specifiers and this project compiles with `verbatimModuleSyntax`, so `dist/generated/prisma/client.js` imported `./enums.ts` and `node dist/index.js` died with `ERR_MODULE_NOT_FOUND` before one line of application code. Invisible because `dev`, `test` and every CLI script run through **tsx**, which resolves `.ts` happily — only `npm start` and the container's `CMD` take that path. **Phase 1 verified PDF rendering and the migration paths inside this very image and still never ran its entrypoint.** Fixed with `importFileExtension = "js"` on both generators. If you change anything in the build, run the compiled output, not the source.
 - **Caddy sorts directives by its own order, not file order.** `handle` outranks a bare `respond`, so `respond @internal 404` written outside a `handle` block never ran — the catch-all `handle` matched first, was terminal, and served `index.html` with a **200** from `/internal/metrics`. It reads correctly top-to-bottom. Put every mutually-exclusive case in a `handle` block.
 - **Grepping a Vite bundle for the fallback string reports failure on a correct build.** `import.meta.env["VITE_API_BASE_URL"] ?? "http://localhost:3000"` compiles to a member read on an inlined object, so the default **stays in the output as text** even when the override worked. What discriminates is whether the inlined object *defines the key*.
-- **Rolling back past the encryption boundary is a data-visibility incident, not a rollback** (D-56 §6). The pre-encryption build starts against the current schema, passes its health check, and serves every user a base64 envelope where their document should be — **without erroring**. The schema rolls back cleanly; the data format does not, and the schema check that usually stands in for rollback safety does not see it.
+- **A schema-compatibility check cannot see a DATA-FORMAT change, and `SA §9.3` only asks for the former** (D-57). The pre-encryption build started against the current schema, passed its health check, and served every user a base64 envelope where their document should be — **without erroring**, because the Phase 3 migration was perfectly additive and the schema rolled back fine. ⚠️ **Fixed in Phase 4a:** the sealed columns were renamed so old builds get `42703 undefined_column` instead of ciphertext, and a `data_format` version now refuses startup when the data is newer than the build. The general lesson stands — **when the meaning of stored bytes changes, rename the column**; a purely additive migration is exactly what makes the misread silent.
 - **`set -euo pipefail` kills a script inside a command substitution BEFORE it can print its own diagnostic.** Two defects in `restore-drill.sh` had this shape — the primary-only-backup case exited 2 with no output at all, on exactly the failure it was written to report clearly. Add `|| true` to any substitution whose failure you intend to *handle*.
 - **An alert on a misspelled series never fires, and Prometheus never says so.** It evaluates to an empty vector, indistinguishable from "the condition is not met". `naigx_full_analysis_p95` vs `naigx_full_analysis_latency_p95` cost exactly that; `tests/unit/alert-rules.test.ts` now checks the rules against the renderer's real output.
 - **`request.ip` is meaningless until proxy trust is decided, and both defaults are wrong** (D-54 §4). Off behind a proxy → one global rate-limit bucket for everyone. On without one → `X-Forwarded-For` is client-supplied and the per-IP limit stops existing. Neither announces itself.
@@ -190,14 +191,25 @@ Its criterion is **"production deploy with monitoring, alerting, and verified ro
 | Gap | Why it is open |
 |---|---|
 | **No production deployment** | No host, no domain. Everything below follows from this |
-| **Rollback drill NOT done** | D-50 §4 requires it *on production*. Only rehearsed — [ROLLBACK-DRILL-LOG](deployment/ROLLBACK-DRILL-LOG.md) |
+| **Rollback drill NOT done** | D-50 §4 requires it *on production*. Only rehearsed. ✅ The blocker it surfaced is **fixed** (D-57) — a rollback past the encryption boundary now fails loudly instead of serving envelopes — but the drill itself is unattempted: [ROLLBACK-DRILL-LOG](deployment/ROLLBACK-DRILL-LOG.md) |
 | **Restore drill was on dev data** | Mechanism proven; D-51 §4's obligation needs a real backup of deployed data |
 | **Off-host backup storage** | A property of where `NAIGX_BACKUP_DIR` points. No script can check it |
 | **TLS unverified** | No certificate has ever been issued (Phase 2) |
 | **KMS unverified** | 4 skipped tests; no credentials (Phase 3) |
 | **Alert delivery to a real person** | Verified as a mechanism. Alertmanager starts happily with an unreachable receiver — a first-deploy check |
 
-⚠️ **The rehearsal found one thing to know before any rollback is attempted:** rolling back past the Phase 3 encryption boundary is a **data-visibility incident, not a rollback**. The pre-encryption build starts, passes its health check, and hands every user a base64 envelope where their document should be — without erroring. See §5.
+### ✅ Phase 4a — the rollback/encryption incompatibility, fixed *(done)*
+
+Recorded as **[D-57](32-D-57-Rollback-Across-A-Data-Format-Change.md)**. The rehearsal's finding was that a pre-encryption build starts, passes its health check, and hands every user a base64 envelope **without erroring** — and `SA §9.3` could not catch it, because the schema rolled back perfectly and only the *meaning of the bytes* had changed.
+
+Two mechanisms, because neither covers both directions:
+
+1. **The sealed columns were renamed** — `raw_content_sealed`, `structured_input_sealed`, `structured_output_sealed`. Builds that already exist cannot be changed, so the data is unreachable under the name they ask for. **Verified**: the Phase 2 image now gets `The column analysis_input.raw_content does not exist` on both stores. Application code untouched — only Prisma ``.
+2. **A `data_format` version checked at startup**, for builds that do not exist yet. **Verified**: stored version 3 against this build produces `DataFormatTooNewError` and a non-zero exit, before a single request.
+
+⚠️ **The deployable floor is now the first build that reads `*_sealed`.** Rolling back past it fails visibly. That is the correct trade — fail instead of lie — and it is a real constraint on release planning.
+
+⚠️ **This unblocks attempting the drill. It does not perform one.**
 
 ---
 
@@ -223,7 +235,7 @@ Its criterion is **"production deploy with monitoring, alerting, and verified ro
 
 ```bash
 # backend (from backend/)
-npm test              # 891 tests, 885 pass, 0 fail, 6 skipped
+npm test              # 897 tests, 891 pass, 0 fail, 6 skipped
 npm run typecheck
 npm run lint
 npm run format:check

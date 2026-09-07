@@ -331,7 +331,7 @@ model AnalysisInput {
   analysisId       String     @id @map("analysis_id") @db.Uuid
   /// Classified Confidential business (§13.2) — application-level encryption,
   /// never logged, never in telemetry. `DBQ-8` governs the mechanism.
-  rawContent       String     @map("raw_content")
+  rawContent       String     @map("raw_content_sealed")
   contentHash      String     @map("content_hash")
   /// `FR-002` bounds: 50–50,000. Enforced by CHECK in the migration.
   characterCount   Int        @map("character_count")
@@ -1039,4 +1039,33 @@ model TracePurgeOutbox {
 
   @@index([failedAt, enqueuedAt])
   @@map("trace_purge_outbox")
+}
+
+/// The data-format version this database is written in (`M-19` Phase 4a).
+///
+/// ⚠️ THIS EXISTS SO A ROLLBACK FAILS AT STARTUP INSTEAD OF AT THE USER.
+/// The Phase 4 rehearsal found that a pre-encryption build starts cleanly
+/// against sealed data, passes its health check, and serves every user a base64
+/// envelope where their document should be — silently. The schema rolls back
+/// fine; the *data format* does not, and no schema check can see that.
+///
+/// The application compares this against the highest format it can read and
+/// **refuses to start** when the stored value is higher — see
+/// `src/db/data-format.ts`.
+///
+///   1 = plaintext (pre-Phase 3)
+///   2 = envelope encryption, sealed column names
+///
+/// ⚠️ ONE ROW, ENFORCED BY A CHECK. Two rows would make "the current format"
+/// ambiguous and the guard would compare against whichever it read first.
+///
+/// It lives in the PRIMARY store only. The format spans both databases, but it
+/// is one deployment-wide fact; a copy in each store is a pair that can
+/// disagree.
+model DataFormat {
+  id        Int      @id @default(1)
+  version   Int
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  @@map("data_format")
 }

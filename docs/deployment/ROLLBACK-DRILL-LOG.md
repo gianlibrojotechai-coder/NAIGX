@@ -55,6 +55,33 @@ usually stands in for rollback safety does not see it.
 > to a build that still contains `src/crypto/`, or restore a pre-backfill dump —
 > and a pre-backfill dump is only useful inside the 7-day retention window.
 
+### ✅ RESOLVED 2026-09-07 — the silent misread is now impossible
+
+Recorded as **[D-57](../32-D-57-Rollback-Across-A-Data-Format-Change.md)**. Two
+mechanisms, because neither covers both directions:
+
+1. **The sealed columns were renamed** (`raw_content_sealed`,
+   `structured_input_sealed`, `structured_output_sealed`). Builds that already
+   exist cannot be changed, so the data is made unreachable under the name they
+   ask for. Re-verified against the Phase 2 image:
+
+   ```
+   ✅ REFUSED: The column `analysis_input.raw_content` does not exist in the current database.
+   ✅ REFUSED: The column `stage_trace.structured_input` does not exist in the current database.
+   ```
+
+2. **A `data_format` version, checked at startup.** Protects the *next*
+   rollback rather than that one — a build refuses to start against data newer
+   than it understands, before serving a request. Verified by setting the
+   stored version to 3 and observing `DataFormatTooNewError`.
+
+The failure mode is now: **fails loudly, immediately, with an actionable
+message** — instead of starting cleanly and serving envelopes.
+
+⚠️ **This removes the blocker on attempting a rollback drill. It does not
+perform one**, and it does not make rolling back past the encryption boundary
+possible — it makes it fail instead of lie.
+
 ### What the rehearsal does not establish
 
 - Nothing about the actual host, its volumes, or its migration state — D-50 §4
@@ -74,7 +101,14 @@ with a date, the same way the restore drill is recorded.
 ```bash
 C=(docker compose -f docker-compose.prod.yml --env-file deploy/.env)
 
-# 0. Note the release currently deployed, and take a dump first. A rollback
+# 0. ⚠️ CHECK THE DEPLOYABLE FLOOR FIRST (D-57 §4). The target release must
+#    read the CURRENT data format. Rolling back below the floor now fails
+#    loudly rather than serving envelopes — but it still fails, so confirm the
+#    target is at or above it before starting:
+#      docker run --rm <target-image> node -e "import('/app/dist/db/data-format.js').then(m=>console.log(m.SUPPORTED_DATA_FORMAT))"
+#    Compare against: SELECT version FROM data_format;
+#
+#    Note the release currently deployed, and take a dump first. A rollback
 #    drill without a fresh backup is a bet, not a drill.
 docker image inspect naigx-backend:latest --format '{{index .RepoDigests 0}}'
 "${C[@]}" exec postgres bash /usr/local/bin/naigx-backup once

@@ -28,13 +28,18 @@ self-hosted PostgreSQL per [D-51](../docs/26-D-51-Self-Hosted-PostgreSQL.md).
 ### ⚠️ What is NOT verified
 
 **The rollback drill has not happened.** [D-50](../docs/25-D-50-Deployment-Topology.md) §4
-requires it on the production deployment, which does not exist. The rehearsal
-found one thing worth knowing before any rollback is attempted:
+requires it on the production deployment, which does not exist.
 
-> ⚠️ **Rolling back past the Phase 3 encryption boundary is a data-visibility
-> incident, not a rollback.** The pre-encryption build starts fine against the
-> current schema, passes its health check — and serves every user a base64
-> envelope where their document should be, without erroring.
+The rehearsal found a real incompatibility, and it has since been **fixed**
+([D-57](../docs/32-D-57-Rollback-Across-A-Data-Format-Change.md)): rolling back
+past the Phase 3 encryption boundary used to start cleanly and serve base64
+envelopes without erroring. The sealed columns are now renamed so an old build
+gets `42703 undefined_column`, and a `data_format` version refuses startup when
+the data is newer than the build.
+
+> ⚠️ **The deployable floor is the first build that reads the `*_sealed`
+> columns.** Rolling back past it fails visibly rather than silently — check
+> the floor before attempting any rollback (D-57 §4).
 
 **The restore drill ran against the development database.** The mechanism is
 proven; the obligation is not discharged until a drill runs against a real

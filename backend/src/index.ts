@@ -12,6 +12,10 @@ import { buildApp } from "./app.js";
 import { loadConfig } from "./config/env.js";
 import { loadCipher } from "./crypto/index.js";
 import { createDatabase } from "./db/client.js";
+import {
+  assertDataFormatReadable,
+  SUPPORTED_DATA_FORMAT,
+} from "./db/data-format.js";
 import { createTraceDatabase } from "./db/trace-client.js";
 import { createFragmentResolver } from "./db/fragment-resolver.js";
 import { createAnthropicProvider } from "./provider/adapters/anthropic.js";
@@ -104,6 +108,14 @@ function liveProvider(config: AppConfig): SelectedProvider {
 const main = async (): Promise<void> => {
   const config = loadConfig();
   const database = createDatabase(config);
+
+  // --- can this build read what is stored? ---------------------------------
+  //
+  // ⚠️ FIRST, BEFORE THE KEY AND BEFORE THE APP. A build older than the data
+  // must not reach the point of serving a request: the Phase 4 rehearsal showed
+  // a pre-encryption build starting cleanly and handing users base64 envelopes
+  // where their documents should be, silently. One cheap query decides it.
+  const dataFormat = await assertDataFormatReadable(database.prisma);
 
   // --- the data key, before anything that could need it --------------------
   //
@@ -277,6 +289,13 @@ const main = async (): Promise<void> => {
   app.log.info(
     { provider: providerName, keyVersion: currentVersion },
     "Field encryption active",
+  );
+
+  // Stated so the deployable floor is visible in the log rather than inferred
+  // from a migration nobody is reading during an incident.
+  app.log.info(
+    { stored: dataFormat, supported: SUPPORTED_DATA_FORMAT },
+    "Data format",
   );
 
   // --- scheduled maintenance ------------------------------------------------
