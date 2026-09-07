@@ -30,6 +30,11 @@ import { registerAuthentication } from "./http/authenticate.js";
 import { createRateLimiter, type RateLimiter } from "./auth/rate-limit.js";
 import { createSessionService } from "./auth/sessions.js";
 import { createAuditSink } from "./db/audit-sink.js";
+import { historyRoutes } from "./routes/history.js";
+import {
+  createTracePurgeQueue,
+  type TracePurgeQueue,
+} from "./db/trace-purge.js";
 
 /**
  * `DB §4.2` `ANALYSIS_INPUT.content_hash`.
@@ -82,6 +87,14 @@ export interface AppDependencies {
   readonly now?: () => Date;
   /** Shared so a test can inspect or reset it. */
   readonly rateLimiter?: RateLimiter;
+  /**
+   * The cross-store purge queue (`DB §5.4`).
+   *
+   * Injected so a test can drain it deterministically instead of waiting on a
+   * timer, and so the trace store is supplied by the composition root — this
+   * module never opens a connection.
+   */
+  readonly tracePurge?: TracePurgeQueue;
 }
 
 export async function buildApp({
@@ -96,6 +109,7 @@ export async function buildApp({
   ipSecret = "naigx-dev-ip-secret",
   now = () => new Date(),
   rateLimiter = createRateLimiter(),
+  tracePurge,
 }: AppDependencies): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
@@ -163,6 +177,23 @@ export async function buildApp({
     rateLimiter,
     audit,
     now,
+  });
+
+  await app.register(historyRoutes, {
+    prisma: database.prisma,
+    audit,
+    // Without a trace store wired, the queue accepts instructions and drops
+    // them on drain — an instance with no trace connection still honours the
+    // primary-store half of `FR-073`, which is the half the user's request
+    // depends on. `DB §5.4` step 1.
+    tracePurge:
+      tracePurge ??
+      createTracePurgeQueue({
+        client: {
+          stageTrace: { deleteMany: () => Promise.resolve({ count: 0 }) },
+        },
+        audit,
+      }),
   });
 
   // `API-040`. Registered after the analysis routes it reads through.

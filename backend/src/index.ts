@@ -24,7 +24,28 @@ import {
   isMetered,
   resolveExecutionMode,
 } from "./orchestrator/execution-mode.js";
+import { createTracePurgeQueue } from "./db/trace-purge.js";
+import { createAuditSink } from "./db/audit-sink.js";
+import { sweepExpiredAnonymousAnalyses } from "./db/anonymous-expiry.js";
 import type { AppConfig } from "./config/env.js";
+
+/**
+ * How often the cross-store purge drains (`DB §5.4` step 3).
+ *
+ * Frequent, because the work is small and the promise is a deletion the user
+ * has already been told is happening. The stated window is 24 hours; this runs
+ * every minute so the window is a bound rather than a target.
+ */
+const TRACE_PURGE_INTERVAL_MS = 60_000;
+
+/**
+ * How often expired unclaimed analyses are swept (`DBQ-6`).
+ *
+ * Hourly. The expiry period is 7 days, so the sweep's own frequency changes
+ * nothing about what expires — only how promptly. Hourly keeps the deletion
+ * close to the promise without a query that earns nothing running constantly.
+ */
+const ANONYMOUS_SWEEP_INTERVAL_MS = 60 * 60_000;
 
 const HOST = "0.0.0.0";
 
@@ -171,11 +192,31 @@ const main = async (): Promise<void> => {
     },
   });
 
+  /**
+   * `DB §5.4` — the cross-store purge, wired to the real trace store.
+   *
+   * The app registers a no-op queue when none is supplied; this is the one
+   * that actually deletes. Drained on a timer rather than per request, because
+   * `DB §5.4` step 1 honours the user's request in the primary store and
+   * everything after it is operator-side cleanup.
+   */
+  const tracePurge = createTracePurgeQueue({
+    client: traceDatabase.prisma,
+    audit: createAuditSink({ prisma: database.prisma }),
+    onError: (error) => {
+      // A failed purge retries; a persistent one is audited as failed. Either
+      // way it must be visible in the log, because the user was told it would
+      // happen.
+      app.log.error({ err: error }, "trace purge attempt failed");
+    },
+  });
+
   const app = await buildApp({
     config,
     database,
     checkProvider,
     checkTemplates,
+    tracePurge,
     startExecution: (analysisId) => {
       // Opened before execution starts so a client that connects immediately
       // finds a log rather than a 410. `API-020` returns before reasoning
@@ -202,6 +243,45 @@ const main = async (): Promise<void> => {
     "Analysis execution mode",
   );
 
+  // --- scheduled maintenance ------------------------------------------------
+  //
+  // Two sweeps, both unreferenced so neither by itself holds the process open
+  // at shutdown, and both cleared before the server closes.
+
+  /** `DB §5.4` step 3 — "purged asynchronously with retry until confirmed". */
+  const purgeTimer = setInterval(() => {
+    void tracePurge.drain().then(({ purged, failed }) => {
+      if (purged > 0 || failed > 0) {
+        app.log.info({ purged, failed }, "Trace purge drained");
+      }
+    });
+  }, TRACE_PURGE_INTERVAL_MS);
+  purgeTimer.unref();
+
+  /**
+   * `DBQ-6` / `DB §5.5` — unclaimed anonymous analyses expire on a fixed
+   * schedule ([D-45](../../docs/20-D-45-Anonymous-Expiry-And-Token-Lifetime.md)).
+   *
+   * ⚠️ THE 22 PRE-MIGRATION ROWS ARE EXEMPT, and the exemption lives in the
+   * sweep's WHERE clause rather than here — see `src/db/anonymous-expiry.ts`.
+   * Nothing in this scheduler can widen it.
+   */
+  const expiryTimer = setInterval(() => {
+    void sweepExpiredAnonymousAnalyses(database.prisma, new Date())
+      .then(({ deleted, cutoff }) => {
+        if (deleted > 0) {
+          app.log.info(
+            { deleted, cutoff: cutoff.toISOString() },
+            "Expired unclaimed anonymous analyses",
+          );
+        }
+      })
+      .catch((error: unknown) => {
+        app.log.error({ err: error }, "anonymous expiry sweep failed");
+      });
+  }, ANONYMOUS_SWEEP_INTERVAL_MS);
+  expiryTimer.unref();
+
   let shuttingDown = false;
 
   const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
@@ -213,8 +293,18 @@ const main = async (): Promise<void> => {
     app.log.info({ signal }, "Shutting down");
 
     try {
+      clearInterval(purgeTimer);
+      clearInterval(expiryTimer);
+
       // Stop accepting requests before releasing the resources they depend on.
       await app.close();
+
+      // One last drain, so a deletion accepted seconds before shutdown is not
+      // silently dropped. Bounded by the queue itself; a failure here is
+      // logged and does not block the shutdown.
+      await tracePurge.drain().catch((error: unknown) => {
+        app.log.error({ err: error }, "final trace purge failed");
+      });
       await database.disconnect();
       await traceDatabase.disconnect();
       process.exit(0);
