@@ -77,37 +77,41 @@ test("the stated window is a bound the user is told about", () => {
 test("DB §5.4 — enqueue accepts, drain purges, completion is audited", async () => {
   const { queue, deleted, events } = harness();
 
-  queue.enqueue({
+  await queue.enqueue({
     analysisIds: ["a", "b"],
     userId: "user-1",
     correlationId: "corr-1",
   });
-  assert.equal(queue.pending, 1);
+  assert.equal(await queue.pending(), 1);
 
   const result = await queue.drain();
 
   assert.deepEqual(deleted, [["a", "b"]]);
   assert.equal(result.purged, 2);
-  assert.equal(queue.pending, 0);
+  assert.equal(await queue.pending(), 0);
   assert.deepEqual(events, [
     { eventType: "trace.purged", outcome: "success", userId: "user-1" },
   ]);
 });
 
-test("an empty instruction is not queued", () => {
+test("an empty instruction is not queued", async () => {
   const { queue } = harness();
-  queue.enqueue({ analysisIds: [], userId: "u", correlationId: null });
-  assert.equal(queue.pending, 0);
+  await queue.enqueue({ analysisIds: [], userId: "u", correlationId: null });
+  assert.equal(await queue.pending(), 0);
 });
 
 test("DB §5.4 — a failure retries rather than dropping the instruction", async () => {
   const { queue, deleted } = harness({ failTimes: 1 });
 
-  queue.enqueue({ analysisIds: ["a"], userId: "u", correlationId: null });
+  await queue.enqueue({ analysisIds: ["a"], userId: "u", correlationId: null });
 
   const first = await queue.drain();
   assert.equal(first.purged, 0);
-  assert.equal(queue.pending, 1, "the instruction was dropped on failure");
+  assert.equal(
+    await queue.pending(),
+    1,
+    "the instruction was dropped on failure",
+  );
 
   const second = await queue.drain();
   assert.equal(second.purged, 1);
@@ -120,11 +124,11 @@ test("a retry does not spin inside one drain", async () => {
   // loop forever inside a single call.
   const { queue } = harness({ failTimes: 99 });
 
-  queue.enqueue({ analysisIds: ["a"], userId: "u", correlationId: null });
+  await queue.enqueue({ analysisIds: ["a"], userId: "u", correlationId: null });
 
   const result = await queue.drain();
   assert.equal(result.purged, 0);
-  assert.equal(queue.pending, 1);
+  assert.equal(await queue.pending(), 1);
 });
 
 test("a persistent failure is recorded, not swallowed", async () => {
@@ -132,13 +136,13 @@ test("a persistent failure is recorded, not swallowed", async () => {
   // audit trail says otherwise.
   const { queue, events } = harness({ failTimes: 99, maxAttempts: 2 });
 
-  queue.enqueue({ analysisIds: ["a"], userId: "u", correlationId: null });
+  await queue.enqueue({ analysisIds: ["a"], userId: "u", correlationId: null });
 
   await queue.drain();
   const final = await queue.drain();
 
   assert.equal(final.failed, 1);
-  assert.equal(queue.pending, 0);
+  assert.equal(await queue.pending(), 0);
   assert.deepEqual(events, [
     { eventType: "trace.purge_failed", outcome: "failed", userId: "u" },
   ]);
@@ -148,7 +152,11 @@ test("a purge for a deleted user records no identity", async () => {
   // `FR-073` removed the user; the audit event survives without them.
   const { queue, events } = harness();
 
-  queue.enqueue({ analysisIds: ["a"], userId: null, correlationId: null });
+  await queue.enqueue({
+    analysisIds: ["a"],
+    userId: null,
+    correlationId: null,
+  });
   await queue.drain();
 
   assert.equal(events[0]?.userId, null);

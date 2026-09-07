@@ -45,7 +45,7 @@ These are standing instructions given explicitly. **They override default thorou
 | **M-16** Instrumentation | **Complete.** 7 automatable metrics report real values; M-6/M-8/M-9 stay manual |
 | **M-17** Accessibility | **Implemented, NOT verified.** 4 violations fixed, axe running. The manual WCAG walk is unwalked |
 | **M-18** Security | **Reviewed, NOT passed.** `NFR-027` found and fixed; `DB §13.1` app-level encryption unresolved |
-| **M-19** Deployment | **Phases 1–2 of 4 done.** See §7 |
+| **M-19** Deployment | **Phases 1–3 of 4 done.** See §7 |
 | **M-20** Performance | Unstarted |
 
 ### Sprint 5 deliverables still outstanding
@@ -72,8 +72,9 @@ These are standing instructions given explicitly. **They override default thorou
 | `docs/27` **D-52** | Managed KMS (AWS), envelope encryption |
 | `docs/28` **D-53** | Both encryption layers, told apart; closes `DBQ-8` |
 | `docs/29` **D-54** | The edge — same-origin serving, proxy trust, IP-hash salt |
+| `docs/30` **D-55** | Envelope format, the purge outbox, and the mixed backfill window |
 
-**Numbering convention: the next standalone record is `docs/30` D-55.**
+**Numbering convention: the next standalone record is `docs/31` D-56.**
 
 ---
 
@@ -91,6 +92,10 @@ These are the defects that *passed every test* before being caught. They are the
 - **Caddy sorts directives by its own order, not file order.** `handle` outranks a bare `respond`, so `respond @internal 404` written outside a `handle` block never ran — the catch-all `handle` matched first, was terminal, and served `index.html` with a **200** from `/internal/metrics`. It reads correctly top-to-bottom. Put every mutually-exclusive case in a `handle` block.
 - **Grepping a Vite bundle for the fallback string reports failure on a correct build.** `import.meta.env["VITE_API_BASE_URL"] ?? "http://localhost:3000"` compiles to a member read on an inlined object, so the default **stays in the output as text** even when the override worked. What discriminates is whether the inlined object *defines the key*.
 - **`request.ip` is meaningless until proxy trust is decided, and both defaults are wrong** (D-54 §4). Off behind a proxy → one global rate-limit bucket for everyone. On without one → `X-Forwarded-For` is client-supplied and the per-IP limit stops existing. Neither announces itself.
+- **Encryption code that is subtly wrong still round-trips.** A reused IV round-trips. A truncated tag round-trips. Unauthenticated version metadata round-trips. So a seal/open test proves almost nothing on its own — `tests/unit/envelope.test.ts` is mostly assertions about what a round trip does *not* show, and the same logic applies to any crypto added later.
+- **A test that builds the app without a cipher proves nothing about encryption.** `buildApp` defaults to a pass-through cipher so unrelated unit tests need no key. That default silently made the `FR-062` search test pass over plaintext columns production does not have. Suites that touch the three encrypted fields must pass `createTestCipher()` — and the seed data must be sealed too, or the test still runs on plaintext.
+- **A half-finished encryption backfill is invisible.** Reads accept plaintext (they must, or the service breaks mid-migration), so an unsealed table behaves exactly like a sealed one. `npm run encrypt:status` is the *only* signal, and `DB §13.1` row 3 is not met until it reports zero.
+- **A one-shot compose service that runs `npx tsx` cannot work.** The runtime image prunes dev dependencies and ships no `scripts/` directory. Operational entry points belong in `src/` so they compile into `dist/` — caught before shipping only because the image was actually run.
 
 ---
 
@@ -107,17 +112,22 @@ These are the defects that *passed every test* before being caught. They are the
 
 ---
 
-## 7. THE NEXT STEP — M-19 Phase 3
+## 7. THE NEXT STEP — M-19 Phase 4
 
-**Four phases, owner-approved. Phases 1 and 2 are committed.**
+**Four phases, owner-approved. Phases 1, 2 and 3 are committed.**
 
-The owner has taken the **KMS prerequisite** for Phase 3 (an AWS account and
-credentials). Build the envelope-encryption implementation behind the provider
-interface with an offline test double, and mark real KMS integration
-**unverified until credentials exist and an actual integration test passes**.
-Before provisioning a real key, **verify the provider's current official
-pricing** — D-52's ~$1/month is a decision-record estimate from its date, not a
-standing guarantee.
+⚠️ **THE ONE THING CARRIED INTO PHASE 4 FROM PHASE 3:** the KMS prerequisite is
+the owner's and they have taken it, but **no credentials exist yet**, so the
+encryption layer is implemented and unverified. When the AWS account exists:
+
+```bash
+NAIGX_KMS_LIVE_TEST=1 NAIGX_KMS_KEY_ID=alias/naigx NAIGX_KMS_REGION=<region> npm test
+```
+
+Four skipped tests must turn green. Until then, do **not** report `DB §13.1`
+row 3 as satisfied, and do not close `M-18` H-2. Re-read the official pricing
+page before creating the key — the figures in D-52 §3 were re-verified on
+2026-09-08 and are an estimate on their date, not a guarantee.
 
 ### ✅ Phase 1 — containerisation, non-root, Linux Chromium *(done)*
 
@@ -137,15 +147,23 @@ Recorded as **[D-54](29-D-54-Edge-Topology-And-Proxy-Trust.md)**. Deploy guide: 
 
 **Three defects this phase caught — all had passed a plausible check first.** See §5.
 
-### ▶ Phase 3 — encryption + durable purge queue *(next)*
+### ✅ Phase 3 — encryption + durable purge queue *(done)*
 
-- Envelope encryption (D-52/D-53) on `raw_content`, `structured_input`, `structured_output`. Migration touches **both stores**.
-- ⚠️ **Encrypting `raw_content` breaks `FR-062` search.** `routes/history.ts:171` substring-matches that column in SQL and a database cannot match ciphertext — it would fail **silently**, returning empty results. D-53 §4 resolves it by decrypting and filtering in the application; semantics unchanged, search becomes `O(user's analyses)`.
-- Durable purge queue behind the existing `TracePurgeQueue` interface (a Postgres table). No API change.
-- **⚠️ THE KMS PREREQUISITE IS THE OWNER'S, AND THEY HAVE TAKEN IT** (2026-09-08). Build the provider interface and an offline test double so the logic and migration are testable now; flag live-KMS integration **unverified until credentials exist and a real integration test passes**. Do not substitute a local key to make it green — D-52 §4 forbids exactly that.
-- **Check the price before provisioning.** D-52's ~$1/month is that record's estimate on its date, not a standing guarantee. Verify the provider's current official pricing and the expected usage against it first.
+Recorded as **[D-55](30-D-55-Envelope-Format-And-Purge-Outbox.md)**, implementing D-52/D-53.
 
-### Phase 4 — monitoring, alerting, rollback drill, data policy
+**Encryption.** `src/crypto/` — AES-256-GCM envelope (`naigx.v1.<version>.<iv>.<tag>.<ct>`), a two-method `KeyProvider`, an AWS KMS adapter, an offline double, and a multi-version key ring. Sealed at three boundaries only: `routes/analyses.ts` writes `raw_content`, `db/stage-trace-sink.ts` writes both `structured_*`, and nothing else touches those columns. Opened in `execute-analysis.ts`, the `FR-062` search, and the `API-014` export. The key ring loads at startup and the process **refuses to start** if KMS is unreachable.
+
+**Search.** Decrypt-and-filter per D-53 §4 — and **proved by differential**: restoring the old SQL `contains` predicate makes the `FR-062` test fail with a silently empty page, which is exactly the failure D-53 predicted.
+
+**Purge queue.** `trace_purge_outbox` in the **primary** store, written in the *same transaction* as the deletion (all three delete routes in `history.ts` now use `$transaction`). `enqueue` became async and takes that transaction — same interface, same single swap point, **no API contract change**.
+
+**Backfill.** `npm run encrypt:{init,status,backfill}` (`src/ops/encrypt.ts`, compiled — the runtime image has no `tsx`). Verified against the real dev database: 3 inputs + 368 stage traces sealed, re-read correctly, idempotent on a second run, `status` reports zero plaintext.
+
+⚠️ **KMS IS UNVERIFIED.** `providers/aws-kms.ts` has never made a real call. Everything else is proved against the offline double — evidence about the *interface*, none about the *service*. `tests/integration/kms-live.test.ts` is the only thing that discharges it, and it **skips**. `DB §13.1` row 3 is *implemented, not verified*; **`M-18` H-2 stays open** (D-53 §6: it closes when both layers are deployed and verified, not when code merges).
+
+**Pricing re-verified** 2026-09-08 against the official page: $1/month per key, 20,000 free requests — unchanged from D-52 §3. One nuance recorded: the free tier excludes asymmetric and `GenerateDataKeyPair` operations, and this design uses neither.
+
+### ▶ Phase 4 — monitoring, alerting, rollback drill, data policy *(next)*
 
 - `/internal/metrics` **already emits Prometheus text format** (M-16), so scraping is nearly free.
 - Alerting per `NFR-082`, `NFR-085`.
@@ -167,7 +185,8 @@ Recorded as **[D-54](29-D-54-Edge-Topology-And-Proxy-Trust.md)**. Deploy guide: 
 | **Do not implement `platform_recommendation`** / expand `business_requirement`. | Owner, explicit |
 | **No frontend test infrastructure (no Vitest).** axe runs under `node:test`, which is not an exception to this. | Owner, explicit |
 | **No unrelated Sprint 3/4 rework.** | Owner, explicit |
-| **Do not close `NFR-021`/`DB §13.1` with a key in `.env` or OpenBao.** | **D-52** §4, owner explicit |
+| **Do not close `NFR-021`/`DB §13.1` with a key in `.env` or OpenBao.** Two gates enforce this in code; do not remove either. | **D-52** §4, owner explicit |
+| **`DB §13.1` row 3 is implemented, NOT verified.** KMS has never been called. 4 skipped tests are the only thing that can discharge it. | **D-55** §9, owner explicit |
 | **Do not implement `API-071`/`072`/`073`.** Operator auth existing is not a licence. | **D-48** §5 |
 | **M-17 is not passed on a green axe run**; the manual walk is required. | **D-49** §3.3 |
 | **M-18 is not passed**, and must not be described as an independent review. | Owner, explicit |
@@ -178,7 +197,7 @@ Recorded as **[D-54](29-D-54-Edge-Topology-And-Proxy-Trust.md)**. Deploy guide: 
 
 ```bash
 # backend (from backend/)
-npm test              # 853 tests, 851 pass, 0 fail, 2 skipped
+npm test              # 886 tests, 880 pass, 0 fail, 6 skipped
 npm run typecheck
 npm run lint
 npm run format:check
@@ -192,11 +211,11 @@ npm run lint && npm run build
 node tools/boundary-checks/check.mjs   # 8 enforcing · 0 failing
 ```
 
-**The 2 skips are the live-provider tests** (`LIVE_PROVIDER_TESTS=1` + a key), and they must stay skipped under the no-spend constraint.
+**The 6 skips are 2 live-provider tests** (`LIVE_PROVIDER_TESTS=1` + a key, which must stay skipped under the no-spend constraint) **and 4 live-KMS tests** (`NAIGX_KMS_LIVE_TEST=1` + real credentials). ⚠️ The KMS four are the only evidence that the real key service works, and while they skip, `DB §13.1` row 3 is implemented but UNVERIFIED.
 
 **Docker must be running** or the Postgres-backed and browser-backed suites skip. A skip means *not checked*, never *passed* — if the skip count rises above 2, start Docker before reading the result.
 
-**Container checks (Phases 1–2):**
+**Container checks (Phases 1–3):**
 
 ⚠️ The differential must call **`renderPdf`, not `findBrowser`**. `findBrowser`
 only locates the binary and **succeeds without the profile too** — it cannot

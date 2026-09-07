@@ -55,6 +55,7 @@ import {
   type ClassificationType,
 } from "../nie/contracts.js";
 import { sendSuccess } from "../http/responses.js";
+import type { FieldCipher } from "../crypto/data-key.js";
 import type { PrismaClient } from "../generated/prisma/client.js";
 
 /** `FR-002` — the bounds the migration also enforces with a CHECK. */
@@ -63,6 +64,14 @@ export const CONTENT_MAX = 50_000;
 
 export interface AnalysisRouteOptions {
   readonly prisma: PrismaClient;
+  /**
+   * Seals `raw_content` on write
+   * ([D-53](../../../docs/28-D-53-Encryption-Layers.md) §2).
+   *
+   * This route is the ONLY writer of that column, which is what keeps the
+   * encryption boundary to one line rather than an audit of every writer.
+   */
+  readonly cipher: FieldCipher;
   /** Injected so the content hash is testable without importing crypto here. */
   readonly hashContent: (content: string) => string;
   /**
@@ -265,7 +274,7 @@ function requireAccess(
 
 export const analysisRoutes: FastifyPluginAsync<AnalysisRouteOptions> = (
   app,
-  { prisma, hashContent, startExecution, eventLog, retryArtifact },
+  { prisma, cipher, hashContent, startExecution, eventLog, retryArtifact },
 ) => {
   // --- API-020 — create ---------------------------------------------------
   app.post("/analyses", async (request, reply) => {
@@ -353,8 +362,17 @@ export const analysisRoutes: FastifyPluginAsync<AnalysisRouteOptions> = (
         ...(supersedesAnalysisId !== undefined ? { supersedesAnalysisId } : {}),
         input: {
           create: {
-            rawContent: content,
+            // Sealed at the boundary ([D-53](../../docs/28-D-53-Encryption-Layers.md) §2).
+            // This is the only place `raw_content` is written.
+            rawContent: cipher.seal(content),
+            // ⚠️ HASHED FROM THE PLAINTEXT, NOT THE ENVELOPE. `content_hash`
+            // is what duplicate detection and regression-corpus matching key
+            // on, and every seal of the same text produces different bytes
+            // because the IV is random. Hashing the sealed form would make
+            // every submission unique and silently disable both.
             contentHash: hashContent(content),
+            // Likewise the plaintext's length. The envelope is longer, and
+            // `FR-002`'s 50–50,000 bounds are about the document.
             characterCount: content.length,
             sourceType,
           },

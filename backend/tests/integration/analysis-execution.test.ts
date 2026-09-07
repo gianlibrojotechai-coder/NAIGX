@@ -15,8 +15,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { createAnalysisExecutor } from "../../src/orchestrator/execute-analysis.js";
+import { createTestCipher } from "../helpers/cipher.js";
 import type { PipelineResult } from "../../src/nie/contracts.js";
 import type { PrismaClient } from "../../src/generated/prisma/client.js";
+
+// A real cipher — see tests/helpers/cipher.ts. Not a pass-through: these
+// suites must exercise the seal/open round trip, not skip past it.
+const testCipher = await createTestCipher();
 
 const ANALYSIS_ID = "22222222-2222-4222-8222-222222222222";
 const INPUT = "A job posting long enough to be worth reasoning about.";
@@ -82,6 +87,7 @@ const executor = (
   runPipeline: () => Promise<PipelineResult>,
 ) =>
   createAnalysisExecutor({
+    cipher: testCipher,
     prisma: store.prisma,
     mode: "replay",
     runPipeline,
@@ -159,6 +165,7 @@ test("a thrown pipeline failure reaches a terminal state", async () => {
   const seen: unknown[] = [];
 
   const report = await createAnalysisExecutor({
+    cipher: testCipher,
     prisma: store.prisma,
     mode: "replay",
     runPipeline: () => Promise.reject(new Error("Stage 6 failed")),
@@ -239,6 +246,7 @@ test("the executor reports the mode it was given and reaches no provider", async
   const store = fakeStore();
 
   const report = await createAnalysisExecutor({
+    cipher: testCipher,
     prisma: store.prisma,
     mode: "replay",
     runPipeline: () => Promise.resolve(pipelineResult()),

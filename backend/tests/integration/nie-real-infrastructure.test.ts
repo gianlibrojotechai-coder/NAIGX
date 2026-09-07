@@ -27,6 +27,7 @@ import { PrismaClient as TracePrismaClient } from "../../src/generated/prisma-tr
 import { createFragmentResolver } from "../../src/db/fragment-resolver.js";
 import { createFragmentUsageSink } from "../../src/db/fragment-usage-sink.js";
 import { createStageTraceSink } from "../../src/db/stage-trace-sink.js";
+import { createTestCipher } from "../helpers/cipher.js";
 import { createStageResultSink } from "../../src/db/analysis-result-sink.js";
 import { createProviderInvocationRecorder } from "../../src/db/provider-invocation-recorder.js";
 import { createProviderInvoker } from "../../src/provider/invoke.js";
@@ -73,6 +74,10 @@ const reachable = async (url: string | undefined): Promise<boolean> => {
 const primaryReachable = await reachable(process.env["DATABASE_URL"]);
 const traceReachable = await reachable(process.env["TRACE_DATABASE_URL"]);
 const DATABASES_AVAILABLE = primaryReachable && traceReachable;
+
+// A real cipher, not a pass-through: these suites are the only place the seal/
+// open round trip is exercised against actual columns.
+const testCipher = await createTestCipher();
 
 /**
  * Where these tests are mandatory.
@@ -443,7 +448,7 @@ test(
           random: () => 0,
         }),
         resolver,
-        traceSink: createStageTraceSink(trace),
+        traceSink: createStageTraceSink(trace, testCipher),
         fragmentUsageSink: createFragmentUsageSink(primary),
         modelVersionId: seed.modelVersionId,
         modelKey: seed.modelKey,
@@ -529,7 +534,7 @@ test("a failing stage persists a failure trace", { skip }, async () => {
         random: () => 0,
       }),
       resolver,
-      traceSink: createStageTraceSink(trace),
+      traceSink: createStageTraceSink(trace, testCipher),
       fragmentUsageSink: createFragmentUsageSink(primary),
       modelVersionId: seed.modelVersionId,
       modelKey: seed.modelKey,
@@ -550,8 +555,28 @@ test("a failing stage persists a failure trace", { skip }, async () => {
     // Retained through the real trace store, not just in memory: the failure
     // is diagnosable without paying to re-run the provider (`DB §8.2`,
     // `FR-100`).
+    //
+    // ⚠️ SEALED AT REST ([D-53](../../../docs/28-D-53-Encryption-Layers.md) §2).
+    // Both halves are asserted deliberately: that the column does **not**
+    // contain readable content, and that it opens to exactly what was written.
+    // Checking only the second would pass just as well if encryption were
+    // silently disabled.
+    const storedOutput = traces[1]?.structuredOutput;
     assert.equal(
-      (traces[1]?.structuredOutput as { unparsed?: string })?.unparsed,
+      typeof storedOutput,
+      "string",
+      "structured_output should hold a sealed envelope, not a plain object",
+    );
+    assert.ok(
+      !JSON.stringify(storedOutput).includes("not json"),
+      "the plaintext is readable in the column — it was not sealed",
+    );
+    assert.equal(
+      (
+        JSON.parse(testCipher.open(storedOutput as string)) as {
+          unparsed?: string;
+        }
+      ).unparsed,
       "not json",
     );
 
@@ -589,7 +614,7 @@ test("a trace-store outage does not fail the analysis", { skip }, async () => {
         random: () => 0,
       }),
       resolver,
-      traceSink: createStageTraceSink(brokenTrace),
+      traceSink: createStageTraceSink(brokenTrace, testCipher),
       fragmentUsageSink: createFragmentUsageSink(primary),
       modelVersionId: seed.modelVersionId,
       modelKey: seed.modelKey,
@@ -646,7 +671,7 @@ test(
           random: () => 0,
         }),
         resolver,
-        traceSink: createStageTraceSink(trace),
+        traceSink: createStageTraceSink(trace, testCipher),
         fragmentUsageSink: createFragmentUsageSink(primary),
         modelVersionId: seed.modelVersionId,
         modelKey: seed.modelKey,
@@ -778,7 +803,7 @@ const persistingPipeline = async (
       random: () => 0,
     }),
     resolver,
-    traceSink: createStageTraceSink(trace),
+    traceSink: createStageTraceSink(trace, testCipher),
     fragmentUsageSink: createFragmentUsageSink(primary),
     modelVersionId: seed.modelVersionId,
     modelKey: seed.modelKey,
@@ -966,8 +991,23 @@ test(
 
       // D-20: the failed stage still retains what the provider returned.
       // Index 4, not 3 — Stage 5 now sits between context and architecture.
+      //
+      // Sealed at rest, and recoverable through the cipher
+      // ([D-53](../../../docs/28-D-53-Encryption-Layers.md) §2). Encryption
+      // must not cost the diagnosability `DB §8.2` and `FR-100` are here for:
+      // a failure nobody can read is a failure nobody can fix without paying
+      // to reproduce it.
+      const retained = traces[4]?.structuredOutput;
+      assert.ok(
+        !JSON.stringify(retained).includes(BAD_ARCHITECTURE),
+        "the provider response is readable in the column — it was not sealed",
+      );
       assert.equal(
-        (traces[4]?.structuredOutput as { unparsed?: string })?.unparsed,
+        (
+          JSON.parse(testCipher.open(retained as string)) as {
+            unparsed?: string;
+          }
+        ).unparsed,
         BAD_ARCHITECTURE,
         "the raw response is still recoverable (DB §8.2, FR-100)",
       );

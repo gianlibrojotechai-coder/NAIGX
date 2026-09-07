@@ -35,7 +35,12 @@ import type { AnalysisEvent } from "../../src/nie/events.js";
 import type { PipelineResult } from "../../src/nie/contracts.js";
 import type { PrismaClient } from "../../src/generated/prisma/client.js";
 import { createAnalysisExecutor } from "../../src/orchestrator/execute-analysis.js";
+import { createTestCipher } from "../helpers/cipher.js";
 import { ProviderError } from "../../src/provider/capability.js";
+
+// A real cipher — see tests/helpers/cipher.ts. Not a pass-through: these
+// suites must exercise the seal/open round trip, not skip past it.
+const testCipher = await createTestCipher();
 
 const ANALYSIS_ID = "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa";
 
@@ -69,6 +74,7 @@ const executorHarness = (options: {
   } as unknown as PrismaClient;
 
   const executor = createAnalysisExecutor({
+    cipher: testCipher,
     prisma,
     mode: "replay",
     runPipeline: options.runPipeline,
@@ -244,6 +250,7 @@ const config: AppConfig = {
   port: 0,
   host: "127.0.0.1",
   trustProxy: false,
+  kms: {},
   corsOrigin: "http://localhost:5173",
   logLevel: "silent",
 };

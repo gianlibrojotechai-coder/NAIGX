@@ -29,9 +29,14 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { buildApp } from "../../src/app.js";
 import { PrismaClient } from "../../src/generated/prisma/client.js";
 import { createRateLimiter } from "../../src/auth/rate-limit.js";
+import { createTestCipher } from "../helpers/cipher.js";
 import { createTracePurgeQueue } from "../../src/db/trace-purge.js";
 import type { AppConfig } from "../../src/config/env.js";
 import type { Database } from "../../src/db/client.js";
+
+// Real encryption in this suite: it is where FR-062 search over SEALED
+// raw_content is exercised, and a pass-through would prove nothing.
+const testCipher = await createTestCipher();
 
 const reachable = async (url: string | undefined): Promise<boolean> => {
   if (url === undefined || url === "") return false;
@@ -71,6 +76,7 @@ const config: AppConfig = {
   port: 0,
   host: "127.0.0.1",
   trustProxy: false,
+  kms: {},
   corsOrigin: "http://localhost:5173",
   logLevel: "silent",
 };
@@ -102,6 +108,11 @@ const harness = async () => {
     config,
     database: { prisma, disconnect: () => pool.end() } as unknown as Database,
     rateLimiter: createRateLimiter(),
+    // ⚠️ A REAL CIPHER, NOT THE PASS-THROUGH DEFAULT. With the default, every
+    // assertion below would hold while encryption did nothing — and the one
+    // that matters most (FR-062 search) would pass on plaintext columns that
+    // production does not have.
+    cipher: testCipher,
     tracePurge,
   });
 
@@ -137,7 +148,10 @@ const harness = async () => {
           create: {
             // Long enough to satisfy `analysis_input_character_count_check`,
             // which enforces `FR-002`'s 50-character minimum in the database.
-            rawContent: SEEDED_INPUT,
+            // Sealed, exactly as the create route would write it. Seeding
+            // plaintext here would make the search test pass for the wrong
+            // reason — see the FR-062 test below.
+            rawContent: testCipher.seal(SEEDED_INPUT),
             contentHash: randomUUID(),
             characterCount: SEEDED_INPUT.length,
             sourceType: "paste",

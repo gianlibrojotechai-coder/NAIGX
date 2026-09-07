@@ -10,6 +10,7 @@ import "dotenv/config";
 
 import { buildApp } from "./app.js";
 import { loadConfig } from "./config/env.js";
+import { loadCipher } from "./crypto/index.js";
 import { createDatabase } from "./db/client.js";
 import { createTraceDatabase } from "./db/trace-client.js";
 import { createFragmentResolver } from "./db/fragment-resolver.js";
@@ -24,7 +25,7 @@ import {
   isMetered,
   resolveExecutionMode,
 } from "./orchestrator/execution-mode.js";
-import { createTracePurgeQueue } from "./db/trace-purge.js";
+import { createTracePurgeOutbox } from "./db/trace-purge-outbox.js";
 import { createAuditSink } from "./db/audit-sink.js";
 import { sweepExpiredAnonymousAnalyses } from "./db/anonymous-expiry.js";
 import type { AppConfig } from "./config/env.js";
@@ -103,6 +104,19 @@ function liveProvider(config: AppConfig): SelectedProvider {
 const main = async (): Promise<void> => {
   const config = loadConfig();
   const database = createDatabase(config);
+
+  // --- the data key, before anything that could need it --------------------
+  //
+  // ⚠️ THIS IS DELIBERATELY THE FIRST THING AFTER THE DATABASE, AND A FAILURE
+  // HERE STOPS THE PROCESS (D-52 §5, last row). An instance that starts
+  // without its key would accept submissions it cannot store readably and
+  // serve history whose entries cannot be opened — healthy-looking, and
+  // quietly producing unusable data. `loadCipher` throws rather than degrade,
+  // and `main`'s catch turns that into a non-zero exit.
+  const { cipher, providerName, currentVersion } = await loadCipher(
+    config,
+    database.prisma,
+  );
   // A separate store with an independent lifecycle (`DB §1.4`). Both pools are
   // lazy, so constructing it here costs no connection until something writes.
   const traceDatabase = createTraceDatabase(config);
@@ -172,6 +186,7 @@ const main = async (): Promise<void> => {
   const runner = await createAnalysisRunner({
     prisma: database.prisma,
     tracePrisma: traceDatabase.prisma,
+    cipher,
     adapter,
     mode,
     rate,
@@ -198,7 +213,13 @@ const main = async (): Promise<void> => {
    * `DB §5.4` step 1 honours the user's request in the primary store and
    * everything after it is operator-side cleanup.
    */
-  const tracePurge = createTracePurgeQueue({
+  // ⚠️ THE DURABLE ONE. `createTracePurgeQueue` (in-memory) is still exported
+  // and still used by unit tests, but an instance that used it would forget
+  // every pending instruction on restart — the gap `M-19` Phase 3 closed. The
+  // outbox table lives in the PRIMARY store so the instruction commits in the
+  // same transaction as the deletion it follows.
+  const tracePurge = createTracePurgeOutbox({
+    store: database.prisma,
     client: traceDatabase.prisma,
     audit: createAuditSink({ prisma: database.prisma }),
     onError: (error) => {
@@ -212,6 +233,7 @@ const main = async (): Promise<void> => {
   const app = await buildApp({
     config,
     database,
+    cipher,
     checkProvider,
     checkTemplates,
     // `DB §4.1`. Omitted rather than passed as `undefined` so `buildApp`'s own
@@ -247,6 +269,14 @@ const main = async (): Promise<void> => {
   app.log.info(
     { mode: runner.mode, metered: isMetered(runner.mode) },
     "Analysis execution mode",
+  );
+
+  // Stated at startup for the same reason as the mode: which key service is in
+  // force, and under which key version new rows are sealed, should never have
+  // to be inferred. ⚠️ Never logs key material — only the provider's name.
+  app.log.info(
+    { provider: providerName, keyVersion: currentVersion },
+    "Field encryption active",
   );
 
   // --- scheduled maintenance ------------------------------------------------

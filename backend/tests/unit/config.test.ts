@@ -173,29 +173,64 @@ test("parses TRUST_PROXY strictly and rejects anything ambiguous", () => {
   }
 });
 
+/** Everything production demands apart from the variable under test. */
+const PRODUCTION = {
+  NODE_ENV: "production",
+  NAIGX_IP_HASH_SECRET: "a-real-secret",
+  NAIGX_KMS_KEY_ID: "alias/naigx",
+  NAIGX_KMS_REGION: "ap-southeast-1",
+};
+
+test("requires a managed key service in production, with no local fallback", () => {
+  // `DB §13.1` row 3 and [D-52](../../../docs/27-D-52-Managed-Key-Service.md)
+  // §4. The record is blunt about why there is no escape hatch: every free
+  // option stores the key on the machine that holds the storage, so it buys
+  // none of the property the layer exists for while looking like compliance.
+  const { NAIGX_KMS_KEY_ID: _omitted, ...withoutKms } = PRODUCTION;
+  assert.throws(
+    () => loadConfig({ ...valid, ...withoutKms }),
+    (error: Error) => error.message.includes("NAIGX_KMS_KEY_ID"),
+  );
+
+  // A key id with no region names a key KMS cannot locate — it is a regional
+  // service — so half a configuration is refused rather than half-applied.
+  const { NAIGX_KMS_REGION: _noRegion, ...withoutRegion } = PRODUCTION;
+  assert.throws(
+    () => loadConfig({ ...valid, ...withoutRegion }),
+    (error: Error) => error.message.includes("NAIGX_KMS_REGION"),
+  );
+
+  const config = loadConfig({ ...valid, ...PRODUCTION });
+  assert.equal(config.kms.keyId, "alias/naigx");
+  assert.equal(config.kms.region, "ap-southeast-1");
+
+  // Outside production it is optional: the offline double takes over, so a
+  // developer checkout needs no account.
+  assert.equal(loadConfig(valid).kms.keyId, undefined);
+});
+
 test("requires an IP hash salt in production and not outside it", () => {
   // `DB §4.1` / `DB §13`. The development default is a constant in this
   // repository; IPv4 is 2^32 values, so an `ip_hash` salted with it enumerates
   // back to the address and stops being Pseudonymous. Production is the only
   // environment where that default would become the deployed value.
+  const { NAIGX_IP_HASH_SECRET: _omitted, ...withoutSalt } = PRODUCTION;
   assert.throws(
-    () => loadConfig({ ...valid, NODE_ENV: "production" }),
+    () => loadConfig({ ...valid, ...withoutSalt }),
     (error: Error) => error.message.includes("NAIGX_IP_HASH_SECRET"),
   );
   assert.throws(
-    () =>
-      loadConfig({
-        ...valid,
-        NODE_ENV: "production",
-        NAIGX_IP_HASH_SECRET: "",
-      }),
+    () => loadConfig({ ...valid, ...PRODUCTION, NAIGX_IP_HASH_SECRET: "" }),
     (error: Error) => error.message.includes("NAIGX_IP_HASH_SECRET"),
   );
 
+  // Production also requires a managed key service, so a valid production
+  // environment supplies both. Testing the salt alone would fail on the KMS
+  // rule and prove nothing about the salt.
   assert.equal(
     loadConfig({
       ...valid,
-      NODE_ENV: "production",
+      ...PRODUCTION,
       NAIGX_IP_HASH_SECRET: "a-real-secret",
     }).ipHashSecret,
     "a-real-secret",

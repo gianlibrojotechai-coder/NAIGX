@@ -13,6 +13,45 @@ self-hosted PostgreSQL per [D-51](../docs/26-D-51-Self-Hosted-PostgreSQL.md).
 
 ---
 
+## What Phase 3 delivers
+
+| Requirement | Status |
+|---|---|
+| `DB §13.1` row 3 — application-level encryption on `raw_content`, `structured_input`, `structured_output` | **Implemented.** AES-256-GCM envelope, KMS-wrapped data key ([D-55](../docs/30-D-55-Envelope-Format-And-Purge-Outbox.md)) |
+| `DB §13.1` — managed key service, never in application configuration | **Implemented.** AWS KMS; no local-key fallback exists |
+| `FR-062` search over sealed content | **Implemented and verified** by differential — decrypt-and-filter (D-53 §4) |
+| `DB §5.4` step 2 — durable purge instruction | **Implemented.** Outbox in the primary store, written in the deletion transaction |
+| `NFR-021` — full-volume encryption | **Not done.** Needs a host. Free when one exists |
+
+### ⚠️ What is NOT verified
+
+**KMS has never been called.** `src/crypto/providers/aws-kms.ts` type-checks and
+follows the documented API and has never made a real request — no AWS account
+exists yet. Everything else in Phase 3 is proved against the **offline test
+double**, which is faithful evidence about the *interface* and none at all about
+the *service*.
+
+`backend/tests/integration/kms-live.test.ts` is the only thing that discharges
+this. It skips unless `NAIGX_KMS_LIVE_TEST=1` with real credentials, and **a
+skip is "not checked", never "passed"**. Until it runs green, `DB §13.1` row 3
+is *implemented but unverified* and `M-18` H-2 stays open.
+
+### Running the encryption operations
+
+```bash
+C=(docker compose -f docker-compose.prod.yml --env-file deploy/.env)
+
+"${C[@]}" run --rm encrypt status     # how much is still plaintext
+"${C[@]}" run --rm encrypt backfill   # seal it; idempotent, resumable
+```
+
+⚠️ **The backfill cannot be a SQL migration** — sealing needs the data key, and
+SQL cannot call the key service. So between `migrate` and `encrypt backfill` the
+tables hold a mixture, reads accept both, and **nothing misbehaves or complains**.
+`encrypt status` exiting zero is the only signal the window has closed.
+
+---
+
 ## What Phase 2 delivers
 
 | Requirement | Status |
@@ -62,7 +101,17 @@ C=(docker compose -f docker-compose.prod.yml --env-file deploy/.env)
 #    app is what applies them.
 "${C[@]}" run --rm migrate
 
-# 3. The rest.
+# 3. The encryption key (DB §13.1 row 3, D-52). Once, ever.
+#    ⚠️ Creating a SECOND key later is not a rotation — it is a new ring with
+#    no relationship to rows sealed under the first.
+"${C[@]}" run --rm encrypt init
+
+# 4. Seal existing content. Idempotent and resumable; safe to re-run.
+#    Skip on a brand-new database — there is nothing to seal.
+"${C[@]}" run --rm encrypt backfill
+"${C[@]}" run --rm encrypt status   # must report zero plaintext rows
+
+# 5. The rest.
 "${C[@]}" up -d --build
 ```
 

@@ -30,6 +30,7 @@
 import type { ClassificationType, PipelineResult } from "../nie/contracts.js";
 import type { AnalysisEvent } from "../nie/events.js";
 import type { AnalysisEventSink } from "../nie/ports.js";
+import type { FieldCipher } from "../crypto/data-key.js";
 import type { PrismaClient } from "../generated/prisma/client.js";
 import type { ExecutionMode } from "./execution-mode.js";
 
@@ -66,6 +67,15 @@ export interface ExecutionReport {
 export interface AnalysisExecutorDependencies {
   readonly prisma: PrismaClient;
   readonly mode: ExecutionMode;
+  /**
+   * Opens the stored `raw_content`
+   * ([D-53](../../../docs/28-D-53-Encryption-Layers.md) §2).
+   *
+   * The executor reads it and hands plaintext to the pipeline; the NIE itself
+   * never sees a cipher, because `AD-02`/`AP-3` keep persistence — and how
+   * persistence protects itself — outside it.
+   */
+  readonly cipher: FieldCipher;
   /**
    * Runs the reasoning. Supplied by the composition root already wired to an
    * adapter, the fragment resolver and the persistence sinks.
@@ -196,7 +206,12 @@ export function createAnalysisExecutor(
         where: { analysisId },
         include: { input: { select: { rawContent: true } } },
       });
-      const text = analysis?.input?.rawContent;
+      // Opened before reasoning ([D-53](../../../docs/28-D-53-Encryption-Layers.md) §2).
+      // The NIE receives plaintext and never learns that storage is encrypted —
+      // `AD-02`/`AP-3` keep persistence out of it, and that includes knowing
+      // how persistence protects itself.
+      const stored = analysis?.input?.rawContent;
+      const text = stored === undefined ? undefined : deps.cipher.open(stored);
 
       if (text === undefined) {
         // Claimed but unrunnable. Failing loudly is the point: `FR-091` calls

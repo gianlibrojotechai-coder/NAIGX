@@ -28,13 +28,17 @@
     "analyze": "tsx scripts/analyze.mts",
     "schemas:check": "tsx scripts/artifact-schemas.mts check",
     "schemas:publish": "tsx scripts/artifact-schemas.mts publish",
-    "review:packets": "tsx scripts/review-packets.mts"
+    "review:packets": "tsx scripts/review-packets.mts",
+    "encrypt:init": "tsx src/ops/encrypt.ts init",
+    "encrypt:status": "tsx src/ops/encrypt.ts status",
+    "encrypt:backfill": "tsx src/ops/encrypt.ts backfill"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.116.0",
+    "@aws-sdk/client-kms": "^3.1127.0",
     "@fastify/cors": "^11.3.0",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",

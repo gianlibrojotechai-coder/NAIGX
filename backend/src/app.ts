@@ -13,6 +13,10 @@ import cors from "@fastify/cors";
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
 
+import {
+  createPassThroughCipher,
+  type FieldCipher,
+} from "./crypto/data-key.js";
 import type { AppConfig } from "./config/env.js";
 import type { Database } from "./db/client.js";
 import { registerErrorHandler } from "./http/error-handler.js";
@@ -92,6 +96,17 @@ export interface AppDependencies {
   /** Shared so a test can inspect or reset it. */
   readonly rateLimiter?: RateLimiter;
   /**
+   * Seals and opens the three encrypted fields
+   * ([D-53](../../docs/28-D-53-Encryption-Layers.md) §2).
+   *
+   * ⚠️ THE DEFAULT SEALS NOTHING, AND THAT IS FOR TESTS ONLY. The composition
+   * root always supplies a real cipher and refuses to start without a key
+   * (D-52 §5); this default exists so a unit test of an unrelated route need
+   * not stand up a key provider. Nothing selects it because a key was
+   * unavailable.
+   */
+  readonly cipher?: FieldCipher;
+  /**
    * The trace store, for `M-10` schema validity in `API-070`.
    *
    * Optional: an instance without one reports zero validation events rather
@@ -120,6 +135,7 @@ export async function buildApp({
   ipSecret = "naigx-dev-ip-secret",
   now = () => new Date(),
   rateLimiter = createRateLimiter(),
+  cipher = createPassThroughCipher(),
   tracePurge,
   tracePrisma,
 }: AppDependencies): Promise<FastifyInstance> {
@@ -168,6 +184,7 @@ export async function buildApp({
 
   await app.register(analysisRoutes, {
     prisma: database.prisma,
+    cipher,
     hashContent,
     ...(startExecution !== undefined ? { startExecution } : {}),
     ...(eventLog !== undefined ? { eventLog } : {}),
@@ -199,6 +216,7 @@ export async function buildApp({
   await app.register(historyRoutes, {
     prisma: database.prisma,
     audit,
+    cipher,
     // Without a trace store wired, the queue accepts instructions and drops
     // them on drain — an instance with no trace connection still honours the
     // primary-store half of `FR-073`, which is the half the user's request

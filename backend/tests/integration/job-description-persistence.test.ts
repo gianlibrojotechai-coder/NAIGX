@@ -362,6 +362,7 @@ const config: AppConfig = {
   port: 0,
   host: "127.0.0.1",
   trustProxy: false,
+  kms: {},
   corsOrigin: "http://localhost:5173",
   logLevel: "silent",
 };

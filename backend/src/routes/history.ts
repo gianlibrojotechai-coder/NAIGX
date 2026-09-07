@@ -34,6 +34,7 @@ import { AppError, notFoundError } from "../http/errors.js";
 import { sendSuccess } from "../http/responses.js";
 import { requireUser } from "../http/authenticate.js";
 import type { AuditWriter } from "../auth/sessions.js";
+import type { FieldCipher } from "../crypto/data-key.js";
 import type { TracePurgeQueue } from "../db/trace-purge.js";
 import { tracePurgeWindow } from "../db/trace-purge.js";
 import { CLASSIFICATION_TYPES } from "../nie/contracts.js";
@@ -43,6 +44,13 @@ export interface HistoryRouteOptions {
   readonly prisma: PrismaClient;
   readonly audit: AuditWriter;
   readonly tracePurge: TracePurgeQueue;
+  /**
+   * Opens `raw_content` ([D-53](../../../docs/28-D-53-Encryption-Layers.md) §2).
+   *
+   * Needed by `API-022`'s search and by `API-014`'s data export, both of which
+   * read the user's submitted text back.
+   */
+  readonly cipher: FieldCipher;
 }
 
 /** `API-022` — "limit (default 20, max 100)". */
@@ -90,6 +98,103 @@ const decodeCursor = (raw: string): { createdAt: Date; analysisId: string } => {
   return { createdAt, analysisId };
 };
 
+/** The listing's summary projection. One definition, used by both search paths. */
+const SUMMARY_SELECT = {
+  analysisId: true,
+  derivedTitle: true,
+  createdAt: true,
+  status: true,
+  overallConfidenceBand: true,
+  haltedAtStage: true,
+  classification: { select: { determinedType: true } },
+} as const;
+
+interface SearchArgs {
+  readonly prisma: PrismaClient;
+  readonly cipher: FieldCipher;
+  readonly userId: string;
+  readonly search: string;
+  readonly classificationFilter: Record<string, unknown>;
+  readonly cursor: { createdAt: Date; analysisId: string } | null;
+  readonly limit: number;
+}
+
+/**
+ * `FR-062` search over sealed `raw_content`
+ * ([D-53](../../../docs/28-D-53-Encryption-Layers.md) §4).
+ *
+ * Fetch, decrypt, filter, then paginate — in that order, and the order is
+ * forced. The cursor cannot be pushed into SQL here: which rows match is not
+ * known until they are decrypted, so a database-side `LIMIT` would cut the set
+ * before filtering and return short or empty pages that look like the end of
+ * the results.
+ *
+ * ⚠️ THE PROJECTION STILL EXCLUDES ARTIFACT CONTENT. `API-022` keeps the
+ * listing off content-bearing tables, and decrypting to search must not become
+ * a reason to widen it — `input.rawContent` is added because it *is* the search
+ * corpus, and nothing else is.
+ *
+ * ⚠️ `O(the user's analyses)`, deliberately and with the ceiling recorded.
+ * D-53 §4 accepts this at v1.0 volume (tens of analyses; AES-GCM is
+ * microseconds a row) and names the trigger for revisiting: a user whose search
+ * is slow. It is not a scan of every user's data — the `userId` filter is still
+ * a SQL predicate, and so is the classification.
+ */
+async function searchByDecrypting(args: SearchArgs) {
+  const {
+    prisma,
+    cipher,
+    userId,
+    search,
+    classificationFilter,
+    cursor,
+    limit,
+  } = args;
+
+  const candidates = await prisma.analysis.findMany({
+    where: { userId, ...classificationFilter },
+    select: { ...SUMMARY_SELECT, input: { select: { rawContent: true } } },
+    orderBy: [{ createdAt: "desc" }, { analysisId: "desc" }],
+  });
+
+  const needle = search.toLowerCase();
+
+  const matched = candidates.filter((row) => {
+    const stored = row.input?.rawContent;
+    if (stored === undefined || stored === null) {
+      // An analysis whose input row is missing cannot match a text search.
+      // `select` without the field would read as `undefined` here too, which
+      // is why this checks both — "not selected" must never read as "no match"
+      // by accident.
+      return false;
+    }
+    return cipher.open(stored).toLowerCase().includes(needle);
+  });
+
+  // Keyset pagination, applied after filtering, over the same ordering the
+  // database used. `<` on the pair, exactly as the SQL branch expresses it.
+  const afterCursor =
+    cursor === null
+      ? matched
+      : matched.filter(
+          (row) =>
+            row.createdAt.getTime() < cursor.createdAt.getTime() ||
+            (row.createdAt.getTime() === cursor.createdAt.getTime() &&
+              row.analysisId < cursor.analysisId),
+        );
+
+  // One extra, so the caller detects a next page the same way it always has.
+  return afterCursor.slice(0, limit + 1).map((row) => ({
+    analysisId: row.analysisId,
+    derivedTitle: row.derivedTitle,
+    createdAt: row.createdAt,
+    status: row.status,
+    overallConfidenceBand: row.overallConfidenceBand,
+    haltedAtStage: row.haltedAtStage,
+    classification: row.classification,
+  }));
+}
+
 /** `FR-063` / `FR-073` — "requires explicit confirmation stating it is permanent". */
 function requireConfirmation(body: unknown, what: string): void {
   const confirmation = (body as { confirmation?: unknown } | null)
@@ -109,7 +214,7 @@ function requireConfirmation(body: unknown, what: string): void {
 
 export const historyRoutes: FastifyPluginAsync<HistoryRouteOptions> = (
   app,
-  { prisma, audit, tracePurge },
+  { prisma, audit, tracePurge, cipher },
 ) => {
   const correlationOf = (request: FastifyRequest): string | null => request.id;
 
@@ -158,47 +263,75 @@ export const historyRoutes: FastifyPluginAsync<HistoryRouteOptions> = (
     // join the content tables `API-022` keeps this query off. Recorded as a
     // partial implementation in `docs/STATUS.md` rather than silently narrowed.
     const search = query.q?.trim();
+    const searching = search !== undefined && search !== "";
 
-    const rows = await prisma.analysis.findMany({
-      where: {
-        userId,
-        ...(query.classification !== undefined
-          ? {
-              classification: { determinedType: query.classification as never },
-            }
-          : {}),
-        ...(search !== undefined && search !== ""
-          ? { input: { rawContent: { contains: search, mode: "insensitive" } } }
-          : {}),
-        // Keyset pagination: strictly older than the cursor, tie-broken by id.
-        ...(cursor !== null
-          ? {
-              OR: [
-                { createdAt: { lt: cursor.createdAt } },
-                {
-                  createdAt: cursor.createdAt,
-                  analysisId: { lt: cursor.analysisId },
-                },
-              ],
-            }
-          : {}),
-      },
-      // ⚠️ SUMMARIES ONLY. No artifact, no context element, no recommendation
-      // body. `classification` is joined for its type alone.
-      select: {
-        analysisId: true,
-        derivedTitle: true,
-        createdAt: true,
-        status: true,
-        overallConfidenceBand: true,
-        haltedAtStage: true,
-        classification: { select: { determinedType: true } },
-      },
-      // `API-022` — "reverse-chronological".
-      orderBy: [{ createdAt: "desc" }, { analysisId: "desc" }],
-      // One extra, to know whether another page exists without counting.
-      take: limit + 1,
-    });
+    const classificationFilter =
+      query.classification !== undefined
+        ? { classification: { determinedType: query.classification as never } }
+        : {};
+
+    // ⚠️ SEARCH CANNOT BE A SQL PREDICATE ANY MORE, AND THIS IS THE ONE PLACE
+    // ENCRYPTION CHANGES BEHAVIOUR ([D-53](../../../docs/28-D-53-Encryption-Layers.md) §4).
+    //
+    // This used to read:
+    //
+    //     { input: { rawContent: { contains: search, mode: "insensitive" } } }
+    //
+    // `raw_content` is now sealed, and **a database cannot substring-match
+    // ciphertext**. Leaving that predicate in place would not error — it would
+    // match nothing, so every search would return an empty page and look like
+    // "no results" rather than like a broken feature. That silent failure is
+    // exactly what D-53 §4 was written to prevent, so the resolution it chose
+    // is implemented here instead: fetch, decrypt in process, filter on the
+    // plaintext, and paginate from the filtered set.
+    //
+    // `FR-062` semantics are unchanged — still case-insensitive substring
+    // matching over submitted text. The cost is that search is now
+    // `O(the user's analyses)` rather than an indexed scan, which D-53 §4
+    // records and accepts at v1.0 volume.
+    const rows = searching
+      ? await searchByDecrypting({
+          prisma,
+          cipher,
+          userId,
+          search,
+          classificationFilter,
+          cursor,
+          limit,
+        })
+      : await prisma.analysis.findMany({
+          where: {
+            userId,
+            ...classificationFilter,
+            // Keyset pagination: strictly older than the cursor, tie-broken by id.
+            ...(cursor !== null
+              ? {
+                  OR: [
+                    { createdAt: { lt: cursor.createdAt } },
+                    {
+                      createdAt: cursor.createdAt,
+                      analysisId: { lt: cursor.analysisId },
+                    },
+                  ],
+                }
+              : {}),
+          },
+          // ⚠️ SUMMARIES ONLY. No artifact, no context element, no recommendation
+          // body. `classification` is joined for its type alone.
+          select: {
+            analysisId: true,
+            derivedTitle: true,
+            createdAt: true,
+            status: true,
+            overallConfidenceBand: true,
+            haltedAtStage: true,
+            classification: { select: { determinedType: true } },
+          },
+          // `API-022` — "reverse-chronological".
+          orderBy: [{ createdAt: "desc" }, { analysisId: "desc" }],
+          // One extra, to know whether another page exists without counting.
+          take: limit + 1,
+        });
 
     const page = rows.slice(0, limit);
     const last = page.at(-1);
@@ -249,18 +382,26 @@ export const historyRoutes: FastifyPluginAsync<HistoryRouteOptions> = (
         throw notFoundError();
       }
 
-      // `DB §5.4` step 1 — the primary store commits first, and the user's
-      // request is honoured at that moment. Cascade is synchronous and
-      // irreversible; `DB §5.3` defines every child relation.
-      await prisma.analysis.delete({
-        where: { analysisId: analysis.analysisId },
-      });
-
-      // Step 2 — the trace purge is enqueued, not awaited.
-      tracePurge.enqueue({
-        analysisIds: [analysis.analysisId],
-        userId,
-        correlationId: correlationOf(request),
+      // `DB §5.4` steps 1 and 2, in ONE transaction.
+      //
+      // ⚠️ THE TRANSACTION IS THE DURABILITY GUARANTEE. The deletion is
+      // irreversible and cascades (`DB §5.3`); the purge instruction says the
+      // trace store still owes work. Committing them separately leaves an
+      // instant where the analysis is gone and nothing records that its traces
+      // must follow — a crash there loses the purge silently, which is what
+      // the in-memory queue did. Either both land or neither does.
+      await prisma.$transaction(async (tx) => {
+        await tx.analysis.delete({
+          where: { analysisId: analysis.analysisId },
+        });
+        await tracePurge.enqueue(
+          {
+            analysisIds: [analysis.analysisId],
+            userId,
+            correlationId: correlationOf(request),
+          },
+          tx,
+        );
       });
 
       await audit.record({
@@ -293,12 +434,18 @@ export const historyRoutes: FastifyPluginAsync<HistoryRouteOptions> = (
     });
     const analysisIds = owned.map((row) => row.analysisId);
 
-    const { count } = await prisma.analysis.deleteMany({ where: { userId } });
-
-    tracePurge.enqueue({
-      analysisIds,
-      userId,
-      correlationId: correlationOf(request),
+    // One transaction, for the reason given on `API-021` above.
+    const { count } = await prisma.$transaction(async (tx) => {
+      const deleted = await tx.analysis.deleteMany({ where: { userId } });
+      await tracePurge.enqueue(
+        {
+          analysisIds,
+          userId,
+          correlationId: correlationOf(request),
+        },
+        tx,
+      );
+      return deleted;
     });
 
     await audit.record({
@@ -371,13 +518,17 @@ export const historyRoutes: FastifyPluginAsync<HistoryRouteOptions> = (
     // `DB §5.3` — CASCADE, hard, across sessions, settings, analyses and all
     // their descendants, exports and feedback. `FR-073` completeness. Sessions
     // go with it, so every token this user held stops resolving.
-    await prisma.user.delete({ where: { userId } });
-
-    tracePurge.enqueue({
-      analysisIds,
-      // The user is gone; the purge audit records the action without them.
-      userId: null,
-      correlationId: correlationOf(request),
+    await prisma.$transaction(async (tx) => {
+      await tx.user.delete({ where: { userId } });
+      await tracePurge.enqueue(
+        {
+          analysisIds,
+          // The user is gone; the purge audit records the action without them.
+          userId: null,
+          correlationId: correlationOf(request),
+        },
+        tx,
+      );
     });
 
     return sendSuccess(
@@ -486,7 +637,23 @@ export const historyRoutes: FastifyPluginAsync<HistoryRouteOptions> = (
               },
         // The raw rows, which is what "machine-readable" means here — a
         // reformatting for human reading would be `API-040`'s job.
-        analyses,
+        //
+        // ⚠️ EXCEPT `raw_content`, WHICH MUST BE OPENED FIRST. It is sealed in
+        // the database ([D-53](../../../docs/28-D-53-Encryption-Layers.md) §2),
+        // and dumping the row verbatim would hand the user a base64 envelope
+        // where their own submitted document should be — satisfying `FR-072`'s
+        // letter while exporting something no one can read. This is the second
+        // read path encryption touches; the first is search.
+        analyses: analyses.map((analysis) => ({
+          ...analysis,
+          input:
+            analysis.input === null
+              ? null
+              : {
+                  ...analysis.input,
+                  rawContent: cipher.open(analysis.input.rawContent),
+                },
+        })),
       },
       202,
     );

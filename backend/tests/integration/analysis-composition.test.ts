@@ -20,9 +20,14 @@ import { buildApp } from "../../src/app.js";
 import type { AppConfig } from "../../src/config/env.js";
 import type { Database } from "../../src/db/client.js";
 import { createAnalysisExecutor } from "../../src/orchestrator/execute-analysis.js";
+import { createTestCipher } from "../helpers/cipher.js";
 import { resolveExecutionMode } from "../../src/orchestrator/execution-mode.js";
 import type { PipelineResult } from "../../src/nie/contracts.js";
 import type { PrismaClient } from "../../src/generated/prisma/client.js";
+
+// A real cipher — see tests/helpers/cipher.ts. Not a pass-through: these
+// suites must exercise the seal/open round trip, not skip past it.
+const testCipher = await createTestCipher();
 
 const config: AppConfig = {
   databaseUrl: "postgresql://unused",
@@ -31,6 +36,7 @@ const config: AppConfig = {
   port: 0,
   host: "127.0.0.1",
   trustProxy: false,
+  kms: {},
   corsOrigin: "http://localhost:5173",
   logLevel: "silent",
 };
@@ -160,6 +166,7 @@ const compose = async (
     });
 
   const executor = createAnalysisExecutor({
+    cipher: testCipher,
     prisma: db.prisma,
     mode,
     runPipeline,

@@ -457,22 +457,22 @@ model ArchitectureComponent {
 /// non-empty so that an unexplained recommendation cannot be represented
 /// (`AIP-4`) — the database is the enforcement point.
 model Recommendation {
-  recommendationId     String         @id @default(uuid()) @map("recommendation_id") @db.Uuid
-  analysisId           String         @map("analysis_id") @db.Uuid
+  recommendationId     String          @id @default(uuid()) @map("recommendation_id") @db.Uuid
+  analysisId           String          @map("analysis_id") @db.Uuid
   /// Vocabulary undefined by every authoritative document — typed as text.
-  recommendationType   String         @map("recommendation_type")
+  recommendationType   String          @map("recommendation_type")
   conclusion           String
   rationale            String
   /// `AIP-4`/`DD-04` — non-nullable so an unexplained recommendation cannot be
   /// represented. Briefly relaxed while Stage 7 produced no criteria; restored
   /// once it did (`AI §3.2`).
-  criteriaApplied      String         @map("criteria_applied")
+  criteriaApplied      String          @map("criteria_applied")
   limits               String?
   confidenceBand       ConfidenceBand? @map("confidence_band")
   /// Below `high` requires non-empty factors (`FR-018`, `FR-045`).
-  confidenceFactors    Json?          @map("confidence_factors")
+  confidenceFactors    Json?           @map("confidence_factors")
   /// Stored explicitly so `AC-013` is verifiable by query.
-  isNegativeConclusion Boolean        @map("is_negative_conclusion")
+  isNegativeConclusion Boolean         @map("is_negative_conclusion")
 
   analysis               Analysis                    @relation(fields: [analysisId], references: [analysisId], onDelete: Cascade)
   alternatives           RecommendationAlternative[]
@@ -971,4 +971,72 @@ model AuditEvent {
   @@index([resourceType, resourceId])
   @@index([correlationId])
   @@map("audit_event")
+}
+
+/// The wrapped data key ([D-52](../../docs/27-D-52-Managed-Key-Service.md) §2,
+/// [D-53](../../docs/28-D-53-Encryption-Layers.md) §2).
+///
+/// ⚠️ THIS TABLE HOLDS CIPHERTEXT, NOT A KEY. `wrapped_key` is the data key
+/// sealed under the CMK, and the CMK never leaves the key service — that
+/// asymmetry is the entire point of D-52. An attacker who reads this table
+/// gets a blob that is useless without a call the compromised host cannot make.
+///
+/// ⚠️ ONE ROW PER KEY VERSION, AND OLD ROWS ARE NEVER DELETED. Rows sealed
+/// under version 1 stay readable only while version 1 is still here; deleting
+/// a retired key destroys every row that still cites it, including in backups
+/// (D-52 §6). Rotation adds a row and marks the previous one retired — it does
+/// not remove anything.
+///
+/// The same data key serves BOTH stores (D-53 §6): `structured_input` and
+/// `structured_output` live in the trace store, and `DB §1.4` forbids a
+/// foreign key across that boundary, so the key is held here and passed in
+/// memory rather than duplicated.
+model EncryptionKey {
+  /// Cited by every envelope this key sealed. Monotonic, starts at 1.
+  version    Int       @id
+  /// The data key, wrapped by the key service. Never plaintext.
+  wrappedKey Bytes     @map("wrapped_key")
+  /// Which provider wrapped it, so a swap is diagnosable rather than a mystery.
+  provider   String
+  createdAt  DateTime  @default(now()) @map("created_at")
+  /// Set when a newer version takes over sealing. Retired keys still OPEN.
+  retiredAt  DateTime? @map("retired_at")
+
+  @@map("encryption_key")
+}
+
+/// The durable trace-purge outbox (`DB §5.4` step 2, `M-19` Phase 3).
+///
+/// ⚠️ IT LIVES IN THE **PRIMARY** STORE, NOT THE TRACE STORE, AND THAT IS THE
+/// WHOLE DESIGN. `DB §5.4` step 1 commits the analysis deletion here; the
+/// purge instruction is written in the *same transaction*, so there is no
+/// instant at which the deletion is durable and the instruction is not. An
+/// instruction written to the trace store instead would need a second
+/// transaction across a store boundary `DB §1.4` forbids joining — reopening
+/// the very window this table closes.
+///
+/// It replaces an in-memory queue that lost pending instructions on restart.
+/// The user-facing contract is unchanged: `API-011`/`API-023` still return
+/// `202` with a stated window, because the promise was always honoured at
+/// step 1.
+///
+/// ⚠️ A ROW THAT EXHAUSTS ITS ATTEMPTS IS **MARKED**, NEVER DELETED. It records
+/// a purge the user was told would happen and which did not; deleting it would
+/// destroy the only evidence. `failed_at` takes it out of the drain's view
+/// without taking it out of an operator's.
+model TracePurgeOutbox {
+  purgeId       String    @id @default(uuid()) @map("purge_id") @db.Uuid
+  /// The analyses whose stage traces must go. Never empty.
+  analysisIds   String[]  @map("analysis_ids") @db.Uuid
+  /// Null when the user is already gone — the purge still owes completion.
+  userId        String?   @map("user_id") @db.Uuid
+  correlationId String?   @map("correlation_id")
+  attempts      Int       @default(0)
+  enqueuedAt    DateTime  @default(now()) @map("enqueued_at")
+  lastErrorAt   DateTime? @map("last_error_at")
+  /// Set when attempts are exhausted. Audited, retained, never drained again.
+  failedAt      DateTime? @map("failed_at")
+
+  @@index([failedAt, enqueuedAt])
+  @@map("trace_purge_outbox")
 }

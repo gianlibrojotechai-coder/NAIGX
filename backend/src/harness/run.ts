@@ -28,6 +28,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 
 import { loadConfig, type AppConfig } from "../config/env.js";
+import { loadCipher } from "../crypto/index.js";
 import { PrismaClient } from "../generated/prisma/client.js";
 import { PrismaClient as TracePrismaClient } from "../generated/prisma-trace/client.js";
 import { createFragmentResolver } from "../db/fragment-resolver.js";
@@ -197,6 +198,11 @@ export async function runHarness(
   const primary = new PrismaClient({ adapter: new PrismaPg(primaryPool) });
   const trace = new TracePrismaClient({ adapter: new PrismaPg(tracePool) });
 
+  // `DB §13.1` row 3. Offline runs get the test double; a harness pointed at a
+  // real deployment gets whatever that deployment is configured with. After
+  // the clients exist — the key ring is read from the primary store.
+  const { cipher } = await loadCipher(config, primary);
+
   const traces: StageTraceRecord[] = [];
   const fragments: FragmentUsageRecord[] = [];
   const invocations: ProviderInvocationRecord[] = [];
@@ -293,7 +299,15 @@ export async function runHarness(
       recorder: tee(createProviderInvocationRecorder(trace), invocations),
     });
 
-    const traceSink: StageTraceSink = tee(createStageTraceSink(trace), traces);
+    // The harness seals stage traces exactly as the server does. Using a
+    // pass-through here instead would leave `structured_input` and
+    // `structured_output` in PLAINTEXT for every harness run — in the same
+    // table the server seals — and the mixture would look like an unfinished
+    // backfill rather than a second writer that forgot.
+    const traceSink: StageTraceSink = tee(
+      createStageTraceSink(trace, cipher),
+      traces,
+    );
     const fragmentUsageSink: FragmentUsageSink = {
       record: async (usages) => {
         fragments.push(...usages);

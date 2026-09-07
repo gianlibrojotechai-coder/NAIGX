@@ -20,6 +20,7 @@ import assert from "node:assert/strict";
 
 import { buildApp } from "../../src/app.js";
 import { createAnalysisExecutor } from "../../src/orchestrator/execute-analysis.js";
+import { createTestCipher } from "../helpers/cipher.js";
 import type { AnalysisEvent } from "../../src/nie/events.js";
 import type { PipelineResult } from "../../src/nie/contracts.js";
 import type { AppConfig } from "../../src/config/env.js";
@@ -30,6 +31,10 @@ import {
   noSessions,
 } from "../helpers/anonymous-principal.js";
 import type { PrismaClient } from "../../src/generated/prisma/client.js";
+
+// A real cipher — see tests/helpers/cipher.ts. Not a pass-through: these
+// suites must exercise the seal/open round trip, not skip past it.
+const testCipher = await createTestCipher();
 
 const ANALYSIS_ID = "bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb";
 
@@ -59,6 +64,7 @@ const runExecutor = async (result: PipelineResult) => {
   } as unknown as PrismaClient;
 
   const executor = createAnalysisExecutor({
+    cipher: testCipher,
     prisma,
     mode: "replay",
     runPipeline: () => Promise.resolve(result),
@@ -164,6 +170,7 @@ const config: AppConfig = {
   port: 0,
   host: "127.0.0.1",
   trustProxy: false,
+  kms: {},
   corsOrigin: "http://localhost:5173",
   logLevel: "silent",
 };

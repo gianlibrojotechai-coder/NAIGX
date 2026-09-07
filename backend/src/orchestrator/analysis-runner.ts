@@ -39,12 +39,22 @@ import type { TokenRate } from "../provider/cost.js";
 import { createPipeline } from "../nie/pipeline.js";
 import { loadCapabilityProfile } from "../nie/capability-profile.js";
 import type { CapabilityProfile } from "../nie/capability-profile.js";
+import type { FieldCipher } from "../crypto/data-key.js";
 import { createAnalysisExecutor } from "./execute-analysis.js";
 import type { ExecutionMode } from "./execution-mode.js";
 
 export interface AnalysisRunnerDependencies {
   readonly prisma: PrismaClient;
   readonly tracePrisma: TracePrismaClient;
+  /**
+   * Seals and opens the three fields `DB §13.1` row 3 names
+   * ([D-53](../../../docs/28-D-53-Encryption-Layers.md) §2).
+   *
+   * Passed down to the stage-trace sink, which seals `structured_input` and
+   * `structured_output`, and to the executor, which opens `raw_content`. The
+   * pipeline itself never receives it.
+   */
+  readonly cipher: FieldCipher;
   /** Built at the configuration boundary, for the mode below. */
   readonly adapter: ProviderAdapter;
   readonly mode: ExecutionMode;
@@ -144,7 +154,7 @@ export async function createAnalysisRunner(
       recorder: createProviderInvocationRecorder(deps.tracePrisma),
     }),
     resolver: createFragmentResolver(deps.prisma),
-    traceSink: createStageTraceSink(deps.tracePrisma),
+    traceSink: createStageTraceSink(deps.tracePrisma, deps.cipher),
     // `M-10` — the table that had no writer until `M-16`.
     validationSink: createValidationEventSink(deps.tracePrisma),
     fragmentUsageSink: createFragmentUsageSink(deps.prisma),
@@ -161,6 +171,7 @@ export async function createAnalysisRunner(
   const executor = createAnalysisExecutor({
     prisma: deps.prisma,
     mode: deps.mode,
+    cipher: deps.cipher,
     runPipeline: (input) => pipeline.run(input),
     ...(deps.onError !== undefined ? { onError: deps.onError } : {}),
     ...(deps.eventSink !== undefined ? { eventSink: deps.eventSink } : {}),

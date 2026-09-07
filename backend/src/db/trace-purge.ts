@@ -17,19 +17,32 @@
  * yet guarantee, and `API-011`'s own note calls that "the difference between a
  * kept and a broken deletion promise".
  *
- * ⚠️ IN-PROCESS, AND THAT IS A LIMITATION. The queue below lives in memory, so
- * a process restart between step 1 and step 3 loses the instruction and leaves
- * traces the user asked to be deleted. That is a real gap, recorded here and
- * in `docs/STATUS.md` rather than implied away — and it is bounded by
- * `DB §8.3`, which expires stage traces after **7 days** regardless. The worst
- * case is therefore a delay, not indefinite retention.
+ * ## The queue below is the IN-MEMORY one, and it is no longer what production
+ * uses
  *
- * Closing it properly needs a durable queue, which is `M-19` infrastructure
- * work of the same kind [D-46](../../../docs/21-D-46-In-Memory-Rate-Limiting.md)
- * deferred for rate limiting. The alternatives were worse: refusing the
- * deletion until traces are gone would make a trace-store outage into a
- * refusal to honour `FR-073`, and deleting synchronously would make the user
- * wait on a store their request does not depend on.
+ * `M-19` Phase 3 added `trace-purge-outbox.ts`: the same interface, backed by a
+ * table in the **primary** store and written in the same transaction as the
+ * deletion. That closes the gap this comment used to describe — a restart
+ * between step 1 and step 3 losing the instruction.
+ *
+ * This implementation remains because it is genuinely useful: it needs no
+ * database, so unit tests drive step 3 deterministically, and `app.ts`
+ * registers a no-op variant when no trace store is wired at all.
+ *
+ * ⚠️ IT IS NOT A FALLBACK FOR PRODUCTION. An instance that quietly used this
+ * one would honour `FR-073` in the primary store and forget the trace half on
+ * the next restart — the exact failure Phase 3 removed. The composition root
+ * builds the durable queue; nothing selects this because the durable one was
+ * unavailable.
+ *
+ * ## Why `enqueue` is asynchronous
+ *
+ * It used to return `void`, which was honest for an in-memory array and
+ * impossible for a durable queue: "the instruction is accepted" has to mean
+ * "the row is committed", and that cannot be claimed without awaiting a write.
+ * The optional `tx` parameter is what lets the caller put that write inside the
+ * deletion's own transaction, so there is no instant where one is durable and
+ * the other is not.
  */
 
 /**
@@ -102,12 +115,42 @@ export interface TracePurgeQueueOptions {
   readonly onError?: (error: unknown) => void;
 }
 
+/**
+ * A transaction handle the enqueue can join.
+ *
+ * ⚠️ THIS PARAMETER IS THE DURABILITY GUARANTEE, NOT AN OPTIMISATION. Passing
+ * the deletion's own transaction is what makes "the analysis is deleted" and
+ * "its traces are owed a purge" commit together or not at all. Omitting it
+ * writes the instruction in its own transaction, which reopens a small window
+ * between the two commits — acceptable for a test, wrong for the delete route.
+ */
+export interface PurgeOutboxWriter {
+  readonly tracePurgeOutbox: {
+    create(args: {
+      data: {
+        analysisIds: string[];
+        userId: string | null;
+        correlationId: string | null;
+      };
+    }): Promise<unknown>;
+  };
+}
+
 export interface TracePurgeQueue {
-  /** `DB §5.4` step 2. Returns once the instruction is accepted, not done. */
-  enqueue(instruction: Omit<PurgeInstruction, "attempts">): void;
+  /**
+   * `DB §5.4` step 2. Resolves once the instruction is **accepted** — for the
+   * durable queue that means committed, not merely remembered.
+   *
+   * Pass `tx` to enlist in the caller's transaction; see `PurgeOutboxWriter`.
+   */
+  enqueue(
+    instruction: Omit<PurgeInstruction, "attempts">,
+    tx?: PurgeOutboxWriter,
+  ): Promise<void>;
   /** Drains the queue. Called on a timer, and directly by tests. */
   drain(): Promise<{ purged: number; failed: number }>;
-  readonly pending: number;
+  /** Instructions still owed. A query for the durable queue, hence async. */
+  pending(): Promise<number>;
 }
 
 const DEFAULT_MAX_ATTEMPTS = 5;
@@ -120,8 +163,13 @@ export function createTracePurgeQueue(
 
   return {
     enqueue(instruction) {
-      if (instruction.analysisIds.length === 0) return;
-      queue.push({ ...instruction, attempts: 0 });
+      // `tx` is accepted and ignored: an in-memory array has no transaction to
+      // join. The signature matches so the two implementations are
+      // interchangeable at the one swap point.
+      if (instruction.analysisIds.length > 0) {
+        queue.push({ ...instruction, attempts: 0 });
+      }
+      return Promise.resolve();
     },
 
     async drain() {
@@ -174,8 +222,8 @@ export function createTracePurgeQueue(
       return { purged, failed };
     },
 
-    get pending() {
-      return queue.length;
+    pending() {
+      return Promise.resolve(queue.length);
     },
   };
 }

@@ -80,6 +80,43 @@ services:
     networks: [naigx]
 
   # -------------------------------------------------------------------------
+  # Encryption operations — one-shot, run explicitly (`DB §13.1` row 3, D-52).
+  #
+  #   docker compose ... run --rm encrypt init      # create key version 1
+  #   docker compose ... run --rm encrypt backfill  # seal existing rows
+  #   docker compose ... run --rm encrypt status    # confirm none remain
+  #
+  # ⚠️ THE BACKFILL CANNOT BE PART OF THE SQL MIGRATION. Sealing a row needs the
+  # data key, which needs a call to the key service, which SQL cannot make. So
+  # between `migrate` and `encrypt backfill` the tables hold a MIXTURE of sealed
+  # and plaintext values — reads handle both, which means nothing misbehaves and
+  # nothing tells you. `encrypt status` is the only signal that the window has
+  # closed.
+  # -------------------------------------------------------------------------
+  encrypt:
+    build:
+      context: ./backend
+    image: naigx-backend:latest
+    profiles: ["encrypt"]
+    restart: "no"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-naigx}
+      TRACE_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/naigx_trace
+      NAIGX_IP_HASH_SECRET: ${NAIGX_IP_HASH_SECRET:?NAIGX_IP_HASH_SECRET is required}
+      NAIGX_KMS_KEY_ID: ${NAIGX_KMS_KEY_ID:?NAIGX_KMS_KEY_ID is required}
+      NAIGX_KMS_REGION: ${NAIGX_KMS_REGION:?NAIGX_KMS_REGION is required}
+      AWS_REGION: ${NAIGX_KMS_REGION}
+    # ⚠️ THE COMPILED ENTRY POINT, NOT `tsx`. The runtime image prunes dev
+    # dependencies and ships no `scripts/` directory, so `npx tsx` here would
+    # fail at deploy time — which is why `encrypt.ts` lives under `src/`.
+    entrypoint: ["/usr/bin/tini", "--", "node", "dist/ops/encrypt.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [naigx]
+
+  # -------------------------------------------------------------------------
   # Application tier.
   # -------------------------------------------------------------------------
   backend:
@@ -130,6 +167,18 @@ services:
       # D-48. Absent means the internal surface is disabled, which is a valid
       # production posture — Phase 4 needs it set to scrape metrics.
       NAIGX_OPERATOR_TOKEN: ${NAIGX_OPERATOR_TOKEN:-}
+
+      # `DB §13.1` row 3 — the managed key service (D-52). REQUIRED: the
+      # application refuses to start under NODE_ENV=production without it, and
+      # there is deliberately no local-key fallback. AWS credentials come from
+      # the ambient provider chain (SA §10.4 — injected at runtime, never in
+      # source or images), so they are NOT named here.
+      #
+      # ⚠️ Losing this key destroys the encrypted fields and every backup of
+      # them (D-52 §6). Enable deletion protection on the CMK.
+      NAIGX_KMS_KEY_ID: ${NAIGX_KMS_KEY_ID:?NAIGX_KMS_KEY_ID is required}
+      NAIGX_KMS_REGION: ${NAIGX_KMS_REGION:?NAIGX_KMS_REGION is required}
+      AWS_REGION: ${NAIGX_KMS_REGION}
 
       # Same origin behind the edge, so this allows nothing new; it is set so a
       # request that somehow arrives cross-origin is still refused correctly.

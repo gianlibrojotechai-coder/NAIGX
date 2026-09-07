@@ -31,6 +31,18 @@ change".
 
 ## 3. Verified cost
 
+**Re-verified against [aws.amazon.com/kms/pricing](https://aws.amazon.com/kms/pricing/)
+on 2026-09-08, before Phase 3 implementation. Every figure below is unchanged.**
+The check is repeated rather than assumed, because a price recorded in a
+decision record is an estimate on its date and not a standing guarantee —
+re-read the page again before actually creating the key.
+
+One clarification the re-read surfaced, which matters for the free allowance:
+the 20,000 free requests **exclude** `GenerateDataKeyPair`,
+`GenerateDataKeyPairWithoutPlaintext`, and any operation referencing an
+*asymmetric* key. This design uses neither — §5's envelope is symmetric
+`GenerateDataKey` plus `Decrypt` — so its usage does fall inside the free tier.
+
 Checked against the provider's official pricing page on **2026-09-08**:
 
 | Item | Price | Source |
