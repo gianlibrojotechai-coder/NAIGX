@@ -343,12 +343,16 @@ Still permitted and still non-reasoning, if preferred first:
 
 | | |
 |---|---|
-| Branch | `main`, in sync with `origin/main` |
-| HEAD | `c7f23b3` — "Make FR-034 assessable at Stage 7, and amend D-37 to allow it", 2026-09-07 |
-| Working tree | **Dirty and substantial** — all of M-11, M-12, M-14 and M-13, plus D-40, D-41 and D-42. Nothing has been committed since `c7f23b3`. |
-| Unpushed | None committed, so none pushed. The uncommitted work is the exposure. |
+| Branch | `main` |
+| HEAD | `dcabef5` — "Close Sprint 4: export, degradation, refusals and correction", 2026-09-07 |
+| Working tree | **Clean.** |
+| Sprint 4 checkpoint | `dcabef5` — 101 files, +15,723 / −612. Everything uncommitted since `c7f23b3`, committed as one coherent checkpoint |
 
-Pushed 2026-09-07 in three commits: `3df4c55` (persistence, publication, orchestrator, API, jsonb fix, `API-020` owner fix, informed regeneration), `edd4401` (M-12 frontend), `d9f0479` (D-37 and this file).
+**What `dcabef5` contains.** The Sprint 3 carry-over (M-11 paths, M-12 presenters) *and* all of Sprint 4 (M-13 export in both formats, M-14 degradation, `API §9.3` refusal handling, `FR-006`, `FR-014`), plus [D-40](15-D-40-Existing-Workflow-Module-Mapping.md), [D-41](16-D-41-Anonymous-Export-Deviation.md), [D-42](17-D-42-Export-Response-Contract.md) and [D-43](18-D-43-PDF-Rendering-Approach.md).
+
+The two sprints are in one commit because they **cannot be separated**: the export renders the artifact types M-11 added, and M-12's presenters are what its section order mirrors. Splitting them would produce a commit that does not build.
+
+Earlier work, pushed 2026-09-07: `3df4c55` (persistence, publication, orchestrator, API, jsonb fix, `API-020` owner fix, informed regeneration), `edd4401` (M-12 frontend), `d9f0479` (D-37 and this file), `c7f23b3` (`FR-034` at Stage 7, D-39 amendment).
 
 Uncommitted: `backend/package.json` (one script), `backend/src/regression/review-packet.ts`, `backend/scripts/review-packets.mts`, `backend/tests/unit/review-packet.test.ts`, and the generated `research/reviews/` bundle.
 
