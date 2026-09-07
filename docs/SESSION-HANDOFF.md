@@ -255,6 +255,7 @@ In Git Bash set `MSYS_NO_PATHCONV=1` or paths get rewritten to `C:/Program Files
 
 | Commit | What |
 |---|---|
+| `a7d06c2` | M-19 Phase 3 — application-level encryption, durable purge outbox, D-55 |
 | `d7fd2e0` | M-19 Phase 2 — TLS edge, same-origin client, proxy trust, IP-hash salt, D-54 |
 | `54ac225` | M-19 Phase 1 — containerise, non-root, sandbox actually enabled |
 | `ef90788` | M-19 decisions D-50 … D-53 + the M-18 mislabel correction |
