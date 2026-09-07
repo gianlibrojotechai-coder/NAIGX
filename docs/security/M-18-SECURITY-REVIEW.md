@@ -32,6 +32,9 @@ regardless of who found it.
 findings", and finding **H-2** is unresolved and cannot be resolved in this
 milestone.
 
+> **Amended 2026-09-08:** H-2's requirement label was corrected (see the
+> finding). The verdict is unchanged.
+
 | Severity | Count | State |
 |---|---|---|
 | High | 2 | 1 fixed, **1 unresolved** |
@@ -75,7 +78,20 @@ separate tokenizer. Six regression tests in `tests/unit/export-html.test.ts`
 cover each vector, including one asserting that ordinary `https` links still
 work, because a fix that breaks legitimate links gets reverted.
 
-### H-2 — No application-level encryption of confidential content · `NFR-021` · **UNRESOLVED**
+### H-2 — No application-level encryption of confidential content · `DB §13.1` row 3 · **UNRESOLVED**
+
+> ⚠️ **Corrected 2026-09-08.** This finding was originally labelled `NFR-021`.
+> That was wrong, and the correction is left visible rather than quietly
+> applied. `NFR-021` is *"stored analysis content encrypted at rest"*, which
+> `DB §13.1` maps to **full-volume** encryption; the application-level layer is
+> a separate row of that table carrying **no requirement number**.
+> [D-53](../28-D-53-Encryption-Layers.md) §1 sets out the split.
+>
+> **The finding and the verdict are unchanged** — both layers are
+> unimplemented, so H-2 stands and M-18 remains not passed. What the mislabel
+> got wrong was the cost: it made one blocker look like a single expensive
+> problem, when it is a free one (`NFR-021`, an encrypted volume) and a
+> $1/month one (row 3, a managed key service).
 
 `DB §13.1` requires application-level encryption on the three
 highest-sensitivity fields — `raw_content`, `structured_input`,
@@ -164,8 +180,11 @@ components rather than arbitrary user markup.
 
 ## Recommendations, in order
 
-1. **`M-19`: implement `NFR-021`** with a managed key service. This is what
-   closes H-2 and unblocks `M-18`.
+1. **`M-19`: implement both encryption layers** — an encrypted volume for
+   `NFR-021` (free) and application-level envelope encryption for `DB §13.1`
+   row 3 (a managed key service, ~$1/month). **Both** are required to close
+   H-2 and unblock `M-18`; see [D-53](../28-D-53-Encryption-Layers.md) and
+   [D-52](../27-D-52-Managed-Key-Service.md).
 2. **`M-19`: run as non-root and drop `--no-sandbox`** (M-4).
 3. **`M-19`: TLS, a shared rate-limit store, and a durable purge queue** —
    M-1, M-2, L-1.
