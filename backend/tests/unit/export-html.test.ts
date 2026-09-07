@@ -111,3 +111,66 @@ test("the exported substance passes through unaltered", () => {
   assert.match(html, /Failed/);
   assert.match(html, /Generation was attempted and did not succeed/);
 });
+
+// --- NFR-027: no user input echoed into a rendering context unescaped -------
+//
+// Found during the `M-18` audit and fixed there. `marked` emits raw HTML by
+// default — that is Markdown's specified behaviour and the wrong behaviour
+// here, because this document is built from artifact content, which is model
+// output derived from the user's own submitted text.
+//
+// The rendering context is what makes it matter: `export/pdf` launches
+// Chromium with `--no-sandbox`, so script execution there is unsandboxed.
+// Every vector below was live before the fix.
+
+const LIVE_MARKUP = /<script|<iframe|<img[^>]*onerror|javascript:/i;
+
+test("NFR-027 — block-level HTML is escaped, not emitted", () => {
+  const html = renderExportHtml("# T\n\n<script>window.x=1</script>\n", "t");
+  assert.equal(LIVE_MARKUP.test(html), false);
+  // Escaped rather than stripped: a user who wrote it should still see it.
+  assert.match(html, /&lt;script&gt;/);
+});
+
+test("NFR-027 — inline HTML is escaped", () => {
+  // The case a renderer-only fix misses: inline HTML comes from a separate
+  // tokenizer, so overriding `renderer.html` alone leaves this one live.
+  const html = renderExportHtml(
+    '# T\n\nThe verdict <img src=x onerror="window.x=1"> stands.\n',
+    "t",
+  );
+  assert.equal(LIVE_MARKUP.test(html), false);
+});
+
+test("NFR-027 — HTML inside a table cell is escaped", () => {
+  // Artifact content reaches tables — the risk register and artifact status
+  // are both tables built from stored content.
+  const html = renderExportHtml(
+    "| A | B |\n|---|---|\n| <iframe src=x></iframe> | y |\n",
+    "t",
+  );
+  assert.equal(LIVE_MARKUP.test(html), false);
+});
+
+test("NFR-027 — a javascript: link loses its href and keeps its text", () => {
+  // Escaping tags does not close a link. `[text](javascript:...)` is ordinary
+  // Markdown, and a project name containing link syntax becomes a real anchor.
+  const html = renderExportHtml("# T\n\n[click](javascript:alert(1))\n", "t");
+  assert.equal(LIVE_MARKUP.test(html), false);
+  assert.match(html, /click/);
+  assert.match(html, /link removed/);
+});
+
+test("NFR-027 — a data: link is refused too", () => {
+  const html = renderExportHtml(
+    "# T\n\n[x](data:text/html,<script>alert(1)</script>)\n",
+    "t",
+  );
+  assert.equal(LIVE_MARKUP.test(html), false);
+});
+
+test("an ordinary https link still works", () => {
+  // The fix must not break legitimate links.
+  const html = renderExportHtml("# T\n\n[docs](https://example.test/x)\n", "t");
+  assert.match(html, /<a href="https:\/\/example\.test\/x">docs<\/a>/);
+});

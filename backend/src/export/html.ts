@@ -146,6 +146,46 @@ const escapeHtml = (text: string): string =>
 export function renderExportHtml(markdown: string, title: string): string {
   const renderer = new marked.Renderer();
 
+  // ⚠️ RAW HTML IS ESCAPED, NEVER EMITTED (`NFR-027`, `NFR-024`).
+  //
+  // `marked` passes HTML in its source through untouched — that is Markdown's
+  // specified behaviour and it is the wrong behaviour here. This document is
+  // built from **artifact content**, which is model output derived from the
+  // user's own submitted text, so a `<script>` reaching this function is a
+  // reachable path and not a hypothetical one: an input that induces markup in
+  // an artifact, then an export to PDF, and it executes.
+  //
+  // The rendering context makes that worse rather than academic. `export/pdf`
+  // launches Chromium with `--no-sandbox` (required to run as root in a
+  // container), so script execution there is unsandboxed script execution.
+  //
+  // Escaped rather than stripped: a user who wrote `<thing>` in their input
+  // should see `<thing>` in their document, not a silent deletion.
+  renderer.html = ({ text }): string => escapeHtml(text);
+
+  // The renderer above closes **block** HTML. Inline HTML — an `<img>` in the
+  // middle of a paragraph — is produced by a separate tokenizer and would
+  // otherwise still pass through, which is exactly how the `onerror` case
+  // survives a fix that only overrides the renderer. Refusing the match makes
+  // the tag ordinary text, and ordinary text is escaped on the way out.
+  const tokenizer = new marked.Tokenizer();
+  tokenizer.tag = () => undefined;
+
+  // ⚠️ ONLY INERT URL SCHEMES SURVIVE (`NFR-027`).
+  //
+  // Escaping tags does not close a link: `[text](javascript:...)` is ordinary
+  // Markdown, and artifact content is interpolated into this document as
+  // Markdown, so a project name or a mitigation containing link syntax becomes
+  // a real anchor. `javascript:` and `data:` are the two that execute.
+  //
+  // A refused scheme keeps its text and loses its href, so the reader still
+  // sees what was written and cannot be navigated by it.
+  const SAFE_SCHEME = /^(https?:|mailto:|#|\/|\.)/i;
+  renderer.link = ({ href, text }): string =>
+    SAFE_SCHEME.test(href)
+      ? `<a href="${escapeHtml(href)}">${text}</a>`
+      : `${text} (link removed: unsupported scheme)`;
+
   // Fenced `mermaid` becomes a render target rather than a code block; every
   // other fence stays a code block.
   renderer.code = ({ text, lang }): string =>
@@ -155,6 +195,7 @@ export function renderExportHtml(markdown: string, title: string): string {
 
   const body = marked.parse(markdown, {
     renderer,
+    tokenizer,
     // GitHub-flavoured tables are what the serialiser emits; without this the
     // risk register and artifact status arrive as unreadable pipe-delimited
     // paragraphs.
