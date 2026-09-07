@@ -335,3 +335,41 @@ test(
     assert.ok(pdf.length > 1_000);
   },
 );
+
+// --- M-19: the sandbox must stay on -----------------------------------------
+
+test("renderPdf enables the Chromium sandbox explicitly", () => {
+  // ⚠️ THIS IS A SOURCE-LEVEL CHECK, AND IT IS DELIBERATE.
+  //
+  // Playwright documents `chromiumSandbox` as "Defaults to `false`" and adds
+  // `--no-sandbox` itself when it is unset. During `M-19` the flag was removed
+  // from `args` and a container render succeeded **with the sandbox still
+  // off** — Playwright had put it back. Every behavioural test passed, because
+  // a sandboxed and an unsandboxed render produce the same PDF.
+  //
+  // So there is nothing observable in the output to assert on. What can be
+  // asserted is that the option is present and true, which is the single line
+  // that distinguishes the fixed state from the one that merely looked fixed.
+  const source = readFileSync(
+    new URL("../../src/export/pdf.ts", import.meta.url),
+    "utf8",
+  );
+
+  // `assert.ok` on a boolean rather than `assert.match` on the file: matching
+  // a 200-line source dumps the whole thing into the failure message, burying
+  // the one line that matters.
+  assert.ok(
+    /chromiumSandbox:\s*true/.test(source),
+    "`M-18` finding M-4: the PDF renderer must enable the Chromium sandbox " +
+      "(`chromiumSandbox: true`). Removing `--no-sandbox` from `args` does " +
+      "NOT do this on its own — Playwright puts the flag back.",
+  );
+
+  // Scoped to the `args` array so a comment mentioning the flag — this file
+  // and `pdf.ts` both explain it at length — cannot fail the check.
+  const args = /args:\s*\[[^\]]*\]/.exec(source)?.[0] ?? "";
+  assert.ok(
+    !args.includes("--no-sandbox"),
+    `the launch arguments must not disable the sandbox, found: ${args}`,
+  );
+});

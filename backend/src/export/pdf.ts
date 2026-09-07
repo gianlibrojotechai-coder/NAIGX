@@ -156,11 +156,28 @@ export async function renderPdf(
       executablePath: options.executablePath,
       headless: true,
       timeout,
-      // `--no-sandbox` is required to run as root inside a container, which is
-      // the usual deployment shape. The page is a document this server just
-      // rendered from its own database — it loads no third-party code and, per
-      // the route below, makes no requests at all.
-      args: ["--no-sandbox", "--disable-dev-shm-usage"],
+      // ⚠️ THE SANDBOX IS ENABLED HERE, AND `chromiumSandbox` IS WHAT ENABLES IT.
+      //
+      // Playwright documents `chromiumSandbox` as "Defaults to `false`" and
+      // injects `--no-sandbox` itself when it is unset. So **deleting
+      // `--no-sandbox` from `args` does nothing on its own** — it was tried
+      // during `M-19`, the flag came back from inside Playwright, and a
+      // container render succeeded with the sandbox still off. It looked like
+      // the fix and was a no-op. This line is the fix.
+      //
+      // `M-18` finding M-4 asked for this once the process stopped running as
+      // root; the image (`backend/Dockerfile`) runs as uid 1000.
+      chromiumSandbox: true,
+
+      // COUPLED TO A SECCOMP PROFILE. The namespace sandbox must create a user
+      // namespace, which Docker's default profile forbids, so a deployment runs
+      // with `deploy/seccomp/chromium.json`. Non-root is necessary and not
+      // sufficient. Without the profile Chromium aborts with "Failed to move to
+      // new namespace" and the export fails loudly; Markdown is unaffected.
+      //
+      // Do not "fix" that by setting this to `false`. It would reopen the
+      // finding silently, and every test in this repository would still pass.
+      args: ["--disable-dev-shm-usage"],
     });
 
     const page = await browser.newPage();

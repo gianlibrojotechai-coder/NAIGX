@@ -1,0 +1,27 @@
+# Keep the build context small and free of anything that must not reach an image.
+
+node_modules
+dist
+
+# ⚠️ NEVER. `SA §10.4` — secrets are injected at runtime, never baked into an
+# image layer. A `.env` copied in is recoverable from the image forever, even
+# if a later layer deletes it.
+.env
+.env.*
+*.pem
+*.key
+
+# Generated Prisma clients are produced inside the build stage from the schema.
+src/generated
+
+# Tests, fixtures and tooling are not part of a runtime image.
+tests
+tsconfig.test.json
+scripts
+research
+
+# Local noise
+*.log
+.DS_Store
+coverage
+.vscode
