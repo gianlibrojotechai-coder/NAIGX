@@ -21,31 +21,110 @@
 
 import { JobDescriptionForm } from "./components/JobDescriptionForm";
 import { Processing } from "./components/Processing";
+import { useEffect, useState } from "react";
+
 import { AnalysisView } from "./components/AnalysisView";
 import { RefusalView } from "./components/RefusalView";
+import { AuthPanel } from "./components/AuthPanel";
+import { HistoryView } from "./components/HistoryView";
 import { isOffline } from "./api/analyses";
+import {
+  setSessionEndedHandler,
+  signOut,
+  type AccountUser,
+} from "./api/auth";
 import { useAnalysis } from "./useAnalysis";
 
 function App() {
-  const { state, submit, reset, retryRetrieval, correctClassification } =
-    useAnalysis();
+  const {
+    state,
+    submit,
+    reset,
+    retryRetrieval,
+    correctClassification,
+    openStored,
+  } = useAnalysis();
 
-  const showForm = state.phase === "idle" || state.phase === "submitting";
+  const [user, setUser] = useState<AccountUser | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [claimNotice, setClaimNotice] = useState<string | null>(null);
+
+  /**
+   * A refresh that fails ends the session (`API-002`).
+   *
+   * Registered once. The client has already dropped the credential by the time
+   * this fires; this is the UI catching up rather than deciding.
+   */
+  useEffect(() => {
+    setSessionEndedHandler(() => {
+      setUser(null);
+      setShowHistory(false);
+    });
+  }, []);
+
+  const showForm =
+    !showHistory && (state.phase === "idle" || state.phase === "submitting");
 
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
-        <div className="max-w-4xl mx-auto px-6 py-5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <div className="max-w-4xl mx-auto px-6 py-5 flex flex-wrap items-center gap-x-3 gap-y-1">
           <h1 className="text-xl font-bold tracking-tight text-slate-900">
             NAIGX
           </h1>
           <p className="text-sm text-slate-600">
             Should you apply to this role, or build evidence first?
           </p>
+          {/* `FR-004`/`UX-001` — reachable, never a gate. An analysis runs
+              with no account, and this sits beside that rather than before it. */}
+          <div className="ml-auto">
+            <AuthPanel
+              user={user}
+              busy={state.phase === "submitting"}
+              onSignedIn={(signedIn, claimedAnalysisId) => {
+                setUser(signedIn);
+                setClaimNotice(
+                  claimedAnalysisId === null
+                    ? null
+                    : "Your analysis has been saved to this account.",
+                );
+              }}
+              onSignOut={() => {
+                void signOut().then(() => {
+                  setUser(null);
+                  setShowHistory(false);
+                });
+              }}
+              onOpenHistory={() => {
+                setShowHistory(true);
+              }}
+            />
+          </div>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+        {claimNotice !== null && (
+          <p
+            role="status"
+            className="rounded-md border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700"
+          >
+            {claimNotice}
+          </p>
+        )}
+
+        {showHistory && (
+          <HistoryView
+            onClose={() => {
+              setShowHistory(false);
+            }}
+            onOpen={(analysisId) => {
+              setShowHistory(false);
+              void openStored(analysisId);
+            }}
+          />
+        )}
+
         {showForm && (
           <JobDescriptionForm
             onSubmit={(content) => {
@@ -55,7 +134,7 @@ function App() {
           />
         )}
 
-        {state.phase === "processing" && (
+        {!showHistory && state.phase === "processing" && (
           <Processing
             status={state.status}
             elapsedSeconds={state.elapsedSeconds}
@@ -66,7 +145,7 @@ function App() {
           />
         )}
 
-        {state.phase === "error" && state.failure !== null && (
+        {!showHistory && state.phase === "error" && state.failure !== null && (
           <div
             role="alert"
             className="border border-rose-300 bg-rose-50 rounded-lg p-5"
@@ -118,11 +197,11 @@ function App() {
 
         {/* `API §9.3` — a refusal is a determination, not a failure, and gets
             its own presentation rather than an empty result or an error box. */}
-        {state.phase === "refused" && state.refusal !== null && (
+        {!showHistory && state.phase === "refused" && state.refusal !== null && (
           <RefusalView refusal={state.refusal} onStartOver={reset} />
         )}
 
-        {state.phase === "done" && state.analysis !== null && (
+        {!showHistory && state.phase === "done" && state.analysis !== null && (
           <>
             <div className="flex justify-end">
               <button

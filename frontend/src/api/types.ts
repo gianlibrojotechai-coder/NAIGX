@@ -59,6 +59,16 @@ export interface ErrorEnvelope {
 export interface CreatedAnalysis {
   readonly analysis_id: string;
   readonly status: AnalysisStatus;
+  /**
+   * `FR-004` — the anonymous credential, issued **once** at creation.
+   *
+   * Absent when the caller was signed in: that analysis is owned from
+   * creation and has no anonymous credential. Present otherwise, and it is
+   * the only way to read the analysis afterwards — the server stores a hash.
+   */
+  readonly anonymous_token?: string;
+  readonly classification_override?: string;
+  readonly supersedes_analysis_id?: string;
 }
 
 // --- API-026 ---------------------------------------------------------------

@@ -25,6 +25,7 @@ import { clearDraft } from "./draftStorage";
 
 import {
   createAnalysis,
+  setAnonymousToken,
   type Correction,
   fetchAnalysis,
   fetchStatus,
@@ -252,6 +253,10 @@ export function useAnalysis() {
         return;
       }
 
+      // `FR-004` — kept so every later read can present it. Null when signed
+      // in, because an owned analysis is reached with the session instead.
+      setAnonymousToken(created.anonymous_token ?? null);
+
       setState({
         ...INITIAL,
         phase: "processing",
@@ -339,5 +344,36 @@ export function useAnalysis() {
     [state.submittedContent, state.analysisId, submit],
   );
 
-  return { state, submit, reset, retryRetrieval, correctClassification };
+  /**
+   * Opens a stored analysis from history (`FR-061` — "selecting an entry opens
+   * the full stored result").
+   *
+   * Retrieval only: `API-021` reproduces what is stored and never re-runs
+   * reasoning, so this cannot cost anything or produce a different answer.
+   *
+   * ⚠️ The anonymous token is cleared first. An analysis reached from history
+   * is owned, and its anonymous credential was destroyed by the claim; leaving
+   * a stale one set would send a credential that authenticates nobody.
+   */
+  const openStored = useCallback(
+    async (analysisId: string) => {
+      stopTimers();
+      abort.current?.abort();
+      abort.current = new AbortController();
+      setAnonymousToken(null);
+
+      setState({ ...INITIAL, phase: "processing", analysisId });
+      await retrieve(analysisId, "completed");
+    },
+    [retrieve, stopTimers],
+  );
+
+  return {
+    state,
+    submit,
+    reset,
+    retryRetrieval,
+    correctClassification,
+    openStored,
+  };
 }

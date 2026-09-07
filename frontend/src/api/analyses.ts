@@ -12,6 +12,7 @@
 import axios from "axios";
 
 import { api, POLL_TIMEOUT_MS } from "./client";
+import { authHeader, isSignedIn } from "./auth";
 import type {
   Analysis,
   Refusal,
@@ -20,6 +21,27 @@ import type {
   ErrorEnvelope,
   SuccessEnvelope,
 } from "./types";
+
+/**
+ * The credential for an analysis request (`M-15`).
+ *
+ * ⚠️ TWO CLASSES, ONE HEADER. `API §3.4`: an anonymous token and a session
+ * token both travel as `Bearer`, and the API distinguishes by class. A client
+ * holds at most one that is relevant to a given analysis — the session if
+ * signed in, otherwise the token issued when that analysis was created.
+ *
+ * The session wins when both exist: after a claim the analysis is owned, and
+ * its anonymous token has been cleared server-side, so presenting it would
+ * authenticate nobody.
+ */
+let anonymousToken: string | null = null;
+
+/** Remembers the token `API-020` issued, so later reads can present it. */
+export const setAnonymousToken = (token: string | null): void => {
+  anonymousToken = token;
+};
+
+export const getAnonymousToken = (): string | null => anonymousToken;
 
 export interface ApiFailure {
   readonly message: string;
@@ -51,6 +73,19 @@ const readErrorEnvelope = (data: unknown): ErrorEnvelope | undefined => {
     }
   }
   return data as ErrorEnvelope | undefined;
+};
+
+/**
+ * The `Authorization` header for a request about one analysis.
+ *
+ * Session first: a claimed analysis no longer answers to its anonymous token,
+ * because the claim clears `anonymous_token_hash` server-side.
+ */
+const analysisAuth = (): Record<string, string> => {
+  if (isSignedIn()) return authHeader();
+  return anonymousToken === null
+    ? {}
+    : { Authorization: `Bearer ${anonymousToken}` };
 };
 
 export const toApiFailure = (error: unknown): ApiFailure => {
@@ -122,7 +157,7 @@ export const createAnalysis = async (
           }
         : {}),
     },
-    signal ? { signal } : {},
+    { headers: analysisAuth(), ...(signal ? { signal } : {}) },
   );
   return response.data.data;
 };
@@ -134,7 +169,11 @@ export const fetchStatus = async (
 ): Promise<AnalysisStatusResponse> => {
   const response = await api.get<SuccessEnvelope<AnalysisStatusResponse>>(
     `/analyses/${analysisId}/status`,
-    { timeout: POLL_TIMEOUT_MS, ...(signal ? { signal } : {}) },
+    {
+      timeout: POLL_TIMEOUT_MS,
+      headers: analysisAuth(),
+      ...(signal ? { signal } : {}),
+    },
   );
   return response.data.data;
 };
@@ -196,7 +235,7 @@ export const fetchAnalysis = async (
 ): Promise<Analysis> => {
   const response = await api.get<SuccessEnvelope<Analysis>>(
     `/analyses/${analysisId}`,
-    signal ? { signal } : {},
+    { headers: analysisAuth(), ...(signal ? { signal } : {}) },
   );
   return response.data.data;
 };
@@ -230,6 +269,7 @@ export const exportAnalysisMarkdown = async (
       // Without this axios parses a JSON-looking body; the document is text.
       responseType: "text",
       transformResponse: [(data: string) => data],
+      headers: analysisAuth(),
       ...(signal ? { signal } : {}),
     },
   );
@@ -264,6 +304,7 @@ export const exportAnalysisPdf = async (
     },
     {
       responseType: "arraybuffer",
+      headers: analysisAuth(),
       ...(signal ? { signal } : {}),
     },
   );

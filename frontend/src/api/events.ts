@@ -57,6 +57,21 @@ export const streamAnalysis = (
   analysisId: string,
   handlers: StreamHandlers,
 ): StreamSubscription | undefined => {
+  // ⚠️ THE STREAM CANNOT AUTHENTICATE, AND THAT IS A KNOWN LIMITATION.
+  //
+  // `API-025` became owner-scoped in `M-15`, and `EventSource` cannot set an
+  // `Authorization` header — the browser API has no facility for it. The two
+  // ways round are both worse than the gap: a token in the query string puts a
+  // credential into URLs, server logs and `Referer` headers, and a cookie
+  // would introduce a second credential class `API §3.1` deliberately does not
+  // have.
+  //
+  // So a stream against an owner-scoped analysis is refused and this closes,
+  // and the UI falls back to polling — which `SA AR-06` requires to work with
+  // streaming disabled anyway, and which `useAnalysis` runs alongside the
+  // stream rather than instead of it. `FR-041` progressive rendering is
+  // therefore **degraded, not broken**, and it is recorded in `docs/STATUS.md`
+  // rather than left to be discovered.
   if (typeof EventSource === "undefined") return undefined;
 
   const source = new EventSource(`${baseURL}/analyses/${analysisId}/events`);
