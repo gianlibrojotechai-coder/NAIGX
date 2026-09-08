@@ -32,6 +32,7 @@ import {
   contextHandoffView,
   createPipeline,
   stageHandoff,
+  stageProviderInputs,
 } from "../../src/nie/pipeline.js";
 import { parseClassification } from "../../src/nie/stages/classification.js";
 import { parseIntent } from "../../src/nie/stages/intent.js";
@@ -233,6 +234,33 @@ const ASSESSMENT: Scenario = {
   stageOutput: ASSESSMENT_ARCHITECTURE_OUTPUT,
 };
 
+/**
+ * The Stage 1 and Stage 2 outputs each scenario replays.
+ *
+ * Hoisted so the fixture builder below and the `stageProviderInputs` agreement
+ * test share one definition. When they were separate, the agreement test could
+ * only have compared a copy against a copy.
+ */
+const classificationOutputFor = (scenario: Scenario): string =>
+  JSON.stringify({
+    determined_type: scenario.type,
+    confidence: 0.93,
+    candidate_types: [],
+  });
+
+const intentOutputFor = (scenario: Scenario): string =>
+  JSON.stringify({
+    primary_objective: {
+      content:
+        scenario.type === "existing_workflow"
+          ? "Have the current lead intake reviewed"
+          : "Produce a defensible ingestion design",
+      provenance: "stated",
+    },
+    secondary_objectives: [],
+    inferred_scope: "Form submission through downstream handoff",
+  });
+
 /** Primes the replay adapter against the prompts the pipeline will compose. */
 const primedAdapter = async (
   scenario: Scenario,
@@ -272,22 +300,8 @@ const primedAdapter = async (
     };
   };
 
-  const classificationOutput = JSON.stringify({
-    determined_type: scenario.type,
-    confidence: 0.93,
-    candidate_types: [],
-  });
-  const intentOutput = JSON.stringify({
-    primary_objective: {
-      content:
-        scenario.type === "existing_workflow"
-          ? "Have the current lead intake reviewed"
-          : "Produce a defensible ingestion design",
-      provenance: "stated",
-    },
-    secondary_objectives: [],
-    inferred_scope: "Form submission through downstream handoff",
-  });
+  const classificationOutput = classificationOutputFor(scenario);
+  const intentOutput = intentOutputFor(scenario);
 
   await add("input_classification", scenario.input, classificationOutput);
   const classification = parseClassification(classificationOutput);
@@ -576,3 +590,68 @@ test("an assessment naming no rejected alternative fails the stage", async () =>
     "FR-023 — a solution with no alternatives cannot be defended",
   );
 });
+
+// --- the fixture builder must know every Stage 6 path --------------------
+
+/**
+ * ⚠️ THIS IS THE TEST THAT WAS MISSING, AND ITS ABSENCE COST $0.1072.
+ *
+ * `stageProviderInputs` tells a recorder which provider input each stage will
+ * receive, and `createRecordedProvider` keys a replay fixture from it. It used
+ * to re-state the Stage 6 routing rules inline — `job_description` to Stage 7,
+ * **everything else** to `architecture_analysis` — which quietly mis-described
+ * the `existing_workflow` path that `planReasoning` sends to `workflow_review`.
+ *
+ * Nothing went red. `createRecordedProvider` skips a recorded stage it has no
+ * provider input for, so an `existing_workflow` recording simply built one
+ * fewer fixture, and the pipeline's Stage 6 call failed at replay with
+ * `No recorded response for request key …` — which reads as missing evidence.
+ * `ew-001` was captured with real provider spend and could not be replayed at
+ * all; the message pointed at the recording rather than at the keying.
+ *
+ * The tests around it could not catch this. The `nie-pipeline.test.ts`
+ * agreement test only ever runs the business-requirement path, and the
+ * scenarios in *this* file prime their fixtures through `primedAdapter`, which
+ * computes the keys itself — a reimplementation cannot disagree with the thing
+ * it reimplements.
+ *
+ * So this asserts the real function against the real handoff, for both
+ * non-requirement paths, including that the branch NOT taken is absent: a
+ * fixture set offering a call the pipeline never makes is its own defect.
+ */
+for (const scenario of [WORKFLOW, ASSESSMENT]) {
+  test(`stageProviderInputs keys the ${scenario.type} Stage 6 call`, () => {
+    const classificationOutput = classificationOutputFor(scenario);
+    const intentOutput = intentOutputFor(scenario);
+
+    const classification = parseClassification(classificationOutput);
+    const intent = parseIntent(intentOutput);
+    const context = parseContext(scenario.context, scenario.input);
+
+    const inputs = stageProviderInputs(scenario.input, {
+      classification: classificationOutput,
+      intent: intentOutput,
+      context: scenario.context,
+    });
+
+    assert.equal(
+      inputs.get(scenario.stageKey),
+      stageHandoff({
+        classification,
+        intent,
+        context: contextHandoffView(context),
+      }),
+      `${scenario.type}: the fixture builder must key ${scenario.stageKey} with the handoff the pipeline sends`,
+    );
+
+    const notTaken =
+      scenario.stageKey === "workflow_review"
+        ? "architecture_analysis"
+        : "workflow_review";
+    assert.equal(
+      inputs.get(notTaken),
+      undefined,
+      `${scenario.type}: ${notTaken} is never called on this path, so keying a fixture for it would describe a call that is never made`,
+    );
+  });
+}

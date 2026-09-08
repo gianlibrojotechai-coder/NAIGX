@@ -242,33 +242,74 @@ export function stageProviderInputs(
   } catch {
     return inputs;
   }
-  // The branch the pipeline takes after Stage 3, mirrored. `AI §9.1` sends the
-  // job-description path to Stage 7 and gives it no architecture, so a fixture
-  // set that offered `architecture_analysis` here would describe a call that is
-  // never made.
-  if (classification.determinedType === "job_description") {
-    if (outputs.capabilityProfile !== undefined) {
-      inputs.set(
-        "recommendation_generation",
-        stageHandoff({
-          classification,
-          intent,
-          context: contextHandoffView(context),
-          capability_profile: outputs.capabilityProfile,
-        }),
-      );
-    }
-    return inputs;
+  // The branch the pipeline takes after Stage 3, mirrored — ⚠️ BY ASKING THE
+  // SAME FUNCTION, not by re-listing the types.
+  //
+  // This used to re-state the routing rules inline: `job_description` went to
+  // Stage 7, and *everything else* was given `architecture_analysis`. That
+  // silently mis-described the `existing_workflow` path, which `planReasoning`
+  // sends to `workflow_review` and pointedly **not** to architecture design
+  // (`FR-021` via `AI §7.1`, `docs/15` D-40). The consequence was not a wrong
+  // fixture but a missing one: `createRecordedProvider` skips any recorded
+  // stage with no provider input, so an `existing_workflow` recording built
+  // fixtures for three stages, and the pipeline's Stage 6 call then failed with
+  // `No recorded response for request key …` — a message that reads like
+  // missing evidence when the evidence was present and unkeyed.
+  //
+  // ⚠️ IT COST REAL MONEY TO FIND. `ew-001` was captured for $0.1072 and could
+  // not be replayed at all, and the shape of the failure pointed at the
+  // recording rather than at this function.
+  //
+  // `planReasoning` is pure and total over `ClassificationType`, and it is what
+  // the pipeline itself branches on at Stage 6. Reading through it means a new
+  // reasoning module cannot be routed in the pipeline and forgotten here.
+  const plan = planReasoning(classification.determinedType);
+
+  if (plan.requiredAnalyses.includes("architecture_analysis")) {
+    inputs.set(
+      "architecture_analysis",
+      stageHandoff({
+        classification,
+        intent,
+        context: contextHandoffView(context),
+      }),
+    );
   }
 
-  inputs.set(
-    "architecture_analysis",
-    stageHandoff({
-      classification,
-      intent,
-      context: contextHandoffView(context),
-    }),
-  );
+  // Stage 6's other generator. The same handoff as architecture analysis —
+  // only the task and the composed prompt differ, which is exactly what
+  // `replayKeyFor` distinguishes.
+  if (plan.requiredAnalyses.includes("workflow_review")) {
+    inputs.set(
+      "workflow_review",
+      stageHandoff({
+        classification,
+        intent,
+        context: contextHandoffView(context),
+      }),
+    );
+  }
+
+  // `AI §9.1` gives the job-description path no architecture, so a fixture set
+  // offering one would describe a call that is never made — `planReasoning`
+  // now enforces that rather than this function asserting it.
+  //
+  // Still conditional on the caller holding a profile: without one the
+  // pipeline makes no Stage 7 call, so there is no request to key against.
+  if (
+    plan.requiredAnalyses.includes("recommendation_generation") &&
+    outputs.capabilityProfile !== undefined
+  ) {
+    inputs.set(
+      "recommendation_generation",
+      stageHandoff({
+        classification,
+        intent,
+        context: contextHandoffView(context),
+        capability_profile: outputs.capabilityProfile,
+      }),
+    );
+  }
 
   return inputs;
 }
