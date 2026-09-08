@@ -427,7 +427,7 @@ In Git Bash set `MSYS_NO_PATHCONV=1` or paths get rewritten to `C:/Program Files
 
 | Commit | What |
 |---|---|
-| *(latest)* | **M-20 performance** — `bench.ts` with status assertions, D-58, the latency log |
+| `6af9c11` | **M-20 performance** — `bench.ts` with status assertions, D-58, the latency log |
 | `b569b25` | Record the Phase 4a commit in the handoff's git-state table |
 | `1c0a86c` | M-19 Phase 4a — sealed column rename + data-format startup guard, D-57 |
 | `7c0f7e2` | M-19 Phase 4 — monitoring, alerting, restore drill, data policy, D-56 |

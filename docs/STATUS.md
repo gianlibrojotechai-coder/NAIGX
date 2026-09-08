@@ -480,14 +480,14 @@ Still permitted and still non-reasoning, if preferred first:
 | | |
 |---|---|
 | Branch | `main` |
-| HEAD | `b569b25` — "Record the Phase 4a commit in the handoff's git-state table", 2026-09-08 |
+| HEAD | `6af9c11` — "M-20 performance: measured, defined the bar, and did not pass the milestone", 2026-09-08 |
 | Working tree | **Clean** as of the M-20 commit below |
 
 **Sprint 5 commits, most recent first:**
 
 | Commit | What |
 |---|---|
-| *(this increment)* | **M-20 performance** — the benchmark, [D-58](33-D-58-Representative-Load.md) defining representative load, and [the latency log](performance/M-20-LATENCY-LOG.md) |
+| `6af9c11` | **M-20 performance** — the benchmark, [D-58](33-D-58-Representative-Load.md) defining representative load, and [the latency log](performance/M-20-LATENCY-LOG.md) |
 | `1c0a86c` | M-19 Phase 4a — sealed column rename + `data_format` startup guard, [D-57](32-D-57-Rollback-Across-A-Data-Format-Change.md) |
 | `7c0f7e2` | M-19 Phase 4 — monitoring, alerting, restore drill, data policy, [D-56](31-D-56-Monitoring-Alerting-And-The-Drills.md) |
 | `a7d06c2` | M-19 Phase 3 — application-level encryption, durable purge outbox, [D-55](30-D-55-Envelope-Format-And-Purge-Outbox.md) |
