@@ -42,7 +42,6 @@ import {
 } from "../src/regression/recording-store.js";
 import { runRegression } from "../src/regression/runner.js";
 import { readAuthoredFragments } from "../src/fragments/source.js";
-import { PROMPTS_ROOT } from "./fragments.mts";
 import {
   buildPassReference,
   isCleanRun,
@@ -68,6 +67,16 @@ const manifestVersion = (): string =>
       ),
     ) as { version: string }
   ).version;
+
+/**
+ * ⚠️ RESOLVED HERE RATHER THAN IMPORTED FROM `fragments.mts`. That module
+ * dispatches on `process.argv` at import time, so importing a constant from it
+ * ran its CLI and exited this one before it reached a capture.
+ */
+const PROMPTS_ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../prompts",
+);
 
 const command = process.argv[2] ?? "status";
 const corpus = loadCorpus();
