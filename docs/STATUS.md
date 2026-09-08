@@ -343,6 +343,46 @@ That is the honest summary of the exercise: it found something real, and it demo
 
 ---
 
+## Sonnet 5 Pilot — Attempted and Rejected, 2026-09-08
+
+**`claude-sonnet-5` was evaluated as a replacement provider model and REJECTED. The configured model remains `claude-sonnet-4-5`.** All pilot code was reverted; nothing below changed the shipped configuration.
+
+| | |
+|---|---|
+| Configuration tested | `claude-sonnet-5`, adaptive thinking, `output_config.effort: medium`, rates $2/$10 per MTok |
+| Runs | **3** — `br-001` (business_requirement), `jd-001` (job_description), and a **repeat of `br-001`** |
+| Spend | **$0.2122** across 10 provider calls, against a $1.00 authorised ceiling |
+| Completed analyses | **0 of 3** |
+| Schema validation | **3 of 3 failed** |
+
+**The three failures, each different:**
+
+| Run | Stage | Failure |
+|---|---|---|
+| 1 `br-001` | 3 `context_extraction` | `Field "category" must be one of constraint, environment, scale, dependency, system, objective (received "unknown")` |
+| 2 `jd-001` | 7 `recommendation_generation` | `Field "decisive_gaps" must be an array` |
+| 3 `br-001` **repeat** | 3 `context_extraction` | `Field "specificity_score" must be a finite number` |
+
+**⚠️ The repeat is the finding that matters.** Identical input, same stage, **different failure mode**. That is the `FR-024`/`AIP-7` reproducibility loss **measured rather than predicted**: Sonnet 5 removed sampling parameters, so `temperature: 0` cannot be sent, and `AI §10.2`'s low-variance degradation applies on every call. The degradation mechanism itself **worked correctly** — a clean differential shows all 80 historical Sonnet 4.5 calls recorded `fallback_used = false` and all 10 Sonnet 5 calls `true`.
+
+**Cost was not the reason for rejection.** Adaptive thinking at `medium` did **not** inflate output tokens — per stage, output was flat or lower than Sonnet 4.5 (`context_extraction` 3,932 → 2,812; `recommendation_generation` 3,932 → 3,947; `input_classification` 41 → 35). Projected cost remained **~$0.23 per complete 12-stage analysis**, above the $0.10–$0.20 target but not the disqualifier. **Schema validity was.**
+
+⚠️ **Latency rose sharply** and is recorded as an observation, not milestone evidence: `recommendation_generation` 37.2s and `context_extraction` 21.1s per call.
+
+### ⚠️ The comparison is UNCONTROLLED, and the conclusion is bounded by that
+
+`analysis_input` holds no historical row at these inputs' character counts — **Sonnet 4.5 was never given `br-001` or `jd-001`**. So the pilot cannot distinguish *"Sonnet 5 is less compliant with prompt-instructed schemas"* from *"these corpus cases are harder and Sonnet 4.5 would also fail them"*. **The first is not claimed.** A single Sonnet 4.5 control run (~$0.06) would resolve it; it was **deliberately not run** — the owner judged it not worth the budget for this decision.
+
+### What it points at, not adopted
+
+All three failures are one class: the model emitting JSON that does not conform. The adapter declares `structuredOutput: false`, so conformance rests entirely on prompt instruction plus validation (`AI §10.2`'s documented degradation). **`output_config.format` — real structured outputs — directly targets this and is the indicated architectural lever.** ⚠️ **Not adopted, not scheduled, and it would require its own decision record.**
+
+**Not done, deliberately:** no D-record for the rejected configuration; no DB-contract change to capture `thinking_tokens` (available from the API, not carried through persistence); no rename of `fallbackUsed`, which collapses `AI §10.2` degradation strings to a boolean under a misleading name — a real wart, but no acceptance criterion requires it.
+
+**The Sonnet 4.5 measurements elsewhere in this file remain Sonnet 4.5 measurements and are not relabelled.**
+
+---
+
 ## Gate and Deviation State — as of 2026-09-07
 
 The single place to read what is and is not permitted right now.
