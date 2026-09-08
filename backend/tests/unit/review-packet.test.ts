@@ -62,26 +62,43 @@ test("every committed recording produces a packet", () => {
 
   assert.equal(
     packets.length,
-    13,
-    "the thirteen committed recordings are the whole available sample",
+    14,
+    "the fourteen committed recordings are the whole available sample",
   );
   assert.equal(
     new Set(packets.map((p) => p.reviewerId)).size,
-    13,
+    14,
     "identifiers are unique, or two analyses share a review record",
   );
 });
 
-test("the sample covers only business_requirement and unsupported", () => {
+test("the sample covers business_requirement, unsupported and existing_workflow", () => {
   // Stated as a test so a later capture that widens the corpus fails here and
   // forces the M-11 non-claim to be revisited deliberately.
+  //
+  // ⚠️ IT DID EXACTLY THAT ON 2026-09-09, and this is the deliberate revision.
+  // Admitting `ew-001` added the first `existing_workflow` recording, so the
+  // sample is no longer business-requirement-plus-unsupported.
+  //
+  // ⚠️ WHAT THIS DOES **NOT** LICENCE. One recording is not a vertical. The
+  // `existing_workflow` path is represented by a single case, so nothing here
+  // supports an M-11 claim about that path — and `technical_assessment` still
+  // has no recording at all (`ta-001`'s capture failed and was never retried).
+  // Widening the sample widens what may be *reviewed*, never what may be
+  // *concluded*.
   const { inputs } = packetInputs();
   const types = new Set(inputs.map((i) => i.corpusCase.inputType));
 
   assert.deepEqual(
     [...types].sort(),
-    ["business_requirement", "unsupported"],
-    "these packets are not evidence for existing_workflow or technical_assessment",
+    ["business_requirement", "existing_workflow", "unsupported"],
+    "these packets are still not evidence for technical_assessment or job_description",
+  );
+
+  assert.equal(
+    inputs.filter((i) => i.corpusCase.inputType === "existing_workflow").length,
+    1,
+    "a single existing_workflow recording — a sample of one, not a vertical",
   );
 });
 
@@ -165,7 +182,7 @@ test("the unblinding index holds what the packets withhold", () => {
   };
 
   assert.match(parsed.warning, /DO NOT OPEN BEFORE REVIEWING/);
-  assert.equal(parsed.packets.length, 13);
+  assert.equal(parsed.packets.length, 14);
   assert.ok(
     parsed.packets.every(
       (p) => p.caseId !== "" && p.fragmentsManifestVersion !== null,
@@ -454,9 +471,33 @@ test("C-7 names same-type comparison candidates and no others", () => {
   const packets = buildPackets(inputs);
   const typeOf = new Map(packets.map((p) => [p.reviewerId, p.inputType]));
 
+  const typeCount = new Map<string, number>();
+  for (const p of packets) {
+    typeCount.set(p.inputType, (typeCount.get(p.inputType) ?? 0) + 1);
+  }
+
   for (const packet of packets) {
     const section = packet.content.slice(packet.content.indexOf("#### C-7 ·"));
     const named = [...section.matchAll(/RP-[0-9a-f]{8}/g)].map((m) => m[0]);
+
+    // ⚠️ A SINGLETON TYPE HAS NO PEER, AND MUST NOT BORROW ONE. `ew-001` is the
+    // only `existing_workflow` recording, so `docs/10` §3.4 records C-7 as not
+    // assessable rather than offering a different-type comparison. Asserting
+    // "every packet names a candidate" was only ever true because every type
+    // happened to have several recordings.
+    if ((typeCount.get(packet.inputType) ?? 0) < 2) {
+      assert.equal(
+        named.length,
+        0,
+        `${packet.reviewerId} is the only ${packet.inputType} packet and must name no peer`,
+      );
+      assert.match(
+        section,
+        /Comparison candidates:\* none — no other packet in this set shares this input type/,
+        `${packet.reviewerId} has no peer, so C-7 must say so rather than fall silent`,
+      );
+      continue;
+    }
 
     assert.ok(named.length > 0, `${packet.reviewerId} names no candidate`);
     for (const candidate of named) {

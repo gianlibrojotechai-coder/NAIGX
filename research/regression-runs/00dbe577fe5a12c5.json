@@ -1,0 +1,388 @@
+{
+  "suite": "corpus-regression",
+  "reference": "corpus-regression:corpus-v2+fragments-v1:00dbe577fe5a12c5",
+  "mode": "recorded",
+  "suiteVersion": "corpus-v2",
+  "fragmentsManifestVersion": "fragments-v1",
+  "fragmentsCompositions": [
+    "94768ecd876b85e8770e35afafc0cfb7cd637b0002fad88b44fbd82abe1dd248"
+  ],
+  "selectionScope": "targeted",
+  "coverage": {
+    "fragmentKey": "stage.workflow_review",
+    "fragmentVersionId": "authored:b44e5f1be198",
+    "fragmentVersion": "authored",
+    "suiteVersion": "corpus-v2",
+    "corpusSize": 44,
+    "determinedCases": 14,
+    "unrecordedCaseIds": [
+      "ew-002",
+      "ew-003",
+      "ew-004",
+      "ew-005",
+      "ew-006",
+      "ew-007",
+      "ew-008",
+      "ew-009",
+      "ew-010",
+      "jd-001",
+      "jd-002",
+      "jd-003",
+      "jd-004",
+      "jd-005",
+      "jd-006",
+      "jd-007",
+      "jd-008",
+      "jd-009",
+      "jd-010",
+      "ta-001",
+      "ta-002",
+      "ta-003",
+      "ta-004",
+      "ta-005",
+      "ta-006",
+      "ta-007",
+      "ta-008",
+      "ta-009",
+      "ta-010",
+      "ta-011"
+    ],
+    "coveredCaseIds": [
+      "ew-001"
+    ],
+    "uncoveredCaseIds": [
+      "br-001",
+      "br-002",
+      "br-003",
+      "br-004",
+      "br-005",
+      "br-006",
+      "br-007",
+      "br-008",
+      "br-009",
+      "br-010",
+      "br-011",
+      "un-001",
+      "un-002"
+    ],
+    "coversEntireCorpus": false,
+    "cases": [
+      {
+        "caseId": "br-001",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "architecture_analysis"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.architecture_analysis",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "type.business_requirement"
+        ],
+        "exercisesFragment": false
+      },
+      {
+        "caseId": "br-002",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "architecture_analysis"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.architecture_analysis",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "type.business_requirement"
+        ],
+        "exercisesFragment": false
+      },
+      {
+        "caseId": "br-003",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "architecture_analysis"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.architecture_analysis",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "type.business_requirement"
+        ],
+        "exercisesFragment": false
+      },
+      {
+        "caseId": "br-004",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "architecture_analysis"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.architecture_analysis",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "type.business_requirement"
+        ],
+        "exercisesFragment": false
+      },
+      {
+        "caseId": "br-005",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "type.business_requirement"
+        ],
+        "exercisesFragment": false
+      },
+      {
+        "caseId": "br-006",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "architecture_analysis"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.architecture_analysis",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "type.business_requirement"
+        ],
+        "exercisesFragment": false
+      },
+      {
+        "caseId": "br-007",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "architecture_analysis"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.architecture_analysis",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "type.business_requirement"
+        ],
+        "exercisesFragment": false
+      },
+      {
+        "caseId": "br-008",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "architecture_analysis"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.architecture_analysis",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "type.business_requirement"
+        ],
+        "exercisesFragment": false
+      },
+      {
+        "caseId": "br-009",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "architecture_analysis"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.architecture_analysis",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "type.business_requirement"
+        ],
+        "exercisesFragment": false
+      },
+      {
+        "caseId": "br-010",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "architecture_analysis"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.architecture_analysis",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "type.business_requirement"
+        ],
+        "exercisesFragment": false
+      },
+      {
+        "caseId": "br-011",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "architecture_analysis"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.architecture_analysis",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "type.business_requirement"
+        ],
+        "exercisesFragment": false
+      },
+      {
+        "caseId": "ew-001",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "workflow_review"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "stage.workflow_review",
+          "type.workflow"
+        ],
+        "exercisesFragment": true
+      },
+      {
+        "caseId": "un-001",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.classification"
+        ],
+        "exercisesFragment": false
+      },
+      {
+        "caseId": "un-002",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.classification"
+        ],
+        "exercisesFragment": false
+      }
+    ]
+  },
+  "runId": "00dbe577fe5a12c5",
+  "completedAt": "2026-09-08T19:56:31.711Z",
+  "cases": [
+    {
+      "caseId": "ew-001",
+      "recordingHash": "a3dfebbcfe048f8e13050218d530d1b620e871d8cc7b434984ff332aa369c65e",
+      "capturedAt": "2026-09-08T12:29:22.497Z",
+      "fragmentsCompositionHash": "94768ecd876b85e8770e35afafc0cfb7cd637b0002fad88b44fbd82abe1dd248",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "run_completeness",
+        "reference_integrity"
+      ]
+    }
+  ],
+  "assertionsDeferred": [
+    "artifact_set",
+    "confidence_band",
+    "do_not_automate_conclusion"
+  ],
+  "fragmentResolution": "authored",
+  "attests": "Recorded mode: the pipeline, parser and deterministic corpus expectations hold against previously captured provider responses. This is NOT evidence that the current prompt produces these responses — that requires a capture or live run against the fragments in force (docs/12 D-24). Fragment resolution: AUTHORED — composed from the authored fragment versions on disk, which MAY DIFFER from the versions active in any database. This is evidence about a candidate composition, not about what production is serving (docs/38 D-63 §4)."
+}

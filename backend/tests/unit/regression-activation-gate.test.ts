@@ -307,7 +307,14 @@ const exercisingRun = async (
   };
 };
 
-/** Every case a foundation fragment composes into — all thirteen recorded. */
+/**
+ * Every case a foundation fragment composes into — all **fourteen** recorded.
+ *
+ * ⚠️ `ew-001` was admitted 2026-09-09, which is why this is 14. A foundation
+ * fragment composes into every recording, so admitting one widens what any
+ * reference must cover to stay sufficient — that is the gate working, and it
+ * is exactly why admission is a decision rather than a filing step.
+ */
 const ALL_RECORDED = [
   "br-001",
   "br-002",
@@ -320,6 +327,7 @@ const ALL_RECORDED = [
   "br-009",
   "br-010",
   "br-011",
+  "ew-001",
   "un-001",
   "un-002",
 ];
@@ -398,8 +406,15 @@ test("the committed reference is REFUSED for the drifted fragments (D-64 §5)", 
   //
   // This test exists so the drift cannot be silently grandfathered: if someone
   // makes the gate permit this again, this goes red.
+  // ⚠️ `type.business_requirement`, not a foundation fragment. Admitting
+  // `ew-001` (2026-09-09) made every foundation fragment compose into 14 cases
+  // while the committed run covers 13, so foundation now refuses on
+  // `fragment_not_covered` — a true refusal, but one that short-circuits
+  // BEFORE the composition check and would leave the drift untested. The
+  // eleven `br-*` cases this fragment covers all ran, so coverage is satisfied
+  // and the composition comparison is what refuses.
   const error = await refusal(
-    gate(committed.reference, ["foundation.system_frame"]),
+    gate(committed.reference, ["type.business_requirement"]),
   );
 
   assert.equal(
@@ -408,4 +423,12 @@ test("the committed reference is REFUSED for the drifted fragments (D-64 §5)", 
     "the committed run exercised active composition; the candidate is authored",
   );
   assert.match(error.message, /Re-capture the covered cases/);
+
+  // And foundation is still refused, for the other correct reason.
+  assert.equal(
+    (await refusal(gate(committed.reference, ["foundation.system_frame"])))
+      .reason,
+    "fragment_not_covered",
+    "the committed 13-case run no longer covers the 14 cases foundation composes into",
+  );
 });
