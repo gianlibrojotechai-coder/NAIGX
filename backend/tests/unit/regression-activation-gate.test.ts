@@ -3,12 +3,21 @@
  *
  * `DB §4.5` says a fragment version "cannot become active without a recorded
  * passing regression run", and until now any non-empty string satisfied that.
- * These assert the five ways the gate refuses and the one way it permits.
+ * These assert the six ways the gate refuses and the one way it permits.
  *
- * The permitting case is built from the **real** committed run and the real
- * corpus and recordings, so it is not a fixture agreeing with itself: the run
- * `4ea7eef7345389e9` covers `br-001`–`br-011` and `un-001`–`un-002`, which is
- * exactly the set every foundation fragment composes into.
+ * ⚠️ THE SIXTH REFUSAL IS `composition_mismatch`, ADDED BY
+ * [D-64](../../../docs/39-D-64-Pass-Reference-Composition-Contract.md) §4.3.
+ * Coverage establishes which cases *reach* a fragment; it never established
+ * which content they reached it *with*. So a run that replayed every case
+ * against the ACTIVE composition satisfied every other check while evidencing
+ * content the activation would replace — exactly what `docs/12` D-24 dec. 4
+ * forbids. That was measured on the real committed reference, not imagined.
+ *
+ * The permitting case is a run document whose per-case composition hashes are
+ * computed by `fragmentsCompositionHash` over the **real** recordings, with the
+ * same resolver the gate checks against — so it models a run that genuinely
+ * exercised the candidate composition rather than a fixture agreeing with
+ * itself.
  *
  * Reads two directories. No database, no provider, no network, no writes.
  */
@@ -25,7 +34,10 @@ import {
   REGRESSION_RUNS_ROOT,
 } from "../../src/regression/activation-gate.js";
 import { loadCorpus, loadSuiteVersion } from "../../src/regression/corpus.js";
-import { createRecordingStore } from "../../src/regression/recording-store.js";
+import {
+  createRecordingStore,
+  fragmentsCompositionHash,
+} from "../../src/regression/recording-store.js";
 import type {
   FragmentResolver,
   ResolvedFragment,
@@ -256,27 +268,144 @@ test("a fragment no recorded case composes cannot be activated", async () => {
   assert.match(error.message, /No recorded case composes/);
 });
 
-// --- the one way through -------------------------------------------------
+// --- D-64 §4.3 — the composition the run exercised ------------------------
 
-test("a clean run covering the fragment permits activation", async () => {
-  // The real committed run over the real recordings.
-  await assert.doesNotReject(
-    gate(committed.reference, [
-      "foundation.system_frame",
-      "foundation.provenance_rules",
-      "stage.classification",
-    ]),
-  );
+/**
+ * A clean run document whose per-case composition hashes are the ones
+ * `resolver` actually produces — i.e. a run that genuinely exercised the
+ * composition about to be activated.
+ *
+ * ⚠️ This is not a fixture agreeing with itself. The hashes are computed by
+ * `fragmentsCompositionHash` over the **real** recordings' stage sets, which is
+ * the same function the runner uses to record them and the gate uses to check
+ * them. What is synthesised is the *run*, not the composition.
+ */
+const exercisingRun = async (
+  runId: string,
+  caseIds: readonly string[],
+): Promise<{ reference: string; doc: unknown }> => {
+  const reference = `corpus-regression:corpus-v2+fragments-v1:${runId}`;
+  const docCases = [];
+  for (const caseId of caseIds) {
+    const corpusCase = cases.find((c) => c.caseId === caseId);
+    assert.ok(corpusCase, `${caseId} is not in the corpus`);
+    const verified = store.read(corpusCase.corpusVersion, caseId);
+    assert.ok(verified, `${caseId} has no recording`);
+    docCases.push({
+      caseId,
+      recordingHash: "a".repeat(64),
+      fragmentsCompositionHash: await fragmentsCompositionHash(
+        verified.recording.stages,
+        resolver,
+      ),
+      assertionsEvaluated: ["classification"],
+    });
+  }
+  return {
+    reference,
+    doc: { suite: "corpus-regression", reference, runId, cases: docCases },
+  };
+};
+
+/** Every case a foundation fragment composes into — all thirteen recorded. */
+const ALL_RECORDED = [
+  "br-001",
+  "br-002",
+  "br-003",
+  "br-004",
+  "br-005",
+  "br-006",
+  "br-007",
+  "br-008",
+  "br-009",
+  "br-010",
+  "br-011",
+  "un-001",
+  "un-002",
+];
+
+test("a clean run that exercised the composition being activated permits it", async () => {
+  const runId = "3333333333333333";
+  const { reference, doc } = await exercisingRun(runId, ALL_RECORDED);
+
+  await withRun(doc, runId, async (runsRoot) => {
+    await assert.doesNotReject(
+      gate(
+        reference,
+        [
+          "foundation.system_frame",
+          "foundation.provenance_rules",
+          "stage.classification",
+        ],
+        runsRoot,
+      ),
+      "a run whose exercised composition matches the candidate must be accepted",
+    );
+  });
 });
 
 test("every named fragment must be covered, not merely one of them", async () => {
+  const runId = "4444444444444444";
+  const { reference, doc } = await exercisingRun(runId, ALL_RECORDED);
+
+  await withRun(doc, runId, async (runsRoot) => {
+    const error = await refusal(
+      gate(
+        reference,
+        ["foundation.system_frame", "stage.portfolio_suggestions"],
+        runsRoot,
+      ),
+    );
+    assert.equal(error.reason, "fragment_not_covered");
+    assert.equal(error.fragmentKey, "stage.portfolio_suggestions");
+  });
+});
+
+test("a run that exercised a DIFFERENT composition is refused (D-24 dec. 4)", async () => {
+  // Same cases, same coverage, same clean run — and one case replayed a
+  // composition that is not the one being activated. ⚠️ THIS IS THE WHOLE
+  // POINT OF D-64 §4.3: coverage establishes which cases reach the fragment,
+  // never which content they reached it with.
+  const runId = "5555555555555555";
+  const { doc } = await exercisingRun(runId, ALL_RECORDED);
+  const tampered = doc as {
+    cases: { caseId: string; fragmentsCompositionHash: string }[];
+  };
+  const first = tampered.cases[0];
+  assert.ok(first, "the run must have a case to tamper with");
+  first.fragmentsCompositionHash = "f".repeat(64);
+  const reference = `corpus-regression:corpus-v2+fragments-v1:${runId}`;
+
+  await withRun(tampered, runId, async (runsRoot) => {
+    const error = await refusal(
+      gate(reference, ["foundation.system_frame"], runsRoot),
+    );
+    assert.equal(error.reason, "composition_mismatch");
+    assert.equal(error.fragmentKey, "foundation.system_frame");
+    assert.match(error.message, /br-001/);
+    assert.match(error.message, /D-24 decision 4/);
+  });
+});
+
+// --- the measured drift, as an explicit deviation ------------------------
+
+test("the committed reference is REFUSED for the drifted fragments (D-64 §5)", async () => {
+  // ⚠️ THE DEVIATION, ASSERTED RATHER THAN DESCRIBED. `4ea7eef7345389e9`
+  // replayed every case against the ACTIVE composition. Three authored
+  // fragments have since drifted from their active versions, so that run is
+  // not evidence for the authored content — and every recorded case composes
+  // at least one drifted fragment, which is why NO fragment activates on it.
+  //
+  // This test exists so the drift cannot be silently grandfathered: if someone
+  // makes the gate permit this again, this goes red.
   const error = await refusal(
-    gate(committed.reference, [
-      "foundation.system_frame",
-      "stage.portfolio_suggestions",
-    ]),
+    gate(committed.reference, ["foundation.system_frame"]),
   );
 
-  assert.equal(error.reason, "fragment_not_covered");
-  assert.equal(error.fragmentKey, "stage.portfolio_suggestions");
+  assert.equal(
+    error.reason,
+    "composition_mismatch",
+    "the committed run exercised active composition; the candidate is authored",
+  );
+  assert.match(error.message, /Re-capture the covered cases/);
 });

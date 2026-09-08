@@ -53,6 +53,16 @@ export interface ReferencedCase {
    * case can pass at all (`docs/12` D-24).
    */
   readonly fragmentsCompositionHash: string;
+  /**
+   * How this case's composition was resolved
+   * ([D-64](../../../docs/39-D-64-Pass-Reference-Composition-Contract.md) §4.1).
+   *
+   * ⚠️ PER CASE, BECAUSE A RUN CAN BE MIXED. A suite may legitimately replay
+   * some recordings against active composition and others against authored —
+   * the `ew-001` window produced exactly that. One scalar for the whole run
+   * cannot describe it, and the run-level field says `mixed` when it happens.
+   */
+  readonly fragmentResolution: FragmentResolution;
   readonly assertionsEvaluated: readonly string[];
 }
 
@@ -101,8 +111,12 @@ export interface RegressionPassReference {
    * composed from active fragments, but it is left **unlabelled rather than
    * back-filled**: relabelling a historical artefact to tidy a schema would
    * assert something about a run nobody re-examined.
+   *
+   * ⚠️ D-64 §4.1 — THIS IS A SUMMARY, NOT THE AUTHORITY. It is derived from the
+   * per-case values and reads `mixed` when they differ. The activation gate
+   * compares per-case **composition hashes**; it does not read this field.
    */
-  readonly fragmentResolution?: FragmentResolution;
+  readonly fragmentResolution?: RunResolution;
   /**
    * Recorded on the reference itself, so a future reader can tell what this
    * run did **not** measure without re-deriving it from the sprint it ran in.
@@ -127,6 +141,17 @@ export interface RegressionPassReference {
 export const FRAGMENT_RESOLUTIONS = ["active", "authored"] as const;
 export type FragmentResolution = (typeof FRAGMENT_RESOLUTIONS)[number];
 
+/**
+ * A run's resolution — the per-case vocabulary plus `mixed`
+ * ([D-64](../../../docs/39-D-64-Pass-Reference-Composition-Contract.md) §4.1).
+ *
+ * ⚠️ `mixed` is a run-level value only. No single case is ever `mixed`: a case
+ * replays exactly one composition, and the hash of that composition is what
+ * the activation gate compares. The label exists so a reader is not misled by
+ * a scalar that cannot describe the run.
+ */
+export type RunResolution = FragmentResolution | "mixed";
+
 const RECORDED_MODE =
   "Recorded mode: the pipeline, parser and deterministic corpus expectations hold against " +
   "previously captured provider responses. This is NOT evidence that the current prompt " +
@@ -146,8 +171,34 @@ const RESOLUTION_CLAUSE: Readonly<Record<FragmentResolution, string>> = {
     "(docs/38 D-63 §4).",
 };
 
-const attestationFor = (resolution: FragmentResolution): string =>
-  RECORDED_MODE + RESOLUTION_CLAUSE[resolution];
+const MIXED_CLAUSE =
+  " Fragment resolution: MIXED — this run replayed some cases against active " +
+  "fragment versions and others against authored ones. The per-case " +
+  "`fragmentResolution` says which, and the activation gate compares each " +
+  "case's composition hash rather than this label (docs/39 D-64 §4.1).";
+
+const attestationFor = (resolution: RunResolution): string =>
+  RECORDED_MODE +
+  (resolution === "mixed" ? MIXED_CLAUSE : RESOLUTION_CLAUSE[resolution]);
+
+/**
+ * The run-level resolution, **derived** from the cases that actually ran
+ * ([D-64](../../../docs/39-D-64-Pass-Reference-Composition-Contract.md) §4.1).
+ *
+ * ⚠️ DERIVED, NEVER SUPPLIED. An earlier version took this as an argument and
+ * a caller stamped `authored` on a run that had replayed thirteen legacy
+ * recordings through the active resolver — a label asserting the opposite of
+ * what happened. A field describing how a run resolved is evidence about the
+ * run; it cannot be an argument.
+ */
+const runResolutionOf = (
+  cases: readonly ReferencedCase[],
+): RunResolution | undefined => {
+  const seen = new Set(cases.map((c) => c.fragmentResolution));
+  if (seen.size === 0) return undefined;
+  if (seen.size > 1) return "mixed";
+  return [...seen][0];
+};
 
 /** The parts encoded in a reference string. */
 export interface ParsedPassReference {
@@ -208,8 +259,6 @@ export interface PassReferenceInputs {
    * rather than leaving a reader to infer it.
    */
   readonly coverage?: FragmentCoverage;
-  /** Defaults to `active`, preserving pre-D-63 behaviour for existing callers. */
-  readonly fragmentResolution?: FragmentResolution;
 }
 
 /**
@@ -294,7 +343,18 @@ export function buildPassReference(
     ),
   ].sort();
 
-  const resolution: FragmentResolution = inputs.fragmentResolution ?? "active";
+  const cases: readonly ReferencedCase[] = inputs.report.cases.map((c) => ({
+    caseId: c.caseId,
+    recordingHash: c.evidence?.recordingHash ?? "",
+    capturedAt: c.evidence?.capturedAt ?? "",
+    fragmentsCompositionHash: c.evidence?.fragmentsCompositionHash ?? "",
+    // `isCleanRun` has already established that every case carries evidence,
+    // so the fallback is unreachable rather than a default worth trusting.
+    fragmentResolution: c.evidence?.fragmentResolution ?? "active",
+    assertionsEvaluated: c.assertionsEvaluated,
+  }));
+
+  const resolution: RunResolution = runResolutionOf(cases) ?? "active";
   const runId = runIdFor(inputs);
   return {
     suite: SUITE_ID,
@@ -313,13 +373,7 @@ export function buildPassReference(
     ...(inputs.coverage !== undefined ? { coverage: inputs.coverage } : {}),
     runId,
     completedAt: inputs.completedAt ?? inputs.report.startedAt,
-    cases: inputs.report.cases.map((c) => ({
-      caseId: c.caseId,
-      recordingHash: c.evidence?.recordingHash ?? "",
-      capturedAt: c.evidence?.capturedAt ?? "",
-      fragmentsCompositionHash: c.evidence?.fragmentsCompositionHash ?? "",
-      assertionsEvaluated: c.assertionsEvaluated,
-    })),
+    cases,
     assertionsDeferred: DEFERRED_ASSERTIONS,
     fragmentResolution: resolution,
     attests: attestationFor(resolution),

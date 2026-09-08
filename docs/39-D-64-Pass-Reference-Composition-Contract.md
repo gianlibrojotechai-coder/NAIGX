@@ -1,7 +1,7 @@
 # D-64 — What a pass reference attests, and which composition a run reproduces
 
 **Date:** 2026-09-09
-**Status:** ⚠️ **PROPOSED — NOT ACCEPTED. No implementation has been made.**
+**Status:** ✅ **ACCEPTED — Option C** (owner, 2026-09-09). Implemented.
 **Sprint:** 5 (Persistence, identity, instrumentation)
 **Resolves:** the `regression:run` / activation-gate composition contract
 **Affects:** `src/regression/runner.ts`, `src/regression/pass-reference.ts`, `src/regression/activation-gate.ts`, `scripts/regression.mts`
@@ -192,6 +192,15 @@ selection basis is a fragment and the coverage is named. Two sub-cases:
   it `targeted` would let an arbitrary subset present itself as a proved
   coverage basis.
 
+**As implemented:** a new `regression:run -- --fragment=<key>` selects the cases
+that compose `<key>`, computed with the **authored** resolver — the same
+authority the gate recomputes with — and names that coverage in the reference,
+which is what makes `selectionScope: "targeted"` true rather than asserted.
+`--case=` is unchanged and still yields `partial`; the two **cannot be
+combined**, because they select on different bases and a run must not claim
+both. `corpusSize` is now passed as well, so `entire_corpus` is reachable and
+the default 13-of-44 run still reports `partial`.
+
 **The gate is unaffected either way** — it recomputes coverage itself and never
 trusts `selectionScope`. That independence is correct and stays.
 
@@ -239,6 +248,21 @@ bypass is introduced.**
 | 5 | `selectionScope` for targeted runs? | `targeted` only for fragment-targeted selection with named coverage; operator-named ids stay `partial` | **Contract** (D-30 dec. 3) |
 | 6 | Can an ew-001 targeted pass legitimately become an activation reference? | **Yes — but only for fragments whose entire covered set is `{ew-001}`**: `stage.workflow_review` and `type.workflow`. Never for foundation fragments, whose covered set is 14 cases | **Contract** (D-30 dec. 3 + the gate's own recomputation) |
 | 7 | Can adding ew-001 produce a valid replacement reference without unpublished DB fragments? | **Yes**, once Defect A is fixed: ew-001 replays authored, the 13 replay active, no case needs `stage.workflow_review` in any database | **Contract** — this is the circle's actual cause |
+
+### ✅ Questions 6 and 7, verified after implementing
+
+Simulated in a scratch store holding the 13 canonical recordings plus `ew-001`,
+with a targeted reference built exactly as `--fragment=` now emits one. The
+canonical store was not touched and `ew-001` was not admitted:
+
+```
+stage.workflow_review   covers [ew-001]  ->  PERMITTED
+type.workflow           covers [ew-001]  ->  PERMITTED
+```
+
+⚠️ **This unlocks two fragments, not publication.** The publisher activates all
+fifteen at once (§7's correction and the all-or-nothing note), so the other
+thirteen — 9 on `composition_mismatch`, 4 still uncovered — keep it blocked.
 | 8 | Run-record overwrite / same `runId`? | In boundary. Write-once; a reproduction reports rather than rewrites | §4.5 |
 
 ---
@@ -260,21 +284,41 @@ Under §4.3 that evidence no longer authorises activating the **authored**
 content — correctly, per D-24 dec. 4, but it means **re-capture, which is
 provider spend.**
 
-So the options are:
+So the options were:
 
 | Option | Effect |
 |---|---|
-| **A — adopt §4.3** | The gate enforces what D-24 dec. 4 already says. ⚠️ `stage.architecture_analysis` and `stage.recommendation_generation` need re-capture before activation. Publishing stays blocked, on a **larger** set than today |
+| **A — adopt §4.3** | The gate enforces what D-24 dec. 4 already says. ⚠️ Fragments covered by drifted compositions need re-capture before activation |
 | **B — defer §4.3, adopt the rest** | Fixes Defect A and unblocks ew-001's replay. ⚠️ Leaves the gate accepting evidence for a composition it did not exercise — a known, recorded hole |
-| **C — adopt §4.3 with the drift recorded as a deviation** | Enforce it, and record the two drifted fragments as a named, dated exception with the re-capture owed. Neither silent nor blocking |
+| **C — adopt §4.3 with the drift recorded as a deviation** | Enforce it, and record the drift as a named, dated exception with the re-capture owed. Neither silent nor blocking |
 
-⚠️ **Under every option, publishing all 15 fragments remains blocked** by the
-four uncovered fragments (§5). **No option makes the instance ready**, and none
-should be chosen on that basis.
+✅ **The owner chose C on 2026-09-09.** §10 is the deviation.
 
-**Recommendation: C.** It enforces the documented rule, keeps the hole from
-being forgotten, and does not pretend the drift is discharged. But this is the
-owner's call, and it is why implementation stops here.
+### ⚠️ CORRECTION — the cost is 9 fragments, not 2
+
+**The PROPOSED text of this section said *"two fragments become
+un-activatable"*. That was wrong, and understated it.** Measured after
+implementing, against the committed reference `35af47fbdabae5eb`:
+
+```
+composition_mismatch  9   foundation.neutrality_constraints, foundation.provenance_rules,
+                          foundation.refusal_and_uncertainty, foundation.system_frame,
+                          stage.architecture_analysis, stage.classification,
+                          stage.context_extraction, stage.intent, type.business_requirement
+fragment_not_covered  6   (unchanged — the six with no recording at all)
+```
+
+**All 15 are refused.** The reason the drift reaches further than the two
+drifted fragments is that **a composition hash is per case and whole**: a case
+that composes `stage.architecture_analysis` hashes differently *overall*, so
+every fragment that case covers is affected — including the four foundation
+fragments, which compose into all thirteen.
+
+⚠️ **This is the correct reading of D-24 dec. 4, not an overreach.** Activating
+the authored set replaces the composition those recordings were captured
+against, so they are evidence about content that would no longer be in force.
+But it means the honest statement is: **no fragment is activatable on current
+evidence**, and §10 is the record of what is owed.
 
 ---
 
@@ -317,3 +361,55 @@ is not a proved coverage basis.
 | Run records stop being rewritten by verification runs | §4.5 |
 | ⚠️ Production readiness is **not** advanced | Four fragments remain uncovered; the publisher is all-or-nothing |
 | Revisit trigger | A recording captured under a third resolution, or any need to evidence *active* composition specifically — e.g. reproducing a production incident |
+
+---
+
+## 10. ⚠️ DEVIATION — measured composition drift, re-capture owed
+
+**Raised 2026-09-09. OPEN. This deviation grants nothing.**
+
+Option C requires the drift be recorded rather than grandfathered. It is
+recorded **here** and enforced **in the gate**: `assertActivationPermitted`
+refuses with `composition_mismatch`, and
+`tests/unit/regression-activation-gate.test.ts` asserts that refusal so it
+cannot be quietly reversed.
+
+### What drifted
+
+| Fragment | State | Measured |
+|---|---|---|
+| `stage.architecture_analysis` | authored content **differs** from its active published version | 2026-09-09 |
+| `stage.recommendation_generation` | authored content **differs** from its active published version | 2026-09-09 |
+| `stage.workflow_review` | **no active version has ever existed** | 2026-09-09 |
+
+The other twelve authored fragments are byte-identical to their active
+versions.
+
+### What it costs
+
+All 15 fragments are currently refused activation — 9 for
+`composition_mismatch`, 6 for `fragment_not_covered`. See §7's correction for
+why the blast radius exceeds the drifted fragments themselves.
+
+### What is owed
+
+⚠️ **Re-capture of the covered cases against the authored fragments.** This is
+**provider spend** and is **not authorised**. No capture has been run, no
+provider called, no money spent.
+
+| Owed | Closes |
+|---|---|
+| Re-capture `br-001`…`br-011`, `un-001`, `un-002` against authored composition | `composition_mismatch` for the 9 |
+| Capture `jd-001` and `ta-001` | 4 of the 6 uncovered (unchanged by this record) |
+| Admit `ew-001` | 2 of the 6 uncovered (free; still the owner's decision) |
+
+### ⚠️ What this deviation explicitly does NOT do
+
+- It does **not** permit activation. Nothing is grandfathered; the gate refuses.
+- It does **not** discharge the re-capture. It records it as owed.
+- It does **not** change the four uncovered-fragment requirements.
+- It does **not** authorise spend.
+
+**Closes when:** the re-captures above exist and a clean run over them produces
+a reference whose per-case compositions match the authored set — at which point
+this section is marked resolved with the run id that did it.

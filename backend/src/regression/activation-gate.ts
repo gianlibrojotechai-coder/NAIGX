@@ -39,7 +39,10 @@ import type { FragmentResolver } from "../nie/ports.js";
 import type { CorpusCase } from "./corpus.js";
 import { computeFragmentCoverage } from "./coverage.js";
 import { parsePassReference } from "./pass-reference.js";
-import type { RecordingStore } from "./recording-store.js";
+import {
+  fragmentsCompositionHash,
+  type RecordingStore,
+} from "./recording-store.js";
 
 /** `research/regression-runs/` — where a pass reference document is written. */
 export const REGRESSION_RUNS_ROOT = path.resolve(
@@ -54,6 +57,7 @@ export const REFUSAL_REASONS = [
   "unresolvable_reference",
   "run_not_clean",
   "fragment_not_covered",
+  "composition_mismatch",
 ] as const;
 export type RefusalReason = (typeof REFUSAL_REASONS)[number];
 
@@ -78,6 +82,7 @@ interface StoredReference {
   readonly cases?: readonly {
     readonly caseId?: unknown;
     readonly recordingHash?: unknown;
+    readonly fragmentsCompositionHash?: unknown;
     readonly assertionsEvaluated?: readonly unknown[];
   }[];
 }
@@ -180,6 +185,15 @@ export async function assertActivationPermitted(
     }
   }
   const ranCaseIds = new Set(runCases.map((c) => c.caseId as string));
+  const ranComposition = new Map(
+    runCases.map((c) => [
+      c.caseId as string,
+      typeof c.fragmentsCompositionHash === "string"
+        ? c.fragmentsCompositionHash
+        : "",
+    ]),
+  );
+  const caseByIdName = new Map(cases.map((c) => [c.caseId, c]));
 
   for (const fragmentKey of fragmentKeys) {
     const coverage = await computeFragmentCoverage({
@@ -209,6 +223,47 @@ export async function assertActivationPermitted(
           "reach is not a pass on the change (docs/12 D-24 decision 4).",
         fragmentKey,
       );
+    }
+
+    // --- D-64 §4.3 — the run must have exercised THIS composition -----------
+    //
+    // ⚠️ `docs/12` D-24 decision 4 in full: "A `regression_pass_reference`
+    // naming a replay of the PREVIOUS fragment's responses is not a pass on
+    // the change." Coverage alone cannot enforce that — it establishes which
+    // cases reach the fragment, never which content they reached it with. So a
+    // run that replayed every case against the ACTIVE composition satisfied
+    // every check above while evidencing content the activation would replace.
+    // That was measured, not imagined: reference 35af47fbdabae5eb permitted
+    // activating a drifted `stage.architecture_analysis`.
+    //
+    // The comparison is per case and against the AUTHORED composition, because
+    // `resolver` here is the authored one — the content about to be activated.
+    // It reuses `fragmentsCompositionHash`, the same function the runner and
+    // the recordings use, so there is no second notion of composition free to
+    // disagree with the one being attested.
+    for (const caseId of coverage.coveredCaseIds) {
+      const corpusCase = caseByIdName.get(caseId);
+      if (corpusCase === undefined) continue;
+      const verified = store.read(corpusCase.corpusVersion, caseId);
+      if (verified === undefined) continue;
+
+      const candidate = await fragmentsCompositionHash(
+        verified.recording.stages,
+        resolver,
+      );
+      const exercised = ranComposition.get(caseId) ?? "";
+
+      if (exercised !== candidate) {
+        throw new ActivationRefusedError(
+          "composition_mismatch",
+          `Run ${parsed.runId} did not exercise the composition being activated for ${fragmentKey}: ` +
+            `case ${caseId} replayed ${exercised.slice(0, 12) || "(none)"}, and the authored ` +
+            `composition about to be activated hashes to ${candidate.slice(0, 12)}. A replay of the ` +
+            "previous fragment's responses is not a pass on the change (docs/12 D-24 decision 4, " +
+            "docs/39 D-64 §4.3). Re-capture the covered cases against the authored fragments.",
+          fragmentKey,
+        );
+      }
     }
   }
 }

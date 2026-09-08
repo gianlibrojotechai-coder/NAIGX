@@ -112,8 +112,17 @@ test("an unknown fragment key fails loudly rather than composing a shorter promp
   );
 });
 
-/** A minimal clean report — enough for `buildPassReference` to emit. */
-const cleanReport = (): RegressionReport =>
+/**
+ * A minimal clean report — enough for `buildPassReference` to emit.
+ *
+ * ⚠️ D-64 §4.1: the resolution now travels on the CASE EVIDENCE, because that
+ * is where it is established — the runner records which candidate actually
+ * reproduced the recording's composition hash. It is no longer an argument to
+ * `buildPassReference`, so these tests set it where the runner would.
+ */
+const cleanReport = (
+  fragmentResolution: "active" | "authored" = "active",
+): RegressionReport =>
   ({
     suiteVersion: "corpus-v2",
     mode: "recorded",
@@ -127,6 +136,7 @@ const cleanReport = (): RegressionReport =>
           recordingHash: "a".repeat(64),
           capturedAt: "2026-09-08T00:00:00.000Z",
           fragmentsCompositionHash: "b".repeat(64),
+          fragmentResolution,
         },
       },
     ],
@@ -142,14 +152,12 @@ const cleanReport = (): RegressionReport =>
 
 test("authored evidence is DISTINGUISHABLE from active evidence in its attestation", async () => {
   const authoredRef = buildPassReference({
-    report: cleanReport(),
+    report: cleanReport("authored"),
     fragmentsManifestVersion: "fragments-v1",
-    fragmentResolution: "authored",
   });
   const activeRef = buildPassReference({
-    report: cleanReport(),
+    report: cleanReport("active"),
     fragmentsManifestVersion: "fragments-v1",
-    fragmentResolution: "active",
   });
 
   assert.equal(authoredRef?.fragmentResolution, "authored");
@@ -163,9 +171,11 @@ test("authored evidence is DISTINGUISHABLE from active evidence in its attestati
   assert.notEqual(authoredRef?.attests, activeRef?.attests);
 });
 
-test("existing callers are unchanged: resolution defaults to active", () => {
-  // ⚠️ Pre-D-63 evidence was necessarily composed from active fragments. The
-  // default preserves that meaning for any caller that does not opt in.
+test("resolution is DERIVED from the evidence, never supplied", () => {
+  // ⚠️ D-64 §4.1. `PassReferenceInputs` no longer accepts a resolution at all:
+  // stamping one is how a run that replayed thirteen legacy recordings through
+  // the active resolver was once labelled `authored`. The only way to make a
+  // reference say `authored` is for a case to have actually resolved that way.
   const reference = buildPassReference({
     report: cleanReport(),
     fragmentsManifestVersion: "fragments-v1",
@@ -179,9 +189,8 @@ test("the recorded-mode caveat survives on both resolutions", () => {
   // D-24 decision 3's wording must not be lost by adding a clause to it.
   for (const resolution of FRAGMENT_RESOLUTIONS) {
     const reference = buildPassReference({
-      report: cleanReport(),
+      report: cleanReport(resolution),
       fragmentsManifestVersion: "fragments-v1",
-      fragmentResolution: resolution,
     });
     assert.match(
       reference?.attests ?? "",

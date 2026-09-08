@@ -52,6 +52,10 @@ import {
   DEFERRED_ASSERTIONS,
   SUPPORTED_ASSERTIONS,
 } from "../src/regression/assertions.js";
+import {
+  computeFragmentCoverage,
+  type FragmentCoverage,
+} from "../src/regression/coverage.js";
 
 const ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -382,12 +386,14 @@ if (command === "run") {
   const { default: pg } = await import("pg");
   const { PrismaPg } = await import("@prisma/adapter-pg");
   const { PrismaClient } = await import("../src/generated/prisma/client.js");
-  // D-63 AMENDMENT: this resolver is now the LEGACY fallback only. Recordings
-  // that carry their captured composition replay against that instead, and
-  // never consult it. Active resolution is right for the legacy path because
-  // that is what those recordings were captured under.
+  // D-63 AMENDMENT, as corrected by D-64 §4.2: recordings that carry their
+  // captured composition replay against that and never consult a resolver.
+  // Recordings that do not are matched against BOTH candidates below, because
+  // "no persisted composition" does not mean "captured under active".
   const { createFragmentResolver } =
     await import("../src/db/fragment-resolver.js");
+  const { createAuthoredResolver: createAuthoredResolverForRun } =
+    await import("../src/regression/authored-resolver.js");
   await import("dotenv/config");
 
   // `--case=` resolves against the whole corpus, exactly as `capture` does. The
@@ -410,7 +416,61 @@ if (command === "run") {
 
   if (runIds.length > 0) {
     console.log(
-      `▶  targeted run — ${String(runCases.length)} case(s): ${runCases.map((c) => c.caseId).join(", ")}\n`,
+      `▶  case-named run — ${String(runCases.length)} case(s): ${runCases.map((c) => c.caseId).join(", ")}`,
+    );
+    console.log(
+      `   selectionScope will be "partial" — naming ids is not a proved coverage basis (D-64 §4.4)\n`,
+    );
+  }
+
+  // --- D-64 §4.4 — the D-30 dec. 3 targeted path, made reachable -----------
+  //
+  // ⚠️ `--fragment=` AND `--case=` MEAN DIFFERENT THINGS, DELIBERATELY.
+  // D-30 dec. 3 defines a targeted run as one whose cases were selected
+  // BECAUSE they compose the named fragment, with the coverage computed
+  // offline and named in the reference. An operator naming case ids has proved
+  // no such thing, so `--case=` stays `partial` however few cases it selects.
+  // Letting it claim `targeted` would let an arbitrary subset present itself
+  // as a coverage basis, which is the one thing D-30 dec. 3 guards.
+  const fragmentArg = process.argv.find((a) => a.startsWith("--fragment="));
+  const targetFragment = fragmentArg?.slice("--fragment=".length);
+
+  let targetCoverage: FragmentCoverage | undefined;
+  if (targetFragment !== undefined) {
+    if (runIds.length > 0) {
+      console.error(
+        "❌ --fragment= and --case= select on different bases and cannot be combined.\n" +
+          "   --fragment= selects the cases that compose a fragment (targeted, D-30 dec. 3);\n" +
+          "   --case= names ids directly (partial). Pick one.",
+      );
+      process.exit(2);
+    }
+    // Computed with the AUTHORED resolver — the same authority the activation
+    // gate uses, so the coverage named in the reference is the coverage the
+    // gate will recompute rather than a second opinion about it.
+    targetCoverage = await computeFragmentCoverage({
+      fragmentKey: targetFragment,
+      cases: corpus,
+      suiteVersion,
+      store,
+      resolver: createAuthoredResolverForRun(
+        readAuthoredFragments(PROMPTS_ROOT),
+      ),
+    });
+    if (targetCoverage.coveredCaseIds.length === 0) {
+      console.error(
+        `❌ No recorded case composes ${targetFragment}, so no run can exercise it.\n` +
+          "   Capture evidence for the cases it composes into first.",
+      );
+      process.exit(2);
+    }
+    const byId = new Map(corpus.map((c) => [c.caseId, c]));
+    runCases = targetCoverage.coveredCaseIds
+      .map((id) => byId.get(id))
+      .filter((c): c is CorpusCase => c !== undefined);
+    console.log(
+      `▶  targeted run — ${targetFragment} composes ${String(runCases.length)} recorded case(s): ` +
+        `${runCases.map((c) => c.caseId).join(", ")}\n`,
     );
   }
 
@@ -418,11 +478,27 @@ if (command === "run") {
   const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
   try {
+    const activeResolver = createFragmentResolver(prisma);
     const report = await runRegression({
       cases: runCases,
       suiteVersion,
       store,
-      resolver: createFragmentResolver(prisma),
+      resolver: activeResolver,
+      // D-64 §4.2. ⚠️ BOTH CANDIDATES, ACTIVE FIRST. A legacy recording has no
+      // persisted composition, so which one it was captured under is settled
+      // by which one REPRODUCES its recorded hash — not by the absence of a
+      // field. Active leads so a recording reproducible under both keeps the
+      // provenance it has always had (D-63 §5 rejected relabelling history);
+      // only a recording active cannot reproduce is labelled authored.
+      legacyResolvers: [
+        { resolution: "active", resolver: activeResolver },
+        {
+          resolution: "authored",
+          resolver: createAuthoredResolverForRun(
+            readAuthoredFragments(PROMPTS_ROOT),
+          ),
+        },
+      ],
       // `FR-024`: repeated runs on identical input must agree.
       repeat: 2,
     });
@@ -458,21 +534,22 @@ if (command === "run") {
     const reference = buildPassReference({
       report,
       fragmentsManifestVersion: manifestVersion(),
-      // D-63 §4 and §7: the artefact says which composition it exercised, so a
-      // reader cannot mistake candidate evidence for evidence about what
-      // production is serving.
+      // D-63 §4, §7 and D-64 §4.1: the artefact says which composition it
+      // exercised, so a reader cannot mistake candidate evidence for evidence
+      // about what production is serving.
       //
-      // ⚠️ DERIVED, NEVER ASSUMED. Hardcoding "authored" here stamped a run
-      // that had replayed thirteen LEGACY recordings through the active
-      // resolver as authored evidence — a label asserting the opposite of what
-      // happened. A run counts as authored only when EVERY recording it
-      // replayed carried its own captured composition; one legacy case is
-      // enough to make the claim false for the run as a whole.
-      fragmentResolution: runCases.every(
-        (c) => store.read(c.corpusVersion, c.caseId)?.composition !== undefined,
-      )
-        ? "authored"
-        : "active",
+      // ⚠️ `fragmentResolution` IS NO LONGER PASSED. It is derived inside
+      // `buildPassReference` from what each case actually replayed. Passing it
+      // is how a run that had replayed thirteen legacy recordings through the
+      // active resolver once got stamped `authored` — a label asserting the
+      // opposite of what happened. A field describing how a run resolved is
+      // evidence about the run; it cannot be an argument.
+      //
+      // D-64 §4.4: `coverage` is present only for a `--fragment=` run, which is
+      // the only selection that proves *why* these cases. `corpusSize` lets the
+      // `entire_corpus` branch be reachable and truthful.
+      ...(targetCoverage !== undefined ? { coverage: targetCoverage } : {}),
+      corpusSize: corpus.length,
     });
 
     if (reference === null) {
@@ -483,14 +560,30 @@ if (command === "run") {
       process.exit(1);
     }
 
+    // --- D-64 §4.5 — run records are WRITE-ONCE ----------------------------
+    //
+    // ⚠️ `runId` is deterministic by design: the same cases, evidence and
+    // assertions produce the same id, so "two runs that measured the same
+    // thing are recognisable as such". A re-run therefore lands on an existing
+    // filename — and rewriting it changes only `completedAt`, leaving two
+    // documents that claim to be the same run with different timestamps. That
+    // is precisely the "the document and the reference disagree" condition
+    // `assertActivationPermitted` refuses on.
+    //
+    // A verification run overwrote 35af47fbdabae5eb.json this way and was
+    // caught only by `git status`. Reproduction is the good outcome here, so it
+    // is reported rather than written.
     fs.mkdirSync(RUNS_DIR, { recursive: true });
-    fs.writeFileSync(
-      path.join(RUNS_DIR, `${reference.runId}.json`),
-      `${JSON.stringify(reference, null, 2)}\n`,
-    );
+    const runFile = path.join(RUNS_DIR, `${reference.runId}.json`);
+    const reproduced = fs.existsSync(runFile);
+    if (!reproduced) {
+      fs.writeFileSync(runFile, `${JSON.stringify(reference, null, 2)}\n`);
+    }
     console.log(`\n✅ ${reference.reference}`);
     console.log(
-      `   recorded at research/regression-runs/${reference.runId}.json`,
+      reproduced
+        ? `   REPRODUCED an existing run record — research/regression-runs/${reference.runId}.json left unmodified`
+        : `   recorded at research/regression-runs/${reference.runId}.json`,
     );
     process.exit(isCleanRun(report) ? 0 : 1);
   } finally {

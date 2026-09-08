@@ -29,7 +29,11 @@ import { createPipeline } from "../nie/pipeline.js";
 import type { PipelineResult } from "../nie/contracts.js";
 import type { FragmentResolver } from "../nie/ports.js";
 import { createRecordedProvider } from "../harness/recordings.js";
-import { createPinnedResolver } from "./pinned-resolver.js";
+import type { RecordingSet } from "../harness/recordings.js";
+import {
+  createPinnedResolver,
+  type CaptureResolution,
+} from "./pinned-resolver.js";
 import { createProviderInvoker } from "../provider/invoke.js";
 import type { TokenRate } from "../provider/cost.js";
 import {
@@ -70,6 +74,73 @@ export interface CaseEvidence {
   readonly recordingHash: string;
   readonly fragmentsCompositionHash: string;
   readonly capturedAt: string;
+  /**
+   * How the composition this case replayed was resolved
+   * ([D-64](../../../docs/39-D-64-Pass-Reference-Composition-Contract.md) §4.1).
+   *
+   * ⚠️ DERIVED FROM THE EVIDENCE, NEVER ASSUMED. For a pinned recording it is
+   * what the recording states. For a legacy one it is the candidate that
+   * actually reproduced the recorded composition hash — the recording's own
+   * hash is the oracle, so this cannot be a guess.
+   */
+  readonly fragmentResolution: CaptureResolution;
+}
+
+/**
+ * A candidate composition a legacy recording might have been captured under
+ * ([D-64](../../../docs/39-D-64-Pass-Reference-Composition-Contract.md) §4.2).
+ *
+ * ⚠️ ORDER IS PROVENANCE-PRESERVING, NOT ARBITRARY. `active` is tried first so
+ * that a recording reproducible under *both* keeps the label it has always
+ * had. Where both reproduce, the composed bytes are identical by definition —
+ * the hash is equal — so the label is the only thing at stake, and D-63 §5
+ * rejected relabelling historical evidence as `authored`.
+ */
+export interface LegacyCompositionCandidate {
+  readonly resolution: CaptureResolution;
+  readonly resolver: FragmentResolver;
+}
+
+/**
+ * Which candidate composition a legacy recording was captured under
+ * ([D-64](../../../docs/39-D-64-Pass-Reference-Composition-Contract.md) §4.2).
+ *
+ * ⚠️ THE RECORDING'S OWN HASH IS THE ORACLE. A candidate is accepted only when
+ * it reproduces `recordedHash` exactly — never because it was the only one
+ * supplied, and never because a field was absent. That is what makes this
+ * *derivation from evidence* rather than a fallback: a resolver that cannot
+ * reproduce the hash is rejected, including one that throws because the
+ * recording composes a fragment it has never published.
+ *
+ * Exported for its own tests. It is the one place the question is decided, so
+ * a test that re-implemented the search could not disagree with it — the
+ * failure mode `nie-m11-paths.test.ts` had.
+ */
+export async function resolveLegacyComposition(
+  stages: RecordingSet,
+  recordedHash: string,
+  candidates: readonly LegacyCompositionCandidate[],
+): Promise<{
+  readonly matched?: LegacyCompositionCandidate;
+  readonly tried: readonly string[];
+}> {
+  const tried: string[] = [];
+  for (const candidate of candidates) {
+    let composition: string;
+    try {
+      composition = await fragmentsCompositionHash(stages, candidate.resolver);
+    } catch {
+      // Unresolvable is an ANSWER — this candidate is not what the recording
+      // was captured under — not an error to propagate.
+      tried.push(`${candidate.resolution}=unresolvable`);
+      continue;
+    }
+    tried.push(`${candidate.resolution}=${composition.slice(0, 12)}`);
+    if (composition === recordedHash) {
+      return { matched: candidate, tried };
+    }
+  }
+  return { tried };
 }
 
 export interface CaseOutcome {
@@ -113,6 +184,17 @@ export interface RegressionRunOptions {
   readonly store: RecordingStore;
   /** The real resolver — fixtures key on the published fragment composition. */
   readonly resolver: FragmentResolver;
+  /**
+   * Candidate compositions for LEGACY recordings, in order
+   * ([D-64](../../../docs/39-D-64-Pass-Reference-Composition-Contract.md) §4.2).
+   *
+   * ⚠️ Defaults to `[{ active, resolver }]`, which is exactly the pre-D-64
+   * behaviour — so an existing caller that supplies only `resolver` is
+   * unchanged. Supplying both candidates is what lets a recording captured
+   * under authored resolution replay against the composition it was actually
+   * captured with, rather than being declared stale against one it never saw.
+   */
+  readonly legacyResolvers?: readonly LegacyCompositionCandidate[];
   readonly modelVersionId?: string;
   readonly modelKey?: string;
   /**
@@ -179,27 +261,51 @@ async function runOne(
   //     candidate composition is the activation gate's question, asked with
   //     authored resolution, and not this function's.
   //   · A LEGACY recording — captured before compositions were persisted —
-  //     has no such record and its composed text is gone. It falls back to the
-  //     injected resolver, and `docs/12` D-24's staleness check still applies
-  //     to it exactly as before.
+  //     has no such record and its composed text is gone. Its composition is
+  //     therefore DETERMINED FROM THE EVIDENCE below, and `docs/12` D-24's
+  //     staleness check still applies to it exactly as before.
+  //
+  // ⚠️ D-64 §4.2 — ABSENCE OF `composition` IS NOT EVIDENCE OF ACTIVE CAPTURE.
+  // The D-63 §7 amendment sent every unpinned recording to the injected
+  // (active) resolver, justified as "which is what they were captured under".
+  // That was true of the thirteen recordings that existed when it was written
+  // and false the moment D-63 §2 moved capture to the authored resolver while
+  // §7 did not yet persist compositions — the window `ew-001` was captured in.
+  // §7's own principle is "whatever it was captured under", and the recording's
+  // recorded composition hash is what establishes that.
   const pinned = recording.composition;
-  const effectiveResolver =
-    pinned !== undefined ? createPinnedResolver(pinned) : options.resolver;
+  let effectiveResolver: FragmentResolver;
+  let fragmentResolution: CaptureResolution;
 
-  if (pinned === undefined) {
-    // Legacy compatibility path, explicit rather than implied.
-    const composition = await fragmentsCompositionHash(
+  if (pinned !== undefined) {
+    effectiveResolver = createPinnedResolver(pinned);
+    fragmentResolution = pinned.resolution;
+  } else {
+    // Legacy path, explicit rather than implied. A candidate is accepted only
+    // when it REPRODUCES the recorded hash — never because it is the only one
+    // to hand. A resolver that throws (an unpublished fragment, say) simply
+    // does not reproduce it; that is an answer, not a failure.
+    const candidates: readonly LegacyCompositionCandidate[] =
+      options.legacyResolvers ?? [
+        { resolution: "active", resolver: options.resolver },
+      ];
+
+    const { matched, tried } = await resolveLegacyComposition(
       recording.stages,
-      options.resolver,
+      recording.fragmentsCompositionHash,
+      candidates,
     );
-    if (recording.fragmentsCompositionHash !== composition) {
+
+    if (matched === undefined) {
       throw new StaleError(
         `the fragments have changed since ${corpusCase.caseId} was captured ` +
-          `(recorded ${recording.fragmentsCompositionHash.slice(0, 12)}, current ${composition.slice(0, 12)}) — ` +
+          `(recorded ${recording.fragmentsCompositionHash.slice(0, 12)}; tried ${tried.join(", ")}) — ` +
           `this is a LEGACY recording with no captured composition, so recorded ` +
           `mode cannot validate a prompt it has no answer for; re-capture or run live`,
       );
     }
+    effectiveResolver = matched.resolver;
+    fragmentResolution = matched.resolution;
   }
 
   const adapter = await createRecordedProvider(
@@ -236,6 +342,7 @@ async function runOne(
       recordingHash: contentHash,
       fragmentsCompositionHash: recording.fragmentsCompositionHash,
       capturedAt: recording.capturedAt,
+      fragmentResolution,
     },
   };
 }
