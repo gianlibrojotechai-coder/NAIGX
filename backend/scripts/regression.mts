@@ -499,9 +499,180 @@ if (command === "run") {
   }
 }
 
+/**
+ * `evaluate` — READ-ONLY INSPECTION OF HELD EVIDENCE. NOT A GATE COMMAND.
+ *
+ * WHY IT EXISTS. A recording captured but never admitted to the store cannot
+ * be evaluated by `run`, because `run` reads the canonical store and a file
+ * outside it is invisible there by construction. That leaves a real question
+ * unanswerable: `research/regression-pending/ew-001.json` cost $0.1072 of
+ * provider spend, and whether its assertions pass was unknowable without first
+ * admitting it — which is precisely the decision the answer is supposed to
+ * inform.
+ *
+ * ⚠️ EVALUATION IS NOT ADMISSION, AND THIS COMMAND MUST NEVER BLUR THEM.
+ * `assertActivationPermitted` recomputes coverage against the canonical store,
+ * so nothing produced here can widen what any pass reference is sufficient to
+ * activate. That separation is deliberate (`DB §4.5`, D-24 dec. 4, D-30 dec. 3)
+ * and this command is built to be incapable of collapsing it:
+ *
+ *   · it copies into a scratch root and reads only from there — the canonical
+ *     store and its manifest are never opened for writing;
+ *   · it writes NO run record to `research/regression-runs/`;
+ *   · it builds NO pass reference. `buildPassReference` is not even imported
+ *     into this block, so a later edit cannot reach for it by accident.
+ *
+ * Admitting evidence stays a decision made by a person, expressed as
+ * `recordings:write` against the canonical store.
+ *
+ * THE AUTHORED RESOLVER, FOR THE SAME REASON `capture` USES IT (D-63). A held
+ * recording may exercise a fragment that has no active published version — for
+ * ew-001, `stage.workflow_review` has no row in `prompt_fragment` at all. The
+ * active resolver throws before any staleness comparison, which `run` reports
+ * as `errored`. Composing against `prompts/` is what makes such a case
+ * resolvable, and it is the same composition capture was made under.
+ */
+if (command === "evaluate") {
+  const { createAuthoredResolver } =
+    await import("../src/regression/authored-resolver.js");
+
+  const evalIds = process.argv
+    .filter((a) => a.startsWith("--case="))
+    .map((a) => a.slice("--case=".length));
+
+  // No fallback suite. `run` defaults to FIRST_VERTICAL because it issues a
+  // reference describing a fixed suite; this inspects named evidence, and a
+  // default would silently evaluate cases nobody asked about.
+  if (evalIds.length === 0) {
+    console.error(
+      "❌ evaluate requires at least one --case=<id>. It inspects named held\n" +
+        "   evidence and has no default suite.",
+    );
+    process.exit(2);
+  }
+
+  const fromArg = process.argv.find((a) => a.startsWith("--from="));
+  const fromRoot = path.resolve(
+    ROOT,
+    fromArg === undefined
+      ? path.join("research", "regression-pending")
+      : fromArg.slice("--from=".length),
+  );
+
+  // Same rule as `run` and `capture`: resolved against the WHOLE corpus, and an
+  // unknown id is a hard error rather than a quietly smaller run.
+  let evalCases: readonly CorpusCase[];
+  try {
+    evalCases = selectCases(corpus, evalIds, []);
+  } catch (error) {
+    if (error instanceof UnknownCaseError) {
+      console.error(`❌ ${error.message}`);
+      process.exit(2);
+    }
+    throw error;
+  }
+
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "naigx-evaluate-"));
+  const scratchVersionDir = path.join(scratch, corpusVersion);
+  fs.mkdirSync(scratchVersionDir, { recursive: true });
+
+  const missing: string[] = [];
+  for (const corpusCase of evalCases) {
+    const source = path.join(fromRoot, `${corpusCase.caseId}.json`);
+    if (!fs.existsSync(source)) {
+      missing.push(`${corpusCase.caseId} (expected ${source})`);
+      continue;
+    }
+    fs.copyFileSync(
+      source,
+      path.join(scratchVersionDir, `${corpusCase.caseId}.json`),
+    );
+  }
+  if (missing.length > 0) {
+    console.error(
+      `❌ No held recording for: ${missing.join(", ")}\n` +
+        "   evaluate reads held evidence, not the canonical store. Use `run` for admitted cases.",
+    );
+    process.exit(2);
+  }
+
+  const scratchStore = createRecordingStore(scratch);
+  // The manifest is generated from what was just copied, so integrity
+  // verification still runs over this evidence — a hand-edited held recording
+  // is not waved through just because it sits outside the store.
+  scratchStore.writeManifest(
+    buildRecordingManifest(corpusVersion, scratchStore.hashes(corpusVersion)),
+  );
+
+  console.log(
+    `▶  read-only evaluation — ${String(evalCases.length)} case(s): ${evalCases.map((c) => c.caseId).join(", ")}`,
+  );
+  console.log(`   held evidence   ${path.relative(ROOT, fromRoot)}`);
+  console.log(`   resolver        authored (prompts/), D-63`);
+  console.log(
+    `   ⚠️  no run record, no pass reference, canonical store untouched\n`,
+  );
+
+  const report = await runRegression({
+    cases: evalCases,
+    suiteVersion,
+    store: scratchStore,
+    resolver: createAuthoredResolver(readAuthoredFragments(PROMPTS_ROOT)),
+    // `FR-024`, exactly as `run` asks it.
+    repeat: 2,
+  });
+
+  for (const outcome of report.cases) {
+    const mark = {
+      passed: "✅",
+      failed: "❌",
+      blocked: "⏸ ",
+      stale: "♻️ ",
+      errored: "💥",
+    }[outcome.status];
+    console.log(
+      `${mark} ${outcome.caseId}${outcome.detail === "" ? "" : ` — ${outcome.detail}`}`,
+    );
+    if (outcome.evidence !== undefined) {
+      console.log(
+        `     composition ${outcome.evidence.fragmentsCompositionHash.slice(0, 16)} · captured ${outcome.evidence.capturedAt}`,
+      );
+    }
+    // Every assertion, not just the failures. This command exists to report a
+    // verdict on held evidence, and a reader deciding admission needs to see
+    // what was actually evaluated — including what was deferred and therefore
+    // judged nothing.
+    for (const a of outcome.assertions) {
+      const status = { passed: "  ok", failed: "FAIL", deferred: "  --" }[
+        a.status
+      ];
+      console.log(
+        `     ${status} ${a.id}${a.detail === "" ? "" : ` — ${a.detail}`}`,
+      );
+    }
+  }
+
+  const t = report.totals;
+  console.log(
+    `\n${String(t.passed)} passed · ${String(t.failed)} failed · ${String(t.blocked)} blocked · ` +
+      `${String(t.stale)} stale · ${String(t.errored)} errored`,
+  );
+  console.log(
+    "\n⚠️  This is an inspection, not a gate result. No pass reference was issued\n" +
+      "   and coverage is unchanged — activation still requires admitted evidence.",
+  );
+
+  // Three outcomes told apart, because they mean different things to the
+  // admission decision: 0 the evidence answers and passes, 1 it answers and
+  // fails, 2 it could not be evaluated at all.
+  const unevaluated = t.blocked + t.stale + t.errored;
+  process.exit(unevaluated > 0 ? 2 : t.failed > 0 ? 1 : 0);
+}
+
 console.error(
-  "Usage: regression.mts <status|recordings:check|recordings:write|capture|run>\n" +
-    "       capture [--dry-run] [--force] [--case=<id>]...",
-  "       run [--case=<id>]...",
+  "Usage: regression.mts <status|recordings:check|recordings:write|capture|run|evaluate>\n" +
+    "       capture  [--dry-run] [--force] [--case=<id>]...\n" +
+    "       run      [--case=<id>]...\n" +
+    "       evaluate --case=<id>... [--from=<dir>]   read-only; issues no reference",
 );
 process.exit(2);

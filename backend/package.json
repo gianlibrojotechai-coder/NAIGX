@@ -25,6 +25,7 @@
     "regression:capture": "tsx scripts/regression.mts capture",
     "regression:capture:dry": "tsx scripts/regression.mts capture --dry-run",
     "regression:run": "tsx scripts/regression.mts run",
+    "regression:evaluate": "tsx scripts/regression.mts evaluate",
     "analyze": "tsx scripts/analyze.mts",
     "schemas:check": "tsx scripts/artifact-schemas.mts check",
     "schemas:publish": "tsx scripts/artifact-schemas.mts publish",
