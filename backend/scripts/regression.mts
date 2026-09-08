@@ -30,6 +30,8 @@ import { fileURLToPath } from "node:url";
 import type { CapabilityProfile } from "../src/nie/capability-profile.js";
 import {
   FIRST_VERTICAL,
+  selectCases,
+  UnknownCaseError,
   loadCorpus,
   loadSuiteVersion,
   type CorpusCase,
@@ -388,12 +390,36 @@ if (command === "run") {
     await import("../src/db/fragment-resolver.js");
   await import("dotenv/config");
 
+  // `--case=` resolves against the whole corpus, exactly as `capture` does. The
+  // default is unchanged: with no flag this is `FIRST_VERTICAL`, so the frozen
+  // pass reference still describes the same run.
+  const runIds = process.argv
+    .filter((a) => a.startsWith("--case="))
+    .map((a) => a.slice("--case=".length));
+
+  let runCases: readonly CorpusCase[];
+  try {
+    runCases = selectCases(corpus, runIds, selected);
+  } catch (error) {
+    if (error instanceof UnknownCaseError) {
+      console.error(`❌ ${error.message}`);
+      process.exit(2);
+    }
+    throw error;
+  }
+
+  if (runIds.length > 0) {
+    console.log(
+      `▶  targeted run — ${String(runCases.length)} case(s): ${runCases.map((c) => c.caseId).join(", ")}\n`,
+    );
+  }
+
   const pool = new pg.Pool({ connectionString: process.env["DATABASE_URL"] });
   const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
   try {
     const report = await runRegression({
-      cases: selected,
+      cases: runCases,
       suiteVersion,
       store,
       resolver: createFragmentResolver(prisma),
@@ -442,7 +468,7 @@ if (command === "run") {
       // happened. A run counts as authored only when EVERY recording it
       // replayed carried its own captured composition; one legacy case is
       // enough to make the claim false for the run as a whole.
-      fragmentResolution: selected.every(
+      fragmentResolution: runCases.every(
         (c) => store.read(c.corpusVersion, c.caseId)?.composition !== undefined,
       )
         ? "authored"
@@ -476,5 +502,6 @@ if (command === "run") {
 console.error(
   "Usage: regression.mts <status|recordings:check|recordings:write|capture|run>\n" +
     "       capture [--dry-run] [--force] [--case=<id>]...",
+  "       run [--case=<id>]...",
 );
 process.exit(2);

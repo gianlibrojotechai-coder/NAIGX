@@ -378,6 +378,51 @@ export function loadCorpus(root: string = CORPUS_ROOT): readonly CorpusCase[] {
  * stages can actually be measured against today. The remaining paths join when
  * the assertions they carry are implementable.
  */
+/** Raised when `--case=` names something the frozen corpus does not contain. */
+export class UnknownCaseError extends Error {
+  readonly unknownIds: readonly string[];
+
+  constructor(unknownIds: readonly string[]) {
+    super(
+      `No such corpus case: ${unknownIds.join(", ")}. ` +
+        `Case ids are resolved against the whole frozen corpus.`,
+    );
+    this.name = "UnknownCaseError";
+    this.unknownIds = unknownIds;
+  }
+}
+
+/**
+ * Resolves an explicit `--case=` selection against the **whole** corpus.
+ *
+ * ⚠️ SHARED SO THE TWO COMMANDS CANNOT DRIFT. `capture` already resolved case
+ * ids this way; `run` did not, and selected `FIRST_VERTICAL` unconditionally.
+ * That asymmetry meant a case outside the first vertical could be captured and
+ * then never evaluated — `ew-001` was captured, paid for, and unreachable.
+ *
+ * ⚠️ AN UNKNOWN ID IS AN ERROR, NOT AN EMPTY SELECTION. Silently filtering a
+ * typo down to a smaller set would run a different suite than the operator
+ * asked for and still issue a reference for it.
+ *
+ * With no ids the default is returned untouched, so the frozen pass reference
+ * still describes the same run it always did.
+ */
+export function selectCases(
+  cases: readonly CorpusCase[],
+  ids: readonly string[],
+  fallback: readonly CorpusCase[],
+): readonly CorpusCase[] {
+  if (ids.length === 0) return fallback;
+
+  const byId = new Map(cases.map((c) => [c.caseId, c]));
+  const unknown = ids.filter((id) => !byId.has(id));
+  if (unknown.length > 0) throw new UnknownCaseError(unknown);
+
+  // Corpus order, not argument order: two runs naming the same cases in a
+  // different order measured the same thing and must share a run id.
+  return cases.filter((c) => ids.includes(c.caseId));
+}
+
 export const FIRST_VERTICAL = (
   cases: readonly CorpusCase[],
 ): readonly CorpusCase[] =>
