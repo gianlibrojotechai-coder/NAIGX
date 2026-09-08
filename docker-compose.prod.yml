@@ -248,8 +248,14 @@ services:
     networks: [naigx]
 
   # -------------------------------------------------------------------------
-  # Edge — TLS termination, static client, API routing.
+  # Edge — static client and API routing, behind the host's shared Traefik.
   # -------------------------------------------------------------------------
+  #
+  # ⚠️ THIS SERVICE NO LONGER TERMINATES TLS AND NO LONGER BINDS HOST PORTS
+  # (D-60). The host already runs an n8n/Traefik stack holding :80 and :443,
+  # and both could not have them. Traefik terminates TLS and routes by
+  # hostname; Caddy keeps every application-level job D-54 gave it — the SPA,
+  # `try_files` fallback, `@api` routing, and the `/internal/*` 404.
   edge:
     build:
       # The repository root: this image needs `frontend/` and
@@ -260,30 +266,42 @@ services:
     container_name: naigx-edge
     restart: unless-stopped
 
-    ports:
-      - "80:80"
-      # 80 is not optional even though the site is HTTPS: it is where the
-      # ACME HTTP-01 challenge is answered and where Caddy redirects visitors
-      # from. Closing it means no certificate.
-      - "443:443"
-      - "443:443/udp" # HTTP/3
+    # ⚠️ NO `ports:`, AND THAT IS THE POINT (D-60 §4). Publishing :80/:443
+    # here would collide with the Traefik that already holds them and take
+    # n8n down with it. Traefik reaches this container over the shared
+    # `n8n_default` network instead; nothing needs to be exposed on the host.
 
-    environment:
-      NAIGX_DOMAIN: ${NAIGX_DOMAIN:?NAIGX_DOMAIN is required}
-      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required}
+    # ⚠️ NO `NAIGX_DOMAIN`/`ACME_EMAIL` EITHER. The Caddyfile now listens on a
+    # bare `:80` and requests no certificate, so passing an ACME contact would
+    # advertise a responsibility this container no longer has.
+
+    # Traefik discovers containers by label and ignores everything unlabelled
+    # (`exposedbydefault=false`), so these lines — and only these — are what
+    # make NAIGX reachable. n8n's own router is untouched.
+    labels:
+      - "traefik.enable=true"
+      # ⚠️ REQUIRED because this container sits on TWO networks. Without it
+      # Traefik may pick `naigx` and route to an address it cannot reach.
+      - "traefik.docker.network=n8n_default"
+      - "traefik.http.routers.naigx.rule=Host(`${NAIGX_DOMAIN:?NAIGX_DOMAIN is required}`)"
+      - "traefik.http.routers.naigx.entrypoints=web,websecure"
+      - "traefik.http.routers.naigx.tls=true"
+      # The resolver the existing Traefik already defines (TLS-ALPN-01).
+      - "traefik.http.routers.naigx.tls.certresolver=mytlschallenge"
+      # Caddy's internal port, not a host port.
+      - "traefik.http.services.naigx.loadbalancer.server.port=80"
 
     volumes:
-      # ⚠️ CERTIFICATES LIVE HERE AND MUST SURVIVE A REDEPLOY. Let's Encrypt
-      # rate-limits issuance per domain per week; a stack that loses this
-      # volume re-requests on every deploy and eventually gets refused, with
-      # the site down until the window rolls over.
+      # Caddy still keeps state here. ⚠️ It no longer holds certificates —
+      # those live in Traefik's `traefik_data` volume now, which is the one
+      # that must survive a redeploy to avoid Let's Encrypt rate limits.
       - naigx_caddy_data:/data
       - naigx_caddy_config:/config
 
     depends_on:
       - backend
 
-    networks: [naigx]
+    networks: [naigx, n8n_default]
 
   # -------------------------------------------------------------------------
   # Monitoring and alerting — `M-19` Phase 4, `NFR-082`, `NFR-085`.
@@ -401,3 +419,10 @@ volumes:
 networks:
   naigx:
     driver: bridge
+
+  # The network the host's existing n8n/Traefik stack already runs on (D-60).
+  # ⚠️ `external: true` means compose ATTACHES to it and never creates, owns or
+  # removes it — `docker compose down` on this project must not be able to take
+  # n8n's network with it.
+  n8n_default:
+    external: true

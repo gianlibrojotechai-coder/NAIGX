@@ -1,7 +1,8 @@
 # D-60 — NAIGX behind the host's existing Traefik, not its own Caddy edge
 
 **Date:** 2026-09-08
-**Status:** ⚠️ **PROPOSED — not accepted, not deployed.** Awaiting owner approval.
+**Status:** **Accepted** 2026-09-08. Applied to `docker-compose.prod.yml` and `deploy/Caddyfile`; ⚠️ **not yet deployed or verified** — no stack has been started.
+**Hostname:** **`naigx.tech`** — the apex, matching the A record at `76.13.209.213`. No subdomain.
 **Sprint:** 5 (Persistence, identity, instrumentation)
 **Resolves:** the port-80/443 conflict blocking `M-19` Stage 1b
 **Affects:** `NFR-020`, `SA §9.1`, `M-19`, `docker-compose.prod.yml`, `deploy/Caddyfile`

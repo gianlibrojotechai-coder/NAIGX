@@ -16,14 +16,20 @@
 # client shares one bucket, wrong in the other every client picks its own.
 # `docker-compose.prod.yml` sets it in the same file that creates this proxy.
 
-{
-	# Where Let's Encrypt sends expiry and problem notices. Required: an ACME
-	# account with no contact address gets no warning when renewal starts
-	# failing, and the first symptom is then an expired certificate.
-	email {$ACME_EMAIL}
-}
-
-{$NAIGX_DOMAIN} {
+# ⚠️ NO GLOBAL ACME BLOCK, AND A BARE PORT RATHER THAN A HOSTNAME (D-60).
+#
+# A site address of `{$NAIGX_DOMAIN}` makes Caddy turn on automatic HTTPS and
+# go get a certificate. Behind the host's shared Traefik that is wrong twice
+# over: Traefik already holds :443 and already has a certificate for this
+# domain, and a second ACME client competing for the same name would burn
+# Let's Encrypt issuance limits for nothing.
+#
+# `:80` is what switches all of that off. Caddy serves plain HTTP on an
+# internal port that is not published to the host, and Traefik terminates TLS
+# in front of it. Everything below this line is unchanged from D-54 — the
+# headers, the `/internal/*` 404, the API routing and the SPA fallback are
+# application-level behaviour that has nothing to do with who holds the socket.
+:80 {
 	encode zstd gzip
 
 	header {
