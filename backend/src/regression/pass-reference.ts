@@ -94,6 +94,16 @@ export interface RegressionPassReference {
   readonly completedAt: string;
   readonly cases: readonly ReferencedCase[];
   /**
+   * Which fragment versions the prompt under test was composed from
+   * ([D-63](../../../docs/38-D-63-Authored-Fragment-Resolution-For-Regression.md) §4).
+   *
+   * ⚠️ Absent on evidence recorded before D-63. That evidence was necessarily
+   * composed from active fragments, but it is left **unlabelled rather than
+   * back-filled**: relabelling a historical artefact to tidy a schema would
+   * assert something about a run nobody re-examined.
+   */
+  readonly fragmentResolution?: FragmentResolution;
+  /**
    * Recorded on the reference itself, so a future reader can tell what this
    * run did **not** measure without re-deriving it from the sprint it ran in.
    */
@@ -105,11 +115,39 @@ export interface RegressionPassReference {
   readonly attests: string;
 }
 
-const ATTESTATION =
+/**
+ * How the prompt under test was composed
+ * ([D-63](../../../docs/38-D-63-Authored-Fragment-Resolution-For-Regression.md) §4).
+ *
+ * ⚠️ A READER MUST BE ABLE TO TELL THESE APART WITHOUT KNOWING WHEN THE RUN
+ * HAPPENED. A run against authored fragments proves something narrower than one
+ * against published fragments, and an artefact that blurred them would
+ * overstate its own evidence.
+ */
+export const FRAGMENT_RESOLUTIONS = ["active", "authored"] as const;
+export type FragmentResolution = (typeof FRAGMENT_RESOLUTIONS)[number];
+
+const RECORDED_MODE =
   "Recorded mode: the pipeline, parser and deterministic corpus expectations hold against " +
   "previously captured provider responses. This is NOT evidence that the current prompt " +
   "produces these responses — that requires a capture or live run against the fragments in " +
   "force (docs/12 D-24).";
+
+const RESOLUTION_CLAUSE: Readonly<Record<FragmentResolution, string>> = {
+  // The pre-D-63 meaning, preserved verbatim in effect so historical evidence
+  // is not retroactively re-described.
+  active:
+    " Fragment resolution: ACTIVE — composed from the fragment versions published " +
+    "and active at run time.",
+  authored:
+    " Fragment resolution: AUTHORED — composed from the authored fragment versions " +
+    "on disk, which MAY DIFFER from the versions active in any database. This is " +
+    "evidence about a candidate composition, not about what production is serving " +
+    "(docs/38 D-63 §4).",
+};
+
+const attestationFor = (resolution: FragmentResolution): string =>
+  RECORDED_MODE + RESOLUTION_CLAUSE[resolution];
 
 /** The parts encoded in a reference string. */
 export interface ParsedPassReference {
@@ -170,6 +208,8 @@ export interface PassReferenceInputs {
    * rather than leaving a reader to infer it.
    */
   readonly coverage?: FragmentCoverage;
+  /** Defaults to `active`, preserving pre-D-63 behaviour for existing callers. */
+  readonly fragmentResolution?: FragmentResolution;
 }
 
 /**
@@ -254,6 +294,7 @@ export function buildPassReference(
     ),
   ].sort();
 
+  const resolution: FragmentResolution = inputs.fragmentResolution ?? "active";
   const runId = runIdFor(inputs);
   return {
     suite: SUITE_ID,
@@ -280,6 +321,7 @@ export function buildPassReference(
       assertionsEvaluated: c.assertionsEvaluated,
     })),
     assertionsDeferred: DEFERRED_ASSERTIONS,
-    attests: ATTESTATION,
+    fragmentResolution: resolution,
+    attests: attestationFor(resolution),
   };
 }

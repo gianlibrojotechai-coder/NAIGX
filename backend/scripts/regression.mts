@@ -41,6 +41,8 @@ import {
   isCleanRecordingSet,
 } from "../src/regression/recording-store.js";
 import { runRegression } from "../src/regression/runner.js";
+import { readAuthoredFragments } from "../src/fragments/source.js";
+import { PROMPTS_ROOT } from "./fragments.mts";
 import {
   buildPassReference,
   isCleanRun,
@@ -186,8 +188,12 @@ if (command === "capture") {
   const { PrismaPg: PrismaPgCapture } = await import("@prisma/adapter-pg");
   const { PrismaClient: PrismaClientCapture } =
     await import("../src/generated/prisma/client.js");
-  const { createFragmentResolver: resolverFor } =
-    await import("../src/db/fragment-resolver.js");
+  // D-63: capture composes the CANDIDATE fragments, not the active ones. A
+  // fragment that has never been active could not otherwise be exercised, and
+  // a change gate that tested the content already in force would not be
+  // testing the change.
+  const { createAuthoredResolver: resolverFor } =
+    await import("../src/regression/authored-resolver.js");
   const { captureCases, writeFailureRecord } =
     await import("../src/regression/capture.js");
   type CaptureFailureRecord = Parameters<
@@ -296,7 +302,7 @@ if (command === "capture") {
       cases,
       adapterFor,
       capabilityProfile,
-      resolver: resolverFor(prisma),
+      resolver: resolverFor(readAuthoredFragments(PROMPTS_ROOT)),
       store: captureStore,
       rate,
       modelKey,
@@ -363,8 +369,11 @@ if (command === "run") {
   const { default: pg } = await import("pg");
   const { PrismaPg } = await import("@prisma/adapter-pg");
   const { PrismaClient } = await import("../src/generated/prisma/client.js");
-  const { createFragmentResolver } =
-    await import("../src/db/fragment-resolver.js");
+  // D-63: the runner MUST compose exactly as capture did — fixture keys are
+  // built from the composed prompt, so a different resolver means no recording
+  // ever replays.
+  const { createAuthoredResolver } =
+    await import("../src/regression/authored-resolver.js");
   await import("dotenv/config");
 
   const pool = new pg.Pool({ connectionString: process.env["DATABASE_URL"] });
@@ -375,7 +384,7 @@ if (command === "run") {
       cases: selected,
       suiteVersion,
       store,
-      resolver: createFragmentResolver(prisma),
+      resolver: createAuthoredResolver(readAuthoredFragments(PROMPTS_ROOT)),
       // `FR-024`: repeated runs on identical input must agree.
       repeat: 2,
     });
@@ -411,6 +420,10 @@ if (command === "run") {
     const reference = buildPassReference({
       report,
       fragmentsManifestVersion: manifestVersion(),
+      // D-63 §4: the artefact says which composition it exercised, so a reader
+      // cannot mistake candidate evidence for evidence about what production
+      // is serving.
+      fragmentResolution: "authored",
     });
 
     if (reference === null) {
