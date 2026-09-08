@@ -127,6 +127,48 @@ services:
     networks: [naigx]
 
   # -------------------------------------------------------------------------
+  # Fragment publisher — one-shot, `DB §4.5` / `docs/12` D-24.
+  # -------------------------------------------------------------------------
+  #
+  # ⚠️ NO DOCKERFILE CHANGE, AND THAT IS DELIBERATE. `prompts/` and `research/`
+  # are bind-mounted read-only rather than baked in, for two reasons: they are
+  # authored content and evidence artifacts rather than application code, and
+  # `prompts/` sits OUTSIDE the backend build context (`./backend`), so a
+  # `COPY` could not reach it without pulling the whole repository into every
+  # image build.
+  #
+  # ⚠️ The activation gate is unchanged. Publishing requires a real reference
+  # naming a passing regression run that exercised the fragments being
+  # activated; this service supplies no default and manufactures nothing.
+  fragments:
+    build:
+      context: ./backend
+    image: naigx-backend:latest
+    profiles: ["fragments"]
+    restart: "no"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-naigx}
+      TRACE_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/naigx_trace
+      NAIGX_IP_HASH_SECRET: ${NAIGX_IP_HASH_SECRET:?NAIGX_IP_HASH_SECRET is required}
+      NAIGX_KEY_FILE: /run/secrets/naigx/root.key
+
+    volumes:
+      - ${NAIGX_KEY_FILE:?NAIGX_KEY_FILE is required — see D-61 §5}:/run/secrets/naigx/root.key:ro
+      # Mounted at `/` because the compiled modules resolve these three levels
+      # up from `dist/`, the same way `corpus.ts` and `recording-store.ts` do.
+      - ./prompts:/prompts:ro
+      - ./research:/research:ro
+
+    # The compiled entry point, not `tsx scripts/` — the runtime image ships
+    # neither the scripts directory nor a dev dependency to run it.
+    entrypoint: ["/usr/bin/tini", "--", "node", "dist/ops/fragments.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [naigx]
+
+  # -------------------------------------------------------------------------
   # Application tier.
   # -------------------------------------------------------------------------
   backend:

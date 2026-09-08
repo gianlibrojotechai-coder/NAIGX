@@ -731,7 +731,7 @@ Conventions: all paths are relative to `/api/v1`. All responses use the §10.1 e
 | **Output** | `status`, per-dependency status for readiness |
 | **Success** | `200 OK` healthy · `503` not ready |
 | **Dependencies** | `SA §12.6` |
-| **Acceptance** | Readiness includes database reachability, **provider reachability**, and template loadability — an instance that cannot reason must not receive traffic. Liveness never depends on external services. **No internal detail, version, or provider name exposed** on an unauthenticated endpoint. |
+| **Acceptance** | Readiness includes database reachability, **reasoning capability for the configured execution mode** ([D-62](37-D-62-Mode-Aware-Readiness.md)), and template loadability — an instance that cannot reason must not receive traffic. In `live` mode that means a configured provider; in `replay` mode it means a usable recorded corpus, and an empty corpus fails readiness. Liveness never depends on external services. **No internal detail, version, or provider name exposed** on an unauthenticated endpoint. |
 
 ---
 

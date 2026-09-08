@@ -19,7 +19,7 @@ import {
 import { createTraceDatabase } from "./db/trace-client.js";
 import { createFragmentResolver } from "./db/fragment-resolver.js";
 import { createAnthropicProvider } from "./provider/adapters/anthropic.js";
-import { createProvider } from "./provider/index.js";
+import { createReplayProvider } from "./provider/adapters/replay.js";
 import type { ProviderAdapter } from "./provider/capability.js";
 import type { TokenRate } from "./provider/cost.js";
 import { FOUNDATION_FRAGMENT_KEYS } from "./nie/prompt.js";
@@ -61,6 +61,22 @@ const NOMINAL_RATE: TokenRate = {
   inputUsdPerMillionTokens: "0.00",
   outputUsdPerMillionTokens: "0.00",
 };
+
+/**
+ * The recorded corpus a replay deployment serves from
+ * ([D-62](../../docs/37-D-62-Mode-Aware-Readiness.md)).
+ *
+ * ⚠️ EMPTY TODAY, AND READINESS REPORTS THAT RATHER THAN HIDING IT. No
+ * recordings are wired into the runtime yet, so a replay instance can serve no
+ * submission and `checkProvider` fails it — which is the honest answer, not a
+ * defect to work around.
+ *
+ * It is a named constant rather than an inline `{}` so that the readiness
+ * probe measures the same thing the adapter was built from. When recordings
+ * are wired in, the probe follows automatically and cannot drift out of step
+ * with what the adapter actually holds.
+ */
+const REPLAY_FIXTURES: Readonly<Record<string, never>> = {};
 
 interface SelectedProvider {
   readonly adapter: ProviderAdapter;
@@ -132,22 +148,6 @@ const main = async (): Promise<void> => {
   // A separate store with an independent lifecycle (`DB §1.4`). Both pools are
   // lazy, so constructing it here costs no connection until something writes.
   const traceDatabase = createTraceDatabase(config);
-  // `API-060` readiness probes. Built here, in the only module that already
-  // knows which provider is configured, so the API layer names none (`AI-006`).
-  //
-  // Provider reachability is a *configuration* probe, not a model call: a
-  // readiness endpoint is polled continuously, and billing a token for every
-  // poll would be a defect. It verifies the instance is capable of reasoning —
-  // a credential and a model are present and an adapter constructs.
-  const checkProvider = (): Promise<void> => {
-    const { apiKey, model } = config.provider;
-    if (apiKey === undefined || model === undefined) {
-      return Promise.reject(new Error("No provider is configured"));
-    }
-    createAnthropicProvider({ apiKey, model });
-    return Promise.resolve();
-  };
-
   // Template loadability: the shared foundation fragments resolve to published,
   // active versions. Without them no stage can compose a prompt.
   const checkTemplates = async (): Promise<void> => {
@@ -183,11 +183,53 @@ const main = async (): Promise<void> => {
           // arbitrary input. A submission with no recording fails at Stage 1
           // and the analysis lands `failed` — visibly, rather than by
           // reaching a provider nobody authorised.
-          adapter: createProvider("replay"),
+          adapter: createReplayProvider({ fixtures: REPLAY_FIXTURES }),
           rate: NOMINAL_RATE,
           providerKey: "replay",
           modelKey: "replay",
         };
+
+  // --- `API-060` readiness: what "can reason" means, per mode --------------
+  //
+  // [D-62](../../docs/37-D-62-Mode-Aware-Readiness.md). `API-060` requires
+  // readiness to include provider reachability because "an instance that
+  // cannot reason must not receive traffic". That is the right question; the
+  // old implementation answered it by looking for an Anthropic credential in
+  // every mode, which tests a capability replay never uses.
+  //
+  // ⚠️ THIS IS NOT A RELAXATION. Each mode is asked what reasoning actually
+  // requires of it, and both can fail:
+  //
+  //   · live   — a credential and a model, and an adapter that constructs.
+  //              Unchanged.
+  //   · replay — a usable recorded corpus. A replay instance with no
+  //              recordings can serve nothing, so it is NOT ready, and saying
+  //              otherwise would be a green light on an instance that cannot
+  //              answer a single submission.
+  //
+  // Both are configuration probes rather than model calls: readiness is polled
+  // continuously and billing a token per poll would be a defect.
+  const checkProvider = (): Promise<void> => {
+    if (mode === "live") {
+      const { apiKey, model } = config.provider;
+      if (apiKey === undefined || model === undefined) {
+        return Promise.reject(new Error("No provider is configured"));
+      }
+      createAnthropicProvider({ apiKey, model });
+      return Promise.resolve();
+    }
+
+    const recorded = Object.keys(REPLAY_FIXTURES).length;
+    if (recorded === 0) {
+      return Promise.reject(
+        new Error(
+          "Replay mode is configured but no recordings are available, so no " +
+            "submission can be served. Readiness fails deliberately (D-62).",
+        ),
+      );
+    }
+    return Promise.resolve();
+  };
 
   // One log, two ends: the runner publishes into it, the API streams from it.
   // Both halves are wired here because neither may reach for the other —
