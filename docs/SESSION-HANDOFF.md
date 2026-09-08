@@ -7,9 +7,15 @@
 >
 > ⚠️ **Start at §7a — it has changed completely.** NAIGX **is deployed.** `https://naigx.tech` serves the client over a real Let's Encrypt certificate, six containers are up on the Hostinger VPS, and the host/domain dependency that blocked all of Sprint 5 is **discharged**.
 >
-> ⚠️ **The backend is deployed and NOT READY.** `GET /health` answers **503** with `templates: unavailable` and `provider: unavailable`. One is a gate working correctly (no fragments are published). The other is because **the running container is built from an older commit than `main`** — it predates D-62 and answers with the wrong branch's error. §7a has the whole picture, and that discrepancy is the first thing to check before diagnosing anything in production.
+> ✅ **The host now runs current `main` (`34ce193`).** The build/repository mismatch the previous edition led with is **closed** — `main` was pushed (it was 9 commits ahead of `origin`) and the stack rebuilt. Both readiness gates now report for true reasons.
 >
-> ⚠️ **There IS a code increment again**, which reverses the previous edition of this file. But the thing standing between NAIGX and a ready instance is **the fragment activation gate**, and the gate is correct. Do not weaken it, do not bypass it, do not manufacture a pass reference. §7a explains exactly what it wants.
+> ⚠️ **The backend is deployed and NOT READY, and this is now the settled state.** `GET /health` answers **503** with `templates: unavailable` (zero fragments published) and `provider: unavailable` (`REPLAY_FIXTURES` empty — D-62's real replay message, no longer the live branch's). **Both are gates working correctly.** Do not weaken either.
+>
+> 🛑 **THE PROJECT IS BLOCKED ON TWO OWNER DECISIONS, NOT ON CODE.** §7a has both:
+> 1. **A closed circle blocks admitting ew-001** — admission invalidates the only pass reference, and the replacement run cannot be produced because `regression:run` resolves legacy recordings against a database that lacks `stage.workflow_review`, which cannot be published without that run. Breaking it means deciding what a pass reference attests → **D-64**.
+> 2. **The last 4 fragments need paid captures** that have each failed once already. There is no offline path to them.
+>
+> ⚠️ **Everything else in Sprint 5 that can be done without spend or a human reviewer is done.** The temptation to publish fragments with a manufactured or non-covering reference so the health check goes green is exactly what the owner has ruled out, twice. A green `/health` bought that way is worth less than the 503.
 
 ---
 
@@ -60,7 +66,7 @@ These are standing instructions given explicitly. **They override default thorou
 
 ⚠️ **What remains — the first three are code, which reverses the previous edition's "no remaining code increment":**
 
-- **▶ Redeploy the backend.** The running container predates `ca2bb8b` — no D-62, no fragment publisher, no D-63. Everything below assumes a current build; **do this first or the other work cannot be observed.**
+- ~~**▶ Redeploy the backend.**~~ ✅ **DONE 2026-09-09.** `main` was pushed (it was 9 commits ahead of `origin`, which the previous edition did not know) and the host rebuilt to `34ce193`. The D-62 marker went `0` → `1` and the `provider` message changed to the replay branch's. ⚠️ `/health` is still **503**, correctly — see §7a.
 - **▶ Fragment activation for the production database** — *code and evidence.* The production DB holds **zero** prompt fragments, so readiness fails. Publishing them requires a regression pass reference that covers them, and **6 of 15 fragments are not covered by any committed recording**. This is §7a and it is where the work is.
 - **`REPLAY_FIXTURES` is a hardcoded empty object** at `backend/src/index.ts:79`. Readiness in replay mode cannot pass until something real loads into it (D-62). ⚠️ **NOT independent and not startable yet** — it is strictly *downstream* of fragment publication and additionally needs a compose mount. The previous edition's "small, genuine, unstarted" was wrong on the first two words; see §7a.
 - **A production rollback drill** — needs a deployed instance, which now exists. Newly *possible*, still undone.
@@ -204,12 +210,33 @@ still up, which was D-60's whole constraint.
    returns **0**, and `/app/dist/index.js` still carries the old
    credential-in-every-mode `checkProvider`.
 
-⚠️ **THE RUNNING CONTAINER IS NOT BUILT FROM CURRENT `main`.** Everything from
-`ca2bb8b` onward is committed and **undeployed**: D-62's mode-aware readiness,
-the production fragment publisher (`src/ops/fragments.ts`), D-63, the D-63
-amendment, and the targeted-run CLI. **Check this before diagnosing any
-production behaviour** — the host is running a build older than the repository,
-and the two disagree about what readiness even means.
+✅ **RESOLVED 2026-09-09 — THE HOST NOW RUNS CURRENT `main` (`34ce193`).**
+`main` was pushed (it was 9 commits ahead of `origin`) and the runbook was
+executed. The paragraph below described the state before that and is kept
+because its *lesson* is the durable part:
+
+> ⚠️ THE RUNNING CONTAINER IS NOT BUILT FROM CURRENT `main`. Everything from
+> `ca2bb8b` onward is committed and undeployed… the host is running a build
+> older than the repository, and the two disagree about what readiness means.
+
+**What the redeploy actually produced**, checked rather than assumed:
+
+| Check | Before | After |
+|---|---|---|
+| `grep -c "no recordings are available" /app/dist/index.js` | `0` | **`1`** |
+| `provider` rejection | *"No provider is configured"* — the **live** branch | *"Replay mode is configured but no recordings are available… (D-62)"* |
+| `GET /health` | 503 | **503 — unchanged, and correct** |
+| `https://naigx.tech` | 200, `tls=0` | 200, `tls=0` |
+| `n8n-traefik-1` / `n8n-n8n-1` | up 5 weeks | **untouched, up 5 weeks** (D-60) |
+
+No migrations were involved — `git diff --name-only HEAD origin/main --
+backend/prisma/migrations` was empty, as the runbook predicted. Startup logs
+`mode:"replay"` and `Field encryption active provider=key-file(…) keyVersion=1`.
+
+⚠️ **`/health` is still 503 and that is the expected outcome, not a failed
+deploy.** Both gates still fail, both correctly: zero fragments published, and
+`REPLAY_FIXTURES` empty. **The redeploy was a prerequisite, and it is now
+discharged — it was never going to make the instance ready by itself.**
 
 Consequence for the plan: **publishing fragments alone will not make this
 instance ready.** The deployed build demands an Anthropic credential in replay
@@ -482,6 +509,70 @@ reproduce at a different point each time.
 and decided by the owner; the last four fragments need authorised spend on two
 captures that have each failed once already. There is no offline path to them.
 
+### 🛑 ADMITTING ew-001 IS BLOCKED BY A CLOSED CIRCLE — measured 2026-09-09
+
+**Do not admit ew-001 yet.** An earlier plan this session recommended admitting
+it; the recommendation was **withdrawn after testing it**, because admission
+today would leave the project with **no valid pass reference for anything** —
+strictly worse than the current state. Every link below was executed, not read.
+
+**1. Admission does widen coverage — 9 → 11.** Simulated in a scratch store
+holding the 13 canonical recordings plus ew-001, with a generated manifest:
+`stage.workflow_review` and `type.workflow` become covered (1 case each).
+
+**2. ⚠️ And it invalidates the committed reference, for every foundation
+fragment.** Asked of `assertActivationPermitted` directly:
+
+```
+REFUSED  foundation.system_frame  [fragment_not_covered]
+  Run 35af47fbdabae5eb did not exercise foundation.system_frame: it composes
+  into 14 recorded case(s), and 1 of them did not run (ew-001).
+```
+
+That is the gate working correctly — but it means a **replacement run** is
+mandatory, not optional.
+
+**3. 🛑 The replacement run cannot be produced.** `regression:run` injects the
+**database** resolver ([`regression.mts:425`](../backend/scripts/regression.mts#L425)),
+ew-001 is LEGACY (no `composition`, like all 14), so it takes the legacy path
+and resolves against active published versions. Executed against the dev
+database:
+
+```
+RESOLVES  foundation.system_frame
+THROWS    stage.workflow_review  ->  No active published version for
+                                     fragment(s): stage.workflow_review
+```
+
+The dev database holds **14 fragments and not that one** — verified by `psql`.
+So ew-001 runs `errored`, the run is not clean, and `buildPassReference` emits
+nothing.
+
+**4. 🛑 And the fragment cannot be published to unblock it.** `fragments:publish`
+enforces the same `assertActivationPermitted` (`scripts/fragments.mts:173`).
+Publishing `stage.workflow_review` needs a reference covering it → which needs
+the run in step 3 → which needs the fragment published. **Closed circle.**
+
+⚠️ **This is not the circularity D-63 broke.** D-63 made *capture* and the
+*gate's coverage computation* use authored resolution, and both work. `run` was
+deliberately left on the database resolver by the D-63 **§7 amendment**
+(`regression.mts:385`, *"this resolver is now the LEGACY fallback only"*),
+because re-resolving legacy recordings against authored content is exactly what
+invalidated ten recordings before. **The circle closes in the one command the
+amendment did not move.**
+
+⚠️ **The obvious fix is a decision, not a patch.** Injecting the authored
+resolver into `run` would very likely make all 14 pass — and it would change
+*what a pass reference attests*, which is `DB §4.5`/D-24 territory and needs its
+own record (**D-64**). It is also a change to the regression runner during
+evidence work, which the standing constraints forbid. **Do not make it
+silently.** The `--case=` asymmetry (§5) is the same shape: two commands naming
+the same thing and meaning different things.
+
+**Until that is decided, ew-001 stays held**, exactly where the standing
+constraint already puts it, and the current reference `35af47fbdabae5eb` stays
+valid for the 9 covered fragments.
+
 ### ⚠️ PUBLISHING IS ALL-OR-NOTHING — so ALL SIX must be covered, not just four
 
 The tempting reading of the table above is *"publish the 9 covered fragments now,
@@ -729,7 +820,7 @@ Its criterion is **"production deploy with monitoring, alerting, and verified ro
 | ~~TLS unverified~~ | ✅ **CLOSED.** Real Let's Encrypt certificate (`CN=YR1`), `notAfter Dec 7 2026`, `ssl_verify_result=0`. `NFR-020` verified |
 | ~~KMS unverified~~ | ✅ **RETIRED.** D-61 removed the dependency; `kms-live.test.ts` deleted, not left skipping |
 | ⚠️ **The instance is NOT READY** | `GET /health` → **503**. Zero fragments in the production DB; `REPLAY_FIXTURES` empty. **This is §7a and it is the live issue** |
-| ⚠️ **The deployed build is behind `main`** | It predates `ca2bb8b` — no D-62, no fragment publisher, no D-63. Verified by grepping `/app/dist/index.js` in the running container. **A redeploy is a prerequisite for readiness, not a follow-up** |
+| ~~The deployed build is behind `main`~~ | ✅ **CLOSED 2026-09-09.** Host rebuilt to `34ce193` after pushing `main`. Marker `0` → `1`; `provider` now answers with D-62's replay message. The prerequisite is discharged — it did not, and could not, make the instance ready |
 | **Rollback drill NOT done** | D-50 §4 requires it *on production*. Now *possible* for the first time. ✅ The blocker it surfaced is fixed (D-57), but the drill is still unattempted: [ROLLBACK-DRILL-LOG](deployment/ROLLBACK-DRILL-LOG.md) |
 | **Restore drill was on dev data** | Mechanism proven. Backups **are running on the host** — `naigx-backup` wrote both dumps at 10:50Z and reported a clean cycle — so a production restore drill is now reachable |
 | **Off-host backup storage** | ⚠️ **Half done.** `rclone` is installed with a `gdrive:` remote and the encrypted `.enc` dumps exist on disk, but `rclone ls gdrive:` is **empty** and the automated cycle does not upload. A backup on the same host is not an off-host backup |
@@ -833,6 +924,8 @@ npm run regression:run -- --case=<id> # targeted; resolves against the WHOLE cor
 ```
 
 ⚠️ **`regression:run` needs the database** — its LEGACY fallback resolver reads active fragment versions from it. A recording that carries its own captured composition never consults it (D-63 §7).
+
+⚠️ **`regression:run` OVERWRITES the committed run record, and `git status` is the only thing that tells you.** The run is deterministic — same 13 cases, same hashes, same `runId` `35af47fbdabae5eb` — but it rewrites `completedAt` and (since the D-63 amendment) adds `fragmentResolution`. So two different documents end up claiming to be the same run, which is the *"the document and the reference disagree"* hazard the gate itself checks for. **After running it as a verification baseline, `git checkout -- research/regression-runs/` unless you deliberately intend a new evidential run.** This happened once before with a *stamped* provenance label (§5) and the record was restored then too.
 
 **Docker must be running** or the Postgres-backed and browser-backed suites skip. A skip means *not checked*, never *passed* — if the skip count rises above 2, start Docker before reading the result.
 
