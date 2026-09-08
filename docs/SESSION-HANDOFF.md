@@ -1,13 +1,15 @@
 # NAIGX — Session Handoff
 
-**Written:** 2026-09-08
+**Written:** 2026-09-08 · **Last updated:** 2026-09-09
 **Purpose:** hand a new chat session everything it needs to continue building NAIGX without re-deriving context or re-litigating settled decisions.
 
 > **Read this first, then `docs/STATUS.md`.** STATUS.md is the authoritative current-state record. This file covers the most recent working sessions, and the exact next step.
 >
-> ⚠️ **Start at §7a.** M-20 is **done as far as it can go** — measured, written up, committed, and **not passed**, for a reason that is the finding rather than a shortfall. The working tree is clean.
+> ⚠️ **Start at §7a — it has changed completely.** NAIGX **is deployed.** `https://naigx.tech` serves the client over a real Let's Encrypt certificate, six containers are up on the Hostinger VPS, and the host/domain dependency that blocked all of Sprint 5 is **discharged**.
 >
-> ⚠️ **AND THE HARDER THING: Sprint 5 has no remaining code increment.** Every outstanding item needs a host, a human, or an authorisation. §7a §"What is actually left" lists them. **Do not manufacture a code task to have something to do** — the honest next move is to tell the owner what only they can unblock.
+> ⚠️ **The backend is deployed and NOT READY.** `GET /health` answers **503** with `templates: unavailable` and `provider: unavailable`. One is a gate working correctly (no fragments are published). The other is because **the running container is built from an older commit than `main`** — it predates D-62 and answers with the wrong branch's error. §7a has the whole picture, and that discrepancy is the first thing to check before diagnosing anything in production.
+>
+> ⚠️ **There IS a code increment again**, which reverses the previous edition of this file. But the thing standing between NAIGX and a ready instance is **the fragment activation gate**, and the gate is correct. Do not weaken it, do not bypass it, do not manufacture a pass reference. §7a explains exactly what it wants.
 
 ---
 
@@ -48,17 +50,23 @@ These are standing instructions given explicitly. **They override default thorou
 | **M-15** Auth + history | **Complete**, all 7 phases, verified against a live server |
 | **M-16** Instrumentation | **Complete.** 7 automatable metrics report real values; M-6/M-8/M-9 stay manual |
 | **M-17** Accessibility | **Implemented, NOT verified.** 4 violations fixed, axe running. The manual WCAG walk is unwalked |
-| **M-18** Security | **Reviewed, NOT passed.** `NFR-027` found and fixed; `DB §13.1` app-level encryption unresolved |
-| **M-19** Deployment | **All 4 phases built, milestone NOT passed.** Nothing is deployed. See §7 |
-| **M-20** Performance | **Measured and written up, milestone NOT passed.** `NFR-003`/`004`/`005` pass; `NFR-001`/`NFR-002` are **UNMEASURED** and that is M-20's own criterion. D-58 defines the bar. See §7a |
+| **M-18** Security | **Reviewed, NOT passed.** `NFR-027` found and fixed; `DB §13.1` app-level encryption implemented against a **host-held key file** (D-61 retired AWS KMS) |
+| **M-19** Deployment | **Deployed and running at `https://naigx.tech`; milestone NOT passed.** TLS is now **verified**. The instance is **not ready** — see §7a and the §7 gap table |
+| **M-20** Performance | **Measured and written up, milestone NOT passed.** `NFR-003`/`004`/`005` pass; `NFR-001`/`NFR-002` are **UNMEASURED** and that is M-20's own criterion. D-58 defines the bar. See §7b |
 
 ### Sprint 5 deliverables still outstanding
 
-⚠️ **All five remaining items need a human, a host, or an authorisation. NONE is code.**
+✅ **DISCHARGED since the last edition:** the production host and domain (Hostinger VPS + `naigx.tech`), TLS (`NFR-020` — a real Let's Encrypt certificate, issued 2026-09-08, valid to 2026-12-07), and the AWS account, which **no longer exists as a dependency at all** — D-61 replaced managed KMS with a host-held key file, and `tests/integration/kms-live.test.ts` was deleted rather than left skipping.
 
-- **A production host and domain** — M-19 cannot close without one, and neither can TLS, the rollback drill, or a restore drill against real data. **M-20's free path to `NFR-001`/`NFR-002` also runs through it.** Owner's to provision.
-- **An AWS account** for KMS — 4 skipped tests are the only thing that can verify `DB §13.1` row 3. Owner's, taken, not yet done.
-- **~$8 of provider spend, or an explicit decline** — the other way `M-20` closes (D-58 §4). A decision, not a task.
+⚠️ **What remains — the first three are code, which reverses the previous edition's "no remaining code increment":**
+
+- **▶ Redeploy the backend.** The running container predates `ca2bb8b` — no D-62, no fragment publisher, no D-63. Everything below assumes a current build; **do this first or the other work cannot be observed.**
+- **▶ Fragment activation for the production database** — *code and evidence.* The production DB holds **zero** prompt fragments, so readiness fails. Publishing them requires a regression pass reference that covers them, and **6 of 15 fragments are not covered by any committed recording**. This is §7a and it is where the work is.
+- **▶ `REPLAY_FIXTURES` is a hardcoded empty object** at `backend/src/index.ts:79`. Readiness in replay mode cannot pass until something real loads into it (D-62). Small, genuine, unstarted.
+- **A production rollback drill** — needs a deployed instance, which now exists. Newly *possible*, still undone.
+- **A restore drill against production data** — the mechanism is proven on dev data; backups are running on the host.
+- **Off-host backup storage** — `rclone` is installed with a `gdrive:` remote configured, but the remote is **empty** and the automated cycle does not upload. Encryption-before-upload exists; the upload leg does not run.
+- **~$8 of provider spend, or an explicit decline** — the other way `M-20` closes (D-58 §4). A decision, not a task. Now also reachable free, via production traffic.
 - **M-17 manual WCAG walk** — needs a person with a screen reader. Unowned.
 - **M-08 rubric review** — needs a human reviewer. Unowned, carried from Sprint 2.
 
@@ -78,16 +86,22 @@ These are standing instructions given explicitly. **They override default thorou
 | `docs/22`–`docs/24` | D-47 provisional rate limits · D-48 operator auth · D-49 accessibility verification |
 | `docs/25` **D-50** | Single instance, no staging |
 | `docs/26` **D-51** | Self-hosted PostgreSQL; `DBQ-7` resolved at **7 days** |
-| `docs/27` **D-52** | Managed KMS (AWS), envelope encryption |
+| `docs/27` **D-52** | Managed KMS (AWS), envelope encryption — ⚠️ **the key-service half is superseded by D-61**; envelope encryption stands |
 | `docs/28` **D-53** | Both encryption layers, told apart; closes `DBQ-8` |
 | `docs/29` **D-54** | The edge — same-origin serving, proxy trust, IP-hash salt |
 | `docs/30` **D-55** | Envelope format, the purge outbox, and the mixed backfill window |
 | `docs/31` **D-56** | Monitoring, alerting, and what a drill must produce to count |
 | `docs/32` **D-57** | Rollback across a data-format change — the sealed rename and the startup guard |
 | `docs/33` **D-58** | What "representative load" means, and what `M-20` can therefore claim |
-| `docs/34` **D-59** | AWS credential injection on a non-EC2 host — the Hostinger VPS, two scoped IAM principals, the mounted credentials file |
+| `docs/34` **D-59** | AWS credential injection on a non-EC2 host — ⚠️ **RETIRED by D-61.** Kept for the reasoning, not as a live design |
+| `docs/35` **D-60** | The shared Traefik edge — NAIGX routes through the host's existing n8n Traefik rather than binding 80/443 |
+| `docs/36` **D-61** | **A host-held key file replaces managed KMS for v1.0.** Removed the AWS dependency, the SDK, and the 4 skipped live-KMS tests entirely |
+| `docs/37` **D-62** | Mode-aware `API-060` readiness — replay is a valid execution mode, and a replay instance with no recordings is **not** ready |
+| `docs/38` **D-63** | Regression evidence composes against **authored** fragments, breaking the publish/evidence circularity — **plus the §7 amendment**, which is the load-bearing half |
 
-**Numbering convention: the next standalone record is `docs/35` D-60.** Nothing is currently owed.
+**Numbering convention: the next standalone record is `docs/39` D-64.** Nothing is currently owed.
+
+⚠️ **D-63 without its §7 amendment is actively wrong.** The original decision made the runner re-resolve recordings against authored fragments, which invalidated **10 of 13** committed recordings the moment authored content drifted. The amendment separates **replayability** from **evidential currency**: a recording that carries its own captured composition replays against *that* and is never stale for replay; only the activation gate asks the currency question. Read §7 before touching anything in `src/regression/`.
 
 ---
 
@@ -116,6 +130,14 @@ These are the defects that *passed every test* before being caught. They are the
 - **A test that builds the app without a cipher proves nothing about encryption.** `buildApp` defaults to a pass-through cipher so unrelated unit tests need no key. That default silently made the `FR-062` search test pass over plaintext columns production does not have. Suites that touch the three encrypted fields must pass `createTestCipher()` — and the seed data must be sealed too, or the test still runs on plaintext.
 - **A half-finished encryption backfill is invisible.** Reads accept plaintext (they must, or the service breaks mid-migration), so an unsealed table behaves exactly like a sealed one. `npm run encrypt:status` is the *only* signal, and `DB §13.1` row 3 is not met until it reports zero.
 - **A one-shot compose service that runs `npx tsx` cannot work.** The runtime image prunes dev dependencies and ships no `scripts/` directory. Operational entry points belong in `src/` so they compile into `dist/` — caught before shipping only because the image was actually run.
+- **⚠️ A DEPLOYED CONTAINER IS NOT THE REPOSITORY, AND ITS ERROR MESSAGES WILL LIE TO YOU ABOUT WHICH CODE IT IS.** `naigx-backend` logged `"mode":"replay"` and then rejected readiness with `"No provider is configured"` — the **live** branch's message, which current `main` cannot produce in replay mode. The instinct is to go debug `resolveExecutionMode`. The actual cause is that the image predates D-62 by several commits. **Confirm the running build before diagnosing its behaviour:** `docker exec naigx-backend grep -c "<a string only the new code has>" /app/dist/index.js`. A container that has been up for hours is evidence about *whenever it was built*, not about `HEAD`.
+- **⚠️ A capture CLI and a run CLI that resolve case ids differently will strand paid evidence.** `regression:capture` accepted `--case=<id>` against the whole corpus; `regression:run` selected `FIRST_VERTICAL` unconditionally and had no `--case=` at all. So `ew-001` could be captured — and **was, for $0.1072 of real provider spend** — and then could never be evaluated, because an `existing_workflow` case with no special class is excluded from that vertical *by construction*. Nothing errored. The asymmetry is closed (`289e1e1`) and `tests/unit/corpus-selection.test.ts` guards it. **When two commands name the same thing, check that they mean the same thing.**
+- **A run's provenance label must be DERIVED, never stamped.** A re-run was recorded as `fragmentResolution: "authored"` while it had actually replayed 13 legacy recordings through the *active* resolver. The record was restored and the label is now computed from what each recording carried. **A field describing how a run resolved is evidence about the run — it cannot be an argument.**
+- **Moving a file into the recording store to silence a drift error destroys the gate.** An unmanifested recording makes `regression:recordings:check` fail with `unmanifested: <case>`. That check is correct: it is the difference between *captured* and *admitted*. Held evidence lives in `research/regression-pending/`, outside the store, which is why `createRecordingStore` cannot see it. **Never `regression:recordings:write` to make a red check green.**
+- **Importing a constant from a CLI script executes that script.** `regression.mts` imported `PROMPTS_ROOT` from `fragments.mts`, which runs its own `process.argv` dispatch at module scope — so `regression:capture` was broken on `main` in a way that looked like an unrelated failure. Fixed in `27f1a1e` by resolving the path locally. **A module with top-level side effects is not importable, whatever it exports.**
+- **A resolver that throws synchronously breaks a port typed as returning a promise.** `FragmentResolver.resolve` returns `Promise<...>`; an `authored-resolver` that threw before returning escaped every `.catch` in the pipeline. Make it `async`.
+- **`assert.throws` returns `void` in Node's types** — it cannot hand you the error to inspect. Capture with `try`/`catch` when you need to assert on fields.
+- **Two POSIX permission tests skip on Windows and are the ones that matter in production.** `key-file-provider.test.ts`'s *"FAILS CLOSED when the key file is group-readable / world-readable"* guard D-61's whole security argument, and `process.platform !== "win32"` skips both on the dev machine. They are 2 of the suite's 4 skips. ⚠️ **Run them on the VPS**, or the key file's permission enforcement is asserted by nothing.
 
 ---
 
@@ -129,10 +151,261 @@ These are the defects that *passed every test* before being caught. They are the
 - **Risk score and band are derived at presentation** from `docs/09` §2, never stored.
 - **Rate limiter and trace-purge queue each sit behind one interface** with a single swap point — deliberate, so D-46 and the durable-queue work are implementation swaps.
 - **One instance is the sanctioned topology** (D-50). `SA §9.4` already assumed in-process jobs and SSE affinity. This makes D-46's in-memory limiter *correct*, and leaves `NFR-051` explicitly unmet.
+- **There are three fragment resolvers and they answer three different questions.** `db/fragment-resolver.ts` — what production runs (active published versions). `regression/authored-resolver.ts` — what the repository currently says (`prompts/`), which is what *evidence* composes against (D-63). `regression/pinned-resolver.ts` — what a recording was actually captured with, answering from the recording alone with no database and no filesystem. **Reaching for the wrong one is what invalidated 10 recordings.**
+- **Replayability and evidential currency are separate questions** (D-63 §7). A recording carrying its captured composition replays against *that* and is never stale for replay. Whether it still evidences a *newer* candidate composition is the activation gate's question, asked with authored resolution. Conflating them looks like a staleness bug and is really a category error.
+- **Captured is not admitted.** The recording store reads `research/regression-recordings/<corpusVersion>/` and only that, and a file there without a manifest entry is a `RecordingIntegrityError`, not evidence. Admission changes what every existing pass reference is sufficient to activate — it is a decision, never a filing step.
+- **`--case=` resolves against the whole frozen corpus in both CLIs**, and an unknown id is a hard error rather than a silently smaller run. Filtering a typo down to a subset would run a different suite than the operator asked for *and still issue a reference for it*.
 
 ---
 
-## 7a. ▶ THE NEXT STEP — M-20 is done and not passed; Sprint 5 is out of code
+## 7a. ▶ THE NEXT STEP — NAIGX is deployed, not ready, and the thing in the way is the activation gate
+
+**Verified on the host, 2026-09-09.** Not inferred from a compose file:
+
+```
+naigx-postgres      Up 10 hours (healthy)
+naigx-backend       Up  7 hours (UNHEALTHY)
+naigx-edge          Up  7 hours
+naigx-prometheus    Up  7 hours
+naigx-alertmanager  Up  7 hours
+naigx-backup        Up  7 hours
+n8n-traefik-1       Up  5 weeks      ← the shared edge, D-60
+n8n-n8n-1           Up  5 weeks      ← untouched, as required
+
+https://naigx.tech        → 200, ssl_verify_result=0
+https://naigx.tech/health → 503
+issuer = Let's Encrypt CN=YR1,  notBefore Sep 8 2026,  notAfter Dec 7 2026
+```
+
+✅ **`NFR-020` TLS is now verified** — a certificate has actually been issued,
+which Phase 2 explicitly could not claim. ✅ The pre-existing n8n stack is
+still up, which was D-60's whole constraint.
+
+### Why the backend is unhealthy — two gates, both correct
+
+```json
+{"status":"error","database":"connected",
+ "dependencies":{"database":"available","provider":"unavailable","templates":"unavailable"}}
+```
+
+⚠️ **Neither is a defect. Do not "fix" either by relaxing a check.**
+
+1. **`templates: unavailable`** — `checkTemplates` resolves the four foundation
+   fragments from the primary store. **The production database contains zero
+   rows in `prompt_fragment`** (verified by `psql` on the host). No fragments,
+   no composable prompt, no readiness.
+2. **`provider: unavailable`** — ⚠️ **and this one is not what the current
+   source says it should be.** The container logs `"mode":"replay"` and then
+   rejects with **`"No provider is configured"`**, which is the **live** branch's
+   message. On current `main`, replay's rejection reads *"Replay mode is
+   configured but no recordings are available…"*. **The deployed build predates
+   [D-62](37-D-62-Mode-Aware-Readiness.md)** — confirmed directly:
+   `docker exec naigx-backend grep -c "no recordings are available" /app/dist/index.js`
+   returns **0**, and `/app/dist/index.js` still carries the old
+   credential-in-every-mode `checkProvider`.
+
+⚠️ **THE RUNNING CONTAINER IS NOT BUILT FROM CURRENT `main`.** Everything from
+`ca2bb8b` onward is committed and **undeployed**: D-62's mode-aware readiness,
+the production fragment publisher (`src/ops/fragments.ts`), D-63, the D-63
+amendment, and the targeted-run CLI. **Check this before diagnosing any
+production behaviour** — the host is running a build older than the repository,
+and the two disagree about what readiness even means.
+
+Consequence for the plan: **publishing fragments alone will not make this
+instance ready.** The deployed build demands an Anthropic credential in replay
+mode, so `provider` stays unavailable until it is rebuilt. A redeploy is a
+prerequisite, not a follow-up. And on current `main`, `REPLAY_FIXTURES` is still
+`const REPLAY_FIXTURES: Readonly<Record<string, never>> = {}` at
+[`backend/src/index.ts:79`](../backend/src/index.ts#L79) — a hardcoded empty
+object — so a rebuild alone does not finish the job either. **Both halves are
+real, small, and unstarted.**
+
+### The activation gate, and the exact shape of the blockage
+
+Publishing fragments requires a regression pass reference that **exercised the
+fragments being activated** (`DB §4.5`, D-14, D-24 dec. 4, D-30 dec. 3). Coverage
+is computed from the committed recordings. Measured 2026-09-09 across all 15
+authored fragments:
+
+| Covered by the 13 committed recordings | Not covered by anything |
+|---|---|
+| `foundation.system_frame` (13) · `foundation.provenance_rules` (13) · `foundation.neutrality_constraints` (13) · `foundation.refusal_and_uncertainty` (13) · `stage.classification` (13) · `stage.context_extraction` (11) · `stage.intent` (11) · `type.business_requirement` (11) · `stage.architecture_analysis` (10) | ⚠️ `stage.workflow_review` · `type.workflow` · `stage.recommendation_generation` · `stage.portfolio_suggestions` · `type.assessment` · `type.job_description` |
+
+**9 of 15 covered, 6 uncovered.** The 13 committed recordings are all
+`FIRST_VERTICAL` (`business_requirement` + the special classes), so every
+non-`br`/`un` path is unevidenced.
+
+### ⚠️ ew-001 — held, paid for, and the subject of a completed feasibility check
+
+`research/regression-pending/ew-001.json` is **untracked, real provider evidence**
+(`claude-sonnet-4-5`, **$0.1072**, captured 2026-09-08T12:29Z, 4 stages). It sits
+outside the canonical store deliberately — see `research/regression-pending/README.md`
+and the §5 lesson. **It has never been admitted and its corpus assertions have
+never been evaluated.**
+
+A **read-only feasibility inspection completed 2026-09-09** established, by
+exercising the real code paths against the real database rather than by reading
+them:
+
+- **ew-001 needs 9 fragment keys.** Eight resolve. One does not:
+  **`stage.workflow_review`**, which has no row in `prompt_fragment` *at all* —
+  not merely no active version. It postdates the dev database's fragment seed.
+- **If admitted unchanged, `regression:run -- --case=ew-001` produces `errored`** —
+  not `stale`, not `blocked`. The recording carries no `composition` (captured
+  hours before the D-63 amendment persisted them), so it takes the LEGACY path,
+  and the active resolver throws a plain `Error` *before* any staleness
+  comparison happens. A plain `Error` matches none of the three arms in
+  [`runner.ts:304-310`](../backend/src/regression/runner.ts#L304-L310).
+  The exact throw, captured live: `No active published version for fragment(s): stage.workflow_review`.
+- **This already happened once, and is committed.**
+  `research/regression-failures/corpus-v1/ew-001-2026-09-08T11-42-27-007Z.json`
+  records the 11:42 capture attempt dying on that identical message after
+  3 provider calls. The 12:29 capture succeeded only because capture had by then
+  been switched to the **authored** resolver (D-63), which reads
+  `prompts/stage/workflow_review.md` off disk.
+- **The deferred assertions do not block evaluation.** `artifact_set`,
+  `confidence_band` and `do_not_automate_conclusion` are `supported: false` and
+  report as `deferred` — a reported outcome, not an error. ew-001 would still be
+  judged on the six supported assertions, and its live expectations
+  (`existing_workflow`, confidence ≥ 0.6) are exactly what the recording answers
+  (`existing_workflow` at 0.95).
+- **▶ ew-001 CAN be evaluated today with zero spend and zero corpus mutation.**
+  `runRegression` already takes `store` and `resolver` as options, and
+  `createRecordingStore(root)` takes a root — `capture` already uses both that
+  way for dry runs. Swapping in `createAuthoredResolver(readAuthoredFragments(PROMPTS_ROOT))`
+  is what makes it resolvable, and **the composition reproduces exactly**:
+  `94768ecd876b85e8…` from the authored resolver, `94768ecd876b85e8…` recorded.
+  The input hash matches too (`5806cba06c82…`), so nothing blocks earlier.
+- ⚠️ **But such a run can never satisfy the gate**, because
+  `assertActivationPermitted` recomputes coverage against
+  `createRecordingStore()` — the canonical store. **The architecture requires
+  admission for *activation*, not for *evaluation*. That separation is
+  deliberate and correct. Do not collapse it.**
+
+**Admitting ew-001 would cover 2 of the 6 uncovered fragments** —
+`stage.workflow_review` and `type.workflow` — and would invalidate the two
+committed references (`4ea7eef7345389e9`, `35af47fbdabae5eb`) as sufficient for
+foundation activation, because every foundation fragment would then compose into
+14 recorded cases rather than 13.
+
+### ✅ THE EVALUATION HARNESS IS BUILT, AND ew-001 PASSES *(2026-09-09)*
+
+**Owner approved it this session.** `npm run regression:evaluate -- --case=<id>`
+(`regression.mts`, command `evaluate`). It runs `runRegression` against a
+scratch-rooted store holding a copy of the held recording plus a generated
+manifest, with the authored resolver. Zero provider spend, zero canonical-corpus
+mutation. It writes **no** run record and builds **no** pass reference —
+`buildPassReference` is not imported into that block, so a later edit cannot
+reach for it by accident.
+
+**The result, run live:**
+
+```
+✅ ew-001   composition 94768ecd876b85e8 · captured 2026-09-08T12:29:22.497Z
+     ok classification — existing_workflow
+     ok classification_confidence_bound — 0.95 is at or above threshold 0.6
+     ok run_completeness — the run reached its terminal stage
+     ok reference_integrity — 23 context element(s), 9 component(s), every grounding resolved
+     -- artifact_set — Stages 8-9 (artifact planning and generation), Sprint 2
+     -- confidence_band — Stage 11 (confidence evaluation), Sprint 2
+```
+
+⚠️ **Correction to the previous edition: it is 4 supported assertions, not 6.**
+Six are *evaluated*; four are supported and pass, two are deferred.
+`do_not_automate_conclusion` is **not among them at all** — `ew-001.yaml` states
+no such expectation, so it was never applicable to this case.
+
+**The evidence is sound and the admission decision is now unblocked.** It
+remains the owner's, and nothing above widens coverage: `assertActivationPermitted`
+still recomputes against the canonical store, which still holds 13 recordings.
+
+### ⚠️ THE FEASIBILITY CHECK WAS WRONG, AND A REAL DEFECT WAS HIDING BEHIND IT
+
+The previous edition asserted *"▶ ew-001 CAN be evaluated today with zero spend"*
+on the strength of a read-only inspection of resolution and composition. Both of
+those facts were right — and ew-001 still could not be replayed, because the
+inspection stopped one step short of running the pipeline. **The first run of the
+harness failed:**
+
+```
+💥 ew-001 — No recorded response for request key 12602299cef18ed3
+```
+
+**Root cause — [`stageProviderInputs`](../backend/src/nie/pipeline.ts#L196), and
+it was never about ew-001.** That function tells a recorder which provider input
+each stage will receive, and `createRecordedProvider` keys a replay fixture from
+it. It re-stated the Stage 6 routing rules inline: `job_description` to Stage 7,
+and **everything else** to `architecture_analysis`. But `planReasoning` sends
+`existing_workflow` to `workflow_review` and pointedly *not* to architecture
+design (`FR-021` via `AI §7.1`, D-40). So the `existing_workflow` path was
+mis-described.
+
+Nothing went red. `createRecordedProvider` **skips** a recorded stage it has no
+provider input for, so an `existing_workflow` recording quietly built one fewer
+fixture, and Stage 6 then failed at replay with a message that reads like
+*missing evidence* when the evidence was present and merely unkeyed.
+
+⚠️ **This means NO `existing_workflow` recording could ever have been replayed,**
+whatever the corpus said, and the same held for any future path routed through a
+new reasoning module. It was not a property of ew-001; ew-001 is just the first
+case that ever tried.
+
+**Fixed** by routing through `planReasoning` — the same pure, total function the
+pipeline itself branches on at Stage 6 — so a module cannot be routed in the
+pipeline and forgotten in the fixture builder. Verified two ways: the missing key
+`12602299cef18ed3` is exactly the key the fixed builder now produces for
+`workflow_review`, and **all 13 committed recordings still pass with a
+byte-identical pass reference (`35af47fbdabae5eb`)**, so the change is
+behaviour-preserving for everything already admitted.
+
+⚠️ **Why the existing tests could not catch it** — this is the durable lesson:
+
+- `nie-pipeline.test.ts`'s agreement test is exactly the right test and its
+  comment predicted this defect verbatim (*"a broken handoff could hide behind
+  green tests"*). It only ever runs the **business-requirement** path.
+- `nie-m11-paths.test.ts` *does* exercise `existing_workflow` end to end — but
+  its `primedAdapter` computes fixture keys **itself**. ⚠️ **A test that
+  reimplements the function under test cannot disagree with it.** It was green
+  for the same reason the defect was invisible.
+
+Two tests now assert the real `stageProviderInputs` against the real handoff for
+both non-requirement paths, including that the branch *not* taken is absent.
+**Confirmed by differential**: removing the fix turns the `existing_workflow`
+case red and leaves `technical_assessment` green.
+
+### ⚠️ NO RECORDING IN THE REPOSITORY CARRIES A `composition` — ALL 14 ARE LEGACY
+
+Measured, not read off the docs. The previous edition described the absent
+`composition` as specific to ew-001; it is universal:
+
+```
+br-001..br-011, un-001, un-002, ew-001  →  composition: no   (14 of 14)
+```
+
+So every recording takes the **LEGACY** path at
+[`runner.ts:181`](../backend/src/regression/runner.ts#L181) and still resolves
+against the database's active fragment versions. **D-63's amendment is currently
+protecting nothing** — not because it is wrong, but because its benefit begins
+with the next *capture*. Do not rely on "recordings replay against their pinned
+composition" until a recording exists that has one. It also means
+`regression:run` still needs the database, exactly as §9 says.
+
+### Two independent tracks — do not entangle them
+
+| Track | What it needs | Blocked on |
+|---|---|---|
+| **Production readiness** | Redeploy from current `main`, then publish fragments, then load `REPLAY_FIXTURES` | The fragment publish needs a covering pass reference — so it waits on the evidence track |
+| **Regression evidence** | Evaluate ew-001, decide admission, then close the 4 remaining uncovered fragments | Owner approval. **Entirely offline and free** — no host, no redeploy, no spend |
+
+The evidence track can proceed on the workstation with nothing deployed. The
+readiness track cannot finish without it. ⚠️ **The temptation to publish
+fragments with a manufactured or non-covering reference so the health check goes
+green is exactly the thing the owner has ruled out** — twice, explicitly. A
+green `/health` bought that way is worth less than the 503.
+
+---
+
+## 7b. M-20 — done as an increment, open as a milestone
 
 **M-20 is complete as an increment and open as a milestone.** Both halves are
 true at once, and collapsing them in either direction misrepresents it.
@@ -219,27 +492,28 @@ fragment resolve — actual database work). `checkProvider` is stubbed, which is
 faithful rather than convenient: production's probe is a *configuration* check
 with no I/O, because a readiness endpoint is polled continuously.
 
-### ▶ SPRINT 5 HAS NO REMAINING CODE INCREMENT
+### ⚠️ "SPRINT 5 HAS NO REMAINING CODE INCREMENT" — SUPERSEDED 2026-09-09
 
-**Recorded as the state of the sprint, on the owner's instruction, 2026-09-08.**
-This is the real handoff. ⚠️ **Resist inventing a code task.** Every remaining
-item is an external or evidence dependency, and each one discharges exactly one
-thing — kept separate deliberately, because collapsing them is how a milestone
-gets reported as passed on the strength of a different dependency being met:
+**That was recorded as the state of the sprint on 2026-09-08 and it was true
+then.** It is no longer. The host was provisioned, the deployment happened, and
+the deployment surfaced two genuine code tasks — the empty `REPLAY_FIXTURES` and
+the fragment activation path. **§7a is the current statement.** This subsection
+is kept because the *reasoning* still governs everything that remains:
 
-| Dependency | Discharges | Owner |
+| Dependency | Discharges | State |
 |---|---|---|
-| **Host / domain** | **M-19** deployment verification — and with it TLS (`NFR-020`), the rollback drill, a restore drill on real data, off-host backups, alert delivery to a real person | Owner, to provision |
-| **AWS KMS credentials + key** | **Real encryption verification** — `DB §13.1` row 3, closing `M-18` H-2. The 4 skipped tests are the only thing that can do it | Owner, taken, not done |
-| **Optional provider spend (~$8)** | **M-20 provider metrics** — `NFR-001`/`NFR-002`. ⚠️ **Optional.** Declining is a complete answer and folds into the host | Owner's decision |
+| ~~Host / domain~~ | M-19 deployment, TLS, the drills, off-host backups, alert delivery | ✅ **DISCHARGED** — Hostinger VPS, `naigx.tech`, TLS verified |
+| ~~AWS KMS credentials + key~~ | ~~`DB §13.1` row 3~~ | ✅ **RETIRED by D-61** — the dependency no longer exists |
+| **Fragment coverage evidence** | Activation for the 6 uncovered fragments, and with it production readiness | ▶ **§7a. Where the work is** |
+| **Optional provider spend (~$8)** | **M-20 provider metrics** — `NFR-001`/`NFR-002`. ⚠️ **Optional.** Declining is a complete answer, and production traffic is now the free path | Owner's decision |
 | **A human reviewer** | **M-08** rubric review. Carried from Sprint 2 | Unowned |
 | **A screen-reader / keyboard reviewer** | **M-17** manual WCAG walk | Unowned |
 
-⚠️ **These do not substitute for one another.** A host does not verify KMS; KMS
-does not measure latency; neither discharges a human review.
-
-**The owner is deciding what to provision next.** Do not pre-empt that with
-work, and do not re-open it as a question each session.
+⚠️ **These still do not substitute for one another.** A deployment does not
+evidence a fragment; a fragment does not measure latency; neither discharges a
+human review. **That principle is the durable part of this table** — it is how a
+milestone gets falsely reported as passed on the strength of a *different*
+dependency being met.
 
 ### Constraints on M-20, from the owner — still current
 
@@ -252,24 +526,35 @@ work, and do not re-open it as a question each session.
 
 ---
 
-## 7. WHERE M-19 STANDS — all four phases built, milestone NOT passed
+## 7. WHERE M-19 STANDS — deployed at last, milestone still NOT passed
 
-**Four phases, owner-approved, all four committed.** ⚠️ Built is not deployed: see the gap table below Phase 4 before reporting anything about M-19.
+**Four phases, owner-approved, all four committed — and as of 2026-09-08 they are
+actually running on a host.** ⚠️ *Deployed* is still not *passed*: see the gap
+table below Phase 4 before reporting anything about M-19.
 
-**The next step is a decision, not a task.** M-19 cannot close without a host and a domain — that is the owner's to provision, along with the AWS account Phase 3 needs. Until then the remaining M-19 work is unearnable. **M-20 is where work is actually happening — see §7a, above this section.**
+**What changed since the previous edition:** the host and domain were
+provisioned (Hostinger VPS, `naigx.tech`), NAIGX was routed through the host's
+existing Traefik rather than binding 80/443 ([D-60](35-D-60-Shared-Traefik-Edge.md)),
+AWS KMS was replaced by a host-held key file
+([D-61](36-D-61-Host-Held-Key-File.md)), and readiness was made mode-aware
+([D-62](37-D-62-Mode-Aware-Readiness.md)). **TLS is verified.** The instance is
+up and **not ready** — §7a is the current front line.
 
-⚠️ **THE ONE THING CARRIED INTO PHASE 4 FROM PHASE 3:** the KMS prerequisite is
-the owner's and they have taken it, but **no credentials exist yet**, so the
-encryption layer is implemented and unverified. When the AWS account exists:
+⚠️ **THE KMS PREREQUISITE NO LONGER EXISTS — [D-61](36-D-61-Host-Held-Key-File.md), 2026-09-08.**
+The owner stopped the work before creating or paying for anything and chose a
+**host-held key file** for v1.0 instead. The AWS SDK, the KMS adapter, the
+credential-injection design of D-59, and `tests/integration/kms-live.test.ts`
+were all **removed** rather than left skipping — which is why the suite's skip
+count fell from 6 to 4.
 
-```bash
-NAIGX_KMS_LIVE_TEST=1 NAIGX_KMS_KEY_ID=alias/naigx NAIGX_KMS_REGION=<region> npm test
-```
+The keys live at `/etc/naigx/keys/` on the VPS, mode `0400`, and the owner holds
+both in a password manager. **Never print either key into chat, a log, or a
+document** — a paste of the root key into a session once forced a rotation.
 
-Four skipped tests must turn green. Until then, do **not** report `DB §13.1`
-row 3 as satisfied, and do not close `M-18` H-2. Re-read the official pricing
-page before creating the key — the figures in D-52 §3 were re-verified on
-2026-09-08 and are an estimate on their date, not a guarantee.
+⚠️ **`DB §13.1` row 3 and `M-18` H-2 are still open.** Encryption is implemented
+and running, but the two tests that prove the key file **fails closed** on loose
+permissions skip on Windows and have never executed. Running them on the VPS is
+what discharges the mechanism.
 
 ### ✅ Phase 1 — containerisation, non-root, Linux Chromium *(done)*
 
@@ -293,7 +578,7 @@ Recorded as **[D-54](29-D-54-Edge-Topology-And-Proxy-Trust.md)**. Deploy guide: 
 
 Recorded as **[D-55](30-D-55-Envelope-Format-And-Purge-Outbox.md)**, implementing D-52/D-53.
 
-**Encryption.** `src/crypto/` — AES-256-GCM envelope (`naigx.v1.<version>.<iv>.<tag>.<ct>`), a two-method `KeyProvider`, an AWS KMS adapter, an offline double, and a multi-version key ring. Sealed at three boundaries only: `routes/analyses.ts` writes `raw_content`, `db/stage-trace-sink.ts` writes both `structured_*`, and nothing else touches those columns. Opened in `execute-analysis.ts`, the `FR-062` search, and the `API-014` export. The key ring loads at startup and the process **refuses to start** if KMS is unreachable.
+**Encryption.** `src/crypto/` — AES-256-GCM envelope (`naigx.v1.<version>.<iv>.<tag>.<ct>`), a two-method `KeyProvider`, an AWS KMS adapter (⚠️ **since deleted — D-61 replaced it with `providers/key-file.ts`**), an offline double, and a multi-version key ring. Sealed at three boundaries only: `routes/analyses.ts` writes `raw_content`, `db/stage-trace-sink.ts` writes both `structured_*`, and nothing else touches those columns. Opened in `execute-analysis.ts`, the `FR-062` search, and the `API-014` export. The key ring loads at startup and the process **refuses to start** if the key provider is unavailable — originally an unreachable KMS, now an unreadable or loosely-permissioned key file.
 
 **Search.** Decrypt-and-filter per D-53 §4 — and **proved by differential**: restoring the old SQL `contains` predicate makes the `FR-062` test fail with a silently empty page, which is exactly the failure D-53 predicted.
 
@@ -301,9 +586,9 @@ Recorded as **[D-55](30-D-55-Envelope-Format-And-Purge-Outbox.md)**, implementin
 
 **Backfill.** `npm run encrypt:{init,status,backfill}` (`src/ops/encrypt.ts`, compiled — the runtime image has no `tsx`). Verified against the real dev database: 3 inputs + 368 stage traces sealed, re-read correctly, idempotent on a second run, `status` reports zero plaintext.
 
-⚠️ **KMS IS UNVERIFIED.** `providers/aws-kms.ts` has never made a real call. Everything else is proved against the offline double — evidence about the *interface*, none about the *service*. `tests/integration/kms-live.test.ts` is the only thing that discharges it, and it **skips**. `DB §13.1` row 3 is *implemented, not verified*; **`M-18` H-2 stays open** (D-53 §6: it closes when both layers are deployed and verified, not when code merges).
+⚠️ **SUPERSEDED BY D-61 — the KMS adapter no longer exists.** `providers/aws-kms.ts` was deleted along with the AWS SDK and the 4 live-KMS tests. `providers/key-file.ts` replaced it: the key is read from a `0400` file on the host, and the process still **refuses to start** if it is unreadable, wrong-length, or group/world-readable. `tests/unit/key-file-provider.test.ts` covers it — except the two permission tests, which skip on Windows (§5).
 
-**Pricing re-verified** 2026-09-08 against the official page: $1/month per key, 20,000 free requests — unchanged from D-52 §3. One nuance recorded: the free tier excludes asymmetric and `GenerateDataKeyPair` operations, and this design uses neither.
+**`DB §13.1` row 3 is still *implemented, not verified*, and `M-18` H-2 stays open** (D-53 §6: it closes when both layers are deployed *and verified*, not when code merges). What discharges it has changed — it is now running those two permission tests on the POSIX host, not calling a cloud service.
 
 ### ✅ Phase 4 — monitoring, alerting, drills, data policy *(built)*
 
@@ -317,17 +602,20 @@ Recorded as **[D-56](31-D-56-Monitoring-Alerting-And-The-Drills.md)**.
 
 ### ⚠️ M-19 IS NOT PASSED, AND THIS IS THE IMPORTANT PART
 
-Its criterion is **"production deploy with monitoring, alerting, and verified rollback"**. All four phases are *built*; **nothing is deployed anywhere**.
+Its criterion is **"production deploy with monitoring, alerting, and verified rollback"**. The deploy exists; **the instance cannot serve a submission and the rollback has never been drilled on it.**
 
-| Gap | Why it is open |
+| Gap | State as of 2026-09-09 |
 |---|---|
-| **No production deployment** | No host, no domain. Everything below follows from this |
-| **Rollback drill NOT done** | D-50 §4 requires it *on production*. Only rehearsed. ✅ The blocker it surfaced is **fixed** (D-57) — a rollback past the encryption boundary now fails loudly instead of serving envelopes — but the drill itself is unattempted: [ROLLBACK-DRILL-LOG](deployment/ROLLBACK-DRILL-LOG.md) |
-| **Restore drill was on dev data** | Mechanism proven; D-51 §4's obligation needs a real backup of deployed data |
-| **Off-host backup storage** | A property of where `NAIGX_BACKUP_DIR` points. No script can check it |
-| **TLS unverified** | No certificate has ever been issued (Phase 2) |
-| **KMS unverified** | 4 skipped tests; no credentials (Phase 3) |
-| **Alert delivery to a real person** | Verified as a mechanism. Alertmanager starts happily with an unreachable receiver — a first-deploy check |
+| ~~No production deployment~~ | ✅ **CLOSED.** 6 containers up on the VPS, ~7 hours at time of writing |
+| ~~TLS unverified~~ | ✅ **CLOSED.** Real Let's Encrypt certificate (`CN=YR1`), `notAfter Dec 7 2026`, `ssl_verify_result=0`. `NFR-020` verified |
+| ~~KMS unverified~~ | ✅ **RETIRED.** D-61 removed the dependency; `kms-live.test.ts` deleted, not left skipping |
+| ⚠️ **The instance is NOT READY** | `GET /health` → **503**. Zero fragments in the production DB; `REPLAY_FIXTURES` empty. **This is §7a and it is the live issue** |
+| ⚠️ **The deployed build is behind `main`** | It predates `ca2bb8b` — no D-62, no fragment publisher, no D-63. Verified by grepping `/app/dist/index.js` in the running container. **A redeploy is a prerequisite for readiness, not a follow-up** |
+| **Rollback drill NOT done** | D-50 §4 requires it *on production*. Now *possible* for the first time. ✅ The blocker it surfaced is fixed (D-57), but the drill is still unattempted: [ROLLBACK-DRILL-LOG](deployment/ROLLBACK-DRILL-LOG.md) |
+| **Restore drill was on dev data** | Mechanism proven. Backups **are running on the host** — `naigx-backup` wrote both dumps at 10:50Z and reported a clean cycle — so a production restore drill is now reachable |
+| **Off-host backup storage** | ⚠️ **Half done.** `rclone` is installed with a `gdrive:` remote and the encrypted `.enc` dumps exist on disk, but `rclone ls gdrive:` is **empty** and the automated cycle does not upload. A backup on the same host is not an off-host backup |
+| **Key-file permissions unverified on a POSIX host** | The 2 tests that assert the key file fails closed when group- or world-readable **skip on Windows** and have never run anywhere else. See §5 |
+| **Alert delivery to a real person** | Verified as a mechanism. Alertmanager starts happily with an unreachable receiver — still a first-deploy check |
 
 ### ✅ Phase 4a — the rollback/encryption incompatibility, fixed *(done)*
 
@@ -355,7 +643,15 @@ Two mechanisms, because neither covers both directions:
 | **No frontend test infrastructure (no Vitest).** axe runs under `node:test`, which is not an exception to this. | Owner, explicit |
 | **No unrelated Sprint 3/4 rework.** | Owner, explicit |
 | **Do not close `NFR-021`/`DB §13.1` with a key in `.env` or OpenBao.** Two gates enforce this in code; do not remove either. | **D-52** §4, owner explicit |
-| **`DB §13.1` row 3 is implemented, NOT verified.** KMS has never been called. 4 skipped tests are the only thing that can discharge it. | **D-55** §9, owner explicit |
+| **`DB §13.1` row 3 is implemented, NOT verified.** The 2 skipped key-file permission tests are what discharge the mechanism. | **D-61**, owner explicit |
+| **Never print either production key** into chat, a response, a log, or a document. | Owner, explicit, 2026-09-08 |
+| **⚠️ Do not weaken, bypass, or work around the fragment activation gate.** No manufactured pass reference, no demo exemption, no relaxing `DB §4.5`/D-24. NAIGX is a real v1.0 instance, not a demo deployment. | Owner, explicit, 2026-09-08 |
+| **Do not publish fragments** without an authorised, covering pass reference. | Owner, explicit |
+| **Do not modify prompts, the corpus, assertions, routing, schemas, the publisher, or the production runtime** when the task is evidence work. | Owner, explicit, repeatedly |
+| **Do not touch n8n or Traefik** beyond the approved D-60 NAIGX routing. A five-week-old production n8n runs on that host. | Owner, explicit, **D-60** |
+| **Never `git push --force`, squash, or rewrite history.** | Owner, explicit |
+| **Stop and report a blocker rather than working around it.** | Owner, explicit, repeatedly |
+| **Hold `ew-001` uncommitted and unadmitted** until the owner decides. It is real paid evidence and admitting it changes what every existing reference is sufficient to activate. | Owner, explicit, 2026-09-08 |
 | **Do not implement `API-071`/`072`/`073`.** Operator auth existing is not a licence. | **D-48** §5 |
 | **M-17 is not passed on a green axe run**; the manual walk is required. | **D-49** §3.3 |
 | **M-18 is not passed**, and must not be described as an independent review. | Owner, explicit |
@@ -370,13 +666,14 @@ Two mechanisms, because neither covers both directions:
 
 ## 9. Verification — run all of these
 
-⚠️ **Everything below is green as of 2026-09-08, with the M-20 work committed
-and the tree clean.** `npm run bench` is NOT part of this gate — it seeds and
-deletes rows and takes a couple of minutes.
+⚠️ **Everything below is green as of 2026-09-09.** The only thing in the working
+tree is the untracked `research/regression-pending/`, which is deliberate.
+`npm run bench` is NOT part of this gate — it seeds and deletes rows and takes a
+couple of minutes.
 
 ```bash
 # backend (from backend/)
-npm test              # 897 tests, 891 pass, 0 fail, 6 skipped
+npm test              # 926 tests, 922 pass, 0 fail, 4 skipped
 npm run typecheck
 npm run lint
 npm run format:check
@@ -398,7 +695,18 @@ npm run lint && npm run build
 node tools/boundary-checks/check.mjs   # 8 enforcing · 0 failing
 ```
 
-**The 6 skips are 2 live-provider tests** (`LIVE_PROVIDER_TESTS=1` + a key, which must stay skipped under the no-spend constraint) **and 4 live-KMS tests** (`NAIGX_KMS_LIVE_TEST=1` + real credentials). ⚠️ The KMS four are the only evidence that the real key service works, and while they skip, `DB §13.1` row 3 is implemented but UNVERIFIED.
+**The 4 skips are 2 live-provider tests** (`LIVE_PROVIDER_TESTS=1` + a key, which must stay skipped under the no-spend constraint) **and 2 POSIX key-file permission tests** (`skip: !posix` — they cannot run on Windows). ⚠️ **The second pair is the only evidence that the key file fails closed when it is group- or world-readable**, and while they skip, `DB §13.1` row 3 is implemented but UNVERIFIED. Run them on the VPS.
+
+**Regression and fragment evidence (offline, free — no provider, no spend):**
+
+```bash
+npm run fragments:check          # 15 authored fragments match the manifest
+npm run regression:recordings:check   # every recording is manifested and unedited
+npm run regression:run           # replays the 13 committed FIRST_VERTICAL recordings
+npm run regression:run -- --case=<id> # targeted; resolves against the WHOLE corpus (289e1e1)
+```
+
+⚠️ **`regression:run` needs the database** — its LEGACY fallback resolver reads active fragment versions from it. A recording that carries its own captured composition never consults it (D-63 §7).
 
 **Docker must be running** or the Postgres-backed and browser-backed suites skip. A skip means *not checked*, never *passed* — if the skip count rises above 2, start Docker before reading the result.
 
@@ -434,16 +742,58 @@ docker compose -f docker-compose.prod.yml --env-file deploy/.env config
 ```
 In Git Bash set `MSYS_NO_PATHCONV=1` or paths get rewritten to `C:/Program Files/Git/...`.
 
+**Production checks (the VPS — you have direct SSH access):**
+
+```bash
+ssh -i ~/.ssh/naigx_vps root@76.13.209.213
+
+docker ps --format '{{.Names}}\t{{.Status}}'
+docker exec naigx-backend node -e "fetch('http://127.0.0.1:3000/health').then(async r=>{console.log(r.status, await r.text())})"
+docker exec naigx-postgres psql -U naigx -d naigx -tAc "select count(*) from prompt_fragment"
+curl -sS -o /dev/null -w '%{http_code} tls=%{ssl_verify_result}\n' https://naigx.tech
+
+# ⚠️ ALWAYS: is the running build actually current? (returns 0 on the build
+# deployed as of 2026-09-09, which predates D-62)
+docker exec naigx-backend grep -c "no recordings are available" /app/dist/index.js
+docker logs naigx-backend 2>&1 | grep -iE "execution mode|encryption active" | head -2
+```
+
+✅ **D-61's key file works in production** — the instance logs
+`Field encryption active  provider=key-file(/run/secrets/naigx/root.key) keyVersion=1`
+at startup. That is the mechanism running for real; the two permission tests
+(§5) are the part still unproven.
+
+⚠️ **`n8n-traefik-1` and `n8n-n8n-1` are the owner's live production n8n, five
+weeks up.** D-60 routes NAIGX *through* that Traefik. Touch neither.
+
 ---
 
 ## 10. Git state
 
-✅ **The working tree is clean.** The M-20 work is committed.
+⚠️ **The working tree holds exactly one untracked item, deliberately:**
+`research/regression-pending/` — `ew-001.json` (real, paid provider evidence) and
+its README. **Do not commit it, do not move it into the recording store, do not
+delete it.** §7a and `research/regression-pending/README.md` explain why.
+Everything else is committed. `main` is pushed to `origin/main`.
 
-**Branch `main`.** Recent:
+**Branch `main`.** Recent, newest first:
 
 | Commit | What |
 |---|---|
+| `289e1e1` | **Expose targeted case selection on `regression:run`** — the `--case=` asymmetry that stranded `ew-001` |
+| `c88e6fe` | **D-63 amendment** — replay against the composition a recording was captured with. ⚠️ Load-bearing; see §4 |
+| `29e4c54` | Preserve the `jd-001` and `ta-001` capture failures as evidence |
+| `27f1a1e` | Fix the regression CLI — remove the side-effecting `fragments.mts` import |
+| `81fa57f` | **D-63** — regression evidence composes against authored fragments |
+| `ca2bb8b` | **Production fragment publisher, and D-62 mode-aware readiness** |
+| `7795bc8` | Record the regression pass reference for foundation-fragment activation |
+| `794252a` | Correct stale CMK wording left behind by D-61 |
+| `e085d2d` | **D-61** — replace AWS KMS with a host-held key file |
+| `898b406` | **D-60 accepted** — route NAIGX through the host's existing Traefik |
+| `cafb3ab` | D-60 (PROPOSED) |
+| `ca7091c` | Record the Sonnet 5 pilot: attempted, measured, and rejected |
+| `c221da1` | D-59 — AWS credential injection on a non-EC2 host (⚠️ later retired by D-61) |
+| `f600849` | Record the M-20 disposition and Sprint 5's remaining dependencies |
 | `6af9c11` | **M-20 performance** — `bench.ts` with status assertions, D-58, the latency log |
 | `b569b25` | Record the Phase 4a commit in the handoff's git-state table |
 | `1c0a86c` | M-19 Phase 4a — sealed column rename + data-format startup guard, D-57 |
@@ -471,7 +821,7 @@ In Git Bash set `MSYS_NO_PATHCONV=1` or paths get rewritten to `C:/Program Files
 | `docs/09` | Scoring scales — §2 risk severity/likelihood/bands |
 | `docs/10` | Reasoning quality rubric (**§4.3 excludes AI review**) |
 | `docs/12` | Decision records D-1 … D-37 |
-| `docs/13`–`docs/29` | D-38 … D-54, standalone |
+| `docs/13`–`docs/38` | D-38 … D-63, standalone. ⚠️ D-59 is retired by D-61; D-63 must be read with its §7 amendment |
 | `deploy/README.md` | **How to deploy, what is verified, and what is not** |
 | `docs/accessibility/WCAG-AA-CHECKLIST.md` | The manual M-17 walk. **Result table is empty** |
 | `docs/security/M-18-SECURITY-REVIEW.md` | The M-18 review, with its H-2 correction visible |
@@ -479,5 +829,12 @@ In Git Bash set `MSYS_NO_PATHCONV=1` or paths get rewritten to `C:/Program Files
 | `docs/deployment/RESTORE-DRILL-LOG.md` | The restore drill — **passed on dev data**, production outstanding |
 | `docs/deployment/ROLLBACK-DRILL-LOG.md` | The rollback drill — **not attempted**; the incompatibility it found, and the fix |
 | `docs/33-D-58-Representative-Load.md` | What "representative load" means, and why `M-20` cannot pass on replay numbers |
+| `docs/35-D-60-Shared-Traefik-Edge.md` | Why NAIGX routes through the host's existing Traefik instead of binding 80/443 |
+| `docs/36-D-61-Host-Held-Key-File.md` | **The AWS dependency, removed.** What replaced it and what still has to be verified |
+| `docs/37-D-62-Mode-Aware-Readiness.md` | What `API-060` readiness means per execution mode. ⚠️ Not a relaxation — both modes can fail |
+| `docs/38-D-63-Authored-Fragment-Resolution-For-Regression.md` | The publish/evidence circularity, and **§7's amendment** separating replayability from evidential currency |
+| `research/regression-pending/README.md` | **Why `ew-001` is held outside the recording store**, and why moving it in to silence a check is the wrong fix |
+| `research/regression-failures/corpus-v1/ew-001-2026-09-08T11-42-27-007Z.json` | The capture that died on `stage.workflow_review` — the blockage, recorded at the time it happened |
+| `backend/tests/unit/corpus-selection.test.ts` | The `--case=` selection rule, and a header explaining what the asymmetry cost |
 | `docs/performance/M-20-LATENCY-LOG.md` | The M-20 measurements — **`NFR-003`/`004`/`005` pass, `NFR-001`/`002` unmeasured** |
 | `backend/src/ops/bench.ts` | M-20 latency measurement; its header states what it cannot measure, and every HTTP measurement declares its expected status |

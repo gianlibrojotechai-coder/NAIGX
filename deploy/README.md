@@ -264,6 +264,84 @@ C=(docker compose -f docker-compose.prod.yml --env-file deploy/.env)
 #    docs/deployment/ROLLBACK-DRILL-LOG.md
 ```
 
+## Redeploy — rolling a running instance forward
+
+⚠️ **This is NOT the first-deploy list.** The key file already exists, the
+databases already exist, and `encrypt init` must **never** run again — a second
+key is a new ring with no relationship to rows sealed under the first.
+
+⚠️ **ALWAYS ESTABLISH WHICH BUILD IS RUNNING FIRST.** A deployed container is
+not the repository, and its error messages will describe *whenever it was
+built*. As of 2026-09-09 the running instance predated `ca2bb8b` and rejected
+readiness with the **live** branch's message while logging `"mode":"replay"` —
+which sends you debugging `resolveExecutionMode` instead of redeploying.
+
+```bash
+ssh -i ~/.ssh/naigx_vps root@76.13.209.213
+cd /opt/naigx    # wherever the checkout lives
+
+C=(docker compose -f docker-compose.prod.yml --env-file deploy/.env)
+
+# 0. WHICH BUILD IS RUNNING? 0 = predates D-62 and must be rebuilt.
+docker exec naigx-backend grep -c "no recordings are available" /app/dist/index.js
+
+# 1. Fetch. ⚠️ Read what you are about to deploy, including migrations.
+git fetch origin && git log --oneline HEAD..origin/main
+git diff --name-only HEAD origin/main -- backend/prisma/migrations
+git merge --ff-only origin/main
+
+# 2. Migrations, explicitly, and ONLY if step 1 showed some. Never on boot.
+#    ⚠️ Nothing between ca2bb8b~1 and 289e1e1 touches migrations — verified.
+"${C[@]}" run --rm migrate
+
+# 3. Rebuild and restart. `up -d --build` recreates only what changed.
+#    The one-shot services (migrate, encrypt, fragments, naigx) are
+#    profile-gated and are NOT started by this — verified with `config`.
+"${C[@]}" up -d --build
+
+# 4. Confirm the NEW build is the one running. Must now print 1.
+docker exec naigx-backend grep -c "no recordings are available" /app/dist/index.js
+docker logs naigx-backend 2>&1 | grep -iE "execution mode|encryption active" | head -2
+```
+
+**What a correct redeploy looks like as of `289e1e1`.** `GET /health` still
+answers **503** afterwards, and that is the *expected* result, not a failed
+deploy. What must change is the reason:
+
+| | Before (pre-`ca2bb8b` build) | After |
+|---|---|---|
+| `templates` | `unavailable` — zero fragments published | `unavailable`, unchanged. Still correct |
+| `provider` | `unavailable` — *"No provider is configured"*, the **live** branch's message in replay mode | *"Replay mode is configured but no recordings are available…"* — D-62's real replay answer |
+
+⚠️ **If `provider` still says "No provider is configured" after step 4, the
+rebuild did not take.** Do not go looking for a configuration bug.
+
+Readiness needs both remaining halves — published fragments (which needs a
+covering pass reference; the gate is correct and must not be worked around) and
+a non-empty `REPLAY_FIXTURES`. **Neither is fixed by redeploying.**
+
+### ⚠️ Run the two POSIX key-file tests while you are on the host
+
+They skip on Windows and have never executed anywhere. They are the only
+evidence that the key file **fails closed** when it is group- or world-readable,
+and `DB §13.1` row 3 / `M-18` H-2 stay open until they run (D-61).
+
+⚠️ **NOT through the runtime image.** It ships `dist/` only — no `tests/`, and
+dev dependencies are pruned. Verified: `ls /app/tests` → *No such file or
+directory*. Run them from the source checkout instead, in a throwaway container
+so the host needs no Node toolchain:
+
+```bash
+cd /opt/naigx
+docker run --rm -v "$PWD:/w" -w /w/backend node:24 \
+  sh -c "npm ci && npx tsx --test tests/unit/key-file-provider.test.ts"
+```
+
+**What discharges the requirement:** both permission tests must **run and pass**,
+not skip. They are the two named *"FAILS CLOSED when the key file is
+group-readable / world-readable"*. If the output still shows 2 skips, the
+platform gate did not open and nothing has been proven.
+
 ### Verify the deploy — actually run these
 
 ```bash
