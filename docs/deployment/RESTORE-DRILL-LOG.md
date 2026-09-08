@@ -64,13 +64,19 @@ written to report. Both are fixed and commented in place.
 
 ## The dependency this log cannot check
 
-⚠️ **These dumps contain ciphertext, so they depend on the KMS key.**
+⚠️ **These dumps contain ciphertext, so they depend on the root key file.**
 `raw_content`, `structured_input` and `structured_output` are sealed
-([D-53](../28-D-53-Encryption-Layers.md), [D-55](../30-D-55-Envelope-Format-And-Purge-Outbox.md)).
-Restoring a dump into a database whose CMK is gone yields rows nobody can read:
-**losing the key destroys these backups as surely as deleting them**
-([D-52](../27-D-52-Managed-Key-Service.md) §6).
+([D-53](../28-D-53-Encryption-Layers.md), [D-55](../30-D-55-Envelope-Format-And-Purge-Outbox.md),
+[D-61](../36-D-61-Host-Held-Key-File.md)). Restoring a dump into a database
+whose key file is gone yields rows nobody can read: **losing the key destroys
+these backups as surely as deleting them.**
 
 The drill verifies the envelope survived intact. It cannot verify the key still
-exists, because no key service is configured yet. A production runbook must
-check both, and the CMK must have deletion protection enabled.
+exists. A production runbook must check both.
+
+⚠️ **AND THE DUMPS ARE NOT THEMSELVES ENCRYPTED.** `pg_dump` output holds
+plaintext for everything *except* those three sealed fields — user emails,
+derived business content, audit events. The off-site sync encrypts each dump
+before upload under a **separate** passphrase (`/etc/naigx/keys/backup.key`),
+so restoring from off-site storage needs **two** keys, not one, and they must
+be kept apart from each other and from the dumps.

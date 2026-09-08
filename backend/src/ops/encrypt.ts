@@ -82,8 +82,10 @@ async function init(): Promise<void> {
     `✅ Provisioned key version ${String(version)} via ${provider.name}.`,
   );
   console.log(
-    "⚠️  Losing this key destroys the encrypted fields and every backup of " +
-      "them (D-52 §6). Enable deletion protection on the CMK.",
+    "⚠️  Losing the root key file destroys the encrypted fields and every " +
+      "backup of them (D-61 §4). Keep a copy somewhere off this host, and " +
+      "NOT alongside the database dumps — one archive holding both the " +
+      "ciphertext and its key protects neither.",
   );
 }
 

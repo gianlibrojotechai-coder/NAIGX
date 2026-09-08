@@ -973,13 +973,14 @@ model AuditEvent {
   @@map("audit_event")
 }
 
-/// The wrapped data key ([D-52](../../docs/27-D-52-Managed-Key-Service.md) §2,
-/// [D-53](../../docs/28-D-53-Encryption-Layers.md) §2).
+/// The wrapped data key ([D-53](../../docs/28-D-53-Encryption-Layers.md) §2,
+/// [D-61](../../docs/36-D-61-Host-Held-Key-File.md)).
 ///
 /// ⚠️ THIS TABLE HOLDS CIPHERTEXT, NOT A KEY. `wrapped_key` is the data key
-/// sealed under the CMK, and the CMK never leaves the key service — that
-/// asymmetry is the entire point of D-52. An attacker who reads this table
-/// gets a blob that is useless without a call the compromised host cannot make.
+/// sealed under the root key, and the root key is never stored in the database
+/// — that asymmetry is the point. An attacker who reads this table, or a dump
+/// of it, gets a blob that is useless without the key file, which lives
+/// outside the database and outside every backup of it.
 ///
 /// ⚠️ ONE ROW PER KEY VERSION, AND OLD ROWS ARE NEVER DELETED. Rows sealed
 /// under version 1 stay readable only while version 1 is still here; deleting

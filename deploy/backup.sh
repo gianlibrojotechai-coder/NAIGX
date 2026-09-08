@@ -18,11 +18,15 @@
 #   · **The published window** is the data policy page (`NFR-031`).
 #
 # ⚠️ THE DUMPS CONTAIN CIPHERTEXT FOR THE ENCRYPTED FIELDS, SO THEY DEPEND ON
-# THE KMS KEY. `raw_content`, `structured_input` and `structured_output` are
-# sealed ([D-53](../docs/28-D-53-Encryption-Layers.md), D-55). Losing the CMK
-# destroys these backups as surely as deleting them — restoring a dump into a
-# database whose key is gone yields rows nobody can read. The key's existence is
-# part of the backup story, not a separate concern (D-52 §6).
+# THE ROOT KEY FILE. `raw_content`, `structured_input` and `structured_output`
+# are sealed ([D-53](../docs/28-D-53-Encryption-Layers.md), D-55,
+# [D-61](../docs/36-D-61-Host-Held-Key-File.md)). Losing that file destroys
+# these backups as surely as deleting them — restoring a dump into a database
+# whose key is gone yields rows nobody can read. The key's existence is part of
+# the backup story, not a separate concern.
+#
+# ⚠️ AND THE KEY MUST NOT TRAVEL WITH THE DUMPS. An archive holding both the
+# ciphertext and the key that opens it protects neither (D-61 §4).
 #
 # ⚠️ BACKUP CONTENT IS NEVER LOGGED (D-51 §4). This script prints file names,
 # sizes and row counts — never a row, never a dump excerpt. `pg_dump` writes to

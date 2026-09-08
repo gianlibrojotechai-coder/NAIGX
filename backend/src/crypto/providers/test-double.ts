@@ -32,7 +32,8 @@ import {
 } from "../key-provider.js";
 
 /**
- * A fixed "root key", standing in for the CMK.
+ * A fixed root key, standing in for the one the key-file provider reads
+ * from disk ([D-61](../../../docs/36-D-61-Host-Held-Key-File.md)).
  *
  * It is a constant in this repository, which is exactly why the production
  * guard exists. Being deterministic is a feature *for a test*: a wrapped key
