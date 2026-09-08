@@ -85,8 +85,9 @@ These are standing instructions given explicitly. **They override default thorou
 | `docs/31` **D-56** | Monitoring, alerting, and what a drill must produce to count |
 | `docs/32` **D-57** | Rollback across a data-format change — the sealed rename and the startup guard |
 | `docs/33` **D-58** | What "representative load" means, and what `M-20` can therefore claim |
+| `docs/34` **D-59** | AWS credential injection on a non-EC2 host — the Hostinger VPS, two scoped IAM principals, the mounted credentials file |
 
-**Numbering convention: the next standalone record is `docs/34` D-59.** Nothing is currently owed.
+**Numbering convention: the next standalone record is `docs/35` D-60.** Nothing is currently owed.
 
 ---
 
