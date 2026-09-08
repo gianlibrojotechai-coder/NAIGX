@@ -135,3 +135,47 @@ the unseal material ends up on the same host, one layer further down.
 | `NFR-021` | **Unaffected.** Full-volume encryption remains a separate, still-unmet requirement needing a host setting |
 | Backup coupling | ⚠️ The key must be backed up **separately from the dumps**. One archive holding both protects neither |
 | Revisit trigger | A second operator, a compliance obligation, handling third-party data, or any requirement for audited or revocable key access |
+
+---
+
+## 8. ✅ Verified on a POSIX host — 2026-09-09
+
+The `Permissions` and `Failure mode` rows of §5 were, until this date, asserted
+by nothing. `key-file-provider.test.ts` guards them, but its two permission
+tests carry `{ skip: !posix }` — where `posix` is `process.platform !== "win32"`
+— and the only machine they had ever been invoked on was Windows, so **the two
+tests that carry this record's entire security argument had never executed
+anywhere.**
+That is what `DB §13.1` row 3 and `M-18` H-2 were open on.
+
+They were run on the VPS, in a throwaway `node:24` container against the source
+checkout (the runtime image ships `dist/` only and prunes dev dependencies, so
+it cannot run them):
+
+```
+docker run --rm -v "$PWD:/w" -w /w/backend node:24 \
+  sh -c "npm ci && npx tsx --test tests/unit/key-file-provider.test.ts"
+
+✔ FAILS CLOSED when the key file is group-readable  (0.786778ms)
+✔ FAILS CLOSED when the key file is world-readable  (1.254311ms)
+ℹ tests 11 · pass 11 · fail 0 · skipped 0
+```
+
+⚠️ **`skipped 0` is the load-bearing number**, not `pass 11`. A run reporting
+11 tests with 2 skips looks almost identical and proves nothing — the platform
+gate not opening is precisely the failure this run had to rule out.
+
+**Scope of the claim, stated narrowly:**
+
+- ✅ The permission enforcement in `key-file-provider.ts` **fails closed** on a
+  real POSIX filesystem, for group- and world-readable modes. `DB §13.1` row 3's
+  mechanism is now **verified**, not merely implemented.
+- The checkout tested was at `ca2bb8b`. `backend/src/crypto/` and the test file
+  are **byte-identical** between `ca2bb8b` and `3fffe27` (`git diff --stat`
+  reports no change), so the result holds for current `main`.
+- ⚠️ It verifies the **code path**, not the deployed key file's actual mode.
+  That the production key at `/etc/naigx/keys/` is `0400` and uid-1000-owned is
+  a separate fact, evidenced by the instance starting and logging
+  `Field encryption active`.
+- ⚠️ **`M-18` remains NOT PASSED** on its own terms. §7's row stands unchanged;
+  this discharges the mechanism H-2 named, not the milestone.

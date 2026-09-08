@@ -320,11 +320,18 @@ Readiness needs both remaining halves — published fragments (which needs a
 covering pass reference; the gate is correct and must not be worked around) and
 a non-empty `REPLAY_FIXTURES`. **Neither is fixed by redeploying.**
 
-### ⚠️ Run the two POSIX key-file tests while you are on the host
+### ✅ The two POSIX key-file tests — RUN AND PASSED on the host, 2026-09-09
 
-They skip on Windows and have never executed anywhere. They are the only
-evidence that the key file **fails closed** when it is group- or world-readable,
-and `DB §13.1` row 3 / `M-18` H-2 stay open until they run (D-61).
+They skip on Windows, and until this date had never executed anywhere. They are
+the only evidence that the key file **fails closed** when it is group- or
+world-readable (D-61). **They have now been run on the VPS: 11 tests, 11 pass,
+0 skipped**, both *FAILS CLOSED* cases among them. `DB §13.1` row 3's mechanism
+is verified; D-61 §8 records the result and its limits. ⚠️ `M-18` H-2 and `M-18`
+itself remain open — this discharged the mechanism, not the finding.
+
+**Re-run them here after any change under `backend/src/crypto/`.** On a Windows
+workstation that code is guarded by nothing, and the suite will still say
+`pass` while skipping the two tests that matter.
 
 ⚠️ **NOT through the runtime image.** It ships `dist/` only — no `tests/`, and
 dev dependencies are pruned. Verified: `ls /app/tests` → *No such file or

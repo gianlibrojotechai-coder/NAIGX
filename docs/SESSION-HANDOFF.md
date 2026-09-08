@@ -50,7 +50,7 @@ These are standing instructions given explicitly. **They override default thorou
 | **M-15** Auth + history | **Complete**, all 7 phases, verified against a live server |
 | **M-16** Instrumentation | **Complete.** 7 automatable metrics report real values; M-6/M-8/M-9 stay manual |
 | **M-17** Accessibility | **Implemented, NOT verified.** 4 violations fixed, axe running. The manual WCAG walk is unwalked |
-| **M-18** Security | **Reviewed, NOT passed.** `NFR-027` found and fixed; `DB §13.1` app-level encryption implemented against a **host-held key file** (D-61 retired AWS KMS) |
+| **M-18** Security | **Reviewed, NOT passed.** `NFR-027` found and fixed; `DB §13.1` app-level encryption implemented against a **host-held key file** (D-61 retired AWS KMS). ✅ Its key-file **fail-closed mechanism is now verified on the VPS** (D-61 §8) — H-2 and the milestone still open |
 | **M-19** Deployment | **Deployed and running at `https://naigx.tech`; milestone NOT passed.** TLS is now **verified**. The instance is **not ready** — see §7a and the §7 gap table |
 | **M-20** Performance | **Measured and written up, milestone NOT passed.** `NFR-003`/`004`/`005` pass; `NFR-001`/`NFR-002` are **UNMEASURED** and that is M-20's own criterion. D-58 defines the bar. See §7b |
 
@@ -62,7 +62,7 @@ These are standing instructions given explicitly. **They override default thorou
 
 - **▶ Redeploy the backend.** The running container predates `ca2bb8b` — no D-62, no fragment publisher, no D-63. Everything below assumes a current build; **do this first or the other work cannot be observed.**
 - **▶ Fragment activation for the production database** — *code and evidence.* The production DB holds **zero** prompt fragments, so readiness fails. Publishing them requires a regression pass reference that covers them, and **6 of 15 fragments are not covered by any committed recording**. This is §7a and it is where the work is.
-- **▶ `REPLAY_FIXTURES` is a hardcoded empty object** at `backend/src/index.ts:79`. Readiness in replay mode cannot pass until something real loads into it (D-62). Small, genuine, unstarted.
+- **`REPLAY_FIXTURES` is a hardcoded empty object** at `backend/src/index.ts:79`. Readiness in replay mode cannot pass until something real loads into it (D-62). ⚠️ **NOT independent and not startable yet** — it is strictly *downstream* of fragment publication and additionally needs a compose mount. The previous edition's "small, genuine, unstarted" was wrong on the first two words; see §7a.
 - **A production rollback drill** — needs a deployed instance, which now exists. Newly *possible*, still undone.
 - **A restore drill against production data** — the mechanism is proven on dev data; backups are running on the host.
 - **Off-host backup storage** — `rclone` is installed with a `gdrive:` remote configured, but the remote is **empty** and the automated cycle does not upload. Encryption-before-upload exists; the upload leg does not run.
@@ -217,8 +217,11 @@ mode, so `provider` stays unavailable until it is rebuilt. A redeploy is a
 prerequisite, not a follow-up. And on current `main`, `REPLAY_FIXTURES` is still
 `const REPLAY_FIXTURES: Readonly<Record<string, never>> = {}` at
 [`backend/src/index.ts:79`](../backend/src/index.ts#L79) — a hardcoded empty
-object — so a rebuild alone does not finish the job either. **Both halves are
-real, small, and unstarted.**
+object — so a rebuild alone does not finish the job either. ⚠️ **Both halves are
+real and unstarted, but they are NOT parallel:** the fixtures cannot be built
+before the fragments are published, because building one composes a prompt
+against the published resolver. See *"`REPLAY_FIXTURES` is not an independent
+task"* below.
 
 ### The activation gate, and the exact shape of the blockage
 
@@ -390,18 +393,122 @@ with the next *capture*. Do not rely on "recordings replay against their pinned
 composition" until a recording exists that has one. It also means
 `regression:run` still needs the database, exactly as §9 says.
 
-### Two independent tracks — do not entangle them
+### ⚠️ `REPLAY_FIXTURES` IS NOT AN INDEPENDENT TASK — corrected 2026-09-09
+
+The previous edition called it *"small, genuine, unstarted"* and listed it
+beside the fragment work as though either could be done first. **It cannot be
+started at all until fragments are published**, and it needs a deployment change
+the previous edition did not mention. Verified three ways rather than read:
+
+1. **The fixture key requires a composed prompt.**
+   `createRecordedProvider` keys every fixture with
+   `replayKeyFor({task, input, instructions, …})`, where `instructions` comes
+   from `composePrompt(…, resolver)`. Production's resolver is
+   `db/fragment-resolver.ts`, which **throws** `No active published version for
+   fragment(s): …` when a key has no active row. The production database holds
+   **zero** fragments, so no fixture can be built. ⚠️ Reaching for the authored
+   resolver here to get around that would make production run prompts that were
+   never published — the activation gate's whole purpose, defeated from the
+   other side.
+2. **The recordings are not in the runtime image, and cannot be.**
+   `backend/.dockerignore` lists `research`, and `research/` sits **outside** the
+   `./backend` build context regardless — the same reason `ops/fragments.ts`'s
+   header gives for `prompts/`.
+3. **The `backend` compose service mounts neither.** Only the one-shot
+   `fragments` service does (`./prompts:/prompts:ro`, `./research:/research:ro`,
+   `docker-compose.prod.yml:160-161`). So the runtime cannot read a recording
+   even in principle today.
+
+**What it will actually take**, once fragments are published: mount `research/`
+read-only into `backend` exactly as `fragments` already does, build the fixture
+set at startup from the committed recordings against the **published** resolver,
+and let `checkProvider` read its size. A startup failure to compose must leave
+the set empty and the instance *not ready* — never abort the boot, or a replay
+instance could not come up to report why it is unready.
+
+⚠️ **All 14 recordings are legacy** (§ below), so this composition consults the
+database. A recording carrying its own `composition` (D-63 §7) could be keyed
+with the pinned resolver and no database at all — but none exists yet.
+
+### Two tracks, ordered — do not entangle them
 
 | Track | What it needs | Blocked on |
 |---|---|---|
-| **Production readiness** | Redeploy from current `main`, then publish fragments, then load `REPLAY_FIXTURES` | The fragment publish needs a covering pass reference — so it waits on the evidence track |
-| **Regression evidence** | Evaluate ew-001, decide admission, then close the 4 remaining uncovered fragments | Owner approval. **Entirely offline and free** — no host, no redeploy, no spend |
+| **Production readiness** | **Push `main`** (§10 — it is 8 commits behind `origin`), redeploy, then publish fragments, then mount `research/` and load `REPLAY_FIXTURES` | The fragment publish needs a covering pass reference — so it waits on the evidence track |
+| **Regression evidence** | Evaluate ew-001 *(done)*, decide admission, then close the 4 remaining uncovered fragments | Owner approval — and ⚠️ **the last 4 are NOT free**, see below |
 
 The evidence track can proceed on the workstation with nothing deployed. The
 readiness track cannot finish without it. ⚠️ **The temptation to publish
 fragments with a manufactured or non-covering reference so the health check goes
 green is exactly the thing the owner has ruled out** — twice, explicitly. A
 green `/health` bought that way is worth less than the 503.
+
+### ⚠️ "ENTIRELY OFFLINE AND FREE" WAS WRONG FOR THE LAST 4 — corrected 2026-09-09
+
+The previous edition's table said the whole evidence track was *"entirely
+offline and free — no host, no redeploy, no spend"*. That is true of **ew-001**,
+which is already captured and paid for, and **false of the other four.**
+
+Coverage recomputed this session with the gate's own `computeFragmentCoverage`
+against the canonical store — not read off the previous edition — and it agrees
+exactly: **9 covered, 6 uncovered.**
+
+| Uncovered fragment | Closed by | Cost |
+|---|---|---|
+| `stage.workflow_review` · `type.workflow` | Admitting **ew-001** | **Free** — already captured, $0.1072 already spent |
+| `type.job_description` · `stage.recommendation_generation` · `stage.portfolio_suggestions` | A **jd-001** capture | ⚠️ **Live provider spend** |
+| `type.assessment` | A **ta-001** capture | ⚠️ **Live provider spend** |
+
+⚠️ **Both of those captures have already been attempted, and both failed** —
+each after **4 real provider calls** that were paid for and produced no
+recording. Preserved in `research/regression-failures/corpus-v1/`:
+
+- **`jd-001`** (12:30:46Z) — died at **stage 7, `recommendation_generation`**:
+  *"matched[1] cites evidence \"https://github.com/…\", which is not a locator
+  on capability \"cap-001\""*.
+- **`ta-001`** (12:32:33Z) — died at **stage 6, `architecture_analysis`**:
+  *"trade_offs must be an array when present"*.
+
+⚠️ **Neither is the resolver failure ew-001 hit, and neither is fixed by D-63.**
+`ew-001`'s 11:42 failure was `No active published version for fragment(s):
+stage.workflow_review` — an infrastructure problem, which switching capture to
+the authored resolver genuinely solved. **These two are model-output conformance
+failures**, at two different stages, on two different schema rules. Retrying
+them buys another 4 calls each with **no guarantee of a recording**, and the
+Sonnet 5 finding in §5 is the standing reminder that a schema failure can
+reproduce at a different point each time.
+
+**So the honest statement of the remaining evidence work is:** ew-001 is free
+and decided by the owner; the last four fragments need authorised spend on two
+captures that have each failed once already. There is no offline path to them.
+
+### ⚠️ PUBLISHING IS ALL-OR-NOTHING — so ALL SIX must be covered, not just four
+
+The tempting reading of the table above is *"publish the 9 covered fragments now,
+the health check's `checkTemplates` only names the 4 foundation ones anyway, and
+close the rest later."* **The publisher does not offer that, by construction:**
+
+- [`ops/fragments.ts:116`](../backend/src/ops/fragments.ts#L116) reads **all 15**
+  authored fragments.
+- `changing` (`:158`) is every fragment whose newest stored version has a
+  different `contentHash`. Production holds **zero rows**, so on a first publish
+  **all 15 are changing**.
+- `assertActivationPermitted` (`:170`) is handed that whole list and loops it,
+  throwing `fragment_not_covered` on the first uncovered key. Nothing is written
+  before the gate passes, so the refusal is total and leaves the database
+  untouched.
+
+⚠️ **Therefore `templates: available` is NOT reachable by covering only the four
+foundation fragments**, even though `checkTemplates` resolves only those. The
+gate is asked about all fifteen or the publish is refused. Making it publish a
+subset is a **change to the publisher**, which the standing constraints forbid
+during evidence work — and it would need its own decision record, because
+"activate the fragments you happen to have evidence for" is a different policy
+from `DB §4.5`, not an implementation detail of it.
+
+**Consequence for the readiness track:** production readiness needs **all six**
+uncovered fragments closed — ew-001 admitted *and* both paid captures succeeding.
+`✅ 11 of 15` is not a partial win here; it is still a refused publish.
 
 ---
 
@@ -551,10 +658,22 @@ The keys live at `/etc/naigx/keys/` on the VPS, mode `0400`, and the owner holds
 both in a password manager. **Never print either key into chat, a log, or a
 document** — a paste of the root key into a session once forced a rotation.
 
-⚠️ **`DB §13.1` row 3 and `M-18` H-2 are still open.** Encryption is implemented
-and running, but the two tests that prove the key file **fails closed** on loose
-permissions skip on Windows and have never executed. Running them on the VPS is
-what discharges the mechanism.
+✅ **`DB §13.1` row 3's MECHANISM IS NOW VERIFIED — 2026-09-09.** The two tests
+that prove the key file **fails closed** on loose permissions had never executed
+anywhere, because `{ skip: !posix }` skipped them on the only machine that ever
+ran the suite. They were run on the VPS in a throwaway `node:24` container
+against the source checkout: **11 tests, 11 pass, 0 skipped**, including
+*FAILS CLOSED when the key file is group-readable* and *…world-readable*.
+`backend/src/crypto/` and the test are byte-identical between `ca2bb8b` (what
+ran) and `3fffe27`, so the result holds for current `main`.
+Recorded in [D-61 §8](36-D-61-Host-Held-Key-File.md).
+
+⚠️ **`skipped 0` is the load-bearing number, not `pass 11`.** A run with 2 skips
+prints an almost identical summary and proves nothing.
+
+⚠️ **`M-18` H-2 is still open, and `M-18` is still NOT PASSED.** This discharges
+the *mechanism* H-2 named — it does not close the finding or the milestone, and
+it says nothing about the deployed key file's actual mode.
 
 ### ✅ Phase 1 — containerisation, non-root, Linux Chromium *(done)*
 
@@ -614,7 +733,7 @@ Its criterion is **"production deploy with monitoring, alerting, and verified ro
 | **Rollback drill NOT done** | D-50 §4 requires it *on production*. Now *possible* for the first time. ✅ The blocker it surfaced is fixed (D-57), but the drill is still unattempted: [ROLLBACK-DRILL-LOG](deployment/ROLLBACK-DRILL-LOG.md) |
 | **Restore drill was on dev data** | Mechanism proven. Backups **are running on the host** — `naigx-backup` wrote both dumps at 10:50Z and reported a clean cycle — so a production restore drill is now reachable |
 | **Off-host backup storage** | ⚠️ **Half done.** `rclone` is installed with a `gdrive:` remote and the encrypted `.enc` dumps exist on disk, but `rclone ls gdrive:` is **empty** and the automated cycle does not upload. A backup on the same host is not an off-host backup |
-| **Key-file permissions unverified on a POSIX host** | The 2 tests that assert the key file fails closed when group- or world-readable **skip on Windows** and have never run anywhere else. See §5 |
+| ~~Key-file permissions unverified on a POSIX host~~ | ✅ **CLOSED 2026-09-09.** Both *FAILS CLOSED* tests **ran and passed on the VPS** — 11 tests, **0 skipped**. D-61 §8. ⚠️ Verifies the code path, not the deployed file's mode |
 | **Alert delivery to a real person** | Verified as a mechanism. Alertmanager starts happily with an unreachable receiver — still a first-deploy check |
 
 ### ✅ Phase 4a — the rollback/encryption incompatibility, fixed *(done)*
@@ -643,7 +762,7 @@ Two mechanisms, because neither covers both directions:
 | **No frontend test infrastructure (no Vitest).** axe runs under `node:test`, which is not an exception to this. | Owner, explicit |
 | **No unrelated Sprint 3/4 rework.** | Owner, explicit |
 | **Do not close `NFR-021`/`DB §13.1` with a key in `.env` or OpenBao.** Two gates enforce this in code; do not remove either. | **D-52** §4, owner explicit |
-| **`DB §13.1` row 3 is implemented, NOT verified.** The 2 skipped key-file permission tests are what discharge the mechanism. | **D-61**, owner explicit |
+| **`DB §13.1` row 3's mechanism is VERIFIED** (D-61 §8, 2026-09-09) — the 2 permission tests ran on the VPS with 0 skips. ⚠️ `M-18` H-2 and `M-18` itself remain open; do not report the milestone on this. | **D-61**, owner explicit |
 | **Never print either production key** into chat, a response, a log, or a document. | Owner, explicit, 2026-09-08 |
 | **⚠️ Do not weaken, bypass, or work around the fragment activation gate.** No manufactured pass reference, no demo exemption, no relaxing `DB §4.5`/D-24. NAIGX is a real v1.0 instance, not a demo deployment. | Owner, explicit, 2026-09-08 |
 | **Do not publish fragments** without an authorised, covering pass reference. | Owner, explicit |
@@ -680,6 +799,13 @@ npm run format:check
 npm run fragments:check   # 15 fragments match the manifest
 npm run schemas:check     # 5 artifact schemas published and matching
 
+# ⚠️ `format:check` may flag tests/unit/regression-coverage.test.ts on THIS
+# Windows checkout. It is a line-ending artifact, not a formatting defect:
+# the committed blob is clean LF (`git show HEAD:<file> | tr -cd '\r' | wc -c`
+# → 0) and the content is byte-identical to Prettier's output once CRs are
+# stripped. ⚠️ Do NOT `prettier --write` it — that commits a line-ending-only
+# diff to a file nobody edited. Verified 2026-09-09.
+
 # M-20 latency measurement (needs Docker + the dev databases). NOT part of the
 # test gate — it seeds and deletes rows, and takes a couple of minutes.
 npm run bench             # default volumes 10 / 50 / 300
@@ -695,7 +821,7 @@ npm run lint && npm run build
 node tools/boundary-checks/check.mjs   # 8 enforcing · 0 failing
 ```
 
-**The 4 skips are 2 live-provider tests** (`LIVE_PROVIDER_TESTS=1` + a key, which must stay skipped under the no-spend constraint) **and 2 POSIX key-file permission tests** (`skip: !posix` — they cannot run on Windows). ⚠️ **The second pair is the only evidence that the key file fails closed when it is group- or world-readable**, and while they skip, `DB §13.1` row 3 is implemented but UNVERIFIED. Run them on the VPS.
+**The 4 skips are 2 live-provider tests** (`LIVE_PROVIDER_TESTS=1` + a key, which must stay skipped under the no-spend constraint) **and 2 POSIX key-file permission tests** (`skip: !posix` — they cannot run on Windows). ✅ **The second pair has now been RUN, on the VPS** — 11 tests, 11 pass, **0 skipped** (D-61 §8). They still skip here, and always will; that is the platform gate working, not a gap. ⚠️ **Re-run them on the host after any change under `backend/src/crypto/`** — on this machine such a change is guarded by nothing.
 
 **Regression and fragment evidence (offline, free — no provider, no spend):**
 
@@ -774,7 +900,24 @@ weeks up.** D-60 routes NAIGX *through* that Traefik. Touch neither.
 `research/regression-pending/` — `ew-001.json` (real, paid provider evidence) and
 its README. **Do not commit it, do not move it into the recording store, do not
 delete it.** §7a and `research/regression-pending/README.md` explain why.
-Everything else is committed. `main` is pushed to `origin/main`.
+Everything else is committed.
+
+⚠️ **`main` IS NOT PUSHED — corrected 2026-09-09.** The previous edition said it
+was, and that was true when written. `origin/main` is at **`ca2bb8b`**; local
+`main` is at **`3fffe27`**, **8 commits ahead**:
+
+```
+git rev-parse origin/main   → ca2bb8b…
+git log --oneline origin/main..HEAD   → 8 commits
+```
+
+⚠️ **THIS BLOCKS THE REDEPLOY, AND NOT VISIBLY.** `deploy/README.md`'s redeploy
+runbook is written around `git fetch origin && git merge --ff-only origin/main`.
+Run today, that fetches nothing and the merge is a no-op — the host's checkout is
+*already* at `ca2bb8b` — so every step reports success, `up -d --build` rebuilds
+the same source, and the D-62 marker check still prints `0`. **It looks exactly
+like "the rebuild did not take", which the runbook tells you not to treat as a
+configuration bug.** Push first, or the redeploy silently deploys nothing.
 
 **Branch `main`.** Recent, newest first:
 
