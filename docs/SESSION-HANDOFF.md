@@ -4,6 +4,10 @@
 **Purpose:** hand a new chat session everything it needs to continue building NAIGX without re-deriving context or re-litigating settled decisions.
 
 > **Read this first, then `docs/STATUS.md`.** STATUS.md is the authoritative current-state record. This file covers the most recent working sessions, and the exact next step.
+>
+> ⚠️ **Start at §7a.** M-20 is **done as far as it can go** — measured, written up, committed, and **not passed**, for a reason that is the finding rather than a shortfall. The working tree is clean.
+>
+> ⚠️ **AND THE HARDER THING: Sprint 5 has no remaining code increment.** Every outstanding item needs a host, a human, or an authorisation. §7a §"What is actually left" lists them. **Do not manufacture a code task to have something to do** — the honest next move is to tell the owner what only they can unblock.
 
 ---
 
@@ -46,14 +50,15 @@ These are standing instructions given explicitly. **They override default thorou
 | **M-17** Accessibility | **Implemented, NOT verified.** 4 violations fixed, axe running. The manual WCAG walk is unwalked |
 | **M-18** Security | **Reviewed, NOT passed.** `NFR-027` found and fixed; `DB §13.1` app-level encryption unresolved |
 | **M-19** Deployment | **All 4 phases built, milestone NOT passed.** Nothing is deployed. See §7 |
-| **M-20** Performance | Unstarted |
+| **M-20** Performance | **Measured and written up, milestone NOT passed.** `NFR-003`/`004`/`005` pass; `NFR-001`/`NFR-002` are **UNMEASURED** and that is M-20's own criterion. D-58 defines the bar. See §7a |
 
 ### Sprint 5 deliverables still outstanding
 
-**All three remaining items need a human or a host. None is code.**
+⚠️ **All five remaining items need a human, a host, or an authorisation. NONE is code.**
 
-- **A production host and domain** — M-19 cannot close without one, and neither can TLS, the rollback drill, or a restore drill against real data. Owner's to provision.
+- **A production host and domain** — M-19 cannot close without one, and neither can TLS, the rollback drill, or a restore drill against real data. **M-20's free path to `NFR-001`/`NFR-002` also runs through it.** Owner's to provision.
 - **An AWS account** for KMS — 4 skipped tests are the only thing that can verify `DB §13.1` row 3. Owner's, taken, not yet done.
+- **~$8 of provider spend, or an explicit decline** — the other way `M-20` closes (D-58 §4). A decision, not a task.
 - **M-17 manual WCAG walk** — needs a person with a screen reader. Unowned.
 - **M-08 rubric review** — needs a human reviewer. Unowned, carried from Sprint 2.
 
@@ -79,8 +84,9 @@ These are standing instructions given explicitly. **They override default thorou
 | `docs/30` **D-55** | Envelope format, the purge outbox, and the mixed backfill window |
 | `docs/31` **D-56** | Monitoring, alerting, and what a drill must produce to count |
 | `docs/32` **D-57** | Rollback across a data-format change — the sealed rename and the startup guard |
+| `docs/33` **D-58** | What "representative load" means, and what `M-20` can therefore claim |
 
-**Numbering convention: the next standalone record is `docs/33` D-58.**
+**Numbering convention: the next standalone record is `docs/34` D-59.** Nothing is currently owed.
 
 ---
 
@@ -99,6 +105,9 @@ These are the defects that *passed every test* before being caught. They are the
 - **Grepping a Vite bundle for the fallback string reports failure on a correct build.** `import.meta.env["VITE_API_BASE_URL"] ?? "http://localhost:3000"` compiles to a member read on an inlined object, so the default **stays in the output as text** even when the override worked. What discriminates is whether the inlined object *defines the key*.
 - **A schema-compatibility check cannot see a DATA-FORMAT change, and `SA §9.3` only asks for the former** (D-57). The pre-encryption build started against the current schema, passed its health check, and served every user a base64 envelope where their document should be — **without erroring**, because the Phase 3 migration was perfectly additive and the schema rolled back fine. ⚠️ **Fixed in Phase 4a:** the sealed columns were renamed so old builds get `42703 undefined_column` instead of ciphertext, and a `data_format` version now refuses startup when the data is newer than the build. The general lesson stands — **when the meaning of stored bytes changes, rename the column**; a purely additive migration is exactly what makes the misread silent.
 - **`set -euo pipefail` kills a script inside a command substitution BEFORE it can print its own diagnostic.** Two defects in `restore-drill.sh` had this shape — the primary-only-backup case exited 2 with no output at all, on exactly the failure it was written to report clearly. Add `|| true` to any substitution whose failure you intend to *handle*.
+- **A benchmark against an endpoint you are not authorised for measures the 401.** `GET /analyses` requires a user, so an unauthenticated request is rejected **before reaching the query** — the first version of `bench.ts` printed confident sub-millisecond numbers for history search that measured the authorization rejection, not the decrypt path. It looked entirely plausible. ⚠️ **Check the status code a measured request actually returns before believing its timing.**
+- **A health endpoint with no probes wired answers 503 faster than a healthy one answers 200.** `buildApp` leaves `checkProvider`/`checkTemplates` undefined unless they are passed, and `probe()` then returns `unavailable` **without doing any work** — so `GET /health` returned **503 in 0.4ms** and the benchmark published it as a comfortable `NFR-003` pass. It was the cost of declining to check anything. Same shape as the 401 above, wearing a different status code, and **an earlier version of this handoff quoted the number.** ⚠️ The general lesson: **a rejected or short-circuited request still produces a timing, and a fast, plausible one.** `bench.ts`'s `measure()` now takes the HTTP status a measurement must receive and throws during warmup otherwise — verified by differential. The health defect surfaced within seconds of that guard existing.
+- **Timing a sub-microsecond operation per call measures the clock, not the code.** Timing each `seal()` individually printed `0.0ms` — which reads like a result and is really `performance.now()`'s resolution. Aggregate over many iterations and divide; report µs.
 - **An alert on a misspelled series never fires, and Prometheus never says so.** It evaluates to an empty vector, indistinguishable from "the condition is not met". `naigx_full_analysis_p95` vs `naigx_full_analysis_latency_p95` cost exactly that; `tests/unit/alert-rules.test.ts` now checks the rules against the renderer's real output.
 - **`request.ip` is meaningless until proxy trust is decided, and both defaults are wrong** (D-54 §4). Off behind a proxy → one global rate-limit bucket for everyone. On without one → `X-Forwarded-For` is client-supplied and the per-IP limit stops existing. Neither announces itself.
 - **Encryption code that is subtly wrong still round-trips.** A reused IV round-trips. A truncated tag round-trips. Unauthenticated version metadata round-trips. So a seal/open test proves almost nothing on its own — `tests/unit/envelope.test.ts` is mostly assertions about what a round trip does *not* show, and the same logic applies to any crypto added later.
@@ -121,11 +130,122 @@ These are the defects that *passed every test* before being caught. They are the
 
 ---
 
+## 7a. ▶ THE NEXT STEP — M-20 is done and not passed; Sprint 5 is out of code
+
+**M-20 is complete as an increment and open as a milestone.** Both halves are
+true at once, and collapsing them in either direction misrepresents it.
+
+### What was done
+
+- `backend/src/ops/bench.ts` + the `bench` script — measures the `API §12.1`
+  classes that involve no provider, at four history volumes.
+- **[D-58](33-D-58-Representative-Load.md)** — defines "representative load",
+  which `Roadmap` M-20 and `AC-020` both required and **no document defined**.
+- **[`docs/performance/M-20-LATENCY-LOG.md`](performance/M-20-LATENCY-LOG.md)**
+  — the results, the apparatus, and precisely what they do and do not establish.
+
+### The results, and the one that is not a number
+
+Dev machine (Core Ultra 9 275HX, Node 24, Postgres 17.10 in Docker),
+`app.inject` — no TLS, no proxy, no network, no concurrency. p50 / p95 in ms:
+
+| Measurement | 10 | 50 | 300 | 1000 | Budget |
+|---|---|---|---|---|---|
+| `GET /health` (liveness) | 0.1 / 0.2 | 0.1 / 0.1 | 0.0 / 0.1 | 0.0 / 0.0 | 200ms (`NFR-003`) |
+| `GET /health` (readiness) | 2.2 / 2.9 | 1.8 / 3.0 | 1.4 / 3.2 | 1.8 / 2.5 | 200ms (`NFR-003`) |
+| `GET /analyses/:id` | 3.4 / 4.5 | 3.7 / 5.7 | 2.9 / 5.2 | 3.0 / 6.7 | 200ms (`NFR-003`) |
+| Listing (no search) | 2.1 / 3.3 | 2.0 / 3.2 | 1.6 / 2.9 | 1.7 / 2.1 | 1s (`NFR-004`) |
+| **Search** | 2.5 / 3.5 | 5.2 / 8.0 | 13.5 / 16.1 | **75.1 / 80.9** | 1s (`NFR-004`) |
+| `POST /analyses` → 202 | 4.5 / 6.0 | 5.8 / 10.0 | 4.0 / 5.1 | 3.9 / 4.3 | 500ms |
+| `renderPdf` export | — | — | — | 1358.7 / 1540.5 | 10s (`NFR-005`) |
+
+Envelope: **seal 24–28µs, open 21–24µs** per value (n=20,000). ✅
+[D-53](28-D-53-Encryption-Layers.md) §4's *"AES-GCM decryption is microseconds
+per row"* — the assumption it accepted an `O(n)` search on — **holds, measured.**
+
+⚠️ **`NFR-001` and `NFR-002` are UNMEASURED, and they are M-20's entire
+criterion.** Both are dominated by model provider latency; every run is replay
+mode, where the adapter answers instantly from a fixture. A replay number
+therefore measures this system's overhead and **nothing** about either target.
+**Publishing one beside `NFR-001` would be a measurement of the wrong thing, in
+the right units, next to the right requirement.** Do not do it, and do not let
+the three passing requirements stand in for the two that are not.
+
+`M-20` closes when **either** provider spend is authorised (~$8 for a 30-run
+p50/p95 sample, from the one real cost datum of $0.2732) **or** production
+traffic exists and `M-16`'s instrumentation reports the two latencies. The
+second is free and better evidence, and it needs the deployment M-19 is already
+blocked on. D-58 §4 records both.
+
+### Two findings worth keeping
+
+- **Listing is flat across every volume; search is not** — exactly the shape
+  D-53 §4 predicted. At 1,000 analyses search costs ~75µs per row all-in, of
+  which ~22µs is decryption.
+- **D-53 §4's revisit trigger is now quantified:** one user's search consumes
+  the whole 1s `NFR-004` budget somewhere around **10,000–12,000 analyses on
+  this machine**. ⚠️ An extrapolation from four points on a dev laptop, never a
+  production limit — and the last segment is the steepest, so the linear
+  reading is the optimistic one.
+
+### ⚠️ TWO MEASUREMENT DEFECTS WERE CAUGHT HERE — same shape, both plausible
+
+**A rejected request still produces a timing, and a fast one.**
+
+1. **Listing and search were measured unauthenticated.** `GET /analyses`
+   requires a user, so the requests `401`d before reaching the query and the
+   run printed confident sub-millisecond numbers for the decrypt path. Fixed by
+   registering a real account and sending a bearer token.
+2. **`GET /health` was measured with no readiness probes wired.** `buildApp`
+   leaves `checkProvider`/`checkTemplates` undefined unless passed, `probe()`
+   returns `unavailable` without doing any work, and the endpoint answered
+   **503 in 0.4ms** — the cost of declining to check anything, published as an
+   excellent `NFR-003` result. **The earlier version of this handoff quoted
+   that number.**
+
+The second was found within seconds of fixing the first, because the fix was a
+**status-code assertion**: `measure()` now takes the HTTP status a measurement
+must receive and throws during warmup otherwise. Verified by differential — a
+deliberately wrong expectation aborts the run with `expected HTTP 999, got 503`
+before any number prints.
+
+⚠️ **If you add any measurement, declare its expected status.** This
+benchmark's output is not self-validating and never looks wrong.
+
+Readiness is now measured with production's real `checkTemplates` probe (a
+fragment resolve — actual database work). `checkProvider` is stubbed, which is
+faithful rather than convenient: production's probe is a *configuration* check
+with no I/O, because a readiness endpoint is polled continuously.
+
+### ▶ What is actually left — and none of it is code
+
+⚠️ **Sprint 5 has no remaining code increment.** This is the real handoff.
+Resist inventing one.
+
+| Item | Needs | Owner |
+|---|---|---|
+| **A production host and a domain** | Provisioning. Unblocks M-19, TLS (`NFR-020`), the rollback drill, a real restore drill, off-host backups, alert delivery — **and now M-20's free path to `NFR-001`/`NFR-002`** | Owner |
+| **An AWS account + KMS key** | Provisioning. 4 skipped tests are the only thing that can verify `DB §13.1` row 3 and close `M-18` H-2 | Owner (taken, not done) |
+| **~$8 of provider spend, or an explicit decline** | A decision. Either answer closes D-58 §4; declining folds into the host | Owner |
+| **M-17 manual WCAG walk** | A person with a screen reader | Unowned |
+| **M-08 rubric review** | A human reviewer. Carried from Sprint 2 | Unowned |
+
+### Constraints on M-20, from the owner — still current
+
+- Keep M-20 to the **defined** performance requirements and the measurement
+  methodology.
+- **Do not use development sample sizes to imply production performance.**
+- **Do not add infrastructure merely to manufacture production-like results** —
+  no load-generator cluster, no synthetic traffic tier. `app.inject` plus a
+  local Postgres is the whole apparatus, deliberately.
+
+---
+
 ## 7. WHERE M-19 STANDS — all four phases built, milestone NOT passed
 
 **Four phases, owner-approved, all four committed.** ⚠️ Built is not deployed: see the gap table below Phase 4 before reporting anything about M-19.
 
-**The next step is a decision, not a task.** M-19 cannot close without a host and a domain — that is the owner's to provision, along with the AWS account Phase 3 needs. Until then the remaining M-19 work is unearnable, and **M-20 performance is the next milestone that can actually progress**.
+**The next step is a decision, not a task.** M-19 cannot close without a host and a domain — that is the owner's to provision, along with the AWS account Phase 3 needs. Until then the remaining M-19 work is unearnable. **M-20 is where work is actually happening — see §7a, above this section.**
 
 ⚠️ **THE ONE THING CARRIED INTO PHASE 4 FROM PHASE 3:** the KMS prerequisite is
 the owner's and they have taken it, but **no credentials exist yet**, so the
@@ -233,6 +353,10 @@ Two mechanisms, because neither covers both directions:
 
 ## 9. Verification — run all of these
 
+⚠️ **Everything below is green as of 2026-09-08, with the M-20 work committed
+and the tree clean.** `npm run bench` is NOT part of this gate — it seeds and
+deletes rows and takes a couple of minutes.
+
 ```bash
 # backend (from backend/)
 npm test              # 897 tests, 891 pass, 0 fail, 6 skipped
@@ -241,6 +365,14 @@ npm run lint
 npm run format:check
 npm run fragments:check   # 15 fragments match the manifest
 npm run schemas:check     # 5 artifact schemas published and matching
+
+# M-20 latency measurement (needs Docker + the dev databases). NOT part of the
+# test gate — it seeds and deletes rows, and takes a couple of minutes.
+npm run bench             # default volumes 10 / 50 / 300
+npm run bench -- 1000     # larger sweep; the search curve only shows at volume
+# Results and caveats: docs/performance/M-20-LATENCY-LOG.md. ⚠️ Every HTTP
+# measurement declares the status code it must receive; a run that aborts with
+# "expected HTTP x, got y" has caught a measurement of the wrong code path.
 
 # frontend (from frontend/)  — NOTE: there is no `typecheck` script here
 npm run lint && npm run build
@@ -289,10 +421,14 @@ In Git Bash set `MSYS_NO_PATHCONV=1` or paths get rewritten to `C:/Program Files
 
 ## 10. Git state
 
-**Branch `main`, clean, all work committed.** Recent:
+✅ **The working tree is clean.** The M-20 work is committed.
+
+**Branch `main`.** Recent:
 
 | Commit | What |
 |---|---|
+| *(latest)* | **M-20 performance** — `bench.ts` with status assertions, D-58, the latency log |
+| `b569b25` | Record the Phase 4a commit in the handoff's git-state table |
 | `1c0a86c` | M-19 Phase 4a — sealed column rename + data-format startup guard, D-57 |
 | `7c0f7e2` | M-19 Phase 4 — monitoring, alerting, restore drill, data policy, D-56 |
 | `a7d06c2` | M-19 Phase 3 — application-level encryption, durable purge outbox, D-55 |
@@ -323,3 +459,8 @@ In Git Bash set `MSYS_NO_PATHCONV=1` or paths get rewritten to `C:/Program Files
 | `docs/accessibility/WCAG-AA-CHECKLIST.md` | The manual M-17 walk. **Result table is empty** |
 | `docs/security/M-18-SECURITY-REVIEW.md` | The M-18 review, with its H-2 correction visible |
 | `deploy/seccomp/README.md` | Why the seccomp profile exists and what it trades |
+| `docs/deployment/RESTORE-DRILL-LOG.md` | The restore drill — **passed on dev data**, production outstanding |
+| `docs/deployment/ROLLBACK-DRILL-LOG.md` | The rollback drill — **not attempted**; the incompatibility it found, and the fix |
+| `docs/33-D-58-Representative-Load.md` | What "representative load" means, and why `M-20` cannot pass on replay numbers |
+| `docs/performance/M-20-LATENCY-LOG.md` | The M-20 measurements — **`NFR-003`/`004`/`005` pass, `NFR-001`/`002` unmeasured** |
+| `backend/src/ops/bench.ts` | M-20 latency measurement; its header states what it cannot measure, and every HTTP measurement declares its expected status |

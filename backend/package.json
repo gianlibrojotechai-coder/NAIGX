@@ -31,7 +31,8 @@
     "review:packets": "tsx scripts/review-packets.mts",
     "encrypt:init": "tsx src/ops/encrypt.ts init",
     "encrypt:status": "tsx src/ops/encrypt.ts status",
-    "encrypt:backfill": "tsx src/ops/encrypt.ts backfill"
+    "encrypt:backfill": "tsx src/ops/encrypt.ts backfill",
+    "bench": "tsx src/ops/bench.ts"
   },
   "keywords": [],
   "author": "",
