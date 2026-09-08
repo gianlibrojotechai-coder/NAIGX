@@ -25,6 +25,10 @@ import { fileURLToPath } from "node:url";
 import type { RecordingSet, StageRecording } from "../harness/recordings.js";
 import { hashContent } from "../fragments/source.js";
 import { composePrompt } from "../nie/prompt.js";
+import {
+  CAPTURE_RESOLUTIONS,
+  type RecordedComposition,
+} from "./pinned-resolver.js";
 import type { FragmentResolver } from "../nie/ports.js";
 
 /**
@@ -87,6 +91,14 @@ export interface CaseRecording {
    * merely because replaying it is repeatable.
    */
   readonly lowVarianceSampling: boolean;
+  /**
+   * The fragments this recording was captured against (D-63 amendment).
+   *
+   * ⚠️ ABSENT ON LEGACY RECORDINGS, and deliberately not back-filled. Their
+   * composed text is gone, so any value here would be a reconstruction
+   * asserted as a record. The runner has an explicit legacy path instead.
+   */
+  readonly composition?: RecordedComposition;
   readonly stages: RecordingSet;
 }
 
@@ -146,6 +158,37 @@ export interface RecordingManifest {
   /** `case_id` → sha256 of the recording file's normalised content. */
   readonly recordings: Readonly<Record<string, string>>;
 }
+
+/**
+ * Validates a persisted composition before it is trusted for replay.
+ *
+ * ⚠️ Narrow on purpose. A malformed composition must read as ABSENT — falling
+ * back to the explicit legacy path — rather than half-loading and producing a
+ * pinned resolver that silently omits a fragment.
+ */
+const isRecordedComposition = (
+  value: unknown,
+): value is RecordedComposition => {
+  if (typeof value !== "object" || value === null) return false;
+  const c = value as { resolution?: unknown; fragments?: unknown };
+  if (
+    typeof c.resolution !== "string" ||
+    !(CAPTURE_RESOLUTIONS as readonly string[]).includes(c.resolution)
+  ) {
+    return false;
+  }
+  if (!Array.isArray(c.fragments) || c.fragments.length === 0) return false;
+  return c.fragments.every(
+    (f: unknown) =>
+      typeof f === "object" &&
+      f !== null &&
+      typeof (f as { fragmentKey?: unknown }).fragmentKey === "string" &&
+      typeof (f as { content?: unknown }).content === "string" &&
+      typeof (f as { version?: unknown }).version === "string" &&
+      typeof (f as { fragmentVersionId?: unknown }).fragmentVersionId ===
+        "string",
+  );
+};
 
 export const MANIFEST_FILENAME = "recordings.manifest.json";
 
@@ -300,6 +343,9 @@ export function parseCaseRecording(
       modelKey: provider["modelKey"],
     },
     lowVarianceSampling: doc["lowVarianceSampling"] === true,
+    ...(isRecordedComposition(doc["composition"])
+      ? { composition: doc["composition"] }
+      : {}),
     stages: stages as RecordingSet,
   };
 }

@@ -29,6 +29,7 @@ import { createPipeline } from "../nie/pipeline.js";
 import type { PipelineResult } from "../nie/contracts.js";
 import type { FragmentResolver } from "../nie/ports.js";
 import { createRecordedProvider } from "../harness/recordings.js";
+import { createPinnedResolver } from "./pinned-resolver.js";
 import { createProviderInvoker } from "../provider/invoke.js";
 import type { TokenRate } from "../provider/cost.js";
 import {
@@ -166,24 +167,44 @@ async function runOne(
     );
   }
 
-  // `docs/12` D-24: a fragment change invalidates the recording. Detected here,
-  // before the run, so it reports as stale rather than surfacing three stages
-  // later as a missing-fixture provider failure.
-  const composition = await fragmentsCompositionHash(
-    recording.stages,
-    options.resolver,
-  );
-  if (recording.fragmentsCompositionHash !== composition) {
-    throw new StaleError(
-      `the fragments have changed since ${corpusCase.caseId} was captured ` +
-        `(recorded ${recording.fragmentsCompositionHash.slice(0, 12)}, current ${composition.slice(0, 12)}) — ` +
-        `recorded mode cannot validate a prompt it has no answer for; re-capture or run live`,
+  // --- which composition does this recording replay against? ---------------
+  //
+  // D-63 amendment. ⚠️ REPLAYABILITY AND EVIDENTIAL CURRENCY ARE DIFFERENT
+  // QUESTIONS, and conflating them is what invalidated ten recordings the
+  // moment authored content drifted from active content.
+  //
+  //   · A recording carrying its captured composition replays against THAT.
+  //     It always answers the prompt it was captured against, so it is never
+  //     stale for *replay* purposes. Whether it still evidences a newer
+  //     candidate composition is the activation gate's question, asked with
+  //     authored resolution, and not this function's.
+  //   · A LEGACY recording — captured before compositions were persisted —
+  //     has no such record and its composed text is gone. It falls back to the
+  //     injected resolver, and `docs/12` D-24's staleness check still applies
+  //     to it exactly as before.
+  const pinned = recording.composition;
+  const effectiveResolver =
+    pinned !== undefined ? createPinnedResolver(pinned) : options.resolver;
+
+  if (pinned === undefined) {
+    // Legacy compatibility path, explicit rather than implied.
+    const composition = await fragmentsCompositionHash(
+      recording.stages,
+      options.resolver,
     );
+    if (recording.fragmentsCompositionHash !== composition) {
+      throw new StaleError(
+        `the fragments have changed since ${corpusCase.caseId} was captured ` +
+          `(recorded ${recording.fragmentsCompositionHash.slice(0, 12)}, current ${composition.slice(0, 12)}) — ` +
+          `this is a LEGACY recording with no captured composition, so recorded ` +
+          `mode cannot validate a prompt it has no answer for; re-capture or run live`,
+      );
+    }
   }
 
   const adapter = await createRecordedProvider(
     recording.stages,
-    options.resolver,
+    effectiveResolver,
     corpusCase.inputText,
     // Declared by the recording, never assumed (`AI §10.6`).
     { lowVarianceSampling: recording.lowVarianceSampling },
@@ -199,7 +220,7 @@ async function runOne(
       sleep: () => Promise.resolve(),
       random: () => 0,
     }),
-    resolver: options.resolver,
+    resolver: effectiveResolver,
     traceSink: { record: () => Promise.resolve() },
     fragmentUsageSink: { record: () => Promise.resolve() },
     modelVersionId: options.modelVersionId ?? randomUUID(),

@@ -38,6 +38,10 @@ import type { CapabilityProfile } from "../nie/capability-profile.js";
 import { StageError, type PipelineResult } from "../nie/contracts.js";
 import type { FragmentResolver } from "../nie/ports.js";
 import type { StageRecording } from "../harness/recordings.js";
+import {
+  recordingResolver,
+  type CaptureResolution,
+} from "./pinned-resolver.js";
 import type { ProviderAdapter } from "../provider/capability.js";
 import {
   createProviderInvoker,
@@ -114,6 +118,12 @@ export interface CaptureOptions {
   readonly fragmentsManifestVersion: string;
   /** Declared, never assumed (`AI §10.6`). */
   readonly lowVarianceSampling: boolean;
+  /**
+   * How this capture resolved its fragments (D-63 amendment). Recorded on the
+   * recording so replay never has to guess, and so a legacy recording is
+   * distinguishable from one captured under authored resolution.
+   */
+  readonly captureResolution: CaptureResolution;
   /** Re-capture cases that already have a recording. */
   readonly force?: boolean;
   /**
@@ -289,6 +299,12 @@ export async function captureCase(
 ): Promise<{ recording: CaseRecording; providerCalls: number }> {
   const now = options.now ?? (() => new Date());
 
+  // ⚠️ OBSERVES, NEVER REPLACES. The capture still resolves through whatever
+  // resolver it was given — authored, per D-63's capture decision — and this
+  // only records what came back, so the persisted composition is what the
+  // pipeline actually composed rather than a second derivation of it.
+  const observed = recordingResolver(options.resolver);
+
   const pipeline = createPipeline({
     invoker: capturingInvoker(
       createProviderInvoker({
@@ -300,7 +316,7 @@ export async function captureCase(
       }),
       calls,
     ),
-    resolver: options.resolver,
+    resolver: observed.resolver,
     traceSink: { record: () => Promise.resolve() },
     fragmentUsageSink: { record: () => Promise.resolve() },
     modelVersionId: randomUUID(),
@@ -322,6 +338,10 @@ export async function captureCase(
     );
   }
 
+  // D-63 amendment: persist the composition this capture was made against, so
+  // the recording can be replayed later without asking what the fragments look
+  // like then. Collected by observation rather than re-derived — a second
+  // derivation could disagree with what the pipeline actually composed.
   const recording: CaseRecording = {
     caseId: corpusCase.caseId,
     corpusVersion: corpusCase.corpusVersion,
@@ -329,11 +349,15 @@ export async function captureCase(
     fragmentsManifestVersion: options.fragmentsManifestVersion,
     fragmentsCompositionHash: await fragmentsCompositionHash(
       stages,
-      options.resolver,
+      observed.resolver,
     ),
     capturedAt: now().toISOString(),
     provider: { adapter: options.adapterId, modelKey: options.modelKey },
     lowVarianceSampling: options.lowVarianceSampling,
+    composition: {
+      resolution: options.captureResolution,
+      fragments: observed.collected(),
+    },
     stages,
   };
 

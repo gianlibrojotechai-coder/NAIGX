@@ -1,7 +1,7 @@
 # D-63 — Regression evidence composes against authored fragments, not active ones
 
 **Date:** 2026-09-08
-**Status:** Accepted
+**Status:** **Accepted, amended 2026-09-08** — see §7. The capture decision stands; the runner decision was wrong and is corrected.
 **Sprint:** 5 (Persistence, identity, instrumentation)
 **Resolves:** the bootstrap circularity that blocks a never-active fragment from ever acquiring evidence
 **Affects:** `src/regression/capture.ts`, `src/regression/runner.ts`, `src/regression/pass-reference.ts`, `scripts/regression.mts`
@@ -117,3 +117,77 @@ a schema tidy.
 | Capture and run must compose identically | They already share `createRecordedProvider`; both now receive the same authored resolver |
 | ⚠️ Authored content can drift from active content | Which is the point — that gap is what a change gate exists to test. The manifest check still refuses fragments that do not match their manifest |
 | Revisit trigger | Any future need to produce evidence against *active* fragments specifically — e.g. reproducing a production incident |
+
+---
+
+## 7. Amendment (2026-09-08) — the runner must not re-resolve existing recordings
+
+⚠️ **§2 was wrong about the runner, and adopting it invalidated ten
+recordings.** This section corrects it. The capture decision is unchanged.
+
+### What went wrong
+
+§5 argued that capture and replay must use "the same resolver", or fixture keys
+diverge. The truer statement is that they must use **the same composition** —
+which for a fresh capture is the authored one, and for an existing recording is
+whatever it was captured under. Collapsing those two sent the runner to the
+authored resolver for *every* recording.
+
+Three authored fragments had drifted from their active versions
+(`stage.architecture_analysis`, `stage.recommendation_generation`, and
+`stage.workflow_review`, which has no active version at all). The next run
+reported **10 of 13 cases stale** and issued no reference. The staleness guard
+was behaving correctly; the runner was asking the wrong question.
+
+### The correction
+
+**Replayability and evidential currency are different questions.**
+
+| Question | Answered by | Against what |
+|---|---|---|
+| *Can this recording answer the prompt it was captured against?* | the runner | **the recording's own captured composition** |
+| *Does this recording exercise the candidate fragments?* | the activation gate | **authored resolution**, unchanged |
+
+A recording that carries its captured composition **is never stale for replay**.
+Whether it still evidences a newer candidate is the gate's question, and the
+gate already asked it with an authored resolver — that part needed no change.
+
+### What is persisted, and why that representation
+
+A recording now carries `composition: { resolution, fragments[] }` — each
+fragment exactly as resolved at capture: key, version id, version, content.
+
+⚠️ **Fragments, not composed instructions.** `replayKeyFor` hashes the composed
+`instructions`, so exact replay needs byte-identical text. Storing the text per
+stage would duplicate the four foundation fragments once per stage; storing the
+fragments keeps `composePrompt` as the only assembly path, so there is no second
+composition free to disagree with the pipeline's. `composePrompt` is pure in its
+resolver output and a fixed key order, so pinning its inputs pins its output.
+
+`resolution` records **how** the capture resolved — `authored` or `active` — so
+a recording states its own provenance rather than having it inferred.
+
+### Legacy recordings
+
+⚠️ **The thirteen recordings captured before this existed have no composition,
+and are NOT back-filled.** Their composed text is gone; any value written now
+would be a reconstruction asserted as a record.
+
+They take an **explicit legacy path**: replay resolves through the injected
+resolver — the **active** one, which is what they were captured under — and
+`docs/12` D-24's staleness check still applies to them exactly as before. The
+branch is on `composition === undefined`, and the stale message says `LEGACY` so
+the distinction is visible in output rather than only in code.
+
+**Verified:** after this amendment all 13 replay again and the run reproduces
+`corpus-regression:corpus-v2+fragments-v1:35af47fbdabae5eb` — the same reference
+committed in `7795bc8`. No existing recording, run record or reference was
+modified.
+
+### Unchanged by this amendment
+
+Capture still resolves authored (§2). Production runtime still resolves
+active-only (§3). The activation gate is untouched, including its authored
+coverage computation. No first-publish exemption, `--force` path, placeholder
+reference or bypass exists. Historical evidence keeps its original provenance
+and is not relabelled.

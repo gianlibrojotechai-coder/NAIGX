@@ -319,6 +319,8 @@ if (command === "capture") {
       fragmentsManifestVersion: manifestVersion(),
       // Declared honestly: neither adapter is configured for sampling control.
       lowVarianceSampling: dryRun,
+      // D-63: capture composes the candidate fragments, and the recording says so.
+      captureResolution: "authored",
       force,
       ...(quarantine !== undefined ? { quarantine } : {}),
       onProgress: (message) => {
@@ -378,11 +380,12 @@ if (command === "run") {
   const { default: pg } = await import("pg");
   const { PrismaPg } = await import("@prisma/adapter-pg");
   const { PrismaClient } = await import("../src/generated/prisma/client.js");
-  // D-63: the runner MUST compose exactly as capture did — fixture keys are
-  // built from the composed prompt, so a different resolver means no recording
-  // ever replays.
-  const { createAuthoredResolver } =
-    await import("../src/regression/authored-resolver.js");
+  // D-63 AMENDMENT: this resolver is now the LEGACY fallback only. Recordings
+  // that carry their captured composition replay against that instead, and
+  // never consult it. Active resolution is right for the legacy path because
+  // that is what those recordings were captured under.
+  const { createFragmentResolver } =
+    await import("../src/db/fragment-resolver.js");
   await import("dotenv/config");
 
   const pool = new pg.Pool({ connectionString: process.env["DATABASE_URL"] });
@@ -393,7 +396,7 @@ if (command === "run") {
       cases: selected,
       suiteVersion,
       store,
-      resolver: createAuthoredResolver(readAuthoredFragments(PROMPTS_ROOT)),
+      resolver: createFragmentResolver(prisma),
       // `FR-024`: repeated runs on identical input must agree.
       repeat: 2,
     });
@@ -429,10 +432,21 @@ if (command === "run") {
     const reference = buildPassReference({
       report,
       fragmentsManifestVersion: manifestVersion(),
-      // D-63 §4: the artefact says which composition it exercised, so a reader
-      // cannot mistake candidate evidence for evidence about what production
-      // is serving.
-      fragmentResolution: "authored",
+      // D-63 §4 and §7: the artefact says which composition it exercised, so a
+      // reader cannot mistake candidate evidence for evidence about what
+      // production is serving.
+      //
+      // ⚠️ DERIVED, NEVER ASSUMED. Hardcoding "authored" here stamped a run
+      // that had replayed thirteen LEGACY recordings through the active
+      // resolver as authored evidence — a label asserting the opposite of what
+      // happened. A run counts as authored only when EVERY recording it
+      // replayed carried its own captured composition; one legacy case is
+      // enough to make the claim false for the run as a whole.
+      fragmentResolution: selected.every(
+        (c) => store.read(c.corpusVersion, c.caseId)?.composition !== undefined,
+      )
+        ? "authored"
+        : "active",
     });
 
     if (reference === null) {

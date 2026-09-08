@@ -129,6 +129,8 @@ const options = (
   adapterId: DRY_RUN_ADAPTER_ID,
   fragmentsManifestVersion: "fragments-v1",
   lowVarianceSampling: true,
+  // D-63 amendment: a capture declares how it resolved its fragments.
+  captureResolution: "authored" as const,
   now: () => new Date(0),
   // Quarantine into the temp root by default. Without this the default writer
   // files under `research/regression-failures/`, and a test suite must not
