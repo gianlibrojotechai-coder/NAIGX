@@ -18,11 +18,22 @@
  *
  * Two implementations exist, and the difference between them is deliberate:
  *
- * - `providers/aws-kms.ts` — the real one. **Never executed in CI**, because it
- *   needs credentials nobody has yet.
+ * - `providers/key-file.ts` — the real one
+ *   ([D-61](../../../docs/36-D-61-Host-Held-Key-File.md)). A root key held on
+ *   the host wraps each data key. ⚠️ It is exercised fully in CI, unlike the
+ *   managed service it replaced, which could never be.
  * - `providers/test-double.ts` — offline, deterministic, and **refuses to run
  *   in production**. It is what makes the envelope logic, the migration and
- *   every route testable with no account and no spend.
+ *   every route testable with no key material at all.
+ *
+ * ⚠️ THE WARNING ABOVE NOW READS DIFFERENTLY, AND HONESTLY SO. A host-held key
+ * *is* "key material read from the host", which the paragraph above describes
+ * as satisfying the types while delivering none of the property. D-61 §3
+ * explains why that ceased to be true here: once the deployment put cloud
+ * credentials on the same host, both arrangements fell to the same attacker,
+ * and `DB §13.1`'s managed-key-service row became an explicit v1.0 deviation
+ * rather than a satisfied requirement. **The narrow interface is still the
+ * right shape** — nothing outside a provider ever sees the wrapping key.
  */
 
 /** An opaque wrapped data key. Safe to store; useless without the service. */
@@ -108,8 +119,9 @@ export class KeyProviderRejectedError extends Error {
     super(
       `Key service ${provider} rejected the stored wrapped data key. This is ` +
         `not a transient failure: the key material does not belong to the ` +
-        `configured key. ⚠️ Losing the CMK destroys this data and every ` +
-        `backup of it (D-52 §6).${detail(cause)}`,
+        `configured key. ⚠️ Check that NAIGX_KEY_FILE points at the SAME root ` +
+        `key this data was sealed under — losing that key destroys this data ` +
+        `and every backup of it (D-61 §4).${detail(cause)}`,
     );
     this.name = "KeyProviderRejectedError";
     if (cause !== undefined) {

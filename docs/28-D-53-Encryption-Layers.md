@@ -1,9 +1,17 @@
 # D-53 — Two encryption layers, told apart; and what encrypting `raw_content` costs
 
 **Date:** 2026-09-08
-**Status:** Accepted
+**Status:** **Accepted and still in force.** ⚠️ Amended by [D-61](36-D-61-Host-Held-Key-File.md), 2026-09-08 — *where the root key comes from* changed; nothing in this record did.
 **Sprint:** 5 (Persistence, identity, instrumentation)
 **Resolves:** `DBQ-8` (application-level encryption scope) in full
+
+> **Unchanged by D-61:** the two-layer split, the three sealed fields, the
+> decrypt-and-filter search in §4 and its measured revisit trigger, and §6's
+> rule that `M-18` H-2 closes only when both layers are deployed and verified.
+> ⚠️ Read "managed key service" in this record as "the key provider" —
+> [D-61](36-D-61-Host-Held-Key-File.md) replaced AWS KMS with a host-held key
+> file and recorded `DB §13.1`'s managed-key-service row as an explicit v1.0
+> deviation.
 **Corrects:** the `NFR-021` mislabel in [the M-18 review](security/M-18-SECURITY-REVIEW.md) H-2
 **Affects:** `NFR-021`, `DB §13.1`, `DB §13.2`, `FR-062`, `M-18`, `M-19`
 **Requires** [D-52](27-D-52-Managed-Key-Service.md).

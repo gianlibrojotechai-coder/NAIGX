@@ -1,21 +1,27 @@
 /**
- * Provider selection — the one place that decides which key service is used.
+ * Provider selection — the one place that decides where the root key comes from.
  *
  * ⚠️ THE SELECTION RULE IS THE SECURITY CONTROL, so it lives in exactly one
  * function rather than at each call site.
  *
- *   · KMS configured        → AWS KMS. Always, in every environment.
+ *   · Key file configured   → the host-held key file. Every environment.
  *   · Not configured, dev   → the offline test double.
  *   · Not configured, prod  → **refuse**. `loadConfig` has already failed by
  *                             then; this is the second gate, because a single
  *                             gate on a rule this consequential is one edit
  *                             away from being removed.
  *
- * There is deliberately no "use a local key just this once" path.
- * [D-52](../../../docs/27-D-52-Managed-Key-Service.md) §4 is unusually blunt
- * about why: every free option stores the key on the machine that holds the
- * storage, so it buys none of the property the layer exists for while looking
- * exactly like compliance.
+ * [D-61](../../../docs/36-D-61-Host-Held-Key-File.md) replaced the managed key
+ * service [D-52](../../../docs/27-D-52-Managed-Key-Service.md) had selected.
+ * The envelope architecture is untouched — only the origin of the root key
+ * changed. D-52's §4 argument against host-held keys is preserved there and
+ * answered in D-61 §3: once [D-59](34-D-59-AWS-Credential-Injection-On-A-Non-EC2-Host.md)
+ * put long-lived AWS credentials on the same host, KMS and a key file became
+ * equivalent against the threats `DB §13.1` actually names, and differ only on
+ * revocation and audit — which D-61 §4 records as a real, accepted loss.
+ *
+ * ⚠️ There is still no "just this once" path, and the test double still refuses
+ * to run in production.
  */
 
 import type { AppConfig } from "../config/env.js";
@@ -25,25 +31,26 @@ import {
   type EncryptionKeyStore,
 } from "./data-key.js";
 import type { KeyProvider } from "./key-provider.js";
-import { createAwsKmsProvider } from "./providers/aws-kms.js";
+import { createKeyFileProvider } from "./providers/key-file.js";
 import { createTestKeyProvider } from "./providers/test-double.js";
 
 export function resolveKeyProvider(
   config: AppConfig,
   env: NodeJS.ProcessEnv = process.env,
 ): KeyProvider {
-  const { keyId, region } = config.kms;
+  const { keyFile } = config;
 
-  if (keyId !== undefined && region !== undefined) {
-    return createAwsKmsProvider({ keyId, region });
+  if (keyFile !== undefined) {
+    return createKeyFileProvider({ path: keyFile });
   }
 
   if (env["NODE_ENV"]?.trim() === "production") {
     throw new Error(
-      "No managed key service is configured and NODE_ENV=production. " +
-        "DB §13.1 requires one for raw_content, structured_input and " +
-        "structured_output. Set NAIGX_KMS_KEY_ID and NAIGX_KMS_REGION. " +
-        "There is no local-key fallback by design (D-52 §4).",
+      "No key file is configured and NODE_ENV=production. DB §13.1 requires " +
+        "application-level encryption for raw_content, structured_input and " +
+        "structured_output. Set NAIGX_KEY_FILE to a file containing 32 random " +
+        "bytes, readable only by the account this process runs as. The " +
+        "in-memory test double is never used in production (D-61 §5).",
     );
   }
 

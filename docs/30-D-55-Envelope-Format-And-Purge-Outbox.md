@@ -1,8 +1,15 @@
 # D-55 — The envelope on the wire, and the purge outbox in the primary store
 
 **Date:** 2026-09-08
-**Status:** Accepted
+**Status:** **Accepted and still in force.** ⚠️ Amended by [D-61](36-D-61-Host-Held-Key-File.md), 2026-09-08 — the root key now comes from a host-held file rather than AWS KMS.
 **Sprint:** 5 (Persistence, identity, instrumentation)
+
+> **Unchanged by D-61:** the `naigx.v1.<version>.<iv>.<tag>.<ct>` envelope, the
+> multi-version key ring, the three sealing boundaries, the backfill and its
+> mixed-window behaviour, and the `trace_purge_outbox`. ⚠️ The wrapped data key
+> is still what the database stores — only the key that wraps it moved. Read
+> references to KMS or the CMK here as "the key provider" and see
+> [D-61](36-D-61-Host-Held-Key-File.md).
 **Resolves:** the implementation questions [D-52](27-D-52-Managed-Key-Service.md) and [D-53](28-D-53-Encryption-Layers.md) leave open, and how `DB §5.4` step 2 becomes durable
 **Affects:** `DB §5.4`, `DB §13.1`, `DB §13.2`, `SA §10.4`, `FR-062`, `FR-073`, `API-011`, `API-023`, `M-18` H-2, `M-19`
 **Implements** D-52 and D-53. Supersedes nothing.

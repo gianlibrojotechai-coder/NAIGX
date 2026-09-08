@@ -72,192 +72,99 @@ docker compose -f docker-compose.prod.yml --env-file deploy/.env \n  exec alertm
 
 | Requirement | Status |
 |---|---|
-| `DB §13.1` row 3 — application-level encryption on `raw_content`, `structured_input`, `structured_output` | **Implemented.** AES-256-GCM envelope, KMS-wrapped data key ([D-55](../docs/30-D-55-Envelope-Format-And-Purge-Outbox.md)) |
-| `DB §13.1` — managed key service, never in application configuration | **Implemented.** AWS KMS; no local-key fallback exists |
+| `DB §13.1` row 3 — application-level encryption on `raw_content`, `structured_input`, `structured_output` | **Implemented.** AES-256-GCM envelope, data key wrapped by a host-held root key ([D-55](../docs/30-D-55-Envelope-Format-And-Purge-Outbox.md), [D-61](../docs/36-D-61-Host-Held-Key-File.md)) |
+| `DB §13.1` — managed key service, never in application configuration | ⚠️ **EXPLICIT v1.0 DEVIATION.** [D-61](../docs/36-D-61-Host-Held-Key-File.md) replaced AWS KMS with a host-held key file. Recorded as a deviation, **not** claimed as satisfied |
 | `FR-062` search over sealed content | **Implemented and verified** by differential — decrypt-and-filter (D-53 §4) |
 | `DB §5.4` step 2 — durable purge instruction | **Implemented.** Outbox in the primary store, written in the deletion transaction |
-| `NFR-021` — full-volume encryption | **Not done.** Needs a host. Free when one exists |
+| `NFR-021` — full-volume encryption | **Not done.** Needs a host. Free when one exists, and unaffected by D-61 |
 
-### ⚠️ What is NOT verified
+### The encryption key on the host — [D-61](../docs/36-D-61-Host-Held-Key-File.md)
 
-**KMS has never been called.** `src/crypto/providers/aws-kms.ts` type-checks and
-follows the documented API and has never made a real request — no AWS account
-exists yet. Everything else in Phase 3 is proved against the **offline test
-double**, which is faithful evidence about the *interface* and none at all about
-the *service*.
+⚠️ **NAIGX does not use AWS KMS.** D-61 replaced the managed key service with a
+root key held on this host. The envelope architecture is unchanged — the
+database still stores only a *wrapped* data key, and `envelope.ts` never learns
+where the root key came from.
 
-`backend/tests/integration/kms-live.test.ts` is the only thing that discharges
-this. It skips unless `NAIGX_KMS_LIVE_TEST=1` with real credentials, and **a
-skip is "not checked", never "passed"**. Until it runs green, `DB §13.1` row 3
-is *implemented but unverified* and `M-18` H-2 stays open.
+#### 1. Create the key file
 
-### AWS credentials on a non-EC2 host — [D-59](../docs/34-D-59-AWS-Credential-Injection-On-A-Non-EC2-Host.md)
-
-⚠️ **The sanctioned host is a Hostinger VPS, not EC2.** The KMS adapter builds
-`new KMSClient({ region })`, which reads AWS's ambient credential chain — an
-instance role on EC2, and **nothing at all here**. Without the setup below the
-container starts, resolves no credential, and `loadCipher` refuses to boot. The
-symptom reads like a KMS outage rather than a missing credential, so check this
-first.
-
-#### 1. Two IAM principals, each with the minimum
-
-The adapter makes exactly **two** KMS calls — `GenerateDataKey` and `Decrypt` —
-and they happen at different times. `encrypt init` only ever generates; the
-running application only ever decrypts, because `loadCipher` passes
-`createIfMissing: false` in production and *cannot* mint a key even if asked.
-
-⚠️ **Never use AWS root credentials.** Never `kms:*`. Never `Resource: "*"`.
-
-**Runtime user** — `naigx-backend`, long-lived, used by the `backend` service:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "UnwrapTheDataKey",
-      "Effect": "Allow",
-      "Action": "kms:Decrypt",
-      "Resource": "arn:aws:kms:<REGION>:<ACCOUNT_ID>:key/<KEY_ID>"
-    }
-  ]
-}
-```
-
-**Provisioning user** — `naigx-provision`, **temporary**, used by the `encrypt`
-service. `GenerateDataKey` for `init`; `Decrypt` because `backfill` and `status`
-unwrap the existing key:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "ProvisionAndBackfill",
-      "Effect": "Allow",
-      "Action": ["kms:GenerateDataKey", "kms:Decrypt"],
-      "Resource": "arn:aws:kms:<REGION>:<ACCOUNT_ID>:key/<KEY_ID>"
-    }
-  ]
-}
-```
-
-⚠️ **Deactivate `naigx-provision` once the first deploy completes.** A principal
-that can mint data keys can start a **second ring**, and a second ring has no
-relationship to rows sealed under the first.
-
-#### 2. The CMK key policy must delegate to IAM
-
-KMS requires **both** the IAM policy and the key policy to allow. An IAM policy
-that reads correctly still gets `AccessDeniedException` if the CMK's own policy
-does not delegate — this is the most common way a correct-looking setup fails.
-The key policy needs a statement along these lines:
-
-```json
-{
-  "Sid": "EnableIAMPolicies",
-  "Effect": "Allow",
-  "Principal": { "AWS": "arn:aws:iam::<ACCOUNT_ID>:root" },
-  "Action": "kms:*",
-  "Resource": "*"
-}
-```
-
-⚠️ That `Principal` is the **account**, not the root *user*, and it delegates to
-IAM rather than granting anything by itself. It is what makes the two scoped
-policies above take effect. Enable **automatic key rotation** and **deletion
-protection** on the CMK while you are there — losing it destroys every sealed
-field and every backup of them ([D-52](../docs/27-D-52-Managed-Key-Service.md) §6).
-
-#### 3. The credentials file on the host
-
-⚠️ **Create it OUTSIDE the repository and outside the Docker build context.**
-Anything inside either can be committed by accident or captured into an image
-layer. `/etc/naigx/aws/` is outside both.
+Outside the repository and outside the Docker build context, so it can never be
+committed or captured into an image layer. Owned by **uid 1000** — the account
+the container runs as (`Dockerfile`, `USER node`) — and readable by nobody else:
 
 ```bash
-sudo install -d -m 0700 -o root -g root /etc/naigx/aws
-sudo install -m 0600 -o root -g root /dev/null /etc/naigx/aws/credentials
-sudo nano /etc/naigx/aws/credentials
+sudo install -d -m 0755 -o root -g root /etc/naigx/keys
+sudo sh -c "openssl rand -base64 32 > /etc/naigx/keys/root.key"
+sudo chown 1000:1000 /etc/naigx/keys/root.key
+sudo chmod 0400 /etc/naigx/keys/root.key
+
+stat -c "%U:%G %a %n" /etc/naigx/keys/root.key   # expect: 1000:1000 400
 ```
 
-```ini
-[default]
-aws_access_key_id = <runtime user's key id>
-aws_secret_access_key = <runtime user's secret>
-```
+⚠️ **Root-owned `0600` will NOT work.** The container runs non-root, so a
+root-only file is unreadable and the provider would fail closed permanently.
+What matters is that group and other have no access at all — and that is
+enforced in code, not left to deployment discipline.
 
-Then point `deploy/.env` at it:
+#### 2. Point the configuration at it
 
 ```bash
-NAIGX_AWS_CREDENTIALS_FILE="/etc/naigx/aws/credentials"
+NAIGX_KEY_FILE="/etc/naigx/keys/root.key"
 ```
 
-**Swap in the provisioning user's credentials for step 3 of the first deploy
-(`encrypt init`/`backfill`), then put the runtime user's back before `up -d`.**
-One file, edited twice — the alternative is a second mount that outlives its
-purpose.
+Compose mounts it **read-only** into `backend` and `encrypt` only — never
+`postgres`, `edge`, `prometheus`, `alertmanager` or `backup`. It is mounted
+rather than passed as an environment variable because env vars are visible in
+`docker inspect` and in `/proc/<pid>/environ`, and this is key material rather
+than a path.
 
-#### 4. How Compose consumes it
+#### 3. The provider fails closed, every time
 
-Mounted **read-only**, into **`backend` and `encrypt` only**:
+Checked on **every load** rather than once at startup — a file can be replaced
+or `chmod`'d after boot, and a check that ran only at boot would not notice:
 
-```yaml
-volumes:
-  - ${NAIGX_AWS_CREDENTIALS_FILE}:/run/secrets/aws/credentials:ro
-environment:
-  AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws/credentials
-```
+| Condition | Result |
+|---|---|
+| File missing | refuse to start |
+| Any group or other permission bit set | refuse to start |
+| Not 32 bytes after base64/hex decode | refuse to start |
+| Wrapped key from a different root key | rejected, not retried |
+| Tampered wrapped key | rejected — GCM tag failure |
 
-**No credentials reach `postgres`, `edge`, `prometheus`, `alertmanager` or
-`backup`** — `edge` terminates TLS and faces the internet, and has no reason to
-hold a key-service credential.
+⚠️ The permission check is **POSIX-only**. Windows reports `0444` for a file
+just created `chmod 0400`, because its mode bits are a shim over an ACL model
+they cannot express — enforcing them there would refuse every key file on a
+developer machine while proving nothing. Production is Linux in a container, so
+the check always runs where the property is claimed.
 
-Mounted rather than passed through `env_file:` deliberately: environment
-variables are visible in `docker inspect` and in the container's
-`/proc/<pid>/environ`. A read-only mount costs one line and keeps the secret out
-of both.
+#### 4. ⚠️ Back it up separately, and what losing it means
 
-#### 5. Rotating the access key
+**Losing this file destroys `raw_content`, `structured_input` and
+`structured_output` — in the database and in every backup of it.** The dumps
+contain ciphertext; without the root key they are unreadable forever.
 
-Overlapping validity, so there is no downtime window:
+⚠️ **Do not store the key alongside the dumps.** A single archive holding both
+the ciphertext and its key protects neither.
 
-```bash
-# 1. Create a second access key for naigx-backend in IAM.
-# 2. Write it to the file.
-sudo nano /etc/naigx/aws/credentials
-# 3. Restart only the application.
-docker compose -f docker-compose.prod.yml --env-file deploy/.env restart backend
-# 4. Verify a read actually decrypts — open an analysis and check its content.
-# 5. ONLY THEN delete the first key in IAM.
-```
+#### 5. ⚠️ What this does NOT buy
 
-⚠️ **Three different things get called "rotation" and conflating them destroys
-data:**
+A host-held key is **not** a managed key service, and `DB §13.1`'s "managed key
+service" row is an **explicit v1.0 deviation** — recorded in
+[D-61](../docs/36-D-61-Host-Held-Key-File.md) §4, never claimed as satisfied.
 
-| Rotating | How | Risk |
-|---|---|---|
-| **AWS access key** | The procedure above | None |
-| **The CMK** | AWS **automatic** key rotation. Old material is retained, so old ciphertext still unwraps | None when automatic |
-| **The data-key ring** | **Not rotation, and not supported.** `encrypt init` refuses when a key exists | ⚠️ A second ring orphans every row sealed under the first |
+Two things are genuinely lost:
 
-⚠️ **Creating a new CMK is not a rotation. Re-running `encrypt init` is not a
-rotation.** Both read like the safe, tidy thing to do, and both make existing
-data permanently unreadable.
+- **No central revocation.** A managed service could be disabled from anywhere
+  on suspicion of compromise. Here the only remedy is replacing the root key and
+  re-encrypting, which needs access to this host.
+- **No decrypt audit.** Nothing records that an unwrap happened.
 
-#### 6. What this does NOT buy
+And a **full host compromise reaches the key**. ⚠️ So did host-resident cloud
+credentials under the arrangement this replaced — D-61 §3 sets that comparison
+out honestly rather than claiming equivalence.
 
-⚠️ A long-lived credential on the host means **root on the VPS can call
-`Decrypt`**. `DB §13.1`'s stated property still holds — a stolen dump, backup or
-disk snapshot yields nothing, because unwrapping needs a live KMS call — but
-against **full host compromise** this is weaker than an EC2 instance role in
-degree: an exfiltrated access key is reusable off-host indefinitely, where
-instance-role credentials expire. Accepted and recorded in
-[D-59](../docs/34-D-59-AWS-Credential-Injection-On-A-Non-EC2-Host.md) §4.
-**Never describe this as equivalent to an instance role.** The upgrade path is
-IAM Roles Anywhere, with its trigger named in D-59 §6.
-
+**What it still buys is the property `DB §13.1` actually names:** a stolen
+database dump, a stolen backup or a disk snapshot yields ciphertext and nothing
+else, because the key is in none of them.
 ### Running the encryption operations
 
 ```bash
@@ -307,11 +214,10 @@ count against [Let's Encrypt's rate limits](https://letsencrypt.org/docs/rate-li
 Ports 80 and 443 must be open — 80 is not optional, it is where the HTTP-01
 challenge is answered.
 
-⚠️ **AND THE AWS CREDENTIALS FILE MUST EXIST FIRST** — see *AWS credentials on a
-non-EC2 host* above. This host is not EC2, so nothing resolves a credential on
-its own: step 3 below (`encrypt init`) is the first command that calls KMS, and
-it fails without it. Put the **provisioning** user's credentials in the file for
-steps 3–4, then swap in the **runtime** user's before step 5.
+⚠️ **AND THE ROOT KEY FILE MUST EXIST FIRST** — see *The encryption key on the
+host* above. Step 3 below (`encrypt init`) is the first command that needs it,
+and the application refuses to start without it. Create it before the first
+`up`, not during.
 
 ```bash
 cp deploy/.env.example deploy/.env

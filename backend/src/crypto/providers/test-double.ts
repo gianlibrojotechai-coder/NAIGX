@@ -9,12 +9,11 @@
  * storage-layer compromise yields no plaintext, and a key on the same host
  * yields plaintext to anyone who has the host. So this provider is not a
  * fallback, a development shortcut that might survive to production, or
- * something to reach for when KMS credentials are inconvenient.
+ * something to reach for when a real key file is inconvenient.
  *
  * It exists so the envelope logic, the backfill, the search path and every
- * route are testable with **no AWS account and no spend** — which is the only
- * reason the rest of Phase 3 could be built and verified before credentials
- * existed.
+ * route are testable with **no key material on disk at all** — which is why a
+ * fresh checkout runs the whole suite with no setup.
  *
  * The guard below is the difference between a test double and a security
  * hole. `createTestKeyProvider` throws under `NODE_ENV=production`, so the

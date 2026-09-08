@@ -1,9 +1,24 @@
 # D-59 — AWS credential injection on a non-EC2 host
 
 **Date:** 2026-09-08
-**Status:** Accepted
+**Status:** ⚠️ **RETIRED** by [D-61](36-D-61-Host-Held-Key-File.md), 2026-09-08. **Never deployed.** NAIGX no longer uses AWS, so there are no credentials to inject.
 **Sprint:** 5 (Persistence, identity, instrumentation)
 **Resolves:** the gap that made the production stack unbootable on the sanctioned host
+
+> ⚠️ **THIS RECORD IS HISTORY, AND IT IS THE REASON D-61 EXISTS.** It is kept in
+> full rather than deleted, because its central observation is what overturned
+> [D-52](27-D-52-Managed-Key-Service.md).
+>
+> §4 accepted that placing long-lived AWS credentials on the deployment host
+> widened the blast radius of a full host compromise. Following that through —
+> which this record did not do — shows that it also **erased the confidentiality
+> advantage KMS was chosen for**: an attacker who can read the credentials can
+> call `Decrypt`, exactly as an attacker who can read a key file can unwrap it.
+> [D-61](36-D-61-Host-Held-Key-File.md) §3 completes the argument.
+>
+> **Nothing here was ever deployed.** No AWS account was created, no IAM
+> principal existed, no credential file was written, and no KMS call was ever
+> made by this project.
 **Affects:** `M-19`, `SA §10.4`, `DB §13.1` row 3, `docker-compose.prod.yml`, `deploy/README.md`
 **Implements** [D-52](27-D-52-Managed-Key-Service.md) and [D-53](28-D-53-Encryption-Layers.md) on the host [D-50](25-D-50-Deployment-Topology.md) deploys. **Changes neither.** Supersedes nothing.
 

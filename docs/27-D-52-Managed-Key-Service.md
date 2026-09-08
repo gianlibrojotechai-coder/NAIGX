@@ -1,9 +1,27 @@
 # D-52 — A managed key service, because every free option puts the key on the host
 
 **Date:** 2026-09-08
-**Status:** Accepted
+**Status:** ⚠️ **SUPERSEDED IN PART** by [D-61](36-D-61-Host-Held-Key-File.md), 2026-09-08. The *selection* of AWS KMS is no longer in force; v1.0 uses a host-held key file.
 **Sprint:** 5 (Persistence, identity, instrumentation)
 **Resolves:** the key-custody question `DB §13.1` leaves open
+
+> ⚠️ **READ THIS BEFORE §4.** The analysis below is preserved intact and was
+> sound when written. What changed is the deployment it assumed, not the
+> reasoning.
+>
+> §4's argument — *"every free option stores the key on the machine that holds
+> the storage"* — was decisive **until [D-59](34-D-59-AWS-Credential-Injection-On-A-Non-EC2-Host.md)
+> put long-lived AWS credentials on that same machine**, because the sanctioned
+> host is not EC2 and has no instance role. At that point KMS and a host-held
+> key became equivalent against the threats `DB §13.1` names, differing only on
+> revocation and audit. [D-61](36-D-61-Host-Held-Key-File.md) §3 sets out the
+> comparison.
+>
+> **What survives from this record:** the requirement that the key never live in
+> application *configuration* (still honoured — it is a file, not an env var),
+> the envelope design in §5, and §6's warning that losing the key destroys the
+> data and every backup of it. **What does not:** AWS, IAM, the $1/month, and
+> the claim that a host-held key buys nothing.
 **Affects:** `DB §13.1`, `SA §10.4`, `NFR-023`, `NFR-081`, `M-18` H-2, `M-19`
 **Required by** [D-53](28-D-53-Encryption-Layers.md). Depends on [D-51](26-D-51-Self-Hosted-PostgreSQL.md).
 

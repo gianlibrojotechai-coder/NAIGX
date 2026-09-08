@@ -91,21 +91,24 @@ export interface AppConfig {
    */
   readonly ipHashSecret?: string;
   /**
-   * The managed key service ([D-52](../../../docs/27-D-52-Managed-Key-Service.md)).
+   * Path to the host-held root key file
+   * ([D-61](../../../docs/36-D-61-Host-Held-Key-File.md)).
    *
-   * ⚠️ REQUIRED IN PRODUCTION, AND THERE IS NO LOCAL FALLBACK BY DESIGN.
-   * `DB §13.1` requires a managed key service and D-52 §4 rejects a
-   * locally-held key as "not a cheaper version of this decision, it is the
-   * absence of it" — every free option stores the key on the machine that
-   * holds the storage, buying none of the property the layer exists for.
+   * ⚠️ REQUIRED IN PRODUCTION. It wraps the data key that seals `raw_content`,
+   * `structured_input` and `structured_output`, so an instance without it can
+   * neither read its own history nor store new content readably.
+   *
+   * ⚠️ This is a **path, never key material.** The file's contents are read by
+   * the key-file provider and never enter configuration, logs or diagnostics.
+   *
+   * D-61 replaced the managed key service D-52 had chosen. `DB §13.1`'s
+   * "managed key service" row is therefore an **explicit v1.0 deviation**,
+   * recorded as one rather than reinterpreted as satisfied.
    *
    * Absent outside production selects the offline test double, which refuses
    * to construct under `NODE_ENV=production`.
    */
-  readonly kms: {
-    readonly keyId?: string;
-    readonly region?: string;
-  };
+  readonly keyFile?: string;
   readonly corsOrigin: string;
   readonly logLevel: LogLevel;
   /**
@@ -223,25 +226,21 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     );
   }
 
-  // `DB §13.1` / D-52. Both halves or neither: a key id with no region names a
-  // key KMS cannot locate (it is a regional service), and a region with no key
-  // id names nothing at all. Failing here beats failing at the first write.
-  const kmsKeyId = env["NAIGX_KMS_KEY_ID"]?.trim();
-  const kmsRegion = env["NAIGX_KMS_REGION"]?.trim();
-  const kmsConfigured = kmsKeyId !== undefined && kmsKeyId !== "";
+  // `DB §13.1` / D-61. The path is validated for presence here; the file's
+  // existence, permissions and length are checked by the provider on every
+  // load, because a file can be replaced or chmod'd after startup and a
+  // config-time check would not notice.
+  const rawKeyFile = env["NAIGX_KEY_FILE"]?.trim();
+  const keyFile =
+    rawKeyFile !== undefined && rawKeyFile !== "" ? rawKeyFile : undefined;
 
-  if (kmsConfigured && (kmsRegion === undefined || kmsRegion === "")) {
+  if (isProduction && keyFile === undefined) {
     problems.push(
-      "NAIGX_KMS_REGION is required alongside NAIGX_KMS_KEY_ID — KMS is a " +
-        "regional service and a key does not exist outside its region",
-    );
-  }
-  if (isProduction && !kmsConfigured) {
-    problems.push(
-      "NAIGX_KMS_KEY_ID is required when NODE_ENV=production — DB §13.1 " +
-        "requires a managed key service for raw_content, structured_input and " +
-        "structured_output, and D-52 §4 forbids substituting a locally-held " +
-        "key. There is deliberately no local fallback.",
+      "NAIGX_KEY_FILE is required when NODE_ENV=production — DB §13.1 requires " +
+        "application-level encryption for raw_content, structured_input and " +
+        "structured_output. Point it at a file containing 32 random bytes " +
+        "(openssl rand -base64 32), readable only by the account this process " +
+        "runs as. There is deliberately no in-process fallback.",
     );
   }
 
@@ -311,12 +310,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     host,
     port,
     trustProxy,
-    kms: {
-      ...(kmsKeyId !== undefined && kmsKeyId !== "" ? { keyId: kmsKeyId } : {}),
-      ...(kmsRegion !== undefined && kmsRegion !== ""
-        ? { region: kmsRegion }
-        : {}),
-    },
+    ...(keyFile !== undefined ? { keyFile } : {}),
     ...(ipHashSecret !== undefined && ipHashSecret !== ""
       ? { ipHashSecret }
       : {}),

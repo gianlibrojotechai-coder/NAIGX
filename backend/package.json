@@ -39,7 +39,6 @@
   "license": "ISC",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.116.0",
-    "@aws-sdk/client-kms": "^3.1127.0",
     "@fastify/cors": "^11.3.0",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",

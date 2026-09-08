@@ -177,36 +177,34 @@ test("parses TRUST_PROXY strictly and rejects anything ambiguous", () => {
 const PRODUCTION = {
   NODE_ENV: "production",
   NAIGX_IP_HASH_SECRET: "a-real-secret",
-  NAIGX_KMS_KEY_ID: "alias/naigx",
-  NAIGX_KMS_REGION: "ap-southeast-1",
+  NAIGX_KEY_FILE: "/etc/naigx/keys/root.key",
 };
 
-test("requires a managed key service in production, with no local fallback", () => {
-  // `DB §13.1` row 3 and [D-52](../../../docs/27-D-52-Managed-Key-Service.md)
-  // §4. The record is blunt about why there is no escape hatch: every free
-  // option stores the key on the machine that holds the storage, so it buys
-  // none of the property the layer exists for while looking like compliance.
-  const { NAIGX_KMS_KEY_ID: _omitted, ...withoutKms } = PRODUCTION;
+test("requires a key file in production, with no in-process fallback", () => {
+  // `DB §13.1` row 3 and [D-61](../../../docs/36-D-61-Host-Held-Key-File.md).
+  // The escape hatch that must not exist is the in-memory test double: an
+  // instance that quietly generated its own key would seal content nothing
+  // else could ever open, and would look completely healthy doing it.
+  const { NAIGX_KEY_FILE: _omitted, ...withoutKeyFile } = PRODUCTION;
   assert.throws(
-    () => loadConfig({ ...valid, ...withoutKms }),
-    (error: Error) => error.message.includes("NAIGX_KMS_KEY_ID"),
+    () => loadConfig({ ...valid, ...withoutKeyFile }),
+    (error: Error) => error.message.includes("NAIGX_KEY_FILE"),
   );
 
-  // A key id with no region names a key KMS cannot locate — it is a regional
-  // service — so half a configuration is refused rather than half-applied.
-  const { NAIGX_KMS_REGION: _noRegion, ...withoutRegion } = PRODUCTION;
+  // An empty value is not a configured one. Blank environment variables are
+  // how a missing secret usually arrives — from an unset shell variable
+  // expanding to nothing — so they must fail the same way absence does.
   assert.throws(
-    () => loadConfig({ ...valid, ...withoutRegion }),
-    (error: Error) => error.message.includes("NAIGX_KMS_REGION"),
+    () => loadConfig({ ...valid, ...PRODUCTION, NAIGX_KEY_FILE: "   " }),
+    (error: Error) => error.message.includes("NAIGX_KEY_FILE"),
   );
 
   const config = loadConfig({ ...valid, ...PRODUCTION });
-  assert.equal(config.kms.keyId, "alias/naigx");
-  assert.equal(config.kms.region, "ap-southeast-1");
+  assert.equal(config.keyFile, "/etc/naigx/keys/root.key");
 
   // Outside production it is optional: the offline double takes over, so a
-  // developer checkout needs no account.
-  assert.equal(loadConfig(valid).kms.keyId, undefined);
+  // developer checkout needs no key material.
+  assert.equal(loadConfig(valid).keyFile, undefined);
 });
 
 test("requires an IP hash salt in production and not outside it", () => {

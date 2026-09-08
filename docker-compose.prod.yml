@@ -104,24 +104,18 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-naigx}
       TRACE_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/naigx_trace
       NAIGX_IP_HASH_SECRET: ${NAIGX_IP_HASH_SECRET:?NAIGX_IP_HASH_SECRET is required}
-      NAIGX_KMS_KEY_ID: ${NAIGX_KMS_KEY_ID:?NAIGX_KMS_KEY_ID is required}
-      NAIGX_KMS_REGION: ${NAIGX_KMS_REGION:?NAIGX_KMS_REGION is required}
-      AWS_REGION: ${NAIGX_KMS_REGION}
+      # The PATH to the root key, never key material (D-61).
+      NAIGX_KEY_FILE: /run/secrets/naigx/root.key
 
-      # D-59 §2. Points the AWS SDK's default chain at the read-only mount
-      # below. This host is not EC2, so there is no instance metadata service
-      # and no ambient credential to find — without this the SDK resolves
-      # nothing, `loadCipher` refuses, and `encrypt init` fails before it
-      # reaches KMS.
-      AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws/credentials
-
-    # ⚠️ THE PROVISIONING CREDENTIAL, AND IT IS THE DANGEROUS ONE.
-    # This service is the only place `kms:GenerateDataKey` is ever needed
-    # (`encrypt init`), and a principal that can mint data keys can start a
-    # SECOND RING with no relationship to rows sealed under the first.
-    # D-59 §3: deactivate this principal once the first deploy completes.
+    # ⚠️ THE ROOT KEY, AND `encrypt init` IS THE ONE COMMAND THAT CREATES A
+    # RING WITH IT. Running `init` a second time would not rotate anything —
+    # it would start a new ring with no relationship to rows sealed under the
+    # first, which is why the command refuses when a key already exists.
+    #
+    # Read-only, and the host path lives outside the repository and the build
+    # context so it can never be committed or captured into an image layer.
     volumes:
-      - ${NAIGX_AWS_CREDENTIALS_FILE:?NAIGX_AWS_CREDENTIALS_FILE is required — see D-59 §2}:/run/secrets/aws/credentials:ro
+      - ${NAIGX_KEY_FILE:?NAIGX_KEY_FILE is required — see D-61 §5}:/run/secrets/naigx/root.key:ro
 
     # ⚠️ THE COMPILED ENTRY POINT, NOT `tsx`. The runtime image prunes dev
     # dependencies and ships no `scripts/` directory, so `npx tsx` here would
@@ -184,24 +178,19 @@ services:
       # production posture — Phase 4 needs it set to scrape metrics.
       NAIGX_OPERATOR_TOKEN: ${NAIGX_OPERATOR_TOKEN:-}
 
-      # `DB §13.1` row 3 — the managed key service (D-52). REQUIRED: the
-      # application refuses to start under NODE_ENV=production without it, and
-      # there is deliberately no local-key fallback. AWS credentials come from
-      # the ambient provider chain (SA §10.4 — injected at runtime, never in
-      # source or images), so they are NOT named here.
+      # `DB §13.1` row 3 — application-level encryption, keyed from a host-held
+      # root key (D-61). REQUIRED: the application refuses to start under
+      # NODE_ENV=production without it, and there is deliberately no in-process
+      # fallback — an instance that minted its own key would seal content
+      # nothing else could ever open, while looking perfectly healthy.
       #
-      # ⚠️ Losing this key destroys the encrypted fields and every backup of
-      # them (D-52 §6). Enable deletion protection on the CMK.
-      NAIGX_KMS_KEY_ID: ${NAIGX_KMS_KEY_ID:?NAIGX_KMS_KEY_ID is required}
-      NAIGX_KMS_REGION: ${NAIGX_KMS_REGION:?NAIGX_KMS_REGION is required}
-      AWS_REGION: ${NAIGX_KMS_REGION}
-
-      # D-59 §2. THE HOST IS NOT EC2, so the SDK's default chain finds no
-      # instance metadata service and no ambient credential. This points it at
-      # the read-only mount below. ⚠️ Without it the container starts, fails to
-      # resolve a credential, and `loadCipher` refuses to boot — correctly, but
-      # the symptom reads like a KMS outage rather than a missing credential.
-      AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws/credentials
+      # ⚠️ THIS IS A PATH, NEVER KEY MATERIAL. The file is mounted read-only
+      # below; its contents never enter configuration, logs or diagnostics.
+      #
+      # ⚠️ Losing this file destroys the encrypted fields and every backup of
+      # them. Back it up separately from the database dumps — a backup that
+      # contains both is a backup that protects neither.
+      NAIGX_KEY_FILE: /run/secrets/naigx/root.key
 
       # Same origin behind the edge, so this allows nothing new; it is set so a
       # request that somehow arrives cross-origin is still refused correctly.
@@ -214,19 +203,20 @@ services:
       # means this file must not be the place a metered mode gets switched on
       # by default.
 
-    # ⚠️ RUNTIME CREDENTIAL — `kms:Decrypt` ONLY (D-59 §3). Read-only, and the
-    # source path lives OUTSIDE the repository and the build context so it can
-    # never be captured into an image layer or committed.
+    # ⚠️ THE ROOT KEY, READ-ONLY. The host path lives OUTSIDE the repository
+    # and the build context so it can never be captured into an image layer or
+    # committed.
     #
     # ⚠️ Only THIS service and `encrypt` receive it. Not `postgres`, not
     # `edge`, not `prometheus`, not `alertmanager`, not `backup` — `edge`
-    # terminates TLS and faces the internet, and has no reason to hold a
-    # key-service credential.
+    # terminates TLS and faces the internet, and has no reason to hold the key
+    # that unseals every stored analysis.
     #
-    # Mounted rather than passed as environment variables on purpose: env vars
-    # are visible in `docker inspect` and in /proc/<pid>/environ (D-59 §5).
+    # Mounted rather than passed as an environment variable on purpose: env
+    # vars are visible in `docker inspect` and in /proc/<pid>/environ, and this
+    # is key material rather than a path (D-61 §5).
     volumes:
-      - ${NAIGX_AWS_CREDENTIALS_FILE:?NAIGX_AWS_CREDENTIALS_FILE is required — see D-59 §2}:/run/secrets/aws/credentials:ro
+      - ${NAIGX_KEY_FILE:?NAIGX_KEY_FILE is required — see D-61 §5}:/run/secrets/naigx/root.key:ro
 
     depends_on:
       postgres:
