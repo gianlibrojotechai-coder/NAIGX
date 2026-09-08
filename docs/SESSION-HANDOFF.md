@@ -217,18 +217,27 @@ fragment resolve — actual database work). `checkProvider` is stubbed, which is
 faithful rather than convenient: production's probe is a *configuration* check
 with no I/O, because a readiness endpoint is polled continuously.
 
-### ▶ What is actually left — and none of it is code
+### ▶ SPRINT 5 HAS NO REMAINING CODE INCREMENT
 
-⚠️ **Sprint 5 has no remaining code increment.** This is the real handoff.
-Resist inventing one.
+**Recorded as the state of the sprint, on the owner's instruction, 2026-09-08.**
+This is the real handoff. ⚠️ **Resist inventing a code task.** Every remaining
+item is an external or evidence dependency, and each one discharges exactly one
+thing — kept separate deliberately, because collapsing them is how a milestone
+gets reported as passed on the strength of a different dependency being met:
 
-| Item | Needs | Owner |
+| Dependency | Discharges | Owner |
 |---|---|---|
-| **A production host and a domain** | Provisioning. Unblocks M-19, TLS (`NFR-020`), the rollback drill, a real restore drill, off-host backups, alert delivery — **and now M-20's free path to `NFR-001`/`NFR-002`** | Owner |
-| **An AWS account + KMS key** | Provisioning. 4 skipped tests are the only thing that can verify `DB §13.1` row 3 and close `M-18` H-2 | Owner (taken, not done) |
-| **~$8 of provider spend, or an explicit decline** | A decision. Either answer closes D-58 §4; declining folds into the host | Owner |
-| **M-17 manual WCAG walk** | A person with a screen reader | Unowned |
-| **M-08 rubric review** | A human reviewer. Carried from Sprint 2 | Unowned |
+| **Host / domain** | **M-19** deployment verification — and with it TLS (`NFR-020`), the rollback drill, a restore drill on real data, off-host backups, alert delivery to a real person | Owner, to provision |
+| **AWS KMS credentials + key** | **Real encryption verification** — `DB §13.1` row 3, closing `M-18` H-2. The 4 skipped tests are the only thing that can do it | Owner, taken, not done |
+| **Optional provider spend (~$8)** | **M-20 provider metrics** — `NFR-001`/`NFR-002`. ⚠️ **Optional.** Declining is a complete answer and folds into the host | Owner's decision |
+| **A human reviewer** | **M-08** rubric review. Carried from Sprint 2 | Unowned |
+| **A screen-reader / keyboard reviewer** | **M-17** manual WCAG walk | Unowned |
+
+⚠️ **These do not substitute for one another.** A host does not verify KMS; KMS
+does not measure latency; neither discharges a human review.
+
+**The owner is deciding what to provision next.** Do not pre-empt that with
+work, and do not re-open it as a question each session.
 
 ### Constraints on M-20, from the owner — still current
 
@@ -348,6 +357,12 @@ Two mechanisms, because neither covers both directions:
 | **Do not implement `API-071`/`072`/`073`.** Operator auth existing is not a licence. | **D-48** §5 |
 | **M-17 is not passed on a green axe run**; the manual walk is required. | **D-49** §3.3 |
 | **M-18 is not passed**, and must not be described as an independent review. | Owner, explicit |
+| **`M-20` stays NOT PASSED. `NFR-001`/`NFR-002` stay explicitly UNMEASURED** unless provider spend is authorised. | Owner, explicit, 2026-09-08 |
+| **Never substitute replay latency for a provider-dominated metric.** Replay numbers describe this system's overhead and nothing else. | Owner, explicit, 2026-09-08 |
+| **Make no implementation change whose purpose is to manufacture M-20 evidence.** | Owner, explicit, 2026-09-08 |
+| **Keep the `bench.ts` status-code assertion.** It is a regression guard, not scaffolding — it is what exposed `/health` answering 503. Do not remove or weaken it. | Owner, explicit, 2026-09-08 |
+| **No further decision records** unless a choice changes **architecture, requirements, security, cost, or deployment policy**. D-58 qualified; most things will not. | Owner, explicit, 2026-09-08 |
+| **Stop adding scope.** The next move is provisioning, and it is the owner's to choose. | Owner, explicit, 2026-09-08 |
 
 ---
 
