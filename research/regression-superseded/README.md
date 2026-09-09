@@ -47,3 +47,13 @@ was reported `excluded` by the replay loader — the gate working as designed
 candidate composition (Opus 5, high effort, $0.4965), whose Stage 9 output
 carries the `implementation` block. Kept here because it is the evidence the
 earlier pass reference `d4abcd42626452df` rested on for this fragment.
+
+## Superseded 2026-09-10 — D-76, the interview-guidance generator
+
+| File | Why it was replaced |
+|---|---|
+| `jd-002-pre-D-76-2026-09-10.json` | The D-70 `build_first` capture (five stages, terminal `portfolio_suggestions`, composition `cfa5d7e5…`). Valid, and still reproducing its composition — but the job-description path gained a second Stage 9 generator (`stage.interview_guidance`, D-76), and a recording with no fixture for it evidences a path that no longer exists. Replaced by a capture of the same case that reaches both generators (six stages, $0.2463, Sonnet 5 medium) |
+| `jd-008-pre-D-76-2026-09-10.json` | The `apply_now` capture (four stages, terminal `recommendation_generation`). Same reason: on `apply_now` the path now generates the interview guidance too. Replaced by a five-stage capture ($0.1852) |
+
+⚠️ **A finding, recorded.** Before these were replaced, `regression:run` on the two old recordings **passed** against the new pipeline — `run_completeness` is judged against the stages a recording holds, so a stage *added* to a path is invisible to it, and `composition_mismatch` compares only the compositions of recorded stages. A new stage therefore does not invalidate an old recording the way a changed fragment does. Both old recordings were replaced regardless; the gap in the gate is noted in `docs/51` D-76 §4.
+| `jd-002-D-76-first-capture-2026-09-10.json` | The first D-76 capture of `jd-002` (six stages, $0.2463). Admitted, then found — by `tests/unit/replay-corpus.test.ts` test 3, not by the gate — to carry a **portfolio answer the parser rejects**: a second project named "(merged) — no standalone project required" claiming a subset of the first's gaps, which `FR-022`'s redundancy rule refuses. The capture tool records provider responses whether or not the artifact parsed, and `artifact_set` is a deferred assertion, so the targeted run (`19f89fb8a3433584`) and the fifteen-case run (`b539f5bccb7c0581`) both passed on it. Replaced the same hour by a second capture ($0.2244) whose single project the parser accepts; the references in force are `be3b5a805ba95031` (targeted) and `0294795b4da49f78` (fifteen cases). The two earlier run records are left in place as the history of what was measured |

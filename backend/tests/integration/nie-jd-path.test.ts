@@ -25,6 +25,7 @@ import {
   contextHandoffView,
   createPipeline,
   eligibleGapsView,
+  interviewHandoffView,
   stageHandoff,
 } from "../../src/nie/pipeline.js";
 import { eligibleGaps } from "../../src/nie/stages/artifact-planning.js";
@@ -172,6 +173,46 @@ const RECOMMENDATION_OUTPUT = JSON.stringify({
   },
 });
 
+/** D-76: a grounded interview-guidance fixture against the recommendation above. */
+const INTERVIEW_OUTPUT = JSON.stringify({
+  competencies: [
+    {
+      rank: 1,
+      name: "Designing a CRM integration that survives partial failure",
+      derived_from: ["req-2"],
+      why_the_posting_implies_it:
+        "Every workflow in the posting terminates in HubSpot, so an interviewer will probe what happens when HubSpot does not answer.",
+      be_ready_to_explain: [
+        "Where a failed HubSpot write is parked and who is told.",
+        "How a retried run avoids creating the contact twice.",
+      ],
+      likely_question:
+        "A HubSpot update fails after the lead was already scored — what does the workflow do?",
+      evidence_to_cite: [],
+      standing: "gap",
+      how_to_handle_the_gap:
+        "Describe the containment design from the build in progress; do not claim a shipped HubSpot integration.",
+    },
+    {
+      rank: 2,
+      name: "Owning an n8n workflow end to end",
+      derived_from: ["req-1"],
+      why_the_posting_implies_it:
+        "The posting asks the operator to build and own the workflows, not only to run them.",
+      be_ready_to_explain: [
+        "How the lead-routing workflow is versioned and tested with pinned data.",
+      ],
+      likely_question:
+        "How do you change a live workflow without breaking routing?",
+      evidence_to_cite: ["cap-001"],
+      standing: "evidenced",
+      how_to_handle_the_gap: null,
+    },
+  ],
+  framing:
+    "The posting is testing for judgement about failure handling around a CRM, not n8n familiarity — lead with the evidenced workflow and be candid about the integration in progress.",
+});
+
 /** Primes the replay adapter against the prompts the pipeline will compose. */
 const PORTFOLIO_OUTPUT = JSON.stringify({
   projects: [
@@ -211,6 +252,8 @@ const primedAdapter = async (
   outputs: {
     readonly recommendation?: string;
     readonly portfolio?: string;
+    /** D-76: the interview-guidance generator's output. */
+    readonly interview?: string;
     /**
      * What the generator returns on its regeneration.
      *
@@ -298,6 +341,14 @@ const primedAdapter = async (
       profile,
     );
     const eligible = eligibleGaps(recommendation);
+    // D-76: the second generator runs on both verdicts, keyed on the
+    // recommendation view the pipeline hands it.
+    await add(
+      "interview_guidance",
+      stageHandoff(interviewHandoffView(recommendation)),
+      outputs.interview ?? INTERVIEW_OUTPUT,
+      "job_description",
+    );
     if (eligible.length > 0) {
       const handoff = stageHandoff({
         eligible_gaps: eligibleGapsView(recommendation, eligible),
@@ -450,7 +501,7 @@ test("Stage 7 emits a trace like every other stage (AP-8, FR-100)", async () => 
     // Stage 5 plans the reasoning deterministically before Stage 7 runs it
     // (`docs/12` D-35).
     // D-72: Stages 10 and 12 trace on every response.
-    [1, 2, 3, 5, 7, 8, 9, 10, 12],
+    [1, 2, 3, 5, 7, 8, 9, 9, 10, 12],
   );
   const stage7 = traces.find((t) => t.stageNumber === 7);
   assert.ok(stage7);
@@ -589,7 +640,7 @@ test("stages 8 and 9 are traced like every other stage (AP-8, FR-100)", async ()
     // Stage 5 plans the reasoning deterministically before Stage 7 runs it
     // (`docs/12` D-35).
     // D-72: Stages 10 and 12 trace on every response.
-    [1, 2, 3, 5, 7, 8, 9, 10, 12],
+    [1, 2, 3, 5, 7, 8, 9, 9, 10, 12],
   );
 
   // Stage 8 reaches no provider, and is traced anyway — the one stage whose
@@ -1102,6 +1153,8 @@ test("the run narrates itself in the order API §7.4 specifies", async () => {
       // D-71: the n8n workflow is planned once the portfolio exists — an
       // omission here, announced as a plan event like any other decision.
       "plan",
+      // D-76: the interview guidance, the second generator, lands last.
+      "artifact",
     ],
     "each stage announces itself as it finishes (FR-041)",
   );

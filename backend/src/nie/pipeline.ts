@@ -36,6 +36,8 @@ import {
   type PortfolioSuggestions,
   type RecommendationResult,
   type ArtifactPlanEntry,
+  type GeneratedArtifactType,
+  type InterviewGuidance,
   type ArtifactType,
   type RecommendationForArtifacts,
   type WorkflowReviewResult,
@@ -43,6 +45,7 @@ import {
 import { composePrompt, type ComposedPrompt } from "./prompt.js";
 import type { CapabilityProfile } from "./capability-profile.js";
 import { parseRecommendation } from "./stages/recommendation-generation.js";
+import { parseInterviewGuidance } from "./stages/interview-guidance.js";
 import {
   eligibleGaps,
   isPlanned,
@@ -355,6 +358,12 @@ export function stageProviderInputs(
     } catch {
       return inputs;
     }
+    // D-76: the second generator is keyed on the recommendation view, on both
+    // verdicts — a recording that reached it files a fixture for it.
+    inputs.set(
+      "interview_guidance",
+      stageHandoff(interviewHandoffView(recommendation)),
+    );
     if (isPlanned(planArtifacts(recommendation), "portfolio_suggestions")) {
       inputs.set(
         "portfolio_suggestions",
@@ -470,6 +479,36 @@ export type RegenerationDecision = boolean | { readonly addendum: string };
  * also carries the requirement *name*, because a gap id alone tells the
  * generator nothing about what to build.
  */
+/**
+ * The recommendation as the interview-guidance generator is shown it (D-76):
+ * every requirement with its id, the matches with the capability ids the
+ * operator may cite, the gaps, and the verdict. Names and ids together, so
+ * the generator copies ids rather than reconstructing them.
+ */
+export const interviewHandoffView = (
+  recommendation: RecommendationForArtifacts,
+): Record<string, unknown> => ({
+  requirements: recommendation.requiredCapabilities.map((r) => ({
+    id: r.id,
+    name: r.name,
+    necessity: r.necessity,
+    kind: r.kind,
+    provenance: r.provenance,
+  })),
+  matched: recommendation.matched.map((m) => ({
+    requirement_id: m.requirementId,
+    capability_id: m.capabilityId,
+    strength: m.strength,
+    evidence_ref: m.evidenceRef,
+  })),
+  gaps: recommendation.gaps.map((g) => ({
+    requirement_id: g.requirementId,
+    priority: g.priority,
+    why_it_matters: g.whyItMatters,
+  })),
+  verdict: recommendation.verdict,
+});
+
 export const eligibleGapsView = (
   recommendation: RecommendationForArtifacts,
   eligible: readonly GapItem[],
@@ -836,6 +875,125 @@ export function createPipeline(deps: PipelineDependencies) {
     // Reasoning must be reproducible where the provider allows it (`AIP-7`).
     preferLowVariance: true,
   });
+
+  /**
+   * Stage 9's second generator (D-76): the interview guidance, from the
+   * recommendation. The same shape as the portfolio generator — one
+   * informed regeneration on a schema failure, the wire document kept for a
+   * labelled failure, the outcome announced and validated — in one place so
+   * both job-path branches and `API-032` retry call the same code.
+   */
+  const generateInterviewGuidance = async (
+    input: PipelineInput,
+    classifiedAs: ClassificationType,
+    recommendation: RecommendationForArtifacts,
+    options: { readonly retry?: boolean } = {},
+  ): Promise<{
+    readonly outcome: ArtifactOutcome;
+    readonly wire: unknown;
+    readonly guidance: InterviewGuidance | undefined;
+    readonly attempts: number;
+    readonly traceId: string | null;
+    readonly failureReason: string;
+  }> => {
+    let wire: unknown;
+    let attempts = 1;
+    let traceId: string | null = null;
+    let guidance: InterviewGuidance | undefined;
+    let outcome: ArtifactOutcome = "generated";
+    let failureReason = "";
+    try {
+      guidance = await runStage(input, {
+        stageNumber: 9,
+        stageKey: "interview_guidance",
+        classifiedAs,
+        onStageTrace: (id) => {
+          traceId = id;
+        },
+        structuredInput: {
+          recommendation,
+          ...(options.retry === true ? { retry: true } : {}),
+        },
+        buildRequest: (prompt) =>
+          request(
+            prompt,
+            "interview_guidance",
+            stageHandoff(interviewHandoffView(recommendation)),
+          ),
+        parse: (text) => {
+          const parsed = parseStructured(9, "interview_guidance", text);
+          wire = parsed;
+          validateArtifact("interview_guidance", parsed);
+          return parseInterviewGuidance(text, recommendation);
+        },
+        regenerateOnce: (error) => {
+          if (!(error instanceof ArtifactSchemaError)) return false;
+          attempts += 1;
+          return { addendum: correctionFor(error) };
+        },
+      });
+      const deep = await deepValidate(
+        input,
+        traceId,
+        "interview_guidance",
+        wire,
+      );
+      if (deep !== null) {
+        guidance = undefined;
+        throw new ResponseValidationError(deep);
+      }
+    } catch (error) {
+      outcome = "failed";
+      failureReason =
+        error instanceof ResponseValidationError
+          ? error.message
+          : error instanceof ArtifactSchemaError
+            ? "Generated but did not satisfy its output schema."
+            : "Generation did not produce a usable document.";
+    }
+    return { outcome, wire, guidance, attempts, traceId, failureReason };
+  };
+
+  /** Announces, stores and validation-records one interview-guidance attempt. */
+  const settleInterviewGuidance = async (
+    input: PipelineInput,
+    generated: Awaited<ReturnType<typeof generateInterviewGuidance>>,
+  ): Promise<void> => {
+    emit(
+      input.analysisId,
+      generated.outcome === "generated" && generated.guidance !== undefined
+        ? {
+            type: "artifact",
+            artifactType: "interview_guidance",
+            content: generated.wire,
+          }
+        : {
+            type: "artifact_failed",
+            artifactType: "interview_guidance",
+            reason: generated.failureReason,
+            retryAvailable: isRetryableArtifactType("interview_guidance"),
+          },
+    );
+    if (generated.wire !== undefined) {
+      await deps.resultSink?.persistArtifact?.(input.analysisId, {
+        artifactType: "interview_guidance",
+        content: generated.wire,
+        depthLevel: "standard",
+        generationAttemptCount: generated.attempts,
+        validationStatus:
+          generated.outcome === "generated" ? "valid" : "failed",
+      });
+    }
+    await recordValidation({
+      stageTraceId: generated.traceId,
+      artifactType: "interview_guidance",
+      passed: generated.outcome === "generated",
+      ...(generated.outcome === "generated"
+        ? {}
+        : { failureDetail: generated.failureReason }),
+      regenerationTriggered: generated.attempts > 1,
+    });
+  };
 
   /**
    * Renders, validates, persists and announces the artifacts a path derives
@@ -1321,18 +1479,39 @@ export function createPipeline(deps: PipelineDependencies) {
       if (!isPlanned(artifactPlan, "portfolio_suggestions")) {
         // Planned out, with the reason already on the entry. Not a halt: the
         // run completed everything its path defines — including, since D-75,
-        // the gap analysis, which an apply_now verdict still has to show.
+        // the gap analysis, which an apply_now verdict still has to show, and
+        // since D-76 the interview guidance, which an apply_now operator is
+        // about to need. The generator's Stage 9 trace carries the rendering.
+        const interview = await generateInterviewGuidance(
+          input,
+          classification.determinedType,
+          recommendation,
+        );
+        await settleInterviewGuidance(input, interview);
         const gapEntries = await emitDerivedArtifacts(
           input,
           gapPlan,
           gapRenderers,
+          interview.traceId === null ? {} : { traceId: interview.traceId },
         );
         return {
           classification,
           intent,
           context,
           recommendation,
-          artifactPlan: withBrief(withoutGap(artifactPlan, gapEntries)),
+          artifactPlan: withBrief(
+            withoutGap(
+              withOutcome(
+                artifactPlan,
+                "interview_guidance",
+                interview.outcome,
+              ),
+              gapEntries,
+            ),
+          ),
+          ...(interview.guidance !== undefined
+            ? { interviewGuidance: interview.guidance }
+            : {}),
         };
       }
 
@@ -1522,6 +1701,15 @@ export function createPipeline(deps: PipelineDependencies) {
         portfolioTraceId === null ? {} : { traceId: portfolioTraceId },
       );
 
+      // D-76 — the second generator, independent of the first (`AID-08`): it
+      // reads the recommendation and nothing the portfolio produced.
+      const interview = await generateInterviewGuidance(
+        input,
+        classification.determinedType,
+        recommendation,
+      );
+      await settleInterviewGuidance(input, interview);
+
       return {
         classification,
         intent,
@@ -1529,12 +1717,19 @@ export function createPipeline(deps: PipelineDependencies) {
         recommendation,
         artifactPlan: withBrief([
           ...withoutGap(
-            withOutcome(artifactPlan, "portfolio_suggestions", outcome),
+            withOutcome(
+              withOutcome(artifactPlan, "portfolio_suggestions", outcome),
+              "interview_guidance",
+              interview.outcome,
+            ),
             gapEntries,
           ),
           ...n8nEntries,
         ]),
         ...(portfolioSuggestions !== undefined ? { portfolioSuggestions } : {}),
+        ...(interview.guidance !== undefined
+          ? { interviewGuidance: interview.guidance }
+          : {}),
       };
     }
 
@@ -1715,7 +1910,24 @@ export function createPipeline(deps: PipelineDependencies) {
     readonly analysisId: string;
     readonly classifiedAs: ClassificationType;
     readonly recommendation: RecommendationForArtifacts;
+    /** D-76: which generator to run again. Defaults to the portfolio. */
+    readonly artifactType?: GeneratedArtifactType;
   }): Promise<RegeneratedArtifact> => {
+    if (input.artifactType === "interview_guidance") {
+      const generated = await generateInterviewGuidance(
+        { analysisId: input.analysisId, text: "" },
+        input.classifiedAs,
+        input.recommendation,
+        { retry: true },
+      );
+      return {
+        artifactType: "interview_guidance",
+        content: generated.wire,
+        validationStatus:
+          generated.outcome === "generated" ? "valid" : "failed",
+        generationAttemptCount: generated.attempts,
+      };
+    }
     const eligible = eligibleGaps(input.recommendation);
     let lastWire: unknown;
     let attempts = 1;

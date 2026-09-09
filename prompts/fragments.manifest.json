@@ -9,6 +9,7 @@
     "stage.classification": "fb90828bc337ca1ebd2fb9bda5d654de9dd6cd9ba96ae314a9ae5f08e84d6285",
     "stage.context_extraction": "b6f40a3e1d8b77fa0f7166dfd29cb63aec8906800ce3e03ad34f858d24a110ab",
     "stage.intent": "0aa42cc75dd7e8ee593dca8dbece0e5abd9fbf47b994d94598dd4e241e416ad5",
+    "stage.interview_guidance": "f19b0b47705e76e89342d27d9cc996d4d880f3341478a34b9ec46a78b3d4def0",
     "stage.portfolio_suggestions": "65eae5bc09a4bf2bbef0e8ba5aa7b224a1e969048239dcaedb4cbaf9642c8f00",
     "stage.recommendation_generation": "ad080ab45ba2d602cc88fd4ab99466cd65a040408b16928339df35d19fac097e",
     "stage.workflow_review": "b44e5f1be198deb1cb008319a69406ca07eef1278f45e9372cd5df1e55cffdec",

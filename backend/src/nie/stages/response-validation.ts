@@ -380,6 +380,30 @@ export function checkInternalConsistency(
       }
       break;
     }
+    case "interview_guidance": {
+      const rec = ctx.recommendation;
+      const requirementIds = new Set(
+        rec?.requiredCapabilities.map((r) => r.id) ?? [],
+      );
+      const matchedIds = new Set(rec?.matched.map((m) => m.capabilityId) ?? []);
+      for (const c of asArray(doc["competencies"])) {
+        const rec2 = asRecord(c);
+        const name = String(rec2?.["name"] ?? "?");
+        for (const id of asArray(rec2?.["derived_from"])) {
+          if (!requirementIds.has(String(id)))
+            problems.push(
+              `competency "${name}" is derived from ${String(id)}, which is not a requirement`,
+            );
+        }
+        for (const id of asArray(rec2?.["evidence_to_cite"])) {
+          if (!matchedIds.has(String(id)))
+            problems.push(
+              `competency "${name}" cites ${String(id)}, which was not matched`,
+            );
+        }
+      }
+      break;
+    }
     case "skill_gap_analysis": {
       const rec = ctx.recommendation;
       const rendered = asArray(doc["requirements"]);

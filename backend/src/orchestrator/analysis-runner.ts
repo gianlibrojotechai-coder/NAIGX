@@ -207,6 +207,10 @@ export async function createAnalysisRunner(
         analysisId,
         classifiedAs: classification.determinedType,
         recommendation,
+        // D-76: two generators; the route already refused any other type.
+        ...(artifactType === "interview_guidance"
+          ? { artifactType: "interview_guidance" as const }
+          : {}),
       });
 
       // `DB §4.4` stores the outcome either way — a second failure is a

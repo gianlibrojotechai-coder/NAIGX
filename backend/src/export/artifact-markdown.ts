@@ -412,6 +412,55 @@ const renderAssessmentFeedback = (document: unknown): ArtifactRender => {
   return { lines, rendered: true };
 };
 
+// --- interview_guidance ------------------------------------------------------
+
+/**
+ * The interview guidance (D-76): the framing first, then each competency in
+ * preparation order with what to be ready to explain, the likely question,
+ * and either what to cite or how to handle the gap.
+ */
+const renderInterviewGuidance = (document: unknown): ArtifactRender => {
+  if (!isRecord(document)) return unrenderable("interview_guidance");
+  const competencies = list(document.competencies).filter(isRecord);
+  const framing = str(document.framing);
+  if (competencies.length === 0 || framing === null) {
+    return unrenderable("interview_guidance");
+  }
+  const lines: string[] = [
+    "*The architectural competencies this posting implies, derived from its requirements — each names the requirements behind it and cites only capabilities the analysis matched.*",
+    "",
+    `**How to frame it.** ${framing}`,
+    "",
+  ];
+  const ordered = [...competencies].sort(
+    (a, b) => (int(a.rank) ?? 0) - (int(b.rank) ?? 0),
+  );
+  for (const c of ordered) {
+    const standing = str(c.standing);
+    lines.push(
+      `#### ${String(int(c.rank) ?? "")}. ${str(c.name) ?? "Unnamed competency"} — ${standing === "gap" ? "a gap" : "evidenced"}`,
+      "",
+      `*Why this posting implies it:* ${str(c.why_the_posting_implies_it) ?? "—"} *(from ${list(c.derived_from).map(String).join(", ")})*`,
+      "",
+      "Be ready to explain:",
+      "",
+    );
+    for (const point of list(c.be_ready_to_explain)) {
+      lines.push(`- ${String(point)}`);
+    }
+    lines.push("", `**Likely question.** ${str(c.likely_question) ?? "—"}`, "");
+    const cites = list(c.evidence_to_cite).map(String);
+    if (cites.length > 0) {
+      lines.push(`**Cite:** ${cites.map((id) => `\`${id}\``).join(", ")}`, "");
+    }
+    const handling = str(c.how_to_handle_the_gap);
+    if (handling !== null) {
+      lines.push(`**How to handle the gap.** ${handling}`, "");
+    }
+  }
+  return { lines, rendered: true };
+};
+
 // --- skill_gap_analysis ------------------------------------------------------
 
 /**
@@ -684,6 +733,7 @@ const RENDERERS: Readonly<
   n8n_workflow: renderN8nWorkflow,
   skill_gap_analysis: renderSkillGapAnalysis,
   portfolio_suggestions: renderPortfolioSuggestions,
+  interview_guidance: renderInterviewGuidance,
   workflow_recommendation: renderWorkflowRecommendation,
   risk_assessment: renderRiskAssessment,
   assessment_feedback: renderAssessmentFeedback,

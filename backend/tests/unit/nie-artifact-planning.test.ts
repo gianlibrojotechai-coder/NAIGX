@@ -210,11 +210,11 @@ test("apply_now plans nothing, and says why", () => {
   assert.match(entry?.omissionReason ?? "", /apply_now/);
 });
 
-test("the unimplemented generator is omitted as a decision, not a failure", () => {
+test("the interview guidance is planned on every verdict (D-76)", () => {
   const plan = planArtifacts(recommendation());
   const entry = plan.find((e) => e.artifactType === "interview_guidance");
-  assert.equal(entry?.planned, false);
-  assert.match(entry?.omissionReason ?? "", /No generator/);
+  assert.equal(entry?.planned, true);
+  assert.match(entry?.inclusionReason ?? "", /Generated from the Stage 7/);
 });
 
 test("the gap analysis is planned whichever way the verdict went (D-75)", () => {
@@ -285,10 +285,14 @@ test("every unplanned entry is outcome `omitted`, keeping its reason", () => {
     }),
   );
 
-  // D-75: the gap analysis is planned on every verdict; the rest are
-  // planned out here, and each of those is final the moment it is written.
+  // D-75/D-76: the gap analysis and the interview guidance are planned on
+  // every verdict; the rest are planned out here, and each of those is final
+  // the moment it is written.
   for (const entry of plan) {
-    if (entry.artifactType === "skill_gap_analysis") {
+    if (
+      entry.artifactType === "skill_gap_analysis" ||
+      entry.artifactType === "interview_guidance"
+    ) {
       assert.equal(entry.planned, true);
       continue;
     }

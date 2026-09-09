@@ -174,6 +174,51 @@ const portfolioFrom = (eligibleIds: readonly string[]): string | undefined => {
 };
 
 /**
+ * The D-76 Stage 9 answer: one competency per requirement the Stage 7 answer
+ * carries, grounded the way the parser demands (derived from a listed
+ * requirement, citing only a matched capability).
+ */
+const interviewFrom = (
+  recommendation: string | undefined,
+): string | undefined => {
+  if (recommendation === undefined) return undefined;
+  const parsed = JSON.parse(recommendation) as {
+    matched: { requirement_id: string; capability_id: string }[];
+  };
+  const matched = parsed.matched[0];
+  if (matched === undefined) return undefined;
+  return JSON.stringify({
+    competencies: [
+      {
+        rank: 1,
+        name: "Dry-run placeholder competency, evidenced",
+        derived_from: [matched.requirement_id],
+        why_the_posting_implies_it:
+          "Dry-run placeholder; there is no posting here",
+        be_ready_to_explain: ["Dry-run placeholder point"],
+        likely_question: "Dry-run placeholder question?",
+        evidence_to_cite: [matched.capability_id],
+        standing: "evidenced",
+        how_to_handle_the_gap: null,
+      },
+      {
+        rank: 2,
+        name: "Dry-run placeholder competency, a gap",
+        derived_from: ["req-2"],
+        why_the_posting_implies_it:
+          "Dry-run placeholder; there is no posting here",
+        be_ready_to_explain: ["Dry-run placeholder point"],
+        likely_question: "Dry-run placeholder question?",
+        evidence_to_cite: [],
+        standing: "gap",
+        how_to_handle_the_gap: "Dry-run placeholder handling",
+      },
+    ],
+    framing: "Dry-run placeholder framing",
+  });
+};
+
+/**
  * An adapter that answers each stage for one corpus case.
  *
  * Per case rather than global: Stage 3 must quote *this* input, and a shared
@@ -249,6 +294,8 @@ export function createDryRunAdapter(
     // gap, so that is exactly the eligible set Stage 8 will compute.
     portfolio_suggestions:
       recommendation === undefined ? undefined : portfolioFrom(["req-2"]),
+    // D-76: the second generator, answered whenever Stage 7 was.
+    interview_guidance: interviewFrom(recommendation),
   };
 
   return {

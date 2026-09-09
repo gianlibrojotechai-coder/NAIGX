@@ -41,6 +41,8 @@ export const STAGE_FRAGMENT_KEYS: Readonly<Record<string, string>> = {
   // Stage 9 registers per generator, not per stage: generators are independent
   // (`AID-08`), so each carries its own fragment rather than sharing one.
   portfolio_suggestions: "stage.portfolio_suggestions",
+  // D-76: the second generator, with its own fragment.
+  interview_guidance: "stage.interview_guidance",
 };
 
 /** Type modifier per classified path (`AI §6.1` TYPE group). */

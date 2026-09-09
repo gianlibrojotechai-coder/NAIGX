@@ -37,6 +37,7 @@ import {
   asArchitectureRecommendation,
   asAssessmentFeedback,
   asIntentBrief,
+  asInterviewGuidance,
   asMermaidDiagram,
   asPortfolioSuggestions,
   asRiskAssessment,
@@ -57,6 +58,7 @@ import {
 import { ArchitectureRecommendationView } from "./ArchitectureRecommendation";
 import { AssessmentFeedbackView } from "./AssessmentFeedback";
 import { IntentBriefView } from "./IntentBrief";
+import { InterviewGuidanceView } from "./InterviewGuidance";
 import { N8nWorkflowView } from "./N8nWorkflow";
 import { ClassificationCorrection } from "./ClassificationCorrection";
 import { DecisionSummary } from "./DecisionSummary";
@@ -269,6 +271,17 @@ const ARTIFACT_PRESENTERS: Readonly<Record<string, ArtifactPresenter>> = {
     render: (content) => {
       const brief = asIntentBrief(content);
       return brief === null ? null : <IntentBriefView brief={brief} />;
+    },
+  },
+  interview_guidance: {
+    title: "Interview guidance",
+    subtitle:
+      "The competencies this posting implies, and what to be ready to say",
+    render: (content) => {
+      const guidance = asInterviewGuidance(content);
+      return guidance === null ? null : (
+        <InterviewGuidanceView guidance={guidance} />
+      );
     },
   },
   workflow_recommendation: {

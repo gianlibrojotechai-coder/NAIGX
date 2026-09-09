@@ -113,6 +113,7 @@ export const STAGES: readonly StageDefinition[] = [
     producesArtifactTypes: [
       "skill_gap_analysis",
       "portfolio_suggestions",
+      "interview_guidance",
       "workflow_recommendation",
       "risk_assessment",
       "assessment_feedback",

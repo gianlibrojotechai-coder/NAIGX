@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://naigx/schemas/interview_guidance.schema.json",
+  "title": "Interview Guidance",
+  "description": "D-76: the job-description path's AI §9.1 'Interview Guidance — architectural competencies the posting implies; derived from the posting, not generic'. Generated at Stage 9 from the Stage 7 recommendation. Every competency names the requirement ids it is derived from (the parser checks they exist and Stage 10 re-checks them), cites only capability ids the recommendation matched, states whether the operator can evidence it, and — when not — how to handle that honestly. Repository-authored per docs/12 D-1, published to ARTIFACT_SCHEMA.",
+  "type": "object",
+  "required": ["competencies", "framing"],
+  "properties": {
+    "competencies": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "rank",
+          "name",
+          "derived_from",
+          "why_the_posting_implies_it",
+          "be_ready_to_explain",
+          "likely_question",
+          "evidence_to_cite",
+          "standing",
+          "how_to_handle_the_gap"
+        ],
+        "properties": {
+          "rank": { "type": "integer", "minimum": 1 },
+          "name": { "$ref": "#/$defs/nonEmptyString" },
+          "derived_from": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/nonEmptyString" }
+          },
+          "why_the_posting_implies_it": { "$ref": "#/$defs/nonEmptyString" },
+          "be_ready_to_explain": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/$defs/nonEmptyString" }
+          },
+          "likely_question": { "$ref": "#/$defs/nonEmptyString" },
+          "evidence_to_cite": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/nonEmptyString" }
+          },
+          "standing": { "enum": ["evidenced", "gap"] },
+          "how_to_handle_the_gap": {
+            "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/nonEmptyString" }]
+          }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "standing": { "const": "gap" } } },
+            "then": {
+              "properties": {
+                "how_to_handle_the_gap": { "$ref": "#/$defs/nonEmptyString" },
+                "evidence_to_cite": { "maxItems": 0 }
+              }
+            }
+          },
+          {
+            "if": { "properties": { "standing": { "const": "evidenced" } } },
+            "then": {
+              "properties": {
+                "evidence_to_cite": { "minItems": 1 }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "framing": { "$ref": "#/$defs/nonEmptyString" }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1, "pattern": "\\S" }
+  }
+}

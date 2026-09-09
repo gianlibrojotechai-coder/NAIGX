@@ -41,6 +41,7 @@
 import {
   BUILD_EFFORT,
   CLASSIFICATION_TYPES,
+  COMPETENCY_STANDING,
   CONTEXT_CATEGORIES,
   CONTEXT_PROVENANCE,
   GAP_PRIORITIES,
@@ -279,6 +280,29 @@ const portfolioSuggestions = object({
 });
 
 /**
+ * Derived from `schemas/interview_guidance.schema.json` (D-76). The
+ * conditional keywords the published schema uses (`if`/`then`, `maxItems`)
+ * are not in the dialect; the parser enforces them. `how_to_handle_the_gap`
+ * is required but nullable, as every optional field is here.
+ */
+const interviewGuidance = object({
+  competencies: nonEmptyArray(
+    object({
+      rank: integer,
+      name: string,
+      derived_from: nonEmptyArray(string),
+      why_the_posting_implies_it: string,
+      be_ready_to_explain: nonEmptyArray(string),
+      likely_question: string,
+      evidence_to_cite: array(string),
+      standing: enumOf(COMPETENCY_STANDING),
+      how_to_handle_the_gap: nullable(string),
+    }),
+  ),
+  framing: string,
+});
+
+/**
  * Keyed by the `task` the pipeline puts on each `CapabilityRequest` — the
  * stage key, or the generator key for Stage 9 (`docs/12` D-29).
  */
@@ -290,4 +314,5 @@ export const STAGE_OUTPUT_SCHEMAS: Readonly<Record<string, OutputSchema>> = {
   workflow_review: workflowReview,
   recommendation_generation: recommendationGeneration,
   portfolio_suggestions: portfolioSuggestions,
+  interview_guidance: interviewGuidance,
 };

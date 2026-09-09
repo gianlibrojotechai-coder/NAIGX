@@ -260,6 +260,8 @@ const STAGE_LABELS: Readonly<Record<string, string>> = {
   recommendation_generation: "Recommendation",
   artifact_planning: "Artifact plan",
   portfolio_suggestions: "Portfolio suggestions",
+  // D-76: the second Stage 9 generator.
+  interview_guidance: "Interview guidance",
 };
 
 /**

@@ -488,6 +488,38 @@ export const asMermaidDiagram = (content: unknown): MermaidDiagram | null => {
   return candidate as MermaidDiagram;
 };
 
+/** `backend/schemas/interview_guidance.schema.json` (D-76). */
+export interface InterviewCompetency {
+  readonly rank: number;
+  readonly name: string;
+  readonly derived_from: readonly string[];
+  readonly why_the_posting_implies_it: string;
+  readonly be_ready_to_explain: readonly string[];
+  readonly likely_question: string;
+  readonly evidence_to_cite: readonly string[];
+  readonly standing: "evidenced" | "gap";
+  readonly how_to_handle_the_gap: string | null;
+}
+
+export interface InterviewGuidance {
+  readonly competencies: readonly InterviewCompetency[];
+  readonly framing: string;
+}
+
+export const asInterviewGuidance = (
+  content: unknown,
+): InterviewGuidance | null => {
+  if (content === null || typeof content !== "object") return null;
+  const candidate = content as Partial<InterviewGuidance>;
+  if (
+    !Array.isArray(candidate.competencies) ||
+    candidate.competencies.length === 0
+  )
+    return null;
+  if (typeof candidate.framing !== "string") return null;
+  return candidate as InterviewGuidance;
+};
+
 /** `backend/schemas/skill_gap_analysis.schema.json` (D-75). */
 export interface SkillGapRequirement {
   readonly id: string;

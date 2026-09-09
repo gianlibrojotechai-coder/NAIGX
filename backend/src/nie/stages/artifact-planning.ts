@@ -106,6 +106,20 @@ export function planArtifacts(
     // so it is planned whenever Stage 7 produced one, whichever way the
     // verdict went: an apply_now analysis with no gaps says so, which is a
     // finding rather than an absence.
+    // D-76 — the interview guidance is derived from the same recommendation
+    // and is wanted on either verdict: an apply_now operator is about to be
+    // interviewed; a build_first operator will be, once the build is done.
+    if (artifactType === "interview_guidance") {
+      return {
+        artifactType,
+        planned: true,
+        depthLevel: "standard",
+        inclusionReason:
+          `Generated from the Stage 7 recommendation: the competencies ${String(recommendation.requiredCapabilities.length)} requirement(s) imply, ` +
+          `with ${String(recommendation.matched.length)} matched capability(ies) to cite (D-76).`,
+      };
+    }
+
     if (artifactType === "skill_gap_analysis") {
       return {
         artifactType,

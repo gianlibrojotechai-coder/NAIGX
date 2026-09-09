@@ -140,7 +140,7 @@ test("an empty project list is rejected", () => {
 test("an artifact type with no registered schema raises rather than skipping", () => {
   const error = capture(() =>
     validateArtifact(
-      "interview_guidance" as Parameters<typeof validateArtifact>[0],
+      "complexity_score" as Parameters<typeof validateArtifact>[0],
       {},
     ),
   );

@@ -157,6 +157,8 @@ export interface PipelineResult {
   readonly artifactPlan?: readonly ArtifactPlanEntry[];
   /** Stage 9, present only when the plan included `portfolio_suggestions`. */
   readonly portfolioSuggestions?: PortfolioSuggestions;
+  /** D-76 — present when the interview guidance generated. */
+  readonly interviewGuidance?: InterviewGuidance;
   /**
    * Stage 6W, existing-workflow path only (`FR-021`, `docs/15` D-40).
    *
@@ -526,6 +528,35 @@ export interface RecommendationResult extends RecommendationForArtifacts {
   readonly requiredCapabilities: readonly RequiredCapability[];
 }
 
+// --- Stage 9, interview guidance (D-76) --------------------------------------
+
+export const COMPETENCY_STANDING = ["evidenced", "gap"] as const;
+export type CompetencyStanding = (typeof COMPETENCY_STANDING)[number];
+
+/**
+ * One architectural competency the posting implies (`AI §9.1` Interview
+ * Guidance). `derivedFrom` names Stage 7 requirement ids — the grounding
+ * that makes "derived from the posting, not generic" checkable — and
+ * `evidenceToCite` names only capability ids Stage 7 matched.
+ */
+export interface InterviewCompetency {
+  readonly rank: number;
+  readonly name: string;
+  readonly derivedFrom: readonly string[];
+  readonly whyThePostingImpliesIt: string;
+  readonly beReadyToExplain: readonly string[];
+  readonly likelyQuestion: string;
+  readonly evidenceToCite: readonly string[];
+  readonly standing: CompetencyStanding;
+  /** Present exactly when `standing` is `gap`. */
+  readonly howToHandleTheGap?: string;
+}
+
+export interface InterviewGuidance {
+  readonly competencies: readonly InterviewCompetency[];
+  readonly framing: string;
+}
+
 // --- Stage 8 / Stage 9, job-description path (`docs/12` D-29) -------------
 
 /**
@@ -608,6 +639,8 @@ export const IMPLEMENTED_ARTIFACT_TYPES = [
   // D-75: rendered from the Stage 7 recommendation.
   "skill_gap_analysis",
   "portfolio_suggestions",
+  // D-76: generated from the Stage 7 recommendation.
+  "interview_guidance",
   "workflow_recommendation",
   "risk_assessment",
   "assessment_feedback",
@@ -630,7 +663,12 @@ export const IMPLEMENTED_ARTIFACT_TYPES = [
  * and the honest response to a retry request is to say so rather than to
  * perform a gesture. `API-032` returns `invalid_state` for those.
  */
-export const GENERATED_ARTIFACT_TYPES = ["portfolio_suggestions"] as const;
+export const GENERATED_ARTIFACT_TYPES = [
+  "portfolio_suggestions",
+  // D-76: the second Stage 9 generator, retried the same way.
+  "interview_guidance",
+] as const;
+export type GeneratedArtifactType = (typeof GENERATED_ARTIFACT_TYPES)[number];
 
 /**
  * Whether a failed artifact of this type is worth attempting again.

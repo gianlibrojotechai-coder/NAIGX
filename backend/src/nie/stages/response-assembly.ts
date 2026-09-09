@@ -107,7 +107,10 @@ export function assembleResponse(result: PipelineResult): AssemblyReport {
       .map((e) => e.artifactType),
   );
   if (
-    (types.has("portfolio_suggestions") || types.has("n8n_workflow")) &&
+    (types.has("portfolio_suggestions") ||
+      types.has("n8n_workflow") ||
+      types.has("skill_gap_analysis") ||
+      types.has("interview_guidance")) &&
     result.recommendation === undefined
   ) {
     problems.push(
