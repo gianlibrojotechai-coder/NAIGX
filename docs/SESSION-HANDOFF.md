@@ -1,22 +1,21 @@
 # NAIGX — Session Handoff
 
-**Written:** 2026-09-08 · **Last updated:** 2026-09-09
+**Written:** 2026-09-08 · **Last updated:** 2026-09-09 (evening — the evidence campaign is complete)
 **Purpose:** hand a new chat session everything it needs to continue building NAIGX without re-deriving context or re-litigating settled decisions.
 
 > **Read this first, then `docs/STATUS.md`.** STATUS.md is the authoritative current-state record. This file covers the most recent working sessions, and the exact next step.
 >
-> ⚠️ **Start at §7a — it has changed completely.** NAIGX **is deployed.** `https://naigx.tech` serves the client over a real Let's Encrypt certificate, six containers are up on the Hostinger VPS, and the host/domain dependency that blocked all of Sprint 5 is **discharged**.
+> ⚠️ **Start at §7a — the front line has MOVED.** Every "the activation gate refuses" statement in earlier editions is superseded.
 >
-> ✅ **The host now runs current `main` (`34ce193`).** The build/repository mismatch the previous edition led with is **closed** — `main` was pushed (it was 9 commits ahead of `origin`) and the stack rebuilt. Both readiness gates now report for true reasons.
+> ✅ **THE FRAGMENT ACTIVATION BLOCKAGE IS CLEARED.** All **15** authored fragments are **PERMITTED** by the real activation gate against a real reference — `corpus-regression:corpus-v2+fragments-v1:d4abcd42626452df`, from a 15-case run that passed 15/15. Zero `composition_mismatch`, zero `fragment_not_covered`. Verified per fragment *and* as the publisher actually asks it: all 15 keys in one call.
 >
-> ⚠️ **The backend is deployed and NOT READY, and this is now the settled state.** `GET /health` answers **503** with `templates: unavailable` (zero fragments published) and `provider: unavailable` (`REPLAY_FIXTURES` empty — D-62's real replay message, no longer the live branch's). **Both are gates working correctly.** Do not weaken either.
+> ⚠️ **THE GATE WAS NEVER WEAKENED TO GET THERE.** D-64 §4.3 was **added** during this campaign and made activation *harder*, not easier. No exemption, no `--force`, no manufactured reference. The gate is stricter today than when the blockage began.
 >
-> 🛑 **THE PROJECT IS BLOCKED ON TWO OWNER DECISIONS, NOT ON CODE.** §7a has both:
-> 1. **A closed circle blocks admitting ew-001** — admission invalidates the only pass reference, and the replacement run cannot be produced because `regression:run` resolves legacy recordings against a database that lacks `stage.workflow_review`, which cannot be published without that run. Breaking it means deciding what a pass reference attests → **D-64**.
-> 2. **The last 4 fragments need paid captures** that have each failed once already. There is no offline path to them.
+> ⚠️ **NAIGX IS STILL NOT READY, and that is now purely a deployment matter.** `GET /health` answers **503**: no fragments are published to the production database yet, and `REPLAY_FIXTURES` is still `{}`. Both gates are working correctly. §7a lists the three remaining actions — publish, redeploy, wire the fixtures — **none of which is an evidence problem any more.**
 >
-> ⚠️ **Everything else in Sprint 5 that can be done without spend or a human reviewer is done.** The temptation to publish fragments with a manufactured or non-covering reference so the health check goes green is exactly what the owner has ruled out, twice. A green `/health` bought that way is worth less than the 503.
-
+> ⚠️ **Read §7a's three thin points before claiming anything about quality.** `stage.portfolio_suggestions` rests on **one** recording produced by a **non-deterministic** verdict; four of the five input types are evidenced by one or two cases; and `br-006`/`br-008` were **withdrawn**, not fixed.
+>
+> **Spend to date: $1.7121**, all authorised case by case.
 ---
 
 ## 1. What NAIGX is
@@ -64,11 +63,14 @@ These are standing instructions given explicitly. **They override default thorou
 
 ✅ **DISCHARGED since the last edition:** the production host and domain (Hostinger VPS + `naigx.tech`), TLS (`NFR-020` — a real Let's Encrypt certificate, issued 2026-09-08, valid to 2026-12-07), and the AWS account, which **no longer exists as a dependency at all** — D-61 replaced managed KMS with a host-held key file, and `tests/integration/kms-live.test.ts` was deleted rather than left skipping.
 
-⚠️ **What remains — the first three are code, which reverses the previous edition's "no remaining code increment":**
+✅ **ALSO DISCHARGED 2026-09-09 (evening):** the whole **fragment-coverage blockage**. All 15 fragments are gate-PERMITTED against reference `d4abcd42626452df`. See §7a.
+
+⚠️ **What remains:**
 
 - ~~**▶ Redeploy the backend.**~~ ✅ **DONE 2026-09-09.** `main` was pushed (it was 9 commits ahead of `origin`, which the previous edition did not know) and the host rebuilt to `34ce193`. The D-62 marker went `0` → `1` and the `provider` message changed to the replay branch's. ⚠️ `/health` is still **503**, correctly — see §7a.
-- **▶ Fragment activation for the production database** — *code and evidence.* The production DB holds **zero** prompt fragments, so readiness fails. Publishing them requires a regression pass reference that covers them, and **6 of 15 fragments are not covered by any committed recording**. This is §7a and it is where the work is.
-- **`REPLAY_FIXTURES` is a hardcoded empty object** at `backend/src/index.ts:79`. Readiness in replay mode cannot pass until something real loads into it (D-62). ⚠️ **NOT independent and not startable yet** — it is strictly *downstream* of fragment publication and additionally needs a compose mount. The previous edition's "small, genuine, unstarted" was wrong on the first two words; see §7a.
+- **▶ PUBLISH the fragments to production** — the production DB still holds **zero** prompt fragments, so readiness fails. ✅ The evidence half is **done**: the gate permits all 15 against `d4abcd42626452df`. What remains is running the `fragments` compose service against the production database, which is an **owner authorisation**, not a discovery.
+- **▶ Redeploy again.** The host runs `34ce193`; everything from `e7e5906` onward is undeployed. ⚠️ Check `git log origin/main..HEAD` first — an unpushed `main` makes the runbook a silent no-op.
+- **`REPLAY_FIXTURES` is a hardcoded empty object** at `backend/src/index.ts:79`. Readiness in replay mode cannot pass until something real loads into it (D-62). It is strictly *downstream* of fragment publication — it composes against published fragments — and additionally needs `research/` mounted into the `backend` compose service, which only the `fragments` service does today (`docker-compose.prod.yml:160-161`). **Startable for the first time once publication happens.**
 - **A production rollback drill** — needs a deployed instance, which now exists. Newly *possible*, still undone.
 - **A restore drill against production data** — the mechanism is proven on dev data; backups are running on the host.
 - **Off-host backup storage** — `rclone` is installed with a `gdrive:` remote configured, but the remote is **empty** and the automated cycle does not upload. Encryption-before-upload exists; the upload leg does not run.
@@ -105,7 +107,9 @@ These are standing instructions given explicitly. **They override default thorou
 | `docs/37` **D-62** | Mode-aware `API-060` readiness — replay is a valid execution mode, and a replay instance with no recordings is **not** ready |
 | `docs/38` **D-63** | Regression evidence composes against **authored** fragments, breaking the publish/evidence circularity — **plus the §7 amendment**, which is the load-bearing half |
 
-**Numbering convention: the next standalone record is `docs/39` D-64.** Nothing is currently owed.
+| `docs/39` **D-64** | **What a pass reference attests, and which composition a run reproduces.** Accepted (Option C). Adds the `composition_mismatch` refusal — it made activation **harder** — and fixes the legacy-composition defect that stranded `ew-001`. ⚠️ §10 is a dated, OPEN deviation |
+
+**Numbering convention: the next standalone record is `docs/40` D-65.** Nothing is currently owed.
 
 ⚠️ **D-63 without its §7 amendment is actively wrong.** The original decision made the runner re-resolve recordings against authored fragments, which invalidated **10 of 13** committed recordings the moment authored content drifted. The amendment separates **replayability** from **evidential currency**: a recording that carries its own captured composition replays against *that* and is never stale for replay; only the activation gate asks the currency question. Read §7 before touching anything in `src/regression/`.
 
@@ -145,6 +149,14 @@ These are the defects that *passed every test* before being caught. They are the
 - **`assert.throws` returns `void` in Node's types** — it cannot hand you the error to inspect. Capture with `try`/`catch` when you need to assert on fields.
 - **Two POSIX permission tests skip on Windows and are the ones that matter in production.** `key-file-provider.test.ts`'s *"FAILS CLOSED when the key file is group-readable / world-readable"* guard D-61's whole security argument, and `process.platform !== "win32"` skips both on the dev machine. They are 2 of the suite's 4 skips. ⚠️ **Run them on the VPS**, or the key file's permission enforcement is asserted by nothing.
 
+- **⚠️ CAPTURE AND REPLAY DIVERGING IS THIS PROJECT'S MOST EXPENSIVE BUG SHAPE — it has now happened THREE times.** `stageProviderInputs` mis-routing `workflow_review`; the `--case=` asymmetry; and the Stage 7 capability profile, which `capture.ts` passed to the pipeline and `runner.ts` did not. **Every instance surfaced as a message blaming the evidence** — *"No recorded response for request key …"*, *"No capability profile supplied"* — against recordings that were perfectly fine. Fixing the profile in `runRegression` alone exposed a second half in `createRecordedProvider`, because the fixture builder keys Stage 7 **only when a profile is present**. ⚠️ **When a replay failure points at a recording, first ask what capture had that replay does not.**
+- **A capture that succeeds can still prove nothing.** `jd-008` passed every assertion and produced **0 matched entries**, so the locator rule it was captured to test was never exercised — a *vacuous* pass. ⚠️ **Check that the run actually exercised the thing under test**, not merely that it went green.
+- **A failed capture is billed, and a batch overruns silently.** A nine-case batch exceeded its authorisation by 6.5%: `br-006` failed after 3 paid calls and `br-008` took a 5-call path where 4 were budgeted. Cost was measured *after* the batch, which is a receipt rather than a ceiling. `--budget=` now refuses to **start** a case once the ceiling is reached, and every outcome carries `costUsd` **including failures**.
+- **Re-capturing a case that already has a recording had only two outcomes, and both were wrong:** skipped, or `--force`, which **destroys the recording being tested**. `--out=` writes a paid capture outside the store so admission stays a separate decision.
+- **A keyword scan does not predict model behaviour.** `jd-008` was chosen because it mentioned n8n/Zapier/Make; its actual requirements were healthcare-domain and years-of-experience, which correctly became gaps rather than matches. ⚠️ **Select cases on observed requirement/match/verdict behaviour, never on vocabulary.**
+- **A prompt can be right and still not be followed.** The locator instruction already said *"Copy the locator exactly"*. What was missing was an **escape hatch** — nothing told the model what to do when it believed a requirement matched but no locator fitted, so it invented one. Pointing at `gaps` was the load-bearing half of the fix.
+- **⚠️ My own failure-mode characterisation was wrong once, and it mattered.** I reported `jd-002` as *inventing* an anchor; auditing the citations showed it **borrowed** a real locator declared on another capability, and that **1 of 4–5 citations** was wrong, not most. **Audit the actual values against the source of truth before naming a failure mode.**
+
 ---
 
 ## 6. Architectural decisions — do not re-litigate
@@ -164,442 +176,106 @@ These are the defects that *passed every test* before being caught. They are the
 
 ---
 
-## 7a. ▶ THE NEXT STEP — NAIGX is deployed, not ready, and the thing in the way is the activation gate
+## 7a. ▶ THE NEXT STEP — the evidence gate is GREEN; publication is the owner's call
 
-**Verified on the host, 2026-09-09.** Not inferred from a compose file:
+⚠️ **This section was rewritten 2026-09-09 (evening). Every "the gate refuses"
+statement in earlier editions is superseded.** The whole fragment-activation
+blockage — the thing that had blocked Sprint 5 for days — is **cleared**.
+
+### The state, measured not asserted
 
 ```
-naigx-postgres      Up 10 hours (healthy)
-naigx-backend       Up  7 hours (UNHEALTHY)
-naigx-edge          Up  7 hours
-naigx-prometheus    Up  7 hours
-naigx-alertmanager  Up  7 hours
-naigx-backup        Up  7 hours
-n8n-traefik-1       Up  5 weeks      ← the shared edge, D-60
-n8n-n8n-1           Up  5 weeks      ← untouched, as required
-
-https://naigx.tech        → 200, ssl_verify_result=0
-https://naigx.tech/health → 503
-issuer = Let's Encrypt CN=YR1,  notBefore Sep 8 2026,  notAfter Dec 7 2026
+canonical corpus            15 recordings, manifest clean, byte-verified
+pass reference              corpus-regression:corpus-v2+fragments-v1:d4abcd42626452df
+  from a 15-case run        15 passed · 0 failed · 0 blocked · 0 stale · 0 errored
+activation gate             PERMITTED = 15   composition_mismatch = 0
+                            fragment_not_covered = 0
+  asked per fragment AND as the publisher asks it (all 15 keys, one call)
 ```
 
-✅ **`NFR-020` TLS is now verified** — a certificate has actually been issued,
-which Phase 2 explicitly could not claim. ✅ The pre-existing n8n stack is
-still up, which was D-60's whole constraint.
+**Every one of the 15 authored fragments is now activatable.** `npm run
+fragments:publish -- --reference=corpus-regression:corpus-v2+fragments-v1:d4abcd42626452df`
+would pass the gate.
 
-### Why the backend is unhealthy — two gates, both correct
+⚠️ **THE GATE WAS NEVER WEAKENED TO GET HERE.** D-64 §4.3 was *added* during
+this campaign and made activation **harder**, not easier. No exemption, no
+`--force` path, no manufactured reference. The gate is stricter today than when
+the blockage started.
 
-```json
-{"status":"error","database":"connected",
- "dependencies":{"database":"available","provider":"unavailable","templates":"unavailable"}}
-```
+### What the corpus holds
 
-⚠️ **Neither is a defect. Do not "fix" either by relaxing a check.**
-
-1. **`templates: unavailable`** — `checkTemplates` resolves the four foundation
-   fragments from the primary store. **The production database contains zero
-   rows in `prompt_fragment`** (verified by `psql` on the host). No fragments,
-   no composable prompt, no readiness.
-2. **`provider: unavailable`** — ⚠️ **and this one is not what the current
-   source says it should be.** The container logs `"mode":"replay"` and then
-   rejects with **`"No provider is configured"`**, which is the **live** branch's
-   message. On current `main`, replay's rejection reads *"Replay mode is
-   configured but no recordings are available…"*. **The deployed build predates
-   [D-62](37-D-62-Mode-Aware-Readiness.md)** — confirmed directly:
-   `docker exec naigx-backend grep -c "no recordings are available" /app/dist/index.js`
-   returns **0**, and `/app/dist/index.js` still carries the old
-   credential-in-every-mode `checkProvider`.
-
-✅ **RESOLVED 2026-09-09 — THE HOST NOW RUNS CURRENT `main` (`34ce193`).**
-`main` was pushed (it was 9 commits ahead of `origin`) and the runbook was
-executed. The paragraph below described the state before that and is kept
-because its *lesson* is the durable part:
-
-> ⚠️ THE RUNNING CONTAINER IS NOT BUILT FROM CURRENT `main`. Everything from
-> `ca2bb8b` onward is committed and undeployed… the host is running a build
-> older than the repository, and the two disagree about what readiness means.
-
-**What the redeploy actually produced**, checked rather than assumed:
-
-| Check | Before | After |
-|---|---|---|
-| `grep -c "no recordings are available" /app/dist/index.js` | `0` | **`1`** |
-| `provider` rejection | *"No provider is configured"* — the **live** branch | *"Replay mode is configured but no recordings are available… (D-62)"* |
-| `GET /health` | 503 | **503 — unchanged, and correct** |
-| `https://naigx.tech` | 200, `tls=0` | 200, `tls=0` |
-| `n8n-traefik-1` / `n8n-n8n-1` | up 5 weeks | **untouched, up 5 weeks** (D-60) |
-
-No migrations were involved — `git diff --name-only HEAD origin/main --
-backend/prisma/migrations` was empty, as the runbook predicted. Startup logs
-`mode:"replay"` and `Field encryption active provider=key-file(…) keyVersion=1`.
-
-⚠️ **`/health` is still 503 and that is the expected outcome, not a failed
-deploy.** Both gates still fail, both correctly: zero fragments published, and
-`REPLAY_FIXTURES` empty. **The redeploy was a prerequisite, and it is now
-discharged — it was never going to make the instance ready by itself.**
-
-Consequence for the plan: **publishing fragments alone will not make this
-instance ready.** The deployed build demands an Anthropic credential in replay
-mode, so `provider` stays unavailable until it is rebuilt. A redeploy is a
-prerequisite, not a follow-up. And on current `main`, `REPLAY_FIXTURES` is still
-`const REPLAY_FIXTURES: Readonly<Record<string, never>> = {}` at
-[`backend/src/index.ts:79`](../backend/src/index.ts#L79) — a hardcoded empty
-object — so a rebuild alone does not finish the job either. ⚠️ **Both halves are
-real and unstarted, but they are NOT parallel:** the fixtures cannot be built
-before the fragments are published, because building one composes a prompt
-against the published resolver. See *"`REPLAY_FIXTURES` is not an independent
-task"* below.
-
-### The activation gate, and the exact shape of the blockage
-
-Publishing fragments requires a regression pass reference that **exercised the
-fragments being activated** (`DB §4.5`, D-14, D-24 dec. 4, D-30 dec. 3). Coverage
-is computed from the committed recordings. Measured 2026-09-09 across all 15
-authored fragments:
-
-| Covered by the 13 committed recordings | Not covered by anything |
+| | Cases |
 |---|---|
-| `foundation.system_frame` (13) · `foundation.provenance_rules` (13) · `foundation.neutrality_constraints` (13) · `foundation.refusal_and_uncertainty` (13) · `stage.classification` (13) · `stage.context_extraction` (11) · `stage.intent` (11) · `type.business_requirement` (11) · `stage.architecture_analysis` (10) | ⚠️ `stage.workflow_review` · `type.workflow` · `stage.recommendation_generation` · `stage.portfolio_suggestions` · `type.assessment` · `type.job_description` |
+| `business_requirement` | br-001…br-004, br-005, br-007, br-009…br-011 — **9** |
+| `unsupported` | un-001, un-002 — **2** |
+| `existing_workflow` | ew-001 — **1** |
+| `technical_assessment` | ta-005 — **1** |
+| `job_description` | jd-002, jd-008 — **2** |
 
-**9 of 15 covered, 6 uncovered.** The 13 committed recordings are all
-`FIRST_VERTICAL` (`business_requirement` + the special classes), so every
-non-`br`/`un` path is unevidenced.
+All 15 carry a **pinned, authored composition**. Before this campaign every
+recording was legacy with no persisted composition; D-63 §7's mechanism now has
+subjects.
 
-### ⚠️ ew-001 — held, paid for, and the subject of a completed feasibility check
+### ⚠️ The three thin points — read before claiming anything about quality
 
-`research/regression-pending/ew-001.json` is **untracked, real provider evidence**
-(`claude-sonnet-4-5`, **$0.1072**, captured 2026-09-08T12:29Z, 4 stages). It sits
-outside the canonical store deliberately — see `research/regression-pending/README.md`
-and the §5 lesson. **It has never been admitted and its corpus assertions have
-never been evaluated.**
+1. **`stage.portfolio_suggestions` rests on ONE recording produced by a
+   NON-DETERMINISTIC verdict.** jd-002 gave `build_first`, then `apply_now`,
+   then `build_first` on identical input, with nine technical requirements
+   extracted every time. Only the build path reaches Stage 9. The gate is
+   satisfied and the evidence is real, but this is the thinnest point in the
+   corpus. The superseded `apply_now` run is kept at
+   `research/regression-superseded/` precisely so this stays visible.
+2. **Four of the five input types are evidenced by one or two cases.**
+   `docs/10` §4 wants ≥20 per type before a rate is claimed. Breadth is not
+   depth, and `review-packet.test.ts` asserts the per-type counts so a future
+   reader cannot mistake one for the other.
+3. **br-006 and br-008 were WITHDRAWN, not fixed** — see below.
 
-A **read-only feasibility inspection completed 2026-09-09** established, by
-exercising the real code paths against the real database rather than by reading
-them:
+### The withdrawal, and why it is not a bypass
 
-- **ew-001 needs 9 fragment keys.** Eight resolve. One does not:
-  **`stage.workflow_review`**, which has no row in `prompt_fragment` *at all* —
-  not merely no active version. It postdates the dev database's fragment seed.
-- **If admitted unchanged, `regression:run -- --case=ew-001` produces `errored`** —
-  not `stale`, not `blocked`. The recording carries no `composition` (captured
-  hours before the D-63 amendment persisted them), so it takes the LEGACY path,
-  and the active resolver throws a plain `Error` *before* any staleness
-  comparison happens. A plain `Error` matches none of the three arms in
-  [`runner.ts:304-310`](../backend/src/regression/runner.ts#L304-L310).
-  The exact throw, captured live: `No active published version for fragment(s): stage.workflow_review`.
-- **This already happened once, and is committed.**
-  `research/regression-failures/corpus-v1/ew-001-2026-09-08T11-42-27-007Z.json`
-  records the 11:42 capture attempt dying on that identical message after
-  3 provider calls. The 12:29 capture succeeded only because capture had by then
-  been switched to the **authored** resolver (D-63), which reads
-  `prompts/stage/workflow_review.md` off disk.
-- **The deferred assertions do not block evaluation.** `artifact_set`,
-  `confidence_band` and `do_not_automate_conclusion` are `supported: false` and
-  report as `deferred` — a reported outcome, not an error. ew-001 would still be
-  judged on the six supported assertions, and its live expectations
-  (`existing_workflow`, confidence ≥ 0.6) are exactly what the recording answers
-  (`existing_workflow` at 0.95).
-- **▶ ew-001 CAN be evaluated today with zero spend and zero corpus mutation.**
-  `runRegression` already takes `store` and `resolver` as options, and
-  `createRecordingStore(root)` takes a root — `capture` already uses both that
-  way for dry runs. Swapping in `createAuthoredResolver(readAuthoredFragments(PROMPTS_ROOT))`
-  is what makes it resolvable, and **the composition reproduces exactly**:
-  `94768ecd876b85e8…` from the authored resolver, `94768ecd876b85e8…` recorded.
-  The input hash matches too (`5806cba06c82…`), so nothing blocks earlier.
-- ⚠️ **But such a run can never satisfy the gate**, because
-  `assertActivationPermitted` recomputes coverage against
-  `createRecordingStore()` — the canonical store. **The architecture requires
-  admission for *activation*, not for *evaluation*. That separation is
-  deliberate and correct. Do not collapse it.**
+`br-006` and `br-008` are at `research/regression-withdrawn/`, bytes preserved
+and committed. Both carried the **active** composition (`4f65ab62887890`),
+stale against the candidate, and neither could be re-captured:
 
-**Admitting ew-001 would cover 2 of the 6 uncovered fragments** —
-`stage.workflow_review` and `type.workflow` — and would invalidate the two
-committed references (`4ea7eef7345389e9`, `35af47fbdabae5eb`) as sufficient for
-foundation activation, because every foundation fragment would then compose into
-14 recorded cases rather than 13.
+- **br-006** has failed at stage 3 on `source_quote does not occur in the input`
+  **three times**; its old recording came from a fourth attempt.
+- **br-008** re-captured as `job_description` — the ambiguity `docs/12` D-25
+  already records for this exact case.
 
-### ✅ THE EVALUATION HARNESS IS BUILT, AND ew-001 PASSES *(2026-09-09)*
+⚠️ A withdrawn case leaves the **recorded** set, so coverage reports it
+`unrecorded` — *undetermined*, never *covered*. Nothing is grandfathered.
+**The cost is real and was accepted deliberately:** `type.business_requirement`
+now composes into 9 cases rather than 11.
 
-**Owner approved it this session.** `npm run regression:evaluate -- --case=<id>`
-(`regression.mts`, command `evaluate`). It runs `runRegression` against a
-scratch-rooted store holding a copy of the held recording plus a generated
-manifest, with the authored resolver. Zero provider spend, zero canonical-corpus
-mutation. It writes **no** run record and builds **no** pass reference —
-`buildPassReference` is not imported into that block, so a later edit cannot
-reach for it by accident.
+### What this cost
 
-**The result, run live:**
+**$1.7121 of provider spend**, all authorised case by case. 22 paid captures
+attempted; 13 produced usable recordings. The rest are preserved as failure
+evidence under `research/regression-pending/failures/` and
+`research/regression-failures/`.
 
-```
-✅ ew-001   composition 94768ecd876b85e8 · captured 2026-09-08T12:29:22.497Z
-     ok classification — existing_workflow
-     ok classification_confidence_bound — 0.95 is at or above threshold 0.6
-     ok run_completeness — the run reached its terminal stage
-     ok reference_integrity — 23 context element(s), 9 component(s), every grounding resolved
-     -- artifact_set — Stages 8-9 (artifact planning and generation), Sprint 2
-     -- confidence_band — Stage 11 (confidence evaluation), Sprint 2
-```
+### ▶ WHAT REMAINS FOR PRODUCTION READINESS
 
-⚠️ **Correction to the previous edition: it is 4 supported assertions, not 6.**
-Six are *evaluated*; four are supported and pass, two are deferred.
-`do_not_automate_conclusion` is **not among them at all** — `ew-001.yaml` states
-no such expectation, so it was never applicable to this case.
+The evidence track is **done**. Three things stand between here and a ready
+instance, and **none of them is an evidence problem**:
 
-**The evidence is sound and the admission decision is now unblocked.** It
-remains the owner's, and nothing above widens coverage: `assertActivationPermitted`
-still recomputes against the canonical store, which still holds 13 recordings.
+1. **▶ Publish the fragments to production.** The gate permits it; it needs the
+   owner's authorisation and a run of the `fragments` compose service against
+   the production database with the reference above. **This is the next action
+   and it is a decision, not a discovery.**
+2. **▶ Redeploy the backend.** The host runs `34ce193`; everything from
+   `e7e5906` onward is undeployed — D-64, the capture tooling, the parity fix.
+   `deploy/README.md` has the runbook. ⚠️ **Push first** — check
+   `git log origin/main..HEAD` before assuming the runbook will fetch anything.
+3. **▶ `REPLAY_FIXTURES` is still `{}`** at
+   [`backend/src/index.ts:79`](../backend/src/index.ts#L79). Now genuinely
+   startable for the first time: it needed published fragments to compose
+   against, and after step 1 it will have them. It also needs `research/`
+   mounted into the `backend` compose service — the `fragments` service already
+   does this (`docker-compose.prod.yml:160-161`); `backend` does not.
 
-### ⚠️ THE FEASIBILITY CHECK WAS WRONG, AND A REAL DEFECT WAS HIDING BEHIND IT
-
-The previous edition asserted *"▶ ew-001 CAN be evaluated today with zero spend"*
-on the strength of a read-only inspection of resolution and composition. Both of
-those facts were right — and ew-001 still could not be replayed, because the
-inspection stopped one step short of running the pipeline. **The first run of the
-harness failed:**
-
-```
-💥 ew-001 — No recorded response for request key 12602299cef18ed3
-```
-
-**Root cause — [`stageProviderInputs`](../backend/src/nie/pipeline.ts#L196), and
-it was never about ew-001.** That function tells a recorder which provider input
-each stage will receive, and `createRecordedProvider` keys a replay fixture from
-it. It re-stated the Stage 6 routing rules inline: `job_description` to Stage 7,
-and **everything else** to `architecture_analysis`. But `planReasoning` sends
-`existing_workflow` to `workflow_review` and pointedly *not* to architecture
-design (`FR-021` via `AI §7.1`, D-40). So the `existing_workflow` path was
-mis-described.
-
-Nothing went red. `createRecordedProvider` **skips** a recorded stage it has no
-provider input for, so an `existing_workflow` recording quietly built one fewer
-fixture, and Stage 6 then failed at replay with a message that reads like
-*missing evidence* when the evidence was present and merely unkeyed.
-
-⚠️ **This means NO `existing_workflow` recording could ever have been replayed,**
-whatever the corpus said, and the same held for any future path routed through a
-new reasoning module. It was not a property of ew-001; ew-001 is just the first
-case that ever tried.
-
-**Fixed** by routing through `planReasoning` — the same pure, total function the
-pipeline itself branches on at Stage 6 — so a module cannot be routed in the
-pipeline and forgotten in the fixture builder. Verified two ways: the missing key
-`12602299cef18ed3` is exactly the key the fixed builder now produces for
-`workflow_review`, and **all 13 committed recordings still pass with a
-byte-identical pass reference (`35af47fbdabae5eb`)**, so the change is
-behaviour-preserving for everything already admitted.
-
-⚠️ **Why the existing tests could not catch it** — this is the durable lesson:
-
-- `nie-pipeline.test.ts`'s agreement test is exactly the right test and its
-  comment predicted this defect verbatim (*"a broken handoff could hide behind
-  green tests"*). It only ever runs the **business-requirement** path.
-- `nie-m11-paths.test.ts` *does* exercise `existing_workflow` end to end — but
-  its `primedAdapter` computes fixture keys **itself**. ⚠️ **A test that
-  reimplements the function under test cannot disagree with it.** It was green
-  for the same reason the defect was invisible.
-
-Two tests now assert the real `stageProviderInputs` against the real handoff for
-both non-requirement paths, including that the branch *not* taken is absent.
-**Confirmed by differential**: removing the fix turns the `existing_workflow`
-case red and leaves `technical_assessment` green.
-
-### ⚠️ NO RECORDING IN THE REPOSITORY CARRIES A `composition` — ALL 14 ARE LEGACY
-
-Measured, not read off the docs. The previous edition described the absent
-`composition` as specific to ew-001; it is universal:
-
-```
-br-001..br-011, un-001, un-002, ew-001  →  composition: no   (14 of 14)
-```
-
-So every recording takes the **LEGACY** path at
-[`runner.ts:181`](../backend/src/regression/runner.ts#L181) and still resolves
-against the database's active fragment versions. **D-63's amendment is currently
-protecting nothing** — not because it is wrong, but because its benefit begins
-with the next *capture*. Do not rely on "recordings replay against their pinned
-composition" until a recording exists that has one. It also means
-`regression:run` still needs the database, exactly as §9 says.
-
-### ⚠️ `REPLAY_FIXTURES` IS NOT AN INDEPENDENT TASK — corrected 2026-09-09
-
-The previous edition called it *"small, genuine, unstarted"* and listed it
-beside the fragment work as though either could be done first. **It cannot be
-started at all until fragments are published**, and it needs a deployment change
-the previous edition did not mention. Verified three ways rather than read:
-
-1. **The fixture key requires a composed prompt.**
-   `createRecordedProvider` keys every fixture with
-   `replayKeyFor({task, input, instructions, …})`, where `instructions` comes
-   from `composePrompt(…, resolver)`. Production's resolver is
-   `db/fragment-resolver.ts`, which **throws** `No active published version for
-   fragment(s): …` when a key has no active row. The production database holds
-   **zero** fragments, so no fixture can be built. ⚠️ Reaching for the authored
-   resolver here to get around that would make production run prompts that were
-   never published — the activation gate's whole purpose, defeated from the
-   other side.
-2. **The recordings are not in the runtime image, and cannot be.**
-   `backend/.dockerignore` lists `research`, and `research/` sits **outside** the
-   `./backend` build context regardless — the same reason `ops/fragments.ts`'s
-   header gives for `prompts/`.
-3. **The `backend` compose service mounts neither.** Only the one-shot
-   `fragments` service does (`./prompts:/prompts:ro`, `./research:/research:ro`,
-   `docker-compose.prod.yml:160-161`). So the runtime cannot read a recording
-   even in principle today.
-
-**What it will actually take**, once fragments are published: mount `research/`
-read-only into `backend` exactly as `fragments` already does, build the fixture
-set at startup from the committed recordings against the **published** resolver,
-and let `checkProvider` read its size. A startup failure to compose must leave
-the set empty and the instance *not ready* — never abort the boot, or a replay
-instance could not come up to report why it is unready.
-
-⚠️ **All 14 recordings are legacy** (§ below), so this composition consults the
-database. A recording carrying its own `composition` (D-63 §7) could be keyed
-with the pinned resolver and no database at all — but none exists yet.
-
-### Two tracks, ordered — do not entangle them
-
-| Track | What it needs | Blocked on |
-|---|---|---|
-| **Production readiness** | **Push `main`** (§10 — it is 8 commits behind `origin`), redeploy, then publish fragments, then mount `research/` and load `REPLAY_FIXTURES` | The fragment publish needs a covering pass reference — so it waits on the evidence track |
-| **Regression evidence** | Evaluate ew-001 *(done)*, decide admission, then close the 4 remaining uncovered fragments | Owner approval — and ⚠️ **the last 4 are NOT free**, see below |
-
-The evidence track can proceed on the workstation with nothing deployed. The
-readiness track cannot finish without it. ⚠️ **The temptation to publish
-fragments with a manufactured or non-covering reference so the health check goes
-green is exactly the thing the owner has ruled out** — twice, explicitly. A
-green `/health` bought that way is worth less than the 503.
-
-### ⚠️ "ENTIRELY OFFLINE AND FREE" WAS WRONG FOR THE LAST 4 — corrected 2026-09-09
-
-The previous edition's table said the whole evidence track was *"entirely
-offline and free — no host, no redeploy, no spend"*. That is true of **ew-001**,
-which is already captured and paid for, and **false of the other four.**
-
-Coverage recomputed this session with the gate's own `computeFragmentCoverage`
-against the canonical store — not read off the previous edition — and it agrees
-exactly: **9 covered, 6 uncovered.**
-
-| Uncovered fragment | Closed by | Cost |
-|---|---|---|
-| `stage.workflow_review` · `type.workflow` | Admitting **ew-001** | **Free** — already captured, $0.1072 already spent |
-| `type.job_description` · `stage.recommendation_generation` · `stage.portfolio_suggestions` | A **jd-001** capture | ⚠️ **Live provider spend** |
-| `type.assessment` | A **ta-001** capture | ⚠️ **Live provider spend** |
-
-⚠️ **Both of those captures have already been attempted, and both failed** —
-each after **4 real provider calls** that were paid for and produced no
-recording. Preserved in `research/regression-failures/corpus-v1/`:
-
-- **`jd-001`** (12:30:46Z) — died at **stage 7, `recommendation_generation`**:
-  *"matched[1] cites evidence \"https://github.com/…\", which is not a locator
-  on capability \"cap-001\""*.
-- **`ta-001`** (12:32:33Z) — died at **stage 6, `architecture_analysis`**:
-  *"trade_offs must be an array when present"*.
-
-⚠️ **Neither is the resolver failure ew-001 hit, and neither is fixed by D-63.**
-`ew-001`'s 11:42 failure was `No active published version for fragment(s):
-stage.workflow_review` — an infrastructure problem, which switching capture to
-the authored resolver genuinely solved. **These two are model-output conformance
-failures**, at two different stages, on two different schema rules. Retrying
-them buys another 4 calls each with **no guarantee of a recording**, and the
-Sonnet 5 finding in §5 is the standing reminder that a schema failure can
-reproduce at a different point each time.
-
-**So the honest statement of the remaining evidence work is:** ew-001 is free
-and decided by the owner; the last four fragments need authorised spend on two
-captures that have each failed once already. There is no offline path to them.
-
-### 🛑 ADMITTING ew-001 IS BLOCKED BY A CLOSED CIRCLE — measured 2026-09-09
-
-**Do not admit ew-001 yet.** An earlier plan this session recommended admitting
-it; the recommendation was **withdrawn after testing it**, because admission
-today would leave the project with **no valid pass reference for anything** —
-strictly worse than the current state. Every link below was executed, not read.
-
-**1. Admission does widen coverage — 9 → 11.** Simulated in a scratch store
-holding the 13 canonical recordings plus ew-001, with a generated manifest:
-`stage.workflow_review` and `type.workflow` become covered (1 case each).
-
-**2. ⚠️ And it invalidates the committed reference, for every foundation
-fragment.** Asked of `assertActivationPermitted` directly:
-
-```
-REFUSED  foundation.system_frame  [fragment_not_covered]
-  Run 35af47fbdabae5eb did not exercise foundation.system_frame: it composes
-  into 14 recorded case(s), and 1 of them did not run (ew-001).
-```
-
-That is the gate working correctly — but it means a **replacement run** is
-mandatory, not optional.
-
-**3. 🛑 The replacement run cannot be produced.** `regression:run` injects the
-**database** resolver ([`regression.mts:425`](../backend/scripts/regression.mts#L425)),
-ew-001 is LEGACY (no `composition`, like all 14), so it takes the legacy path
-and resolves against active published versions. Executed against the dev
-database:
-
-```
-RESOLVES  foundation.system_frame
-THROWS    stage.workflow_review  ->  No active published version for
-                                     fragment(s): stage.workflow_review
-```
-
-The dev database holds **14 fragments and not that one** — verified by `psql`.
-So ew-001 runs `errored`, the run is not clean, and `buildPassReference` emits
-nothing.
-
-**4. 🛑 And the fragment cannot be published to unblock it.** `fragments:publish`
-enforces the same `assertActivationPermitted` (`scripts/fragments.mts:173`).
-Publishing `stage.workflow_review` needs a reference covering it → which needs
-the run in step 3 → which needs the fragment published. **Closed circle.**
-
-⚠️ **This is not the circularity D-63 broke.** D-63 made *capture* and the
-*gate's coverage computation* use authored resolution, and both work. `run` was
-deliberately left on the database resolver by the D-63 **§7 amendment**
-(`regression.mts:385`, *"this resolver is now the LEGACY fallback only"*),
-because re-resolving legacy recordings against authored content is exactly what
-invalidated ten recordings before. **The circle closes in the one command the
-amendment did not move.**
-
-⚠️ **The obvious fix is a decision, not a patch.** Injecting the authored
-resolver into `run` would very likely make all 14 pass — and it would change
-*what a pass reference attests*, which is `DB §4.5`/D-24 territory and needs its
-own record (**D-64**). It is also a change to the regression runner during
-evidence work, which the standing constraints forbid. **Do not make it
-silently.** The `--case=` asymmetry (§5) is the same shape: two commands naming
-the same thing and meaning different things.
-
-**Until that is decided, ew-001 stays held**, exactly where the standing
-constraint already puts it, and the current reference `35af47fbdabae5eb` stays
-valid for the 9 covered fragments.
-
-### ⚠️ PUBLISHING IS ALL-OR-NOTHING — so ALL SIX must be covered, not just four
-
-The tempting reading of the table above is *"publish the 9 covered fragments now,
-the health check's `checkTemplates` only names the 4 foundation ones anyway, and
-close the rest later."* **The publisher does not offer that, by construction:**
-
-- [`ops/fragments.ts:116`](../backend/src/ops/fragments.ts#L116) reads **all 15**
-  authored fragments.
-- `changing` (`:158`) is every fragment whose newest stored version has a
-  different `contentHash`. Production holds **zero rows**, so on a first publish
-  **all 15 are changing**.
-- `assertActivationPermitted` (`:170`) is handed that whole list and loops it,
-  throwing `fragment_not_covered` on the first uncovered key. Nothing is written
-  before the gate passes, so the refusal is total and leaves the database
-  untouched.
-
-⚠️ **Therefore `templates: available` is NOT reachable by covering only the four
-foundation fragments**, even though `checkTemplates` resolves only those. The
-gate is asked about all fifteen or the publish is refused. Making it publish a
-subset is a **change to the publisher**, which the standing constraints forbid
-during evidence work — and it would need its own decision record, because
-"activate the fragments you happen to have evidence for" is a different policy
-from `DB §4.5`, not an implementation detail of it.
-
-**Consequence for the readiness track:** production readiness needs **all six**
-uncovered fragments closed — ew-001 admitted *and* both paid captures succeeding.
-`✅ 11 of 15` is not a partial win here; it is still a refused publish.
+⚠️ **`GET /health` will stay 503 until all three are done.** Step 1 clears
+`templates`; step 3 clears `provider`. Neither alone is enough.
 
 ---
 
@@ -819,7 +495,7 @@ Its criterion is **"production deploy with monitoring, alerting, and verified ro
 | ~~No production deployment~~ | ✅ **CLOSED.** 6 containers up on the VPS, ~7 hours at time of writing |
 | ~~TLS unverified~~ | ✅ **CLOSED.** Real Let's Encrypt certificate (`CN=YR1`), `notAfter Dec 7 2026`, `ssl_verify_result=0`. `NFR-020` verified |
 | ~~KMS unverified~~ | ✅ **RETIRED.** D-61 removed the dependency; `kms-live.test.ts` deleted, not left skipping |
-| ⚠️ **The instance is NOT READY** | `GET /health` → **503**. Zero fragments in the production DB; `REPLAY_FIXTURES` empty. **This is §7a and it is the live issue** |
+| ⚠️ **The instance is NOT READY** | `GET /health` → **503**. Zero fragments in the production DB; `REPLAY_FIXTURES` empty. ✅ **No longer an evidence problem** — the gate permits all 15 fragments. What remains is publishing, redeploying and wiring the fixtures. §7a |
 | ~~The deployed build is behind `main`~~ | ✅ **CLOSED 2026-09-09.** Host rebuilt to `34ce193` after pushing `main`. Marker `0` → `1`; `provider` now answers with D-62's replay message. The prerequisite is discharged — it did not, and could not, make the instance ready |
 | **Rollback drill NOT done** | D-50 §4 requires it *on production*. Now *possible* for the first time. ✅ The blocker it surfaced is fixed (D-57), but the drill is still unattempted: [ROLLBACK-DRILL-LOG](deployment/ROLLBACK-DRILL-LOG.md) |
 | **Restore drill was on dev data** | Mechanism proven. Backups **are running on the host** — `naigx-backup` wrote both dumps at 10:50Z and reported a clean cycle — so a production restore drill is now reachable |
@@ -846,7 +522,7 @@ Two mechanisms, because neither covers both directions:
 
 | Constraint | Source |
 |---|---|
-| **No provider spend, no live capture.** Replay mode is default and free. | Owner, repeatedly |
+| **No provider spend without per-case authorisation.** ⚠️ AMENDED 2026-09-09: the owner authorised **$1.7121** across the evidence campaign, case by case, each with a stated ceiling. The default is still no spend — but the mechanism is now `--budget=` plus an explicit approval, not a blanket prohibition. **Budget is frozen again; nothing further is authorised.** | Owner, repeatedly |
 | **Prompt fragments stay inactive.** | **D-39** |
 | **No M-08 packet review, no rubric verdicts.** AI review excluded "in any capacity, for any criterion". | `docs/10` §4.3 |
 | **Do not implement `platform_recommendation`** / expand `business_requirement`. | Owner, explicit |
@@ -856,12 +532,15 @@ Two mechanisms, because neither covers both directions:
 | **`DB §13.1` row 3's mechanism is VERIFIED** (D-61 §8, 2026-09-09) — the 2 permission tests ran on the VPS with 0 skips. ⚠️ `M-18` H-2 and `M-18` itself remain open; do not report the milestone on this. | **D-61**, owner explicit |
 | **Never print either production key** into chat, a response, a log, or a document. | Owner, explicit, 2026-09-08 |
 | **⚠️ Do not weaken, bypass, or work around the fragment activation gate.** No manufactured pass reference, no demo exemption, no relaxing `DB §4.5`/D-24. NAIGX is a real v1.0 instance, not a demo deployment. | Owner, explicit, 2026-09-08 |
-| **Do not publish fragments** without an authorised, covering pass reference. | Owner, explicit |
+| **Do not publish fragments** without an authorised, covering pass reference. ✅ A covering reference now EXISTS (`d4abcd42626452df`); the authorisation does not. | Owner, explicit |
 | **Do not modify prompts, the corpus, assertions, routing, schemas, the publisher, or the production runtime** when the task is evidence work. | Owner, explicit, repeatedly |
 | **Do not touch n8n or Traefik** beyond the approved D-60 NAIGX routing. A five-week-old production n8n runs on that host. | Owner, explicit, **D-60** |
 | **Never `git push --force`, squash, or rewrite history.** | Owner, explicit |
 | **Stop and report a blocker rather than working around it.** | Owner, explicit, repeatedly |
-| **Hold `ew-001` uncommitted and unadmitted** until the owner decides. It is real paid evidence and admitting it changes what every existing reference is sufficient to activate. | Owner, explicit, 2026-09-08 |
+| ~~Hold `ew-001` uncommitted and unadmitted~~ ✅ **DISCHARGED.** The owner approved admission 2026-09-09; `ew-001` is in the canonical store. The *principle* stands for every future held recording: admission is a decision, never a filing step. | Owner, explicit, 2026-09-08 |
+| **Held, withdrawn and superseded evidence is COMMITTED but never in the store.** Paid evidence must survive `git clean`; it must not silently become coverage. | Owner + §10, 2026-09-09 |
+| **Do not chase the `apply_now` → `build_first` non-determinism.** Tracked separately as `FR-024` behaviour. | Owner, explicit, 2026-09-09 |
+| **The locator prompt fix is validated and CLOSED.** Do not modify `stage.recommendation_generation` further. | Owner, explicit, 2026-09-09 |
 | **Do not implement `API-071`/`072`/`073`.** Operator auth existing is not a licence. | **D-48** §5 |
 | **M-17 is not passed on a green axe run**; the manual walk is required. | **D-49** §3.3 |
 | **M-18 is not passed**, and must not be described as an independent review. | Owner, explicit |
@@ -883,19 +562,16 @@ couple of minutes.
 
 ```bash
 # backend (from backend/)
-npm test              # 926 tests, 922 pass, 0 fail, 4 skipped
+npm test              # 953 tests, 949 pass, 0 fail, 4 skipped
 npm run typecheck
 npm run lint
 npm run format:check
 npm run fragments:check   # 15 fragments match the manifest
 npm run schemas:check     # 5 artifact schemas published and matching
 
-# ⚠️ `format:check` may flag tests/unit/regression-coverage.test.ts on THIS
-# Windows checkout. It is a line-ending artifact, not a formatting defect:
-# the committed blob is clean LF (`git show HEAD:<file> | tr -cd '\r' | wc -c`
-# → 0) and the content is byte-identical to Prettier's output once CRs are
-# stripped. ⚠️ Do NOT `prettier --write` it — that commits a line-ending-only
-# diff to a file nobody edited. Verified 2026-09-09.
+# (An earlier edition warned that format:check flagged
+# tests/unit/regression-coverage.test.ts as a CRLF artifact. That file was
+# reformatted during the evidence campaign and the check is clean.)
 
 # M-20 latency measurement (needs Docker + the dev databases). NOT part of the
 # test gate — it seeds and deletes rows, and takes a couple of minutes.
@@ -917,10 +593,29 @@ node tools/boundary-checks/check.mjs   # 8 enforcing · 0 failing
 **Regression and fragment evidence (offline, free — no provider, no spend):**
 
 ```bash
-npm run fragments:check          # 15 authored fragments match the manifest
-npm run regression:recordings:check   # every recording is manifested and unedited
-npm run regression:run           # replays the 13 committed FIRST_VERTICAL recordings
-npm run regression:run -- --case=<id> # targeted; resolves against the WHOLE corpus (289e1e1)
+npm run fragments:check               # 15 authored fragments match the manifest
+npm run regression:recordings:check   # 15 recordings, manifested and unedited
+npm run regression:run                # the 13-case FIRST_VERTICAL default (unchanged)
+npm run regression:run -- --case=<id> # case-named; selectionScope stays "partial"
+npm run regression:run -- --fragment=<key>   # D-64 §4.4 targeted; scope "targeted"
+npm run regression:evaluate -- --case=<id> --from=<dir>   # read-only, no reference
+
+# ⚠️ THE FULL 15-CASE RUN is not a single flag — FIRST_VERTICAL is 13 cases and
+# does NOT include ta-005, jd-002 or jd-008. Name all fifteen to reproduce the
+# reference the gate was verified against:
+#   npm run regression:run -- --case=br-001 --case=br-002 --case=br-003 \
+#     --case=br-004 --case=br-005 --case=br-007 --case=br-009 --case=br-010 \
+#     --case=br-011 --case=un-001 --case=un-002 --case=ew-001 --case=ta-005 \
+#     --case=jd-002 --case=jd-008
+#   → 15 passed · corpus-regression:corpus-v2+fragments-v1:d4abcd42626452df
+
+# ⚠️ PAID. Only `capture` without --dry-run spends money.
+npm run regression:capture:dry -- --case=<id>          # free rehearsal
+npm run regression:capture -- --case=<id> \
+  --out=research/regression-pending --budget=0.22      # held output + ceiling
+# --out= keeps the canonical store untouched; --budget= refuses to START a case
+# once the ceiling is reached. ⚠️ With ONE case a budget cannot pre-empt that
+# case — batch cases together for real protection.
 ```
 
 ⚠️ **`regression:run` needs the database** — its LEGACY fallback resolver reads active fragment versions from it. A recording that carries its own captured composition never consults it (D-63 §7).
@@ -989,33 +684,58 @@ weeks up.** D-60 routes NAIGX *through* that Traefik. Touch neither.
 
 ## 10. Git state
 
-⚠️ **The working tree holds exactly one untracked item, deliberately:**
-`research/regression-pending/` — `ew-001.json` (real, paid provider evidence) and
-its README. **Do not commit it, do not move it into the recording store, do not
-delete it.** §7a and `research/regression-pending/README.md` explain why.
-Everything else is committed.
+✅ **The working tree is CLEAN.** Every artefact of the evidence campaign is
+committed, including the held and superseded recordings — paid evidence no
+longer sits untracked where a `git clean -xfd` could destroy it.
 
-⚠️ **`main` IS NOT PUSHED — corrected 2026-09-09.** The previous edition said it
-was, and that was true when written. `origin/main` is at **`ca2bb8b`**; local
-`main` is at **`3fffe27`**, **8 commits ahead**:
+⚠️ **`main` is 15 commit(s) ahead of `origin/main`** (local `0ae12cc`).
 
 ```
-git rev-parse origin/main   → ca2bb8b…
-git log --oneline origin/main..HEAD   → 8 commits
+git log --oneline origin/main..HEAD
 ```
 
-⚠️ **THIS BLOCKS THE REDEPLOY, AND NOT VISIBLY.** `deploy/README.md`'s redeploy
-runbook is written around `git fetch origin && git merge --ff-only origin/main`.
-Run today, that fetches nothing and the merge is a no-op — the host's checkout is
-*already* at `ca2bb8b` — so every step reports success, `up -d --build` rebuilds
-the same source, and the D-62 marker check still prints `0`. **It looks exactly
-like "the rebuild did not take", which the runbook tells you not to treat as a
-configuration bug.** Push first, or the redeploy silently deploys nothing.
+⚠️ **AN UNPUSHED `main` BREAKS THE REDEPLOY SILENTLY.** `deploy/README.md`'s
+runbook is built on `git fetch origin && git merge --ff-only origin/main`. If
+`origin` is behind, the fetch brings nothing, the merge is a no-op, every step
+reports success, `up -d --build` rebuilds the same source, and the marker check
+still prints the old value — **indistinguishable from "the rebuild did not
+take", which the runbook tells you not to debug as configuration.** This
+happened once already. **Check `origin/main..HEAD` before every redeploy.**
+
+### Three holding areas, and they mean three different things
+
+| Directory | Meaning | Counts toward coverage? |
+|---|---|---|
+| `research/regression-recordings/<v>/` | **The canonical store.** The only thing `createRecordingStore` reads | **Yes** |
+| `research/regression-pending/` | Captured, **not admitted**. Held for a decision | No |
+| `research/regression-withdrawn/` | **Stale composition**, un-recapturable. Its case left the evidenced set | No — reports `unrecorded` |
+| `research/regression-superseded/` | Valid, but **replaced** by a better recording of the same case | No |
+
+⚠️ **Never move a file from any of the last three into the store to silence a
+check.** Admission is a decision; the drift error is the difference between
+*captured* and *admitted*.
 
 **Branch `main`.** Recent, newest first:
 
 | Commit | What |
 |---|---|
+| `0ae12cc` | **Admit the build_first jd-002** — all 15 fragments PERMITTED against `d4abcd42626452df` |
+| `07e5545` | Hold the build_first jd-002 — Stage 9 completed for the first time |
+| `a81b18f` | **Withdraw br-006/br-008, admit 11 held recordings** — 14 of 15 PERMITTED |
+| `4c20a0a` | Hold jd-002 — the locator prompt change validated |
+| `fce3020` | **Capture/replay parity** — pass the capability profile through replay |
+| `cb83c27` | Hold jd-008 — first JD capture to survive Stage 7 |
+| `5c802dd` | **The locator prompt fix** — `evidence_ref` must be a verbatim declared locator |
+| `af94a2a` | Hold ta-005; jd-002 failed on the same Stage 7 locator rule as jd-001 |
+| `38310a4` | **Per-case cost metering and a budget ceiling** |
+| `a3924a6` | Hold 8 re-captures and the br-006 failure |
+| `53a20bf` | Commit held evidence so paid captures survive `git clean` |
+| `134a4e3` | `--out=` — paid capture outside the canonical store |
+| `d4e3a88` | **Admit ew-001** and issue two targeted references |
+| `5631418` | **D-64 accepted (Option C)** — enforce the pass-reference composition contract |
+| `e7e5906` | D-64 (PROPOSED) |
+| `ed1e1dd` | Redeploy to `34ce193`; withdraw the ew-001 admission on a closed circle |
+| `34ce193` | Verify the key file fails closed on POSIX; correct three handoff claims |
 | `289e1e1` | **Expose targeted case selection on `regression:run`** — the `--case=` asymmetry that stranded `ew-001` |
 | `c88e6fe` | **D-63 amendment** — replay against the composition a recording was captured with. ⚠️ Load-bearing; see §4 |
 | `29e4c54` | Preserve the `jd-001` and `ta-001` capture failures as evidence |
@@ -1047,7 +767,11 @@ configuration bug.** Push first, or the redeploy silently deploys nothing.
 
 | File | What it is |
 |---|---|
-| `docs/STATUS.md` | **Authoritative current state.** Wins on *current state* — not on requirements |
+| `docs/STATUS.md` | **Authoritative current state.** Wins on *current state* — not on requirements. ⚠️ Not updated for the evidence campaign; this file is ahead of it |
+| `docs/39-D-64-…` | **The pass-reference composition contract.** §4.3 is the `composition_mismatch` rule; **§10 is a dated, OPEN deviation** |
+| `research/regression-withdrawn/README.md` | Why `br-006`/`br-008` left the evidenced set, and what it cost |
+| `research/regression-superseded/README.md` | Why the `apply_now` jd-002 is kept — it is the evidence that `stage.portfolio_suggestions` rests on a non-deterministic verdict |
+| `research/regression-runs/d4abcd42626452df.json` | **The reference every fragment is currently PERMITTED against** |
 | `docs/02-PRD` | `FR-*`, `NFR-*`, `TC-*`, `AC-*` |
 | `docs/04-SA` | System architecture. **§9 is deployment**, §10 security, `AQ-*` |
 | `docs/05-AI` | Stage definitions; **§7.1 is the reasoning-module table** |
