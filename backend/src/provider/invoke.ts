@@ -16,11 +16,13 @@
  * file imports an adapter or names a provider.
  */
 
-import type {
-  CapabilityRequest,
-  CapabilityResponse,
-  ProviderAdapter,
-  ProviderFailureClass,
+import {
+  ProviderError,
+  type CapabilityRequest,
+  type CapabilityResponse,
+  type InvokeOptions,
+  type ProviderAdapter,
+  type ProviderFailureClass,
 } from "./capability.js";
 import { computeEstimatedCostUsd, type TokenRate } from "./cost.js";
 import { normalizeError, normalizeResponse } from "./normalization.js";
@@ -93,6 +95,7 @@ export interface ProviderInvoker {
   invoke(
     request: CapabilityRequest,
     context: InvocationContext,
+    options?: InvokeOptions,
   ): Promise<CapabilityResponse>;
 }
 
@@ -126,14 +129,27 @@ export function createProviderInvoker(
   const invoke = async (
     request: CapabilityRequest,
     context: InvocationContext,
+    options: InvokeOptions = {},
   ): Promise<CapabilityResponse> =>
     executeWithRetry(
       async (attempt) => {
+        // ⚠️ NO ATTEMPT — first or retry — STARTS AFTER CANCELLATION. This is
+        // the half every adapter gets regardless of whether it can abort a
+        // request in flight: once the analysis is terminal (`FR-094`), a
+        // retry of a transient failure would be a paid call for an answer
+        // nobody is waiting on. Persistent, so the retry loop stops here.
+        if (options.signal?.aborted === true) {
+          throw new ProviderError(
+            "persistent",
+            "Provider call not started: the analysis was cancelled at its deadline",
+          );
+        }
+
         const startedAt = now();
 
         try {
           const response = normalizeResponse(
-            await deps.adapter.invoke(request),
+            await deps.adapter.invoke(request, options),
           );
           const latencyMs = Math.max(0, now() - startedAt);
 

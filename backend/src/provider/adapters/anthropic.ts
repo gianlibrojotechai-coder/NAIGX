@@ -58,6 +58,7 @@ import {
   ProviderError,
   type CapabilityRequest,
   type CapabilityResponse,
+  type InvokeOptions,
   type ProviderAdapter,
   type ProviderCapabilities,
 } from "../capability.js";
@@ -71,7 +72,10 @@ export type EffortLevel = (typeof EFFORT_LEVELS)[number];
 
 /** Minimal shape this adapter needs from the SDK — the injectable seam. */
 export interface AnthropicMessagesClient {
-  create(params: AnthropicMessageParams): Promise<AnthropicMessageResponse>;
+  create(
+    params: AnthropicMessageParams,
+    options?: { signal?: AbortSignal },
+  ): Promise<AnthropicMessageResponse>;
 }
 
 /** Exported so a test can assert exactly what was sent. */
@@ -152,6 +156,16 @@ const statusOf = (error: unknown): number | undefined => {
  */
 export function classifyAnthropicError(error: unknown): ProviderError {
   const status = statusOf(error);
+
+  // Cancelled by the lifecycle (`FR-094`), not failed by the provider. Never
+  // retried: the analysis that asked for this call is already terminal.
+  if (error instanceof Anthropic.APIUserAbortError) {
+    return new ProviderError(
+      "persistent",
+      "Provider request was cancelled at the analysis deadline",
+      { cause: error },
+    );
+  }
 
   if (status === 429) {
     return new ProviderError("transient", "Provider rate limit reached", {
@@ -254,7 +268,10 @@ export function createAnthropicProvider(
   return {
     capabilities,
 
-    async invoke(request: CapabilityRequest): Promise<CapabilityResponse> {
+    async invoke(
+      request: CapabilityRequest,
+      invokeOptions: InvokeOptions = {},
+    ): Promise<CapabilityResponse> {
       const startedAt = Date.now();
       const degradations: string[] = [];
 
@@ -287,21 +304,26 @@ export function createAnthropicProvider(
         };
 
       try {
-        const response = await client.create({
-          model: options.model,
-          max_tokens: maxTokens,
-          ...temperature,
-          // The composed fragment set (`docs/12` D-12) becomes the system
-          // prompt. It is framing, not content, and must stay separate from
-          // the user's text — provenance discipline depends on the difference.
-          ...(request.instructions !== undefined
-            ? { system: request.instructions }
-            : {}),
-          messages: [{ role: "user", content: request.input }],
-          ...(Object.keys(outputConfig).length > 0
-            ? { output_config: outputConfig }
-            : {}),
-        });
+        const response = await client.create(
+          {
+            model: options.model,
+            max_tokens: maxTokens,
+            ...temperature,
+            // The composed fragment set (`docs/12` D-12) becomes the system
+            // prompt. It is framing, not content, and must stay separate from
+            // the user's text — provenance discipline depends on the difference.
+            ...(request.instructions !== undefined
+              ? { system: request.instructions }
+              : {}),
+            messages: [{ role: "user", content: request.input }],
+            ...(Object.keys(outputConfig).length > 0
+              ? { output_config: outputConfig }
+              : {}),
+          },
+          invokeOptions.signal !== undefined
+            ? { signal: invokeOptions.signal }
+            : undefined,
+        );
 
         // A refusal is a 200 with nothing to parse. Retrying reproduces it.
         if (response.stop_reason === "refusal") {

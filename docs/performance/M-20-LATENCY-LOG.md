@@ -229,8 +229,11 @@ implementation was changed to produce it.**
 ran out** (`400 invalid_request_error: "Your credit balance is too low"`).
 Run 11 was killed mid-analysis by it at Stage 7; runs 12–30 were rejected at
 Stage 1 in ~0.3 s each at zero cost. The account balance is the owner's, not
-the cap's — **$1.1319 of the $10 was spent**, and the remaining $8.87 is
-unusable until credits exist.
+the cap's — **$1.2370 of the $10 was spent** (⚠️ corrected from the
+harness's $1.1319 after reconciling the trace store: run 10's two Stage 9
+calls finished after its deadline and were billed; D-65 §7.2 explains why,
+and the cancellation fix that follows). The remaining budget is stated in
+`SESSION-HANDOFF.md` §8.
 
 | Run | Case | Outcome | First artifact | Full | Calls | Cost |
 |---|---|---|---|---|---|---|
@@ -243,7 +246,7 @@ unusable until credits exist.
 | 7 | ew-001 | completed | 92.7 s | 92.7 s | 4 | $0.1136 |
 | 8 | ta-005 | completed | 85.3 s | 85.3 s | 4 | $0.0856 |
 | 9 | br-003 | completed | — | 51.2 s | 4 | $0.0713 |
-| 10 | jd-002 | **timed_out** — every stage succeeded (Stage 9 alone 131.9 s) but the 180 s `DEFAULT_ANALYSIS_TIMEOUT_MS` fired first | — | (180.0 s) | 4 | $0.1340 |
+| 10 | jd-002 | **timed_out** — every stage succeeded (Stage 9 alone 131.9 s, two attempts) but the 180 s `DEFAULT_ANALYSIS_TIMEOUT_MS` fired first; the artifact was written 44 s after | — | (180.0 s) | 6 | $0.2390 |
 | 11 | jd-002 | **failed** — credit exhaustion at Stage 7 | — | (55.0 s) | 4 | $0.0675 |
 | 12–30 | — | rejected at Stage 1, credit exhaustion | — | — | 1 each | $0.0000 |
 

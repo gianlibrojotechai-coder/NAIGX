@@ -109,10 +109,73 @@ test("a queued analysis is claimed, run, and completed", async () => {
   assert.equal(report.mode, "replay");
   assert.equal(store.row.status, "completed");
   assert.ok(store.row.completedAt, "a terminal state carries its timestamp");
-  assert.deepEqual(ranWith, { analysisId: ANALYSIS_ID, text: INPUT });
+  // The input carries the lifecycle's cancellation signal (D-65 §7.2), not
+  // yet aborted; everything else is exactly the stored analysis.
+  const { signal, ...rest } = ranWith as { signal: AbortSignal };
+  assert.ok(signal instanceof AbortSignal && !signal.aborted);
+  assert.deepEqual(rest, { analysisId: ANALYSIS_ID, text: INPUT });
 
   // Claimed before it ran: `running` was written first.
   assert.deepEqual(store.updates[0], { status: "running" });
+});
+
+// --- FR-094: the deadline CANCELS ------------------------------------------
+
+test("the deadline aborts the pipeline's signal, so no further provider call can start", async () => {
+  // ⚠️ THE DEFECT THIS LOCKS OUT (2026-09-09). The deadline used to abandon
+  // waiting and let the pipeline settle on its own: a call in flight ran to
+  // completion and was billed, a regeneration that had just started did the
+  // same, and a valid artifact was written 44 s after the analysis had been
+  // reported terminal. `SA §11` says terminate.
+  const store = fakeStore();
+  let fire: (() => void) | undefined;
+  let observed: AbortSignal | undefined;
+  let settled = false;
+
+  const report = await createAnalysisExecutor({
+    cipher: testCipher,
+    prisma: store.prisma,
+    mode: "replay",
+    timeoutMs: 1_000,
+    // The timer is driven by the test, so the deadline fires exactly when
+    // the "pipeline" is mid-flight.
+    setTimer: (fn) => {
+      fire = fn;
+      return 0 as never;
+    },
+    clearTimer: () => undefined,
+    runPipeline: (input) => {
+      observed = input.signal;
+      // A stage in flight: never resolves until the deadline has fired and
+      // the executor has moved on, exactly like a slow provider call.
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          settled = true;
+          resolve(pipelineResult());
+        }, 40);
+        // The executor registers its timer only after `runPipeline` has
+        // returned this promise, so the deadline is fired on the next tick.
+        setTimeout(() => fire?.(), 5);
+      });
+    },
+    now: () => new Date("2026-09-06T12:00:00.000Z"),
+  }).execute(ANALYSIS_ID);
+
+  assert.equal(report.outcome, "timed_out");
+  assert.equal(store.row.status, "timed_out");
+  assert.ok(
+    observed instanceof AbortSignal,
+    "the pipeline received the signal",
+  );
+  // Aborted BEFORE the terminal status was written, so nothing downstream can
+  // start a paid call between the two.
+  assert.equal(observed.aborted, true);
+  assert.equal(store.row.degradationFlag, true);
+
+  // The late settlement changes nothing: the row stays terminal as timed_out.
+  await new Promise((r) => setTimeout(r, 40));
+  assert.equal(settled, true);
+  assert.equal(store.row.status, "timed_out");
 });
 
 test("a designed halt completes rather than failing", async () => {

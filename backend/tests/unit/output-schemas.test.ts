@@ -20,6 +20,7 @@ import { test } from "node:test";
 
 import { Ajv2020 as Ajv } from "ajv/dist/2020.js";
 
+import { validateArtifact } from "../../src/nie/artifact-validation.js";
 import { STAGE_OUTPUT_SCHEMAS } from "../../src/nie/output-schemas.js";
 import { parseStructured } from "../../src/nie/parse.js";
 import { createRecordingStore } from "../../src/regression/recording-store.js";
@@ -157,6 +158,82 @@ test("2. every recorded stage output in the canonical corpus satisfies its stage
   }
   assert.equal(problems.length, 0, problems.join("\n"));
   assert.ok(checked >= 50, `checked ${String(checked)} recorded outputs`);
+});
+
+test("3. why_not_consolidated: optional in the request schema, and the authoritative contract still enforces it", () => {
+  // The authoritative contract is the PUBLISHED artifact schema
+  // (`schemas/portfolio_suggestions.schema.json`, `DB §4.4`) plus the parser
+  // rule in `docs/12` D-29: required for a single-gap project, non-empty when
+  // present. The request schema only states the shape; it must not be the
+  // thing that makes the field mandatory, and it must not weaken the rule.
+  const projects = STAGE_OUTPUT_SCHEMAS["portfolio_suggestions"] as {
+    properties: {
+      projects: {
+        items: { required: string[]; properties: Record<string, unknown> };
+      };
+    };
+  };
+  const project = projects.properties.projects.items;
+  assert.ok("why_not_consolidated" in project.properties, "declared");
+  assert.ok(!project.required.includes("why_not_consolidated"), "optional");
+
+  const base = {
+    rank: 1,
+    name: "Salesforce lead sync",
+    complexity: "intermediate",
+    secondary_capabilities: ["error handling"],
+    why_this_project: "closes the named gap",
+    business_problem: "leads are re-keyed",
+    what_to_build: "a sync",
+    workflow: ["trigger", "sync", "verify"],
+    platforms: ["n8n"],
+    technical_concepts: ["idempotency"],
+    evidence_to_produce: [{ type: "repo", what_it_shows: "the sync" }],
+    reusability: {
+      provenance: "inferred",
+      basis: "common shape",
+      claim: "reusable",
+    },
+    estimated_effort: "days",
+    portfolio_value: "demonstrates the gap closed",
+  };
+  const wire = (project: Record<string, unknown>) => ({
+    projects: [project],
+    consolidation_rationale: "one project",
+  });
+
+  // Single-gap project, field absent → refused (the published schema's if/then).
+  assert.throws(
+    () =>
+      validateArtifact(
+        "portfolio_suggestions",
+        wire({ ...base, primary_gaps: ["req-1"] }),
+      ),
+    /why_not_consolidated/,
+  );
+  // Present but empty → refused (nonEmptyString), the exact live failure.
+  assert.throws(
+    () =>
+      validateArtifact(
+        "portfolio_suggestions",
+        wire({ ...base, primary_gaps: ["req-1"], why_not_consolidated: "" }),
+      ),
+    /why_not_consolidated/,
+  );
+  // Single-gap with a real explanation → accepted.
+  validateArtifact(
+    "portfolio_suggestions",
+    wire({
+      ...base,
+      primary_gaps: ["req-1"],
+      why_not_consolidated: "it cannot fold into another",
+    }),
+  );
+  // Multi-gap project, field absent → accepted: the explanation is not required.
+  validateArtifact(
+    "portfolio_suggestions",
+    wire({ ...base, primary_gaps: ["req-1", "req-2"] }),
+  );
 });
 
 /**

@@ -167,24 +167,106 @@ Context extraction on Sonnet 5 at `medium` effort took 21–95 s per call
 (the pilot recorded 21 s); recommendation generation 49–53 s; portfolio
 suggestions 21–28 s.
 
-### 7.2 Two integration findings from the first run, both fixed and re-verified
+### 7.2 What the first run's timeout actually was — from the stored timestamps
 
-1. **`why_not_consolidated` cannot be a required property.** Asked for it
-   on a multi-gap project, the model wrote `""`, and the published artifact
-   schema correctly refused it (`must NOT have fewer than 1 characters`). The
-   regeneration fired with the violation as its addendum — the `FR-039`
-   path working — and would have succeeded, but the executor deadline cut
-   it. The dialect permits optional properties (verified against the
-   documentation), so the field is now optional in the request schema,
-   exactly as the published schema has it. The rerun validated first time.
-2. **The 180 s executor deadline is structurally short for the
-   job-description path on Sonnet 5.** Stages 1–3 alone took 102 s on the
-   first run; the path reached Stage 9 at ~152 s and its regeneration at
-   ~195 s. `NAIGX_ANALYSIS_TIMEOUT_MS` now overrides `FR-094`'s deadline;
-   **the default is unchanged at 180 s**, production runs replay and sets
-   nothing, and the local verification used 420 s. Whether the default
-   should move is a requirements question next to `NFR-002` (already NOT
-   MET on Sonnet 4.5), not a code decision, and is left open.
+The claim "about 195 s" needed reconciling with a 180 s deadline and a
+113 s rerun. The trace store settles it (analysis `05c8b778…`, created
+09:41:58.047, deadline 180 s = **default**, no override):
+
+| t (s) | Event |
+|---|---|
+| 0.0 | created; Stage 1 |
+| 2.5 | Stage 2 |
+| 8.8 | Stage 3 — **93.2 s** of context extraction at `medium` effort |
+| 102.1 | Stage 7 — 49.5 s |
+| 151.6 | Stage 9, attempt 1 — 20.7 s |
+| 172.3 | attempt 1 refused by the published schema (`why_not_consolidated: ""`); **regeneration starts, 7.7 s before the deadline** |
+| **180.0** | deadline: status `timed_out`, `complete` event emitted |
+| 194.7 | regeneration finishes (22.4 s), also refused; artifact row written `failed`, 14.7 s after the analysis was reported terminal |
+
+So "195 s" was the pipeline's *total work including the regeneration*.
+Without the empty-field refusal the run would have finished at **172 s,
+inside the deadline**. The earlier statement that the deadline is
+"structurally short" for this path was **overstated**: the driver is
+variance — context extraction took 93 s here and **21.5 s** on the rerun
+(112.7 s total) — compounded by one regeneration. The Sonnet 4.5 sample
+showed the same shape (its run 10: Stage 9 of 131.9 s, finished 44 s after
+the deadline).
+
+**Why Stage 9 continued after the timeout — the actual defect.** The
+executor's deadline raced the pipeline promise and, on losing, *stopped
+waiting*: nothing was cancelled. The code said so explicitly ("the pipeline
+promise is not cancellable and is deliberately left to settle"). The
+consequences, all observed: the regeneration started 7.7 s before the
+deadline ran to completion and was **billed ($0.0269)**; its result was
+written to a terminal analysis; on the Sonnet 4.5 run a *valid* artifact
+was persisted 44 s after `timed_out`; and had the cutoff landed a stage
+earlier, every later stage would still have started a **new** paid call.
+`SA §11` says *terminate; preserve completed artifacts*. Cost after the
+deadline was therefore real but bounded to calls already in flight —
+because the deadline happened to fall inside the last stage both times.
+
+**The fix (this record, 2026-09-09) — cancellation, not a longer deadline:**
+
+- the executor aborts an `AbortSignal` at the deadline, *before* writing
+  the terminal status;
+- the pipeline starts no stage and no provider call once aborted, and the
+  stage in flight records `Cancelled: the analysis reached its deadline…`
+  as its failure — `FR-094`'s "incomplete ones labelled";
+- the invoker starts no attempt, first or retry, once aborted — for every
+  adapter, so the guarantee does not depend on abort support;
+- the Anthropic adapter forwards the signal to the SDK, so the request in
+  flight is aborted at the HTTP layer, and classifies the abort as
+  non-retryable with no provider identity in the message.
+
+Everything committed before the cutoff stays committed (`DB §6.2`); final
+status and the terminal event are unchanged and follow `API §7.4`. What
+changes is that a terminal analysis can no longer spend or write. Pinned by
+`tests/unit/cancellation.test.ts` (invoker, pipeline, adapter) and the
+executor test in `tests/integration/analysis-execution.test.ts`.
+
+⚠️ **A provider bills the tokens it generated before an abort.** Cancelling
+an in-flight call bounds spend; it does not refund it.
+
+**Verified live, 2026-09-09, on the new account** — the compiled backend
+with `NAIGX_ANALYSIS_TIMEOUT_MS=30000` (local, deliberately short), br-001
+submitted through the API (analysis `bd55be4a…`):
+
+| t (s) | Observed |
+|---|---|
+| 0.0 | created; Stage 1, 2.5 s, $0.0066 |
+| 2.6 | Stage 2, 7.6 s, $0.0120 |
+| 10.2 | Stage 3 call in flight |
+| **30.04** | deadline: status `timed_out`, `timeout_flag` and `degradation_flag` true |
+| 30.06 | Stage 3 trace closed: **failure, `Provider request was cancelled at the analysis deadline`, `error_class: persistent`**, call latency 19.9 s |
+| +60 s | **no Stage 6 call, no further trace, no artifact, no write of any kind** after the terminal status |
+
+Final status and the terminal event follow `API §7.4` unchanged. The
+abort reached the SDK: the call ended at the deadline, not at the model's
+own pace.
+
+⚠️ **Accounting limit found by this run:** an aborted invocation is
+recorded at **$0.00**, because an aborted response carries no `usage`,
+while the provider bills the tokens generated before the abort. The trace
+store therefore *understates* the cost of every cancelled call; only the
+Console can show the true figure. Bounded above by a full call of that
+stage — for this run, a complete Stage 3 on br-001 cost $0.039 on Sonnet 5.
+Recorded as an open item in `STATUS.md`; not fixable from the response.
+
+**`why_not_consolidated`.** Asked for it on a multi-gap project, the model
+wrote `""`, and the published artifact schema correctly refused it. The
+dialect permits optional properties, so the field is optional in the
+request schema — which is exactly the authoritative contract: the
+published schema requires it only for a single-gap project (`if`/`then`)
+and rejects it when present-but-empty, and the parser (`docs/12` D-29)
+enforces the single-gap rule. `tests/unit/output-schemas.test.ts` §3 proves
+all four cases against `validateArtifact`. The rerun validated first time.
+
+**Deadline override, per run.** Sonnet 4.5 sample (11 attempts): 180 s
+default. Sonnet 5 four-path run: 180 s default. Sonnet 5 jd-002 rerun:
+`NAIGX_ANALYSIS_TIMEOUT_MS=420000`, local only. **The default stays 180 s**
+and production sets nothing. Whether it should move is a requirements
+question beside `NFR-002`, left open.
 
 ### 7.3 Spend, reconciled from the trace store
 
@@ -198,9 +280,14 @@ was marked `timed_out`, so the harness's figure for it was low by one call.
 | Minimal request (adapter, not traced; from returned usage) | 1 | $0.0017 |
 | Four-path run (jd-002 first attempt 6 calls, the others 4 each) | 18 | $0.4359 |
 | jd-002 rerun | 5 | $0.1538 |
-| **New account, this record** | **24** | **$0.5914** |
-| Retired account, earlier this continuation | 63 | $1.1319 |
-| **Continuation total** | **87** | **$1.7233** of the US$10 cap — **$8.2767 remaining** |
+| Cancellation verification (br-001 under a 30 s deadline): 2 completed calls recorded + 1 aborted call recorded at $0 | 3 | $0.0186 recorded; **+ up to $0.039 unrecorded** for the aborted call |
+| **New account, this record** | **27** | **$0.6100 recorded; ≤ $0.6490 with the aborted call's upper bound** |
+| Retired account, earlier this continuation — ⚠️ corrected: the harness read the timed-out run before its two post-deadline Stage 9 calls landed ($0.1051 more than reported) | 65 | $1.2370 |
+| **Continuation total** | **92** | **$1.8470 recorded; budgeted at the upper bound $1.8860** of the US$10 cap — **$8.1140 remaining** |
+
+Both timed-out runs are counted **in full**, including every call that
+finished after the deadline. With cancellation in place a future timeout
+can add at most the one call in flight.
 
 Token totals for the 23 traced Sonnet 5 calls: 109,776 in / 37,011 out.
 The new tokenizer's ~30% inflation is visible in the per-call input counts

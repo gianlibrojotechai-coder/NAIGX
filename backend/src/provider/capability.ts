@@ -166,5 +166,20 @@ export class ProviderError extends Error {
  */
 export interface ProviderAdapter {
   readonly capabilities: ProviderCapabilities;
-  invoke(request: CapabilityRequest): Promise<CapabilityResponse>;
+  invoke(
+    request: CapabilityRequest,
+    options?: InvokeOptions,
+  ): Promise<CapabilityResponse>;
+}
+
+/**
+ * Per-call options an adapter may honour.
+ *
+ * `signal` carries cancellation from the analysis lifecycle (`FR-094`, D-65
+ * §7.2): an adapter that can abort an in-flight request should, and one that
+ * cannot must at least not start a new one once the signal is aborted — the
+ * invoker enforces the second half for every adapter.
+ */
+export interface InvokeOptions {
+  readonly signal?: AbortSignal;
 }

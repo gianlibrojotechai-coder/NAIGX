@@ -359,6 +359,15 @@ export interface PipelineInput {
   readonly analysisId: string;
   readonly text: string;
   /**
+   * Cancellation from the lifecycle that owns this run (`FR-094`).
+   *
+   * Once aborted, no further stage starts and no further provider call is
+   * made; the stage in flight records the cancellation as its failure. The
+   * NIE never decides *when* — it only stops when told, which keeps the
+   * orchestrator the sole owner of job state (`SA §3.3`).
+   */
+  readonly signal?: AbortSignal;
+  /**
    * A user-corrected classification (`FR-014`, `API §7.5`).
    *
    * When present, Stage 1 does not run: the type is **fixed** rather than
@@ -656,7 +665,22 @@ export function createPipeline(deps: PipelineDependencies) {
             ? base
             : { ...base, input: `${base.input}\n\n${addendum}` };
 
-        const response = await deps.invoker.invoke(request, invocationContext);
+        // ⚠️ A cancelled analysis makes no new provider call. Checked here,
+        // immediately before the call, so a deadline that fires between
+        // stages — or between a failed attempt and its regeneration — stops
+        // the spend rather than merely the waiting (D-65 §7.2).
+        if (input.signal?.aborted === true) {
+          throw new StageError(
+            stage.stageNumber,
+            stage.stageKey,
+            "Cancelled: the analysis reached its deadline before this call was made (FR-094)",
+          );
+        }
+        const response = await deps.invoker.invoke(
+          request,
+          invocationContext,
+          input.signal !== undefined ? { signal: input.signal } : {},
+        );
         // Captured before parsing, so an unparseable response survives.
         lastProviderOutput = response.output;
         return spec.parse(response.output);

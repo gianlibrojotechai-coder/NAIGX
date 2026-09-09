@@ -381,7 +381,16 @@ stage failed on shape. Two findings fixed on the way: `why_not_consolidated`
 is optional in the request schema (the model wrote `""` when it was
 required, and the published schema rightly refused it), and the `FR-094`
 deadline is now configurable (`NAIGX_ANALYSIS_TIMEOUT_MS`, **default
-unchanged**) because the JD path on Sonnet 5 runs ~195 s. Spend on the new
+unchanged at 180 s**). ⚠️ **The "~195 s" was the first run's total
+including a regeneration; without it the run would have finished at
+172 s** — the driver is variance (context extraction 21–95 s), not a
+structurally short deadline. **The real defect was that the deadline did
+not cancel**: a call in flight ran on and was billed, results were written
+to a terminal analysis, and later stages would have started new paid
+calls. Fixed by threading an `AbortSignal` executor → pipeline → invoker →
+adapter (D-65 §7.2), pinned by `tests/unit/cancellation.test.ts`, and
+**verified live** under a 30 s deadline: the Stage 3 call was aborted at
+the deadline, recorded as cancelled, and nothing ran or was written after. Spend on the new
 account: **$0.5914** (24 calls, reconciled from the trace store). ⚠️ The
 production host still runs image `14c8321f5b9b` from `1da10e3` in replay
 mode with no provider variables; the D-65 source is on `main` and on the
@@ -631,7 +640,7 @@ Two mechanisms, because neither covers both directions:
 
 | Constraint | Source |
 |---|---|
-| **No provider spend without authorisation.** ⚠️ AMENDED 2026-09-09 (evening): the owner replaced per-case approval with a **US$10 cap for the Sprint 5 continuation**, "only when necessary", free verification preferred where it measures the same thing, no subscriptions or recurring infrastructure. **Spent under it: $1.7233** — $1.1319 on the retired account (the M-20 live sample, 63 invocations) and $0.5914 on the new account (D-65 verification, 24 calls). **Remaining: $8.2767.** ⚠️ The retired account is exhausted and **must not be used again** (owner, 2026-09-09); the new account's $100 balance is the account's, not the task's. Earlier campaign spend: $1.7121, case by case. Project cumulative: **$4.42** across all live work recorded in `STATUS.md` and the campaign. | Owner, 2026-09-09 |
+| **No provider spend without authorisation.** ⚠️ AMENDED 2026-09-09 (evening): the owner replaced per-case approval with a **US$10 cap for the Sprint 5 continuation**, "only when necessary", free verification preferred where it measures the same thing, no subscriptions or recurring infrastructure. **Spent under it: $1.8470 recorded, budgeted at $1.8860** — $1.2370 on the retired account (the M-20 live sample, 65 invocations; ⚠️ corrected from $1.1319 after reconciling the trace store: two Stage 9 calls landed after the timed-out run's deadline) and $0.6100 recorded on the new account (D-65 verification 24 calls + the cancellation check 3 calls), plus **up to $0.039 the trace cannot see** for the one deliberately aborted call (an aborted response carries no usage). **Remaining: $8.1140** at the upper bound. ⚠️ The retired account is exhausted and **must not be used again** (owner, 2026-09-09); the new account's $100 balance is the account's, not the task's. Earlier campaign spend: $1.7121, case by case. Project cumulative: **$4.42** across all live work recorded in `STATUS.md` and the campaign. | Owner, 2026-09-09 |
 | ~~**Prompt fragments stay inactive.**~~ ✅ **SUPERSEDED 2026-09-09** — the owner authorised publication with `d4abcd42626452df`; 15 versions are active in production through the unchanged gate. D-39's *principle* stands: nothing further activates without a covering reference and an authorisation. | **D-39**, owner 2026-09-09 |
 | **No M-08 packet review, no rubric verdicts.** AI review excluded "in any capacity, for any criterion". | `docs/10` §4.3 |
 | **Do not implement `platform_recommendation`** / expand `business_requirement`. | Owner, explicit |

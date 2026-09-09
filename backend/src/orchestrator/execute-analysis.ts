@@ -84,6 +84,8 @@ export interface AnalysisExecutorDependencies {
     readonly classificationOverride?: ClassificationType;
     readonly analysisId: string;
     readonly text: string;
+    /** Aborted at the `FR-094` deadline; the pipeline stops on it (D-65). */
+    readonly signal?: AbortSignal;
   }) => Promise<PipelineResult>;
   readonly now?: () => Date;
   /** Surfaces a failure to the log without failing the run twice over. */
@@ -234,21 +236,35 @@ export function createAnalysisExecutor(
         // ones labelled" — the preservation is a property of progressive
         // persistence, and this cutoff inherits it rather than implementing it.
         //
-        // The pipeline promise is not cancellable and is deliberately left to
-        // settle on its own. Its later writes are still legitimate records of
-        // work that genuinely happened, and `runStage` traces them either way;
-        // what changes is that nobody is waiting on the answer.
+        // ⚠️ THE DEADLINE CANCELS; IT DOES NOT MERELY STOP WAITING. An earlier
+        // version left the pipeline promise to settle on its own, and two
+        // timed-out runs on 2026-09-09 showed what that costs: a provider
+        // call in flight at the cutoff ran to completion and was billed, a
+        // regeneration that had just started did the same, and a valid
+        // artifact was written 44 s after the analysis had been reported
+        // terminal — and had the cutoff landed a stage earlier, every later
+        // stage would still have started a new paid call. `SA §11` says
+        // *terminate*. So the signal is aborted first: the pipeline starts no
+        // further stage and no further call, the adapter aborts the request
+        // in flight, and the stage that was running records the cancellation
+        // as its failure — which is `FR-094`'s "incomplete ones labelled".
+        // Everything committed before the cutoff stays committed (`DB §6.2`).
+        const cancel = new AbortController();
         const result = await raceDeadline(
           deps.runPipeline({
             analysisId,
             text,
+            signal: cancel.signal,
             ...(classificationOverride !== undefined
               ? { classificationOverride }
               : {}),
           }),
         );
 
-        if (result === DEADLINE) return await timeOut(analysisId);
+        if (result === DEADLINE) {
+          cancel.abort();
+          return await timeOut(analysisId);
+        }
 
         const degraded = wasDegraded(result);
 
