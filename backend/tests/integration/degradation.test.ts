@@ -260,6 +260,8 @@ const retryApp = async (options: {
   readonly outcome?: string | null;
   readonly entryExists?: boolean;
   readonly analysisExists?: boolean;
+  /** D-81: the stored classification the route reads for the per-path decision. */
+  readonly path?: string;
   readonly retryArtifact?: (id: string, type: string) => Promise<void>;
 }) => {
   const prisma = {
@@ -281,6 +283,10 @@ const retryApp = async (options: {
             ? null
             : { outcome: options.outcome ?? "failed" },
         ),
+    },
+    classification: {
+      findFirst: () =>
+        Promise.resolve({ determinedType: options.path ?? "job_description" }),
     },
   };
 
@@ -376,6 +382,38 @@ test("retrying a deterministic rendered artifact is refused with a reason", asyn
       (body.error["details"] as Record<string, unknown>)["deterministic"],
       true,
     );
+  }
+});
+
+test("D-81: a type generated on this path is retryable here and refused where it is rendered", async () => {
+  // `risk_assessment` is generated on the requirement path (D-79) and
+  // rendered on the workflow path (D-40); `complexity_score` is generated on
+  // both (D-80). One predicate, read with the stored classification.
+  for (const [path, type, accepted] of [
+    ["business_requirement", "risk_assessment", true],
+    ["business_requirement", "complexity_score", true],
+    ["existing_workflow", "complexity_score", true],
+    ["existing_workflow", "risk_assessment", false],
+    ["job_description", "complexity_score", false],
+  ] as const) {
+    const calls: string[] = [];
+    const app = await retryApp({
+      path,
+      retryArtifact: (_id, retried) => {
+        calls.push(retried);
+        return Promise.resolve();
+      },
+    });
+    const res = await retry(app, type);
+    assert.equal(res.statusCode, accepted ? 202 : 409, `${type} on ${path}`);
+    assert.deepEqual(calls, accepted ? [type] : []);
+    if (!accepted) {
+      const body = JSON.parse(res.body) as { error: Record<string, unknown> };
+      assert.equal(
+        (body.error["details"] as Record<string, unknown>)["deterministic"],
+        true,
+      );
+    }
   }
 });
 

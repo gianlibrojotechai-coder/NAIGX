@@ -195,10 +195,14 @@ export async function createAnalysisRunner(
         throw new Error(`Analysis ${analysisId} has no stored classification`);
       }
 
-      // D-78: the requirement path's generator regenerates from the stored
-      // architecture and context set, not from a recommendation it never had.
+      // D-78/D-81: the generators keyed on the architecture regenerate from
+      // the stored architecture and context set, not from a recommendation
+      // they never had. The route has already refused the type on any path
+      // where it is rendered rather than generated.
       const regenerated =
-        artifactType === "platform_recommendation"
+        artifactType === "platform_recommendation" ||
+        artifactType === "risk_assessment" ||
+        artifactType === "complexity_score"
           ? await (async () => {
               const stored = await readArchitectureForRetry(
                 deps.prisma,
@@ -206,7 +210,7 @@ export async function createAnalysisRunner(
               );
               if (stored === null) {
                 throw new Error(
-                  `Analysis ${analysisId} has no stored architecture to regenerate platform_recommendation from`,
+                  `Analysis ${analysisId} has no stored architecture to regenerate ${artifactType} from`,
                 );
               }
               return pipeline.regenerateArtifact({
@@ -224,7 +228,7 @@ export async function createAnalysisRunner(
                     alternatives: [],
                   },
                 },
-                artifactType: "platform_recommendation" as const,
+                artifactType,
                 architecture: stored.architecture,
                 context: stored.context,
               });

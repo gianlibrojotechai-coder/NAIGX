@@ -830,6 +830,47 @@ export const isRetryableArtifactType = (artifactType: string): boolean =>
   (GENERATED_ARTIFACT_TYPES as readonly string[]).includes(artifactType);
 
 /**
+ * D-81 — artifact types that are GENERATED on some paths and RENDERED on
+ * others, keyed by the paths that generate them. `risk_assessment` is
+ * rendered from Stage 6W findings on the workflow path (D-40) and generated
+ * against the architecture on the requirement path (D-79);
+ * `complexity_score` is generated on both (D-80). Whether a retry is worth
+ * offering is therefore a question about the type AND the path, and D-79 §2
+ * and D-80 §2 recorded the type-only answer as a limitation. This closes it.
+ */
+export const PATH_GENERATED_ARTIFACT_TYPES = {
+  risk_assessment: ["business_requirement"],
+  complexity_score: ["business_requirement", "existing_workflow"],
+} as const satisfies Partial<
+  Record<ArtifactType, readonly ClassificationType[]>
+>;
+export type PathGeneratedArtifactType =
+  keyof typeof PATH_GENERATED_ARTIFACT_TYPES;
+/** Every type `API-032` can regenerate on at least one path. */
+export type RetryableArtifactType =
+  GeneratedArtifactType | PathGeneratedArtifactType;
+
+/**
+ * Whether a failed artifact of this type, on this path, is worth attempting
+ * again — the path-aware form of `isRetryableArtifactType`. Read by the
+ * generators' `artifact_failed` events and by `API-032`, from one
+ * predicate, so the stream cannot advertise a retry the endpoint refuses.
+ */
+export const isRetryableArtifact = (
+  artifactType: string,
+  classifiedAs: ClassificationType | undefined,
+): boolean =>
+  isRetryableArtifactType(artifactType) ||
+  (classifiedAs !== undefined &&
+    (
+      (
+        PATH_GENERATED_ARTIFACT_TYPES as Partial<
+          Record<string, readonly ClassificationType[]>
+        >
+      )[artifactType] ?? []
+    ).includes(classifiedAs));
+
+/**
  * `DB §4.4` — what became of a planned artifact.
  *
  * The distinction `ARTIFACT_PLAN_ENTRY` exists for: *"omission and failure are

@@ -25,6 +25,7 @@ import {
   ArchitectureTraceabilityError,
   StageError,
   isRetryableArtifactType,
+  isRetryableArtifact,
   type ArchitectureResult,
   type ArtifactOutcome,
   type ClassificationResult,
@@ -37,6 +38,7 @@ import {
   type RecommendationResult,
   type ArtifactPlanEntry,
   type GeneratedArtifactType,
+  type RetryableArtifactType,
   type InterviewGuidance,
   type PlatformRecommendation,
   type RiskRegister,
@@ -1212,6 +1214,7 @@ export function createPipeline(deps: PipelineDependencies) {
 
   const settleComplexity = async (
     input: PipelineInput,
+    classifiedAs: ClassificationType,
     generated: Awaited<ReturnType<typeof generateComplexity>>,
   ): Promise<void> => {
     emit(
@@ -1226,7 +1229,11 @@ export function createPipeline(deps: PipelineDependencies) {
             type: "artifact_failed",
             artifactType: "complexity_score",
             reason: generated.failureReason,
-            retryAvailable: isRetryableArtifactType("complexity_score"),
+            // D-81: generated on this path, so a retry is a fresh sample.
+            retryAvailable: isRetryableArtifact(
+              "complexity_score",
+              classifiedAs,
+            ),
           },
     );
     if (generated.wire !== undefined) {
@@ -1266,7 +1273,13 @@ export function createPipeline(deps: PipelineDependencies) {
             type: "artifact_failed",
             artifactType: "risk_assessment",
             reason: generated.failureReason,
-            retryAvailable: isRetryableArtifactType("risk_assessment"),
+            // D-81: this settle runs only where the register is GENERATED
+            // (the requirement path); the workflow path renders its register
+            // through the generic renderer, whose event says deterministic.
+            retryAvailable: isRetryableArtifact(
+              "risk_assessment",
+              "business_requirement",
+            ),
           },
     );
     if (generated.wire !== undefined) {
@@ -2254,7 +2267,7 @@ export function createPipeline(deps: PipelineDependencies) {
         observed,
         context,
       );
-      await settleComplexity(input, complexity);
+      await settleComplexity(input, classification.determinedType, complexity);
       const rendered = await emitDerivedArtifacts(
         input,
         withOutcome(workflowPlan, "complexity_score", complexity.outcome),
@@ -2392,7 +2405,7 @@ export function createPipeline(deps: PipelineDependencies) {
       ]);
       await settlePlatformRecommendation(input, platform);
       await settleRiskRegister(input, risk);
-      await settleComplexity(input, complexity);
+      await settleComplexity(input, classification.determinedType, complexity);
       const lastTrace = complexity.traceId ?? risk.traceId ?? platform.traceId;
       const rendered = await emitDerivedArtifacts(
         input,
@@ -2470,26 +2483,53 @@ export function createPipeline(deps: PipelineDependencies) {
     readonly classifiedAs: ClassificationType;
     readonly recommendation: RecommendationForArtifacts;
     /** D-76: which generator to run again. Defaults to the portfolio. */
-    readonly artifactType?: GeneratedArtifactType;
-    /** D-78: the stored architecture and context, for the platform generator. */
+    readonly artifactType?: RetryableArtifactType;
+    /**
+     * D-78/D-81: the stored architecture and context, for the generators
+     * keyed on them — platform, risk register, complexity.
+     */
     readonly architecture?: ArchitectureResult;
     readonly context?: ContextResult;
   }): Promise<RegeneratedArtifact> => {
-    if (input.artifactType === "platform_recommendation") {
+    if (
+      input.artifactType === "platform_recommendation" ||
+      input.artifactType === "risk_assessment" ||
+      input.artifactType === "complexity_score"
+    ) {
       if (input.architecture === undefined || input.context === undefined) {
         throw new Error(
-          `Analysis ${input.analysisId} has no stored architecture and context to regenerate platform_recommendation from`,
+          `Analysis ${input.analysisId} has no stored architecture and context to regenerate ${input.artifactType} from`,
         );
       }
-      const generated = await generatePlatformRecommendation(
-        { analysisId: input.analysisId, text: "" },
-        input.classifiedAs,
-        input.architecture,
-        input.context,
-        { retry: true },
-      );
+      const stageInput = { analysisId: input.analysisId, text: "" };
+      // D-81: the register and the score are regenerated only where they
+      // are generated — `isRetryableArtifact` decided that at the route, and
+      // the workflow path's stored architecture is the observed workflow,
+      // which is what its complexity generator scored the first time.
+      const generated =
+        input.artifactType === "platform_recommendation"
+          ? await generatePlatformRecommendation(
+              stageInput,
+              input.classifiedAs,
+              input.architecture,
+              input.context,
+              { retry: true },
+            )
+          : input.artifactType === "risk_assessment"
+            ? await generateRiskRegister(
+                stageInput,
+                input.classifiedAs,
+                input.architecture,
+                input.context,
+              )
+            : await generateComplexity(
+                stageInput,
+                input.classifiedAs,
+                input.architecture,
+                input.context,
+              );
       return {
-        artifactType: "platform_recommendation",
+        artifactType: input.artifactType,
         content: generated.wire,
         validationStatus:
           generated.outcome === "generated" ? "valid" : "failed",

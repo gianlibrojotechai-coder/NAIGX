@@ -28,7 +28,7 @@ The requirement path now runs three generators at Stage 9 — platform, risk, co
 
 D-79's live verification measured the cost of running the generators in series: at Opus 5 high effort the requirement path completed in 380 s of its 420 s deadline, with Stage 6 and the two generators taking 94, 99 and 112 s each. A third generator in series would have breached the deadline on an ordinary case. The three generators take the same handoff and none reads another's answer, so **they now run concurrently** (`Promise.all`) and the path's wall time is the slowest generator rather than the sum. What is preserved: each generator's own trace, regeneration and deep validation; the deadline signal cancelling all three together (`FR-094`); and a fixed settlement order — platform, risk, complexity — so the events, the persisted artifacts and the validation records keep the precedence the plan states. What changes: the three traces' completion order is the provider's. The rendered artifacts attach to the last trace to finish. The replay adapter keys on the request, not on order, so every recording replays unchanged.
 
-`API-032` retry is not offered for `complexity_score`, for the same reason as D-79's register: the route decides by artifact type and the same type is generated on two paths — the per-path retry decision stays a recorded limitation.
+`API-032` retry is not offered for `complexity_score`, for the same reason as D-79's register: the route decides by artifact type and the same type is generated on two paths — the per-path retry decision stayed a recorded limitation until [D-81](56-D-81-Per-Path-Artifact-Retry.md), which made it.
 
 ## 3. What is not changed
 

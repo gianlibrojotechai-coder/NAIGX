@@ -53,7 +53,7 @@ import {
 } from "../http/errors.js";
 import {
   CLASSIFICATION_TYPES,
-  isRetryableArtifactType,
+  isRetryableArtifact,
   type ClassificationType,
 } from "../nie/contracts.js";
 import { sendSuccess } from "../http/responses.js";
@@ -722,7 +722,15 @@ export const analysisRoutes: FastifyPluginAsync<AnalysisRouteOptions> = (
       // failure here is a defect in the renderer, and a retry button that
       // cannot help would imply otherwise. The `artifact_failed` event says
       // the same thing through `retryAvailable`, from the same predicate.
-      if (!isRetryableArtifactType(artifactType)) {
+      // D-81: whether a retry can help depends on the type AND the path —
+      // `risk_assessment` is generated on the requirement path and rendered
+      // on the workflow path — so the decision reads the stored
+      // classification. An analysis with none is treated as rendered.
+      const classification = await prisma.classification.findFirst({
+        where: { analysisId },
+        select: { determinedType: true },
+      });
+      if (!isRetryableArtifact(artifactType, classification?.determinedType)) {
         throw invalidStateError(
           "This artifact is rendered from reasoning that is already stored, not generated, so retrying it would produce exactly the same document.",
           "Its failure indicates a defect to report rather than a transient error to retry. Submit a new analysis if the underlying reasoning should change.",

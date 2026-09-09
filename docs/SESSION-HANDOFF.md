@@ -144,7 +144,9 @@ These are standing instructions given explicitly. **They override default thorou
 
 | `docs/55` **D-80** | **The complexity score** (`FR-033`, P0; closes the D-36 question of which stage scores the factors) — a third requirement-path Stage 9 generator and the workflow path's first: the model scores five factors against the `complexity-v1` anchors, the pipeline does the arithmetic and renders the table, Stage 10 recomputes it; thirteenth schema (manifest 19). **The three requirement-path generators now run concurrently** — D-79's live run was at 90 % of the deadline in series. One campaign, **$1.7242**, 10 of 10 captured. Reference in force: `20f278148df1d139` (fifteen cases). Built 2026-09-10 |
 
-**Numbering convention: the next standalone record is `docs/56` D-81.** Nothing is currently owed.
+| `docs/56` **D-81** | **Retry decided by type and path** — `risk_assessment` retryable on the requirement path where it is generated, `complexity_score` on both of its paths; the route reads the stored classification, the generators' events use the same predicate; the architecture reader serves three types. Closes the limitation D-79 §2 and D-80 §2 recorded. No spend. Built 2026-09-10 |
+
+**Numbering convention: the next standalone record is `docs/57` D-82.** Nothing is currently owed.
 
 ⚠️ **D-63 without its §7 amendment is actively wrong.** The original decision made the runner re-resolve recordings against authored fragments, which invalidated **10 of 13** committed recordings the moment authored content drifted. The amendment separates **replayability** from **evidential currency**: a recording that carries its own captured composition replays against *that* and is never stale for replay; only the activation gate asks the currency question. Read §7 before touching anything in `src/regression/`.
 
