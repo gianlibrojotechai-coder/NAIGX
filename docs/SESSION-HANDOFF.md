@@ -1,11 +1,11 @@
 # NAIGX — Session Handoff
 
-**Written:** 2026-09-08 · **Last updated:** 2026-09-10 (D-72 Stages 10 and 12, D-73 requirement-path artifacts, D-74 authenticated stream — built, gate-green, replay reproduced; see §7a "D-72, D-73, D-74")
+**Written:** 2026-09-08 · **Last updated:** 2026-09-10, late (D-72 through D-88 — the finish-line-2 build-out; see **§7c**, which supersedes the front-line statements below it)
 **Purpose:** hand a new chat session everything it needs to continue building NAIGX without re-deriving context or re-litigating settled decisions.
 
 > **Read this first, then `docs/STATUS.md`.** STATUS.md is the authoritative current-state record. This file covers the most recent working sessions, and the exact next step.
 >
-> ⚠️ **Start at §7a — the front line has MOVED.** Every "the activation gate refuses" statement in earlier editions is superseded.
+> ⚠️ **Start at §7c — the front line has MOVED again (2026-09-10, late).** §7a and §7b are history that is still true where they say what was measured; §7c says where the build stands now and what is owed.
 >
 > ✅ **THE FRAGMENT ACTIVATION BLOCKAGE IS CLEARED.** All **15** authored fragments are **PERMITTED** by the real activation gate against a real reference — `corpus-regression:corpus-v2+fragments-v1:d4abcd42626452df`, from a 15-case run that passed 15/15. Zero `composition_mismatch`, zero `fragment_not_covered`. Verified per fragment *and* as the publisher actually asks it: all 15 keys in one call.
 >
@@ -225,6 +225,46 @@ These are the defects that *passed every test* before being caught. They are the
 - **`--case=` resolves against the whole frozen corpus in both CLIs**, and an unknown id is a hard error rather than a silently smaller run. Filtering a typo down to a subset would run a different suite than the operator asked for *and still issue a reference for it*.
 
 ---
+
+## 7c. ▶ WHERE THE BUILD STANDS — 2026-09-10, late: finish line 2 is engineering-complete but for what only the owner can supply
+
+**Owner direction in force:** *"keep on building and implementing all the this, you need to to complete and build the naigx project, no need to ask for my permission."* (2026-09-10). Every paid step below ran under a stated ceiling and is priced in §8's spend line.
+
+### Built, gated, deployed and (mostly) verified live today
+
+| Record | What | Live |
+|---|---|---|
+| D-72–D-74 | Stages 10 and 12; requirement-path rendered artifacts; authenticated stream | ✅ verified live |
+| D-75–D-77 | skill-gap analysis, interview guidance, business analysis; the capture refusal and `artifact_generation` | ✅ verified live |
+| D-78–D-79 | Stage 6 disposes of unknowns; platform recommendation; the requirement path's risk register | ✅ verified live (D-79: 380 s, $0.9403 — 90 % of the deadline, which D-80 then fixed) |
+| D-80 | complexity score; **the requirement path's generators run concurrently** | deployed; ⏳ live run owed |
+| D-81 | retry decided by type and path | deployed |
+| D-82–D-85 | roadmap, edge cases, integration requirements, rendered executive summary — **the requirement path's `AI §9.1` set is complete** (ten artifacts, six generators, ten provider calls) | deployed; ⏳ live run owed |
+| D-86 | **Stage 11** — the reduced v1 confidence model, fitted (34 of 44) after Stage 1–3 captures for the 29 unrecorded cases; the band with all seven factors on every analysis; `confidence_band` an advisory assertion | deployed (migration applied); ⏳ live run owed |
+| D-87 | the workflow path's platform comparison — `AI §9.1` complete on that path too | deployed; ⏳ live run owed |
+| D-88 | Stage 4 under `O-4`: disclosure only; the curated set is the owner's | recorded |
+
+**Production now:** image `95ef9a3ad826` at `858d42e`, 23 fragments active, 17 schemas at v3, two migrations since D-79 applied, Opus 5 high, caps $6.00/day and $50.00/month **unchanged**. The owner-only allowlist was restored byte-for-byte after every verification (403 confirmed each time).
+
+**Owed, and scheduled:** the day cap ($5.05 of $6.00 recorded for 2026-09-09 UTC) refused the D-80 live check with $0 spent. A detached runner (`scratchpad/verify-after-reset.sh`) waits for 00:01 UTC, allowlists two verification addresses with an env backup, runs one requirement case and one workflow case through the browser, and restores the allowlist whatever happens (~$3.5 at Opus 5 high). Its log is the scratchpad's `verify-after-reset.log`; the reports are `prod-br4-report.json` and `prod-ew1-report.json`. **If a session resumes before that ran, check the VPS `deploy/.env` allowlist first** — it must read the owner's address alone — and `/root/naigx-env-before-verify.bak` must not exist.
+
+### ⚠️ What a live requirement analysis now costs, and why the caps matter
+
+Ten provider calls at Opus 5 high effort: roughly **$2.0–2.5 per requirement analysis** (D-79 priced one generator at $0.24–0.26; there are now six, concurrent). The $6.00 day cap therefore admits about two requirement analyses a day; the job path (six calls) about four. The caps are the owner's configuration and were not touched; sizing them to the finished pipeline is the owner's call (`NAIGX_SPEND_CAP_USD_PER_DAY`/`_MONTH` in `deploy/.env`, then `up -d backend`).
+
+### What remains, and whose it is
+
+| Item | Whose | Record |
+|---|---|---|
+| Stage 4's curated, neutral platform knowledge set (M-05's twelfth stage; CF-5's source) | **Owner** — content and neutrality review | D-88 |
+| A second depth level so the artifact set is proportional to complexity (`AC-037`, measured NOT MET by construction) | **Owner** — scope (`AIQ-7`, D-34) | `research/ac-037-measurement.md` |
+| M-20 `NFR-002` — decide (D-58 §4, D-66) | **Owner** | §7b |
+| M-08 partial review; M-17 WCAG manual walk | **Human-only** | STATUS |
+| Per-recommendation confidence (`AI-021`, `AC-007`) | deferred by D-31 decision 5; no evidence source for the adjustment | D-86 §4 |
+| The confidence model's high/medium confusion (10 of 44) | a finding, not a task: two measured factors' capacity; re-fit when Stage 3's fragment changes | D-86 §2, `research/confidence-calibration/README.md` |
+| Sizing the live caps to the finished pipeline | **Owner** | above |
+
+**Nothing else in `AI §9.1`, `FR-03x`, or the twelve-stage pipeline is unbuilt** except Stage 4 as decided above. The regression evidence is fifteen recordings reproducing `a249714e093716f7`; the three thin points of §7a are thinner now (every requirement recording is one capture from one campaign each) and the note there stands.
 
 ## 7a. ▶ THE NEXT STEP — the evidence gate is GREEN; publication is the owner's call
 
