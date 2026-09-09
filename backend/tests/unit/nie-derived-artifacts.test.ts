@@ -334,3 +334,80 @@ test("intent brief: planned once, with a reason, and not by the path planners", 
     );
   }
 });
+
+// --- D-70: the published portfolio schema and the implementation block -------
+
+test("D-70 — the published schema accepts a project with the block, with null, and refuses a malformed one", () => {
+  const base = {
+    rank: 1,
+    name: "Lead intake",
+    complexity: "intermediate",
+    primary_gaps: ["req-1", "req-2"],
+    secondary_capabilities: ["logging"],
+    why_this_project: "why",
+    business_problem: "problem",
+    what_to_build: "build",
+    workflow: ["Trigger: form", "Sync: CRM"],
+    platforms: ["n8n"],
+    technical_concepts: ["webhooks"],
+    evidence_to_produce: [{ type: "repo", what_it_shows: "the export" }],
+    reusability: { provenance: "inferred", basis: "b", claim: "c" },
+    estimated_effort: "days",
+    portfolio_value: "value",
+  };
+  const doc = (project: Record<string, unknown>) => ({
+    projects: [project],
+    consolidation_rationale: "one",
+  });
+  const block = {
+    platform: "n8n",
+    steps: [
+      {
+        step: 1,
+        node: "Webhook",
+        purpose: "p",
+        setup: ["POST"],
+        credential: null,
+      },
+    ],
+    notes: [],
+  };
+  validateArtifact(
+    "portfolio_suggestions",
+    doc({ ...base, implementation: block }),
+  );
+  validateArtifact(
+    "portfolio_suggestions",
+    doc({ ...base, implementation: null }),
+  );
+  validateArtifact("portfolio_suggestions", doc(base));
+  assert.throws(() =>
+    validateArtifact(
+      "portfolio_suggestions",
+      doc({
+        ...base,
+        implementation: { platform: "n8n", steps: [], notes: [] },
+      }),
+    ),
+  );
+  assert.throws(() =>
+    validateArtifact(
+      "portfolio_suggestions",
+      doc({
+        ...base,
+        implementation: {
+          ...block,
+          steps: [
+            {
+              step: 1,
+              node: "Webhook",
+              purpose: "p",
+              setup: [],
+              credential: null,
+            },
+          ],
+        },
+      }),
+    ),
+  );
+});

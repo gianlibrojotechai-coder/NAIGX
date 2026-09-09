@@ -46,7 +46,9 @@ import type { ArtifactType } from "./contracts.js";
  * deliberate new version, not an automatic one. Declared here so validation
  * and persistence cannot drift onto two different sources of truth.
  */
-export const ARTIFACT_SCHEMA_VERSION = "1";
+// "2" since D-70: portfolio_suggestions gained `implementation`. A changed
+// schema is a new version, never an overwrite (artifact-schema-publisher).
+export const ARTIFACT_SCHEMA_VERSION = "2";
 
 /** `backend/schemas/` — the path boundary check 5 also reads. */
 export const ARTIFACT_SCHEMA_ROOT = path.resolve(

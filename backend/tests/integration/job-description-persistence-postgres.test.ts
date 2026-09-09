@@ -198,7 +198,7 @@ const SUGGESTIONS = {
 // --- the published schema row --------------------------------------------
 
 test(
-  "the version-1 portfolio_suggestions schema is published",
+  "the declared-version portfolio_suggestions schema is published",
   { skip },
   async () => {
     const { prisma, close } = clients();
@@ -217,7 +217,9 @@ test(
       });
 
       assert.ok(row, "the row an ARTIFACT references must exist");
-      assert.equal(row.version, "1");
+      // D-70: the declared version, not a literal — it moved to "2" when the
+      // portfolio schema gained `implementation`.
+      assert.equal(row.version, ARTIFACT_SCHEMA_VERSION);
       assert.ok(
         definitionsMatch(
           row.definition,

@@ -142,6 +142,30 @@ const renderPortfolioSuggestions = (document: unknown): ArtifactRender => {
       lines.push("");
     }
 
+    // D-70 — the node-by-node build on the named automation platform.
+    const implementation = project.implementation;
+    if (isRecord(implementation)) {
+      const platform = str(implementation.platform) ?? "the platform";
+      const steps = list(implementation.steps).filter(isRecord);
+      if (steps.length > 0) {
+        lines.push(`**How to build it in ${platform} — node by node.**`, "");
+        for (const item of steps) {
+          const node = str(item.node);
+          const purpose = str(item.purpose);
+          if (node === null || purpose === null) continue;
+          lines.push(`${String(item.step ?? "")}. **${node}** — ${purpose}`);
+          for (const line of strList(item.setup)) lines.push(`   - ${line}`);
+          const credential = str(item.credential);
+          lines.push(`   - Credential: ${credential ?? "none"}`);
+        }
+        lines.push("");
+        const notes = strList(implementation.notes);
+        if (notes.length > 0) {
+          lines.push("*Wiring notes:*", "", ...bullets(notes), "");
+        }
+      }
+    }
+
     const platforms = strList(project.platforms);
     const concepts = strList(project.technical_concepts);
     const secondary = strList(project.secondary_capabilities);

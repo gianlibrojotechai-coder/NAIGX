@@ -1,0 +1,227 @@
+{
+  "suite": "corpus-regression",
+  "reference": "corpus-regression:corpus-v2+fragments-v1:d1b67b9017b86257",
+  "mode": "recorded",
+  "suiteVersion": "corpus-v2",
+  "fragmentsManifestVersion": "fragments-v1",
+  "fragmentsCompositions": [
+    "23ff8160f39bfc2f7054e84dcc8f4acaccda228abc9910a15df6ea9ab34f9e5c",
+    "37e546d762e22f994cb6e83c2aa1fb387380e19b2b5c01a1515232a60a06f70d",
+    "6fee0b11ff3fac3e16aa58a1e0682acebf3b02b69308ad7292d785342f6b534f",
+    "8a844d2f922259024e380b619ed886846ca4ba2af80e2cb2cc78313edbcf831e",
+    "8a9a871b6cf03b8c8260a1d6bc47ba6570fc08e5f9d9a54b8b7894a49d6485ab",
+    "94768ecd876b85e8770e35afafc0cfb7cd637b0002fad88b44fbd82abe1dd248",
+    "cfa5d7e5613e005ff2ca7704a15cb6228957810d0f3cbdd832f7b1632e357667"
+  ],
+  "selectionScope": "partial",
+  "runId": "d1b67b9017b86257",
+  "completedAt": "2026-09-09T16:16:52.608Z",
+  "cases": [
+    {
+      "caseId": "br-001",
+      "recordingHash": "f32decb5620eb25bc5adb47478eda46ed073ed9006e95bd4965e75dc25a62c10",
+      "capturedAt": "2026-09-09T05:19:51.002Z",
+      "fragmentsCompositionHash": "8a9a871b6cf03b8c8260a1d6bc47ba6570fc08e5f9d9a54b8b7894a49d6485ab",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "run_completeness",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "br-002",
+      "recordingHash": "dc8858391a54a602553446eb7f7cdf673a3180438de6f770bb188becd74cea30",
+      "capturedAt": "2026-09-09T05:20:54.866Z",
+      "fragmentsCompositionHash": "8a9a871b6cf03b8c8260a1d6bc47ba6570fc08e5f9d9a54b8b7894a49d6485ab",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "conflict_detection",
+        "run_completeness",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "br-003",
+      "recordingHash": "a5417aa93bdeddb5345f7ecadaa705ca513feb133a4f53174531273dba003225",
+      "capturedAt": "2026-09-09T05:21:44.911Z",
+      "fragmentsCompositionHash": "8a9a871b6cf03b8c8260a1d6bc47ba6570fc08e5f9d9a54b8b7894a49d6485ab",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "run_completeness",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "br-004",
+      "recordingHash": "53baa9d687968437b137f6d28e6093a8fda6a342cbd1e41798441806e1e6fc6d",
+      "capturedAt": "2026-09-09T05:01:04.427Z",
+      "fragmentsCompositionHash": "8a9a871b6cf03b8c8260a1d6bc47ba6570fc08e5f9d9a54b8b7894a49d6485ab",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "run_completeness",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "br-005",
+      "recordingHash": "6c9e7690acecbe031b6134b2470c415948a9db972c116cd7d8186dd6a98d9621",
+      "capturedAt": "2026-08-14T15:49:09.733Z",
+      "fragmentsCompositionHash": "23ff8160f39bfc2f7054e84dcc8f4acaccda228abc9910a15df6ea9ab34f9e5c",
+      "fragmentResolution": "active",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "refusal_behaviour",
+        "run_completeness",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "br-007",
+      "recordingHash": "9bb40d699c1846daf64db400b5541d607b3c8a607a8fbcb803d45a4a164581b2",
+      "capturedAt": "2026-09-09T05:24:19.992Z",
+      "fragmentsCompositionHash": "8a9a871b6cf03b8c8260a1d6bc47ba6570fc08e5f9d9a54b8b7894a49d6485ab",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "run_completeness",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "br-009",
+      "recordingHash": "276466d8ce18567079bd31b79e9efaabcb9a17e166edccef6cb68670424983cf",
+      "capturedAt": "2026-09-09T05:28:44.037Z",
+      "fragmentsCompositionHash": "8a9a871b6cf03b8c8260a1d6bc47ba6570fc08e5f9d9a54b8b7894a49d6485ab",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "run_completeness",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "br-010",
+      "recordingHash": "604b4dda629d37ad0ede3ea22d484ae7f68d8b3d37c95d46536ca205b0c218fd",
+      "capturedAt": "2026-09-09T05:29:47.527Z",
+      "fragmentsCompositionHash": "8a9a871b6cf03b8c8260a1d6bc47ba6570fc08e5f9d9a54b8b7894a49d6485ab",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "run_completeness",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "br-011",
+      "recordingHash": "7f09aa24c7056f5f37edda25c3bb48b4b9d1333050e9ec3432fb0a144cf512fd",
+      "capturedAt": "2026-09-09T05:31:19.944Z",
+      "fragmentsCompositionHash": "8a9a871b6cf03b8c8260a1d6bc47ba6570fc08e5f9d9a54b8b7894a49d6485ab",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "run_completeness",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "ew-001",
+      "recordingHash": "a3dfebbcfe048f8e13050218d530d1b620e871d8cc7b434984ff332aa369c65e",
+      "capturedAt": "2026-09-08T12:29:22.497Z",
+      "fragmentsCompositionHash": "94768ecd876b85e8770e35afafc0cfb7cd637b0002fad88b44fbd82abe1dd248",
+      "fragmentResolution": "active",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "run_completeness",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "jd-002",
+      "recordingHash": "5dbc4fcb4acfe8fa7add2c2c7541eff89859f74106621cdef61495456d254d91",
+      "capturedAt": "2026-09-09T16:15:25.959Z",
+      "fragmentsCompositionHash": "cfa5d7e5613e005ff2ca7704a15cb6228957810d0f3cbdd832f7b1632e357667",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "run_completeness",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "jd-008",
+      "recordingHash": "0182fdc708dded2d0fe79e484201244922e93fe0b19bb70fc85b41079f1fcdc0",
+      "capturedAt": "2026-09-09T06:04:57.863Z",
+      "fragmentsCompositionHash": "6fee0b11ff3fac3e16aa58a1e0682acebf3b02b69308ad7292d785342f6b534f",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "run_completeness",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "ta-005",
+      "recordingHash": "422052dc9e5be4e3e0afe757f40407b74b786d65f65eba045fec7628ff0d016f",
+      "capturedAt": "2026-09-09T05:43:01.106Z",
+      "fragmentsCompositionHash": "37e546d762e22f994cb6e83c2aa1fb387380e19b2b5c01a1515232a60a06f70d",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "run_completeness",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "un-001",
+      "recordingHash": "c9ba56d433e8766a2bf74a8942b8c55db76583cba1619c02d0a9f99a3e5d451f",
+      "capturedAt": "2026-08-14T15:55:03.999Z",
+      "fragmentsCompositionHash": "8a844d2f922259024e380b619ed886846ca4ba2af80e2cb2cc78313edbcf831e",
+      "fragmentResolution": "active",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "refusal_behaviour",
+        "run_completeness",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "un-002",
+      "recordingHash": "886a46e103024888bbea1a19f5c495f775f026b1d4216ee290efbc8e1bd9b6c4",
+      "capturedAt": "2026-08-14T15:55:09.919Z",
+      "fragmentsCompositionHash": "8a844d2f922259024e380b619ed886846ca4ba2af80e2cb2cc78313edbcf831e",
+      "fragmentResolution": "active",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "refusal_behaviour",
+        "run_completeness",
+        "reference_integrity"
+      ]
+    }
+  ],
+  "assertionsDeferred": [
+    "artifact_set",
+    "confidence_band",
+    "do_not_automate_conclusion"
+  ],
+  "fragmentResolution": "mixed",
+  "attests": "Recorded mode: the pipeline, parser and deterministic corpus expectations hold against previously captured provider responses. This is NOT evidence that the current prompt produces these responses — that requires a capture or live run against the fragments in force (docs/12 D-24). Fragment resolution: MIXED — this run replayed some cases against active fragment versions and others against authored ones. The per-case `fragmentResolution` says which, and the activation gate compares each case's composition hash rather than this label (docs/39 D-64 §4.1)."
+}

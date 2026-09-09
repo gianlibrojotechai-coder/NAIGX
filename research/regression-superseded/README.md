@@ -35,3 +35,15 @@ on the run that did not reach Stage 9.
 Keeping it matters for exactly that reason: it is the evidence that the corpus's
 coverage of `stage.portfolio_suggestions` rests on a non-deterministic verdict,
 and a future reader comparing the two recordings can see it directly.
+
+## `jd-002-pre-D-70-2026-09-10.json` — superseded by the D-70 capture
+
+The `build_first` jd-002 recording that carried `stage.portfolio_suggestions`
+under the fragment as it stood before D-70 (composition `1d9880fe…`). D-70
+changed that fragment and the portfolio artifact schema (v2), so this
+recording no longer reproduces the composition the deployment asks for and
+was reported `excluded` by the replay loader — the gate working as designed
+(D-64 §4.2). Replaced in the canonical store by a capture against the
+candidate composition (Opus 5, high effort, $0.4965), whose Stage 9 output
+carries the `implementation` block. Kept here because it is the evidence the
+earlier pass reference `d4abcd42626452df` rested on for this fragment.

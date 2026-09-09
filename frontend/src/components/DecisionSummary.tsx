@@ -117,30 +117,80 @@ function BuildCard({ project }: { project: PortfolioProject }) {
           </ul>
         </div>
       )}
-      {project.workflow !== undefined && project.workflow.length > 0 && (
-        <div className="mt-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Build it in this order
-          </p>
-          <ol className="mt-1.5 space-y-1.5 text-sm text-slate-800">
-            {project.workflow.map((step, index) => (
-              <li
-                key={`${String(index)}-${step}`}
-                className="rise flex gap-2.5"
-                style={{ ["--i" as string]: 4 + index }}
-              >
-                <span
-                  aria-hidden="true"
-                  className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-slate-900 text-white text-[11px] font-semibold grid place-items-center"
+      {project.implementation !== undefined &&
+        project.implementation.steps.length > 0 && (
+          <div className="mt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Build it in {project.implementation.platform} — node by node
+            </p>
+            <ol className="mt-1.5 space-y-2.5">
+              {project.implementation.steps.map((item, index) => (
+                <li
+                  key={`${String(item.step)}-${item.node}`}
+                  className="rise rounded-md border border-slate-200 bg-slate-100 p-3"
+                  style={{ ["--i" as string]: 4 + index }}
                 >
-                  {index + 1}
-                </span>
-                <span>{step}</span>
-              </li>
-            ))}
-          </ol>
-        </div>
-      )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      aria-hidden="true"
+                      className="shrink-0 w-5 h-5 rounded-full bg-slate-900 text-white text-[11px] font-semibold grid place-items-center"
+                    >
+                      {item.step}
+                    </span>
+                    <span className="font-mono text-sm font-semibold text-accent-300">
+                      {item.node}
+                    </span>
+                    <span className="text-sm text-slate-700">
+                      {item.purpose}
+                    </span>
+                  </div>
+                  <ul className="mt-1.5 ml-7 list-disc space-y-0.5 text-sm text-slate-700">
+                    {item.setup.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-1.5 ml-7 text-xs text-slate-600">
+                    <span className="font-medium">Credential: </span>
+                    {item.credential ?? "none"}
+                  </p>
+                </li>
+              ))}
+            </ol>
+            {project.implementation.notes.length > 0 && (
+              <ul className="mt-2 ml-1 list-disc space-y-0.5 pl-4 text-xs text-slate-600">
+                {project.implementation.notes.map((note) => (
+                  <li key={note}>{note}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      {project.workflow !== undefined &&
+        project.workflow.length > 0 &&
+        project.implementation === undefined && (
+          <div className="mt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Build it in this order
+            </p>
+            <ol className="mt-1.5 space-y-1.5 text-sm text-slate-800">
+              {project.workflow.map((step, index) => (
+                <li
+                  key={`${String(index)}-${step}`}
+                  className="rise flex gap-2.5"
+                  style={{ ["--i" as string]: 4 + index }}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-slate-900 text-white text-[11px] font-semibold grid place-items-center"
+                  >
+                    {index + 1}
+                  </span>
+                  <span>{step}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
     </div>
   );
 }

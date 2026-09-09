@@ -90,13 +90,61 @@
           "enum": ["hours", "days", "weeks"],
           "description": "Coarse on purpose: a model estimating hours precisely is inventing."
         },
-        "portfolio_value": { "$ref": "#/$defs/nonEmptyString" }
+        "portfolio_value": { "$ref": "#/$defs/nonEmptyString" },
+        "implementation": {
+          "oneOf": [{ "$ref": "#/$defs/implementation" }, { "type": "null" }],
+          "description": "D-70: how to build the workflow on the automation platform the project names (n8n, Make, Zapier) — one entry per workflow step naming the platform's own node, what it does, how to configure it, and the credential it needs. Optional: present only when the project is built on such a platform. Node names must be the platform's real ones; when unsure, the generic HTTP Request or Code node is named and the doubt is stated in notes."
+        }
       },
       "if": {
         "required": ["primary_gaps"],
         "properties": { "primary_gaps": { "maxItems": 1 } }
       },
       "then": { "required": ["why_not_consolidated"] }
+    },
+    "implementation": {
+      "type": "object",
+      "required": ["platform", "steps", "notes"],
+      "properties": {
+        "platform": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "The automation platform the steps are built on, as named in platforms (e.g. n8n)."
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/implementationStep" }
+        },
+        "notes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/nonEmptyString" },
+          "description": "Wiring notes that span steps: error workflow, retries, testing with pinned data, and any node whose existence the model is not sure of."
+        }
+      }
+    },
+    "implementationStep": {
+      "type": "object",
+      "required": ["step", "node", "purpose", "setup", "credential"],
+      "properties": {
+        "step": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "1-based index into the project's workflow list."
+        },
+        "node": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "The platform's node or module name as the platform spells it (e.g. Webhook, HTTP Request, IF, Set, Code, HubSpot, Salesforce, Postgres, Slack)."
+        },
+        "purpose": { "$ref": "#/$defs/nonEmptyString" },
+        "setup": {
+          "$ref": "#/$defs/nonEmptyStringList",
+          "description": "Concrete configuration a person performs: the operation to pick, the fields to set, expressions to enter, the mode or method."
+        },
+        "credential": {
+          "type": ["string", "null"],
+          "description": "The credential the node needs, by the platform's own name (e.g. HubSpot OAuth2 API), or null when none."
+        }
+      }
     },
     "evidence": {
       "type": "object",

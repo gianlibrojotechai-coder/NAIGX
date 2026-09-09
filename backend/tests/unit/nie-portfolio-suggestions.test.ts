@@ -343,3 +343,72 @@ test("no eligible gaps means the stage should never have been called", () => {
 test("a malformed response fails the stage rather than half-parsing", () => {
   assert.throws(() => parse("not json"), StageError);
 });
+
+// --- D-70: the implementation block ----------------------------------------
+
+const implementation = {
+  platform: "n8n",
+  steps: [
+    {
+      step: 1,
+      node: "Webhook",
+      purpose: "Receive the form submission",
+      setup: ["HTTP method: POST", "Respond: Immediately"],
+      credential: null,
+    },
+    {
+      step: 3,
+      node: "HubSpot",
+      purpose: "Create or update the contact",
+      setup: ["Resource: Contact", "Operation: Create/Update", "Map email"],
+      credential: "HubSpot OAuth2 API",
+    },
+  ],
+  notes: ["Attach an Error Workflow that posts to Slack on failure"],
+};
+
+test("D-70 — an implementation block is read, node by node, with its credential or null", () => {
+  const result = parse(body({ projects: [project({ implementation })] }));
+  const plan = result.projects[0]?.implementation;
+  assert.ok(plan !== undefined);
+  assert.equal(plan.platform, "n8n");
+  assert.equal(plan.steps.length, 2);
+  assert.deepEqual(plan.steps[0], {
+    step: 1,
+    node: "Webhook",
+    purpose: "Receive the form submission",
+    setup: ["HTTP method: POST", "Respond: Immediately"],
+    credential: null,
+  });
+  assert.equal(plan.steps[1]?.credential, "HubSpot OAuth2 API");
+  assert.deepEqual(plan.notes, [
+    "Attach an Error Workflow that posts to Slack on failure",
+  ]);
+});
+
+test("D-70 — null or absent means no implementation, and nothing is invented", () => {
+  const absent = parse(body({ projects: [project()] }));
+  assert.equal(absent.projects[0]?.implementation, undefined);
+  const nulled = parse(body({ projects: [project({ implementation: null })] }));
+  assert.equal(nulled.projects[0]?.implementation, undefined);
+});
+
+test("D-70 — a node that points at no workflow step is refused", () => {
+  const bad = {
+    ...implementation,
+    steps: [{ ...implementation.steps[0], step: 0 }],
+  };
+  assert.throws(
+    () => parse(body({ projects: [project({ implementation: bad })] })),
+    StageError,
+  );
+  const badCredential = {
+    ...implementation,
+    steps: [{ ...implementation.steps[0], credential: 42 }],
+  };
+  assert.throws(
+    () =>
+      parse(body({ projects: [project({ implementation: badCredential })] })),
+    StageError,
+  );
+});

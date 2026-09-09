@@ -256,6 +256,18 @@ export interface PortfolioProject {
   };
   readonly estimated_effort?: string;
   readonly portfolio_value?: string;
+  /** D-70 — present only for an automation-platform workflow. */
+  readonly implementation?: {
+    readonly platform: string;
+    readonly steps: readonly {
+      readonly step: number;
+      readonly node: string;
+      readonly purpose: string;
+      readonly setup: readonly string[];
+      readonly credential: string | null;
+    }[];
+    readonly notes: readonly string[];
+  };
 }
 
 export interface PortfolioSuggestions {

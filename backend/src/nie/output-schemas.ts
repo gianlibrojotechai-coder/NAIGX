@@ -252,6 +252,25 @@ const portfolioSuggestions = object({
         }),
         estimated_effort: enumOf(BUILD_EFFORT),
         portfolio_value: string,
+        // D-70: how to build it on the named automation platform. Required
+        // but NULLABLE: the first capture showed that an optional field is the
+        // easiest thing for a model to skip, so the model must now decide —
+        // the block, or an explicit null when no automation platform is named.
+        implementation: nullable(
+          object({
+            platform: string,
+            steps: nonEmptyArray(
+              object({
+                step: integer,
+                node: string,
+                purpose: string,
+                setup: nonEmptyArray(string),
+                credential: nullable(string),
+              }),
+            ),
+            notes: array(string),
+          }),
+        ),
       },
       ["why_not_consolidated"],
     ),

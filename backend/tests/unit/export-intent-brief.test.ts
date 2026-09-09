@@ -81,3 +81,63 @@ test("the same brief renders identically twice", () => {
     renderArtifactDocument("intent_brief", brief),
   );
 });
+
+// --- D-70: the node-by-node block in the portfolio export -------------------
+
+test("D-70 — the export renders the implementation block node by node, and skips it when absent", () => {
+  const project = {
+    rank: 1,
+    name: "Lead intake",
+    complexity: "intermediate",
+    primary_gaps: ["req-1"],
+    secondary_capabilities: ["logging"],
+    why_this_project: "why",
+    business_problem: "problem",
+    what_to_build: "build",
+    workflow: ["Trigger: form", "Sync: CRM"],
+    platforms: ["n8n", "HubSpot"],
+    technical_concepts: ["webhooks"],
+    evidence_to_produce: [{ type: "repo", what_it_shows: "the export" }],
+    why_not_consolidated: "only one gap",
+    reusability: { provenance: "inferred", basis: "b", claim: "c" },
+    estimated_effort: "days",
+    portfolio_value: "value",
+    implementation: {
+      platform: "n8n",
+      steps: [
+        {
+          step: 1,
+          node: "Webhook",
+          purpose: "Receive the form",
+          setup: ["HTTP method: POST"],
+          credential: null,
+        },
+        {
+          step: 2,
+          node: "HubSpot",
+          purpose: "Upsert the contact",
+          setup: ["Resource: Contact", "Operation: Create/Update"],
+          credential: "HubSpot OAuth2 API",
+        },
+      ],
+      notes: ["Test with pinned data first"],
+    },
+  };
+  const withBlock = renderArtifactDocument("portfolio_suggestions", {
+    projects: [project],
+    consolidation_rationale: "one",
+  }).lines.join("\n");
+  assert.match(withBlock, /How to build it in n8n — node by node/);
+  assert.match(withBlock, /1\. \*\*Webhook\*\* — Receive the form/);
+  assert.match(withBlock, /- HTTP method: POST/);
+  assert.match(withBlock, /- Credential: none/);
+  assert.match(withBlock, /- Credential: HubSpot OAuth2 API/);
+  assert.match(withBlock, /Test with pinned data first/);
+
+  const { implementation: _omit, ...plain } = project;
+  const without = renderArtifactDocument("portfolio_suggestions", {
+    projects: [plain],
+    consolidation_rationale: "one",
+  }).lines.join("\n");
+  assert.ok(!without.includes("node by node"));
+});

@@ -56,6 +56,23 @@ FIELDS
   keep `claim` proportionate to that basis. Do not present a guess about market
   demand as an established fact.
 - `consolidation_rationale` — why this number of projects, and what you merged.
+- `implementation` — **required whenever any entry in `platforms` names an
+  automation platform (n8n, Make, Zapier), even as one option among several;
+  `null` only when none does.** Build it on the automation platform the
+  matched capabilities already evidence (n8n if it is named). One entry per
+  `workflow` step, in order: `step` is the 1-based index of that step,
+  `node` is the platform's own node or module name spelled as the platform
+  spells it (for n8n: Webhook, Schedule Trigger, HTTP Request, IF, Switch,
+  Set, Code, Merge, Split Out, Wait, and the named app nodes such as HubSpot,
+  Salesforce, Postgres, Airtable, Slack, Gmail, Telegram), `purpose` is what
+  the node does in that step, `setup` is what a person configures — the
+  operation to pick, the fields to set, the expressions to enter, the method —
+  and `credential` is the credential the node needs by the platform's name,
+  or null. `notes` carries what spans steps: the error workflow, retries,
+  testing with pinned data. **Never invent a node.** If you are not sure the
+  platform has a dedicated node for a system, name `HTTP Request` (or
+  `Code`) and say so in `notes`. Write `"implementation": null` for a
+  project that names no automation platform at all.
 
 Respond with exactly this JSON shape:
 
@@ -86,7 +103,20 @@ Respond with exactly this JSON shape:
         "claim": "..."
       },
       "estimated_effort": "hours | days | weeks",
-      "portfolio_value": "..."
+      "portfolio_value": "...",
+      "implementation": {
+        "platform": "n8n",
+        "steps": [
+          {
+            "step": 1,
+            "node": "Webhook",
+            "purpose": "...",
+            "setup": ["...", "..."],
+            "credential": "HubSpot OAuth2 API | null"
+          }
+        ],
+        "notes": ["..."]
+      }   // or null when no automation platform is named
     }
   ],
   "consolidation_rationale": "..."

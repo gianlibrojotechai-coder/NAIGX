@@ -116,6 +116,41 @@ function Project({ project }: { project: PortfolioProject }) {
             )}
         </div>
 
+        {project.implementation !== undefined &&
+          project.implementation.steps.length > 0 && (
+            <Detail
+              label={`How to build it in ${project.implementation.platform}`}
+            >
+              <ol className="space-y-2">
+                {project.implementation.steps.map((item) => (
+                  <li
+                    key={`${String(item.step)}-${item.node}`}
+                    className="text-sm text-slate-800"
+                  >
+                    <span className="font-medium">Step {item.step} · </span>
+                    <span className="font-mono">{item.node}</span>
+                    <span className="text-slate-600"> — {item.purpose}</span>
+                    <ul className="mt-1 ml-4 list-disc space-y-0.5 text-slate-700">
+                      {item.setup.map((line) => (
+                        <li key={line}>{line}</li>
+                      ))}
+                    </ul>
+                    <p className="mt-0.5 ml-4 text-xs text-slate-600">
+                      Credential: {item.credential ?? "none"}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+              {project.implementation.notes.length > 0 && (
+                <ul className="mt-2 list-disc space-y-0.5 pl-4 text-xs text-slate-600">
+                  {project.implementation.notes.map((note) => (
+                    <li key={note}>{note}</li>
+                  ))}
+                </ul>
+              )}
+            </Detail>
+          )}
+
         {project.evidence_to_produce !== undefined &&
           project.evidence_to_produce.length > 0 && (
             <Detail label="Evidence to produce">
@@ -193,7 +228,10 @@ export function PortfolioSuggestionsView({
       </p>
 
       {ordered.map((project) => (
-        <Project key={`${String(project.rank)}-${project.name}`} project={project} />
+        <Project
+          key={`${String(project.rank)}-${project.name}`}
+          project={project}
+        />
       ))}
     </div>
   );

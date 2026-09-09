@@ -732,6 +732,30 @@ export interface PortfolioProject {
   readonly reusability: ReusabilityClaim;
   readonly estimatedEffort: BuildEffort;
   readonly portfolioValue: string;
+  /**
+   * D-70 — how to build it on the automation platform the project names.
+   * Present only when the project is such a workflow; absent otherwise.
+   */
+  readonly implementation?: PortfolioImplementation;
+}
+
+/** One workflow step, as a node on the named platform (D-70). */
+export interface ImplementationStep {
+  /** 1-based index into `workflow`. */
+  readonly step: number;
+  /** The platform's own node name — never invented. */
+  readonly node: string;
+  readonly purpose: string;
+  /** What a person configures on the node. */
+  readonly setup: readonly string[];
+  /** The credential the node needs, by the platform's name, or null. */
+  readonly credential: string | null;
+}
+
+export interface PortfolioImplementation {
+  readonly platform: string;
+  readonly steps: readonly ImplementationStep[];
+  readonly notes: readonly string[];
 }
 
 /** What the Stage 9 `portfolio_suggestions` generator produces. */

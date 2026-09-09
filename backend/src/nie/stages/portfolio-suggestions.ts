@@ -49,6 +49,7 @@ import {
   type PortfolioProject,
   type PortfolioSuggestions,
   type ReusabilityClaim,
+  type PortfolioImplementation,
 } from "../contracts.js";
 import {
   asRecord,
@@ -214,7 +215,63 @@ function parseProject(
       BUILD_EFFORT,
     ),
     portfolioValue: requireString(CTX, record, "portfolio_value"),
+    ...parseImplementation(record["implementation"], where),
   };
+}
+
+/**
+ * D-70 — optional. Absent or null means the project is not an automation
+ * workflow. Present means every step is checked: a real index into the
+ * workflow list is required because a node that points at no step is an
+ * instruction nobody can place.
+ */
+function parseImplementation(
+  raw: unknown,
+  where: string,
+): { implementation?: PortfolioImplementation } {
+  if (raw === undefined || raw === null) return {};
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    fail(`${where}.implementation must be an object when present`);
+  }
+  const record = raw as Record<string, unknown>;
+  const label = `${where}.implementation`;
+  const platform = requireString(CTX, record, "platform");
+  const stepsRaw = requireArray(CTX, record, "steps");
+  if (stepsRaw.length === 0) fail(`${label}.steps must not be empty`);
+  const steps = stepsRaw.map((entry, i) => {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      fail(`${label}.steps[${String(i)}] must be an object`);
+    }
+    const step = entry as Record<string, unknown>;
+    const rawIndex = step["step"];
+    const index =
+      typeof rawIndex === "number" &&
+      Number.isInteger(rawIndex) &&
+      rawIndex >= 1
+        ? rawIndex
+        : fail(`${label}.steps[${String(i)}].step must be a positive integer`);
+    const credential = step["credential"];
+    if (credential !== null && typeof credential !== "string") {
+      fail(`${label}.steps[${String(i)}].credential must be a string or null`);
+    }
+    return {
+      step: index,
+      node: requireString(CTX, step, "node"),
+      purpose: requireString(CTX, step, "purpose"),
+      setup: requireStringList(step, "setup", `${label}.steps[${String(i)}]`),
+      credential:
+        typeof credential === "string" && credential.trim() !== ""
+          ? credential.trim()
+          : null,
+    };
+  });
+  const notesRaw = record["notes"];
+  const notes = Array.isArray(notesRaw)
+    ? notesRaw.filter(
+        (n): n is string => typeof n === "string" && n.trim() !== "",
+      )
+    : [];
+  return { implementation: { platform, steps, notes } };
 }
 
 /**
