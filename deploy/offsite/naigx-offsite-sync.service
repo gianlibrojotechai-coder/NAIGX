@@ -1,0 +1,9 @@
+[Unit]
+Description=NAIGX off-site backup sync (D-51 section 4)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/opt/naigx/deploy/.env
+ExecStart=/usr/local/bin/naigx-offsite-sync

@@ -10,6 +10,7 @@ self-hosted PostgreSQL per [D-51](../docs/26-D-51-Self-Hosted-PostgreSQL.md).
 | `Dockerfile.edge` | Caddy image with the built client baked in |
 | `.env.example` | Every variable the stack requires; copy to `.env` |
 | `seccomp/chromium.json` | The profile Chromium's sandbox needs — see [its README](seccomp/README.md) |
+| `offsite/` | The off-site backup sync — script, systemd units, install and **recovery** steps — see [its README](offsite/README.md) |
 
 ---
 
@@ -23,14 +24,20 @@ self-hosted PostgreSQL per [D-51](../docs/26-D-51-Self-Hosted-PostgreSQL.md).
 | `D-51` §4 — restore drill, recorded with a date | ✅ **Performed on PRODUCTION data 2026-09-09**, twice — from local staging and from the off-site copies — [RESTORE-DRILL-LOG](../docs/deployment/RESTORE-DRILL-LOG.md) |
 | `D-50` §4 — verified production rollback drill | ✅ **Performed on the production deployment 2026-09-09** — `1da10e3` → `56d7269` → forward; ~1.7 s / ~2.0 s outage windows; all four criteria — [ROLLBACK-DRILL-LOG](../docs/deployment/ROLLBACK-DRILL-LOG.md) |
 | `NFR-031` — data policy accessible before first submission | **Implemented and verified** by an automated check |
-| `D-51` §4 — backups stored off the deployment host | ✅ **Verified 2026-09-09.** Host-only `naigx-offsite-sync` (systemd hourly timer) encrypts each dump with `/etc/naigx/keys/backup.key` and uploads to `gdrive:naigx-backups`; the copies were pulled back, decrypted, SHA-256-matched and restore-drilled. ⚠️ The script and units are **not in this repository** — see the log |
+| `D-51` §4 — backups stored off the deployment host | ✅ **Verified 2026-09-09.** `naigx-offsite-sync` (systemd hourly timer) encrypts each dump with `/etc/naigx/keys/backup.key` and uploads to `gdrive:naigx-backups`; the copies were pulled back, decrypted, SHA-256-matched and restore-drilled. The script and units are preserved byte-for-byte in [`deploy/offsite/`](offsite/README.md) with install and recovery steps |
+
+### ✅ Alert delivery on this host — verified 2026-09-09
+
+One owner-authorised `DeployTest` alert (`severity=critical`, `test=true`,
+`endsAt` three minutes out) was posted to the deployed Alertmanager. The
+**firing notification arrived at the configured ntfy receiver 30 s later** —
+`group_wait` exactly — verified by reading the topic back, not by
+Alertmanager's acceptance; zero notify errors; the alert expired itself and
+Alertmanager returned to zero active alerts. What the receiver *service*
+confirms is that the message is in the topic; whether it rendered on the
+owner's device is the owner's to confirm.
 
 ### ⚠️ What is NOT verified
-
-**Alert delivery to a person on this host.** The mechanism was verified against
-a webhook receiver on 2026-09-07 (below); the *deployed* Alertmanager has not
-yet been shown to reach the configured receiver. Step 6 of *First deploy* is
-the check, and it has not been run on the VPS.
 
 **A rollback that crosses a migration.** Both releases in the drill shared the
 schema, so `SA §9.3`'s reversible-migration property has not been exercised in

@@ -1,6 +1,6 @@
 # NAIGX — Session Handoff
 
-**Written:** 2026-09-08 · **Last updated:** 2026-09-09 (drills — production rollback and restore drills PASSED, off-host restore verified; M-19 still open on alert delivery)
+**Written:** 2026-09-08 · **Last updated:** 2026-09-09 (M-19 CLOSED — alert delivery verified at the receiver; off-site sync preserved in `deploy/offsite/`)
 **Purpose:** hand a new chat session everything it needs to continue building NAIGX without re-deriving context or re-litigating settled decisions.
 
 > **Read this first, then `docs/STATUS.md`.** STATUS.md is the authoritative current-state record. This file covers the most recent working sessions, and the exact next step.
@@ -19,7 +19,7 @@
 >
 > ✅ **THE M-19 DRILLS WERE PERFORMED ON PRODUCTION, 2026-09-09, owner-authorised** — [ROLLBACK-DRILL-LOG](deployment/ROLLBACK-DRILL-LOG.md), [RESTORE-DRILL-LOG](deployment/RESTORE-DRILL-LOG.md). Rollback `1da10e3` → `56d7269` → forward, **~1.7 s / ~2.0 s** outage windows, all four criteria met. Restore drill on production data **passed twice** — from local staging and from the **off-site copies pulled back from Google Drive**, decrypted, SHA-256-matched. Provider spend $0.00; n8n and Traefik untouched.
 >
-> ⚠️ **M-19 IS STILL OPEN.** Its criterion is *"production deploy with monitoring, alerting, and verified rollback"*. Deploy ✅, monitoring ✅ (Prometheus on the host scrapes the backend, `health: up`), rollback ✅ — **alert delivery to a real receiver on the host has not been shown** (`deploy/README.md` first-deploy step 6, never run on the VPS). M-20, M-08, M-17, M-18 are exactly as open as before. **Two open issues were recorded, not fixed:** `API-060` does not probe artifact schemas, and the off-site sync script lives only on the host (`STATUS.md` → Open).
+> ✅ **M-19 IS CLOSED — 2026-09-09.** Its criterion is *"production deploy with monitoring, alerting, and verified rollback"*. Deploy ✅, monitoring ✅ (Prometheus on the host scrapes the backend, `health: up`), **alerting ✅ (one owner-authorised test alert, read back from the ntfy receiver 30 s after posting)**, rollback ✅. `STATUS.md` → Completed records the evidence. **M-20, M-08, M-17, M-18 are exactly as open as before.** The `API-060`-does-not-probe-schemas issue stays **open** by the owner's instruction; the off-site sync script is now in the repository under `deploy/offsite/` (host unchanged).
 >
 > ⚠️ **Read §7a's three thin points before claiming anything about quality.** `stage.portfolio_suggestions` rests on **one** recording produced by a **non-deterministic** verdict; four of the five input types are evidenced by one or two cases; and `br-006`/`br-008` were **withdrawn**, not fixed.
 >
@@ -64,7 +64,7 @@ These are standing instructions given explicitly. **They override default thorou
 | **M-16** Instrumentation | **Complete.** 7 automatable metrics report real values; M-6/M-8/M-9 stay manual |
 | **M-17** Accessibility | **Implemented, NOT verified.** 4 violations fixed, axe running. The manual WCAG walk is unwalked |
 | **M-18** Security | **Reviewed, NOT passed.** `NFR-027` found and fixed; `DB §13.1` app-level encryption implemented against a **host-held key file** (D-61 retired AWS KMS). ✅ Its key-file **fail-closed mechanism is now verified on the VPS** (D-61 §8) — H-2 and the milestone still open |
-| **M-19** Deployment | **Deployed and running at `https://naigx.tech`; milestone NOT passed.** TLS is now **verified**. The instance is **not ready** — see §7a and the §7 gap table |
+| **M-19** Deployment | ✅ **CLOSED 2026-09-09.** Deploy ✅ (ready, four paths serving recorded inputs) · monitoring ✅ (Prometheus scraping, `health: up`) · alerting ✅ (owner-authorised test alert delivered to the ntfy receiver in 30 s, read back from the topic) · verified rollback ✅ (production drill, ~1.7 s / ~2.0 s) · restore drill ✅ on production data and from off-site. `STATUS.md` → Completed. ⚠️ Replay mode; migration-crossing rollback not exercised; device receipt of the alert is the owner's to confirm |
 | **M-20** Performance | **Measured and written up, milestone NOT passed.** `NFR-003`/`004`/`005` pass; `NFR-001`/`NFR-002` are **UNMEASURED** and that is M-20's own criterion. D-58 defines the bar. See §7b |
 
 ### Sprint 5 deliverables still outstanding
@@ -529,7 +529,7 @@ Its criterion is **"production deploy with monitoring, alerting, and verified ro
 | ~~Restore drill was on dev data~~ | ✅ **CLOSED 2026-09-09.** Production dumps restored into scratch on the production server, all 9 counts matched, envelope intact — from local staging (5 analyses) and again from the off-site copies (9 analyses). [RESTORE-DRILL-LOG](deployment/RESTORE-DRILL-LOG.md) |
 | ~~Off-host backup storage~~ | ✅ **CLOSED 2026-09-09.** The previous row was stale: the hourly `naigx-offsite-sync` unit has uploaded every cycle since 2026-09-08. Off-site copies pulled back, decrypted by key path, SHA-256-identical to staging, restore-drilled. ⚠️ Open issue: the script and units are host-only, not in the repo |
 | ~~Key-file permissions unverified on a POSIX host~~ | ✅ **CLOSED 2026-09-09.** Both *FAILS CLOSED* tests **ran and passed on the VPS** — 11 tests, **0 skipped**. D-61 §8. ⚠️ Verifies the code path, not the deployed file's mode |
-| **Alert delivery to a real person** | ⚠️ **THE ONE M-19 CHECK STILL OPEN.** Verified as a mechanism 2026-09-07. On the host (2026-09-09, read-only): Prometheus scrapes `backend:3000/internal/metrics` with `health: up`; Alertmanager holds one webhook receiver; no alert is firing. The deployed receiver has never been shown to deliver — `deploy/README.md` first-deploy step 6 is the check, and it was **deliberately not run** in the drill session because it pages the owner's receiver and was outside the authorised scope |
+| ~~Alert delivery to a real person~~ | ✅ **CLOSED 2026-09-09, owner-authorised.** One `DeployTest` alert (critical, `test=true`, `endsAt` +3 min) posted to the deployed Alertmanager; the **firing notification was read back from the ntfy topic 30 s later** (`group_wait`), zero notify errors, alert self-expired, Alertmanager back to zero active. Alertmanager *accepting* the alert was not treated as delivery — the topic read-back was. ⚠️ Device-level receipt is the owner's to confirm |
 
 ### ✅ Phase 4a — the rollback/encryption incompatibility, fixed *(done)*
 
@@ -755,6 +755,8 @@ check.** Admission is a decision; the drift error is the difference between
 
 | Commit | What |
 |---|---|
+| *(next)* | **M-19 closed** — test alert delivered and read back; `deploy/offsite/` preserves the sync script and units with recovery steps; STATUS, handoff, runbook updated |
+| `2362461` | Name the drills commit |
 | `bb1034a` | **The M-19 drills** — rollback and restore logs filled in from production, runbook path corrected, off-host mechanism recorded, two open issues added to `STATUS.md`. Documentation only; the deployed build is unchanged |
 | `64651a0` | Record the deploy in the handoff |
 | `1da10e3` | **Ship the artifact schemas in the image; compiled `schemas` publisher** — the defect the deploy surfaced; **this is the deployed build** |
@@ -828,6 +830,7 @@ check.** Admission is a decision; the drift error is the difference between
 | `docs/accessibility/WCAG-AA-CHECKLIST.md` | The manual M-17 walk. **Result table is empty** |
 | `docs/security/M-18-SECURITY-REVIEW.md` | The M-18 review, with its H-2 correction visible |
 | `deploy/seccomp/README.md` | Why the seccomp profile exists and what it trades |
+| `deploy/offsite/README.md` | **The off-site backup sync, preserved from the host** — install steps, the encryption parameters, the two keys recovery needs, and the recovery procedure (exercised through the drill step on 2026-09-09) |
 | `docs/deployment/RESTORE-DRILL-LOG.md` | The restore drill — **passed on PRODUCTION data 2026-09-09**, from staging and from the off-site copies; the working run command; the off-site decrypt parameters |
 | `docs/deployment/ROLLBACK-DRILL-LOG.md` | The rollback drill — **performed on production 2026-09-09**, all four criteria, with the outage windows; the 2026-09-07 rehearsal and D-57 kept beneath it |
 | `docs/33-D-58-Representative-Load.md` | What "representative load" means, and why `M-20` cannot pass on replay numbers |
