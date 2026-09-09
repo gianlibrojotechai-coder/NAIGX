@@ -708,3 +708,89 @@ test("without a profile a job-description case never reaches Stage 7", async () 
     );
   });
 });
+
+// --- D-76 §4: a failed generated artifact is a finding, not evidence ---------
+
+test("a capture whose generated artifact failed its parser is quarantined, never admitted", async () => {
+  // The first D-76 capture of jd-002 recorded a portfolio answer the
+  // redundancy rule refuses; the run completed, `artifact_set` is deferred,
+  // and the recording was admitted with a Stage 9 that replays a failure.
+  // Capture now refuses that shape at the source.
+  const { loadCapabilityProfile } =
+    await import("../../src/nie/capability-profile.js");
+  const profile = loadCapabilityProfile();
+  await withRoot(async (root) => {
+    const target = corpusCase({
+      case_id: "jd-bad-portfolio",
+      input_type: "job_description",
+      expected_classification: "job_description",
+    });
+    const rejectedPortfolio = (adapter: ProviderAdapter): ProviderAdapter => ({
+      ...adapter,
+      async invoke(request) {
+        const response = await adapter.invoke(request);
+        if (request.task !== "portfolio_suggestions") return response;
+        // Schema-valid, parser-invalid: the one project claims a requirement
+        // that is matched, not a gap, so no eligible gap is covered.
+        const wire = JSON.parse(response.output) as {
+          projects: { primary_gaps: string[] }[];
+        };
+        wire.projects[0]!.primary_gaps = ["req-1"];
+        return { ...response, output: JSON.stringify(wire) };
+      },
+    });
+
+    const report = await captureCases(
+      options(root, [target], {
+        capabilityProfile: profile,
+        adapterFor: (c) => rejectedPortfolio(createDryRunAdapter(c, profile)),
+      }),
+    );
+
+    const outcome = report.cases.find(
+      (o) => o.caseId === "jd-bad-portfolio",
+    );
+    assert.equal(outcome?.status, "failed");
+    assert.match(
+      outcome?.detail ?? "",
+      /generated artifact\(s\) failed validation .*portfolio_suggestions/,
+    );
+    assert.equal(
+      createRecordingStore(root).read("corpus-v1", "jd-bad-portfolio"),
+      undefined,
+      "nothing was written to the store",
+    );
+    const failures = fs.readdirSync(path.join(root, "failures"), {
+      recursive: true,
+    }) as string[];
+    assert.ok(
+      failures.some((f) => f.includes("jd-bad-portfolio")),
+      "the paid responses were quarantined",
+    );
+  });
+});
+
+test("a capture that generated its artifacts reports them", async () => {
+  const { loadCapabilityProfile } =
+    await import("../../src/nie/capability-profile.js");
+  const profile = loadCapabilityProfile();
+  await withRoot(async (root) => {
+    const target = corpusCase({
+      case_id: "jd-good",
+      input_type: "job_description",
+      expected_classification: "job_description",
+    });
+    const report = await captureCases(
+      options(root, [target], {
+        capabilityProfile: profile,
+        adapterFor: (c) => createDryRunAdapter(c, profile),
+      }),
+    );
+    const outcome = report.cases.find((o) => o.caseId === "jd-good");
+    assert.equal(outcome?.status, "captured");
+    // The brief, the gap analysis, the portfolio and the interview guidance
+    // generate; the n8n workflow is omitted (the dry-run plan names no
+    // platform block).
+    assert.match(outcome?.detail ?? "", /4 artifact\(s\) generated, 1 omitted/);
+  });
+});

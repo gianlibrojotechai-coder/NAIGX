@@ -311,6 +311,25 @@ const toStageRecordings = (
  * @throws whatever the pipeline throws — the caller decides whether a failed
  * case aborts the batch.
  */
+/**
+ * A capture whose run completed but whose generated artifact the pipeline
+ * itself rejected (D-76 §4). The responses were paid for and are quarantined
+ * like any failure; what is refused is *admission* — a recording whose Stage 9
+ * evidence is a labelled failure would replay that failure as if it were the
+ * prompt's answer, and `artifact_set` is a deferred assertion, so nothing
+ * downstream would say so.
+ */
+export class CaptureArtifactError extends Error {
+  readonly failedArtifacts: readonly string[];
+  constructor(failedArtifacts: readonly string[]) {
+    super(
+      `generated artifact(s) failed validation after the run completed: ${failedArtifacts.join(", ")} — a finding about the prompt, not evidence to replay (D-76 §4)`,
+    );
+    this.name = "CaptureArtifactError";
+    this.failedArtifacts = failedArtifacts;
+  }
+}
+
 export async function captureCase(
   corpusCase: CorpusCase,
   options: CaptureOptions,
@@ -321,7 +340,12 @@ export async function captureCase(
    * command claiming it had paid nothing.
    */
   calls: CapturedCall[] = [],
-): Promise<{ recording: CaseRecording; providerCalls: number }> {
+): Promise<{
+  recording: CaseRecording;
+  providerCalls: number;
+  /** What became of the plan: generated and omitted counts (D-76 §4). */
+  artifacts: { readonly generated: number; readonly omitted: number };
+}> {
   const now = options.now ?? (() => new Date());
 
   // ⚠️ OBSERVES, NEVER REPLACES. The capture still resolves through whatever
@@ -356,6 +380,22 @@ export async function captureCase(
     text: corpusCase.inputText,
   });
 
+  // D-76 §4: a completed run can still carry a failed artifact — the
+  // generator answered, the parser or schema refused, and the run resolved
+  // (`FR-091`). That is a finding, not evidence; refuse to write it.
+  const plan = result.artifactPlan ?? [];
+  const failedArtifacts = plan
+    .filter((entry) => entry.planned && entry.outcome === "failed")
+    .map((entry) => entry.artifactType);
+  if (failedArtifacts.length > 0) {
+    throw new CaptureArtifactError(failedArtifacts);
+  }
+  const artifacts = {
+    generated: plan.filter((e) => e.planned && e.outcome === "generated")
+      .length,
+    omitted: plan.filter((e) => !e.planned).length,
+  };
+
   const stages = toStageRecordings(calls, result);
   if (stages.length === 0) {
     throw new Error(
@@ -386,7 +426,7 @@ export async function captureCase(
     stages,
   };
 
-  return { recording, providerCalls: calls.length };
+  return { recording, providerCalls: calls.length, artifacts };
 }
 
 /**
@@ -486,11 +526,11 @@ export async function captureCases(
 
     try {
       report(`▶  ${corpusCase.caseId}`);
-      const { recording: complete, providerCalls } = await captureCase(
-        corpusCase,
-        options,
-        calls,
-      );
+      const {
+        recording: complete,
+        providerCalls,
+        artifacts,
+      } = await captureCase(corpusCase, options, calls);
 
       // Round-trip through the store's own validator before writing, so an
       // unreadable recording fails here rather than on the first regression
@@ -505,10 +545,14 @@ export async function captureCases(
         `   ${corpusCase.caseId} cost ${cost} · running total ${formatUsd(spent)}`,
       );
 
+      report(
+        `   ${corpusCase.caseId} artifacts: ${String(artifacts.generated)} generated, ${String(artifacts.omitted)} omitted`,
+      );
+
       outcomes.push({
         caseId: corpusCase.caseId,
         status: "captured",
-        detail: `${String(complete.stages.length)} stage(s)`,
+        detail: `${String(complete.stages.length)} stage(s); ${String(artifacts.generated)} artifact(s) generated, ${String(artifacts.omitted)} omitted`,
         providerCalls,
         costUsd: cost,
         recording: complete,

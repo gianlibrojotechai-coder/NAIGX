@@ -380,6 +380,31 @@ export function checkInternalConsistency(
       }
       break;
     }
+    case "business_analysis": {
+      const elements = ctx.context?.elements ?? [];
+      const counts = asRecord(doc["counts"]);
+      if (counts?.["elements"] !== elements.length)
+        problems.push(
+          `${String(counts?.["elements"])} elements counted, ${String(elements.length)} extracted`,
+        );
+      const unknowns = asArray(doc["unknowns"]).length;
+      const expectedUnknowns = elements.filter(
+        (e) => e.provenance === "unknown",
+      ).length;
+      if (unknowns !== expectedUnknowns)
+        problems.push(
+          `${String(unknowns)} unknowns rendered, ${String(expectedUnknowns)} extracted`,
+        );
+      const objective = asRecord(doc["objective"]);
+      if (
+        ctx.intent !== undefined &&
+        objective?.["content"] !== ctx.intent.primaryObjective.content
+      )
+        problems.push("objective differs from the intent record");
+      if (doc["standing"] !== "problem_statement")
+        problems.push('standing is not "problem_statement"');
+      break;
+    }
     case "interview_guidance": {
       const rec = ctx.recommendation;
       const requirementIds = new Set(

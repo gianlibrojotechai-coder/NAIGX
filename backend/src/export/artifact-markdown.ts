@@ -412,6 +412,87 @@ const renderAssessmentFeedback = (document: unknown): ArtifactRender => {
   return { lines, rendered: true };
 };
 
+// --- business_analysis -------------------------------------------------------
+
+/**
+ * The business analysis (D-77): the standing first, then the problem, the
+ * scope, the constraints and the known environment with provenance marks,
+ * and the unknowns with what would resolve them.
+ */
+const renderBusinessAnalysis = (document: unknown): ArtifactRender => {
+  if (!isRecord(document)) return unrenderable("business_analysis");
+  if (document.standing !== "problem_statement") {
+    return unrenderable("business_analysis");
+  }
+  const objective = isRecord(document.objective) ? document.objective : null;
+  const scope = str(document.scope);
+  if (objective === null || str(objective.content) === null || scope === null) {
+    return unrenderable("business_analysis");
+  }
+  const mark = (record: Record<string, unknown>): string =>
+    `*(${str(record.provenance) ?? "unknown"})*`;
+  const lines: string[] = [
+    "*The problem as the analysis understood it, before any design was reasoned — objectives, constraints and the known environment, each marked stated or inferred, and every unknown with what would resolve it. A statement of the problem, not a conclusion.*",
+    "",
+    "#### The problem",
+    "",
+    `**Objective** ${mark(objective)}. ${str(objective.content) ?? ""}`,
+    "",
+  ];
+  const secondary = list(document.secondary_objectives).filter(isRecord);
+  if (secondary.length > 0) {
+    lines.push("Also aims to:", "");
+    for (const s of secondary)
+      lines.push(`- ${str(s.content) ?? ""} ${mark(s)}`);
+    lines.push("");
+  }
+  lines.push(`**Scope, as inferred.** ${scope}`, "");
+
+  const constraints = list(document.constraints).filter(isRecord);
+  lines.push("#### Constraints", "");
+  if (constraints.length === 0) {
+    lines.push("*No constraint was extracted from the input.*", "");
+  } else {
+    for (const c of constraints)
+      lines.push(`- ${str(c.content) ?? ""} ${mark(c)}`);
+    lines.push("");
+  }
+
+  const environment = list(document.environment).filter(isRecord);
+  lines.push("#### What is known about the environment", "");
+  if (environment.length === 0) {
+    lines.push("*Nothing beyond the constraints was extracted.*", "");
+  } else {
+    lines.push("| Fact | Category | Provenance |", "|---|---|---|");
+    for (const e of environment) {
+      lines.push(
+        `| ${inlineCell(str(e.content) ?? "—")} | ${(str(e.category) ?? "—").replace(/_/g, " ")} | ${str(e.provenance) ?? "—"} |`,
+      );
+    }
+    lines.push("");
+  }
+
+  const unknowns = list(document.unknowns).filter(isRecord);
+  lines.push("#### What the input does not say", "");
+  if (unknowns.length === 0) {
+    lines.push("*Nothing was recorded as unknown.*", "");
+  } else {
+    for (const u of unknowns) {
+      const hint = str(u.resolution_hint);
+      lines.push(
+        `- **${str(u.content) ?? ""}**${hint === null ? "" : ` — would be resolved by: ${hint}`}`,
+      );
+    }
+    lines.push("");
+  }
+  const counts = isRecord(document.counts) ? document.counts : {};
+  lines.push(
+    `*Context sufficiency: ${str(document.sufficiency) ?? "—"}. ${String(int(counts.elements) ?? 0)} elements extracted: ${String(int(counts.stated) ?? 0)} stated, ${String(int(counts.inferred) ?? 0)} inferred, ${String(int(counts.unknown) ?? 0)} unknown.*`,
+    "",
+  );
+  return { lines, rendered: true };
+};
+
 // --- interview_guidance ------------------------------------------------------
 
 /**
@@ -648,6 +729,7 @@ export const ARTIFACT_TITLES: Readonly<Record<string, string>> = {
   workflow_recommendation: "Workflow Recommendation",
   risk_assessment: "Risk Assessment",
   assessment_feedback: "Assessment Feedback",
+  business_analysis: "Business Analysis",
   architecture_recommendation: "Architecture Recommendation",
   mermaid_diagram: "Architecture Diagram",
 };
@@ -737,6 +819,7 @@ const RENDERERS: Readonly<
   workflow_recommendation: renderWorkflowRecommendation,
   risk_assessment: renderRiskAssessment,
   assessment_feedback: renderAssessmentFeedback,
+  business_analysis: renderBusinessAnalysis,
   architecture_recommendation: renderArchitectureRecommendation,
   mermaid_diagram: renderMermaidDiagram,
 };

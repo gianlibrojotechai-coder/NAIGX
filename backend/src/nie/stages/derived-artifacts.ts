@@ -32,6 +32,7 @@ import {
   type ArtifactPlanEntry,
   type ArtifactType,
   type ClassificationType,
+  type ContextResult,
   type IntentResult,
   type RecommendationForArtifacts,
   type WorkflowReviewResult,
@@ -199,6 +200,63 @@ export const renderAssessmentFeedback = (
     rejection_reason: entry.rejectionReason,
   })),
 });
+
+/**
+ * Business Analysis — the problem as understood, as an artifact
+ * ([D-77](../../../../docs/52-D-77-Business-Analysis.md)).
+ *
+ * `AI §9.1`: "problem as understood, objectives, constraints; precedes all
+ * solution artifacts". It is a projection of Stages 2 and 3 — the intent
+ * record and the context set — and of nothing later: a reader is handed the
+ * problem exactly as the analysis held it before any design was reasoned,
+ * with every fact carrying its provenance (`FR-043`) and every unknown
+ * listed with what would resolve it (`FR-044`). The standing is fixed here
+ * so the document cannot be read as a conclusion.
+ */
+export const renderBusinessAnalysis = (
+  intent: IntentResult,
+  context: ContextResult,
+): Record<string, unknown> => {
+  const fact = (element: ContextResult["elements"][number]) => ({
+    content: element.content,
+    category: element.category,
+    provenance: element.provenance,
+    ...(element.inferenceBasis !== undefined
+      ? { inference_basis: element.inferenceBasis }
+      : {}),
+  });
+  const known = context.elements.filter((e) => e.provenance !== "unknown");
+  return {
+    standing: "problem_statement",
+    objective: {
+      content: intent.primaryObjective.content,
+      provenance: intent.primaryObjective.provenance,
+    },
+    secondary_objectives: intent.secondaryObjectives.map((objective) => ({
+      content: objective.content,
+      provenance: objective.provenance,
+    })),
+    scope: intent.inferredScope,
+    constraints: known.filter((e) => e.category === "constraint").map(fact),
+    environment: known.filter((e) => e.category !== "constraint").map(fact),
+    unknowns: context.elements
+      .filter((e) => e.provenance === "unknown")
+      .map((e) => ({
+        content: e.content,
+        category: e.category,
+        resolution_hint: e.resolutionHint ?? null,
+      })),
+    sufficiency: context.sufficiency,
+    counts: {
+      elements: context.elements.length,
+      stated: context.elements.filter((e) => e.provenance === "stated").length,
+      inferred: context.elements.filter((e) => e.provenance === "inferred")
+        .length,
+      unknown: context.elements.filter((e) => e.provenance === "unknown")
+        .length,
+    },
+  };
+};
 
 /**
  * Skill Gap Analysis — the Stage 7 requirement weighing, as an artifact

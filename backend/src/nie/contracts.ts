@@ -597,6 +597,9 @@ export const ARTIFACT_TYPES = [
   // renders. `platform_recommendation`, the path's reasoning artifact, stays
   // an open owner decision (STATUS) and is not declared.
   "architecture_recommendation",
+  // D-77: rendered from the Stage 2 intent record and the Stage 3 context set —
+  // the problem as understood, before any solution artifact.
+  "business_analysis",
 ] as const;
 export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
 
@@ -620,7 +623,13 @@ export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
 export const PATH_ARTIFACT_TYPES: Readonly<
   Record<ClassificationType, readonly ArtifactType[]>
 > = {
-  business_requirement: ["architecture_recommendation", "mermaid_diagram"],
+  // Order is precedence (`AI §9.1`: the business analysis "precedes all
+  // solution artifacts").
+  business_requirement: [
+    "business_analysis",
+    "architecture_recommendation",
+    "mermaid_diagram",
+  ],
   existing_workflow: ["workflow_recommendation", "risk_assessment"],
   job_description: [
     "skill_gap_analysis",
@@ -646,6 +655,7 @@ export const IMPLEMENTED_ARTIFACT_TYPES = [
   "assessment_feedback",
   "mermaid_diagram",
   "architecture_recommendation",
+  "business_analysis",
 ] as const;
 
 /**

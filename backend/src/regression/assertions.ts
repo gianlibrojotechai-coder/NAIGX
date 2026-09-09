@@ -75,6 +75,17 @@ export const ASSERTION_CATALOGUE = [
     deferredTo: null,
   },
   {
+    // D-76 §4: a planned artifact that ended `failed` is a labelled failure
+    // the run resolved around (`FR-091`) — and, before this assertion, one the
+    // runner could not see: a recording whose Stage 9 answer the parser
+    // rejects, or whose path gained a stage the recording holds no answer
+    // for, passed every evaluated assertion. Now it fails the case.
+    id: "artifact_generation",
+    specRef: "FR-039, FR-091, docs/51 D-76 §4",
+    supported: true,
+    deferredTo: null,
+  },
+  {
     id: "artifact_set",
     specRef: "docs/11 §9, FR-017",
     supported: false,
@@ -267,6 +278,31 @@ export function evaluateCase(
       pass("run_completeness", "a halt is expected for this case (docs/11 §3)"),
     );
   }
+
+  // --- artifact generation (`FR-039`, `FR-091`; D-76 §4) ------------------
+  // Every artifact the run planned must have generated. "Failed" is a real
+  // outcome the pipeline stores and announces — and exactly the one a
+  // regression run exists to catch when it is the prompt's fault.
+  const plan = result.artifactPlan ?? [];
+  const failedArtifacts = plan
+    .filter((entry) => entry.planned && entry.outcome === "failed")
+    .map((entry) => entry.artifactType);
+  const generatedArtifacts = plan.filter(
+    (entry) => entry.planned && entry.outcome === "generated",
+  ).length;
+  outcomes.push(
+    failedArtifacts.length > 0
+      ? failed(
+          "artifact_generation",
+          `planned artifact(s) failed: ${failedArtifacts.join(", ")}`,
+        )
+      : pass(
+          "artifact_generation",
+          plan.length === 0
+            ? "no artifact was planned on this run"
+            : `${String(generatedArtifacts)} planned artifact(s) generated, none failed`,
+        ),
+  );
 
   // --- reference integrity (`AI §12.5` — 100%) ----------------------------
   // Structural, not corpus-derived (`docs/11` §9). Every architecture component

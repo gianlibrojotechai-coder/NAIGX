@@ -36,6 +36,7 @@ import type { ReactNode } from "react";
 import {
   asArchitectureRecommendation,
   asAssessmentFeedback,
+  asBusinessAnalysis,
   asIntentBrief,
   asInterviewGuidance,
   asMermaidDiagram,
@@ -57,6 +58,7 @@ import {
 } from "../format";
 import { ArchitectureRecommendationView } from "./ArchitectureRecommendation";
 import { AssessmentFeedbackView } from "./AssessmentFeedback";
+import { BusinessAnalysisView } from "./BusinessAnalysis";
 import { IntentBriefView } from "./IntentBrief";
 import { InterviewGuidanceView } from "./InterviewGuidance";
 import { N8nWorkflowView } from "./N8nWorkflow";
@@ -311,6 +313,17 @@ const ARTIFACT_PRESENTERS: Readonly<Record<string, ArtifactPresenter>> = {
       const feedback = asAssessmentFeedback(content);
       return feedback === null ? null : (
         <AssessmentFeedbackView feedback={feedback} />
+      );
+    },
+  },
+  business_analysis: {
+    title: "Business analysis",
+    subtitle:
+      "The problem as understood — objectives, constraints and unknowns, before any design",
+    render: (content) => {
+      const analysis = asBusinessAnalysis(content);
+      return analysis === null ? null : (
+        <BusinessAnalysisView analysis={analysis} />
       );
     },
   },

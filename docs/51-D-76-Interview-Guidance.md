@@ -36,7 +36,7 @@ Each provider-called generator has its own Stage 9 trace, keyed by generator (`p
 
 **A parser-rejected artifact is invisible to the runner and to capture.** The first D-76 capture of `jd-002` recorded a portfolio answer with a bogus second project ("(merged) — no standalone project required") that the redundancy rule refuses. The capture tool stores provider responses whether or not the artifact parsed; `artifact_set` is a deferred assertion; so the targeted run and the fifteen-case run both **passed** on a recording whose Stage 9 evidence was a labelled failure. It was caught by `tests/unit/replay-corpus.test.ts` test 3, which runs a served case through the production pipeline and refuses a `failed` portfolio — the test that exists because of the earlier "recorded answer never keyed" defect. The recapture was parser-checked directly before admission.
 
-Both are runner work, listed as follow-up: the recording should carry the path's composed stage-key set (an unrecorded stage → `composition_mismatch`), and `capture` should print each case's artifact outcomes and refuse to admit a recording whose generated artifact failed its parser.
+The second is closed in the same record: `captureCase` now refuses a run whose planned artifact ended `failed` (`CaptureArtifactError` — the paid responses are quarantined like any failure, nothing is written) and reports each case's artifact outcomes (`tests/integration/regression-capture.test.ts`, two tests). The first remains runner work, listed as follow-up: the recording should carry the path's composed stage-key set, so an unrecorded stage reads as `composition_mismatch`.
 
 ## 5. What is not changed
 

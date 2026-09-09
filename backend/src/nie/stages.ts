@@ -119,6 +119,7 @@ export const STAGES: readonly StageDefinition[] = [
       "assessment_feedback",
       "mermaid_diagram",
       "architecture_recommendation",
+      "business_analysis",
       "n8n_workflow",
     ],
   },

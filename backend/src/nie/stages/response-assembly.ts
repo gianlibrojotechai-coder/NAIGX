@@ -135,6 +135,14 @@ export function assembleResponse(result: PipelineResult): AssemblyReport {
       "a workflow artifact was generated without the review it rests on",
     );
   }
+  if (
+    types.has("business_analysis") &&
+    (result.intent === undefined || result.context === undefined)
+  ) {
+    problems.push(
+      "the business analysis was generated without the intent record and context set it rests on",
+    );
+  }
   if (types.has("intent_brief") && result.intent === undefined) {
     problems.push(
       "the intent brief was generated without the intent record it rests on",

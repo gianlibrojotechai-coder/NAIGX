@@ -134,14 +134,14 @@ test("the assessment path plans its whole AI §9.1 set", () => {
   assert.ok(plan.every((entry) => entry.planned));
 });
 
-test("the requirement path plans its two rendered artifacts (D-73)", () => {
+test("the requirement path plans its three rendered artifacts (D-73, D-77)", () => {
   // The rest of its `AI §9.1` set is reasoning work and is not declared, so
   // the plan carries no omission rows for it — nothing was deliberated over.
   const plan = planDerivedArtifacts("business_requirement", "because");
 
   assert.deepEqual(
     plan.map((entry) => entry.artifactType),
-    ["architecture_recommendation", "mermaid_diagram"],
+    ["business_analysis", "architecture_recommendation", "mermaid_diagram"],
   );
   assert.ok(plan.every((entry) => entry.planned));
 });

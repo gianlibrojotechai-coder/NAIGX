@@ -488,6 +488,68 @@ export const asMermaidDiagram = (content: unknown): MermaidDiagram | null => {
   return candidate as MermaidDiagram;
 };
 
+/** `backend/schemas/business_analysis.schema.json` (D-77). */
+export interface BusinessFact {
+  readonly content: string;
+  readonly category: string;
+  readonly provenance: "stated" | "inferred";
+  readonly inference_basis?: string;
+}
+
+export interface BusinessAnalysis {
+  readonly standing: "problem_statement";
+  readonly objective: {
+    readonly content: string;
+    readonly provenance: "stated" | "inferred";
+  };
+  readonly secondary_objectives: readonly {
+    readonly content: string;
+    readonly provenance: "stated" | "inferred";
+  }[];
+  readonly scope: string;
+  readonly constraints: readonly BusinessFact[];
+  readonly environment: readonly BusinessFact[];
+  readonly unknowns: readonly {
+    readonly content: string;
+    readonly category: string;
+    readonly resolution_hint: string | null;
+  }[];
+  readonly sufficiency: string;
+  readonly counts: {
+    readonly elements: number;
+    readonly stated: number;
+    readonly inferred: number;
+    readonly unknown: number;
+  };
+}
+
+export const asBusinessAnalysis = (
+  content: unknown,
+): BusinessAnalysis | null => {
+  if (content === null || typeof content !== "object") return null;
+  const candidate = content as Partial<BusinessAnalysis>;
+  if (candidate.standing !== "problem_statement") return null;
+  if (
+    candidate.objective === undefined ||
+    typeof candidate.objective.content !== "string"
+  )
+    return null;
+  if (typeof candidate.scope !== "string") return null;
+  if (
+    !Array.isArray(candidate.constraints) ||
+    !Array.isArray(candidate.environment)
+  )
+    return null;
+  if (
+    !Array.isArray(candidate.unknowns) ||
+    !Array.isArray(candidate.secondary_objectives)
+  )
+    return null;
+  if (candidate.counts === undefined || typeof candidate.counts !== "object")
+    return null;
+  return candidate as BusinessAnalysis;
+};
+
 /** `backend/schemas/interview_guidance.schema.json` (D-76). */
 export interface InterviewCompetency {
   readonly rank: number;

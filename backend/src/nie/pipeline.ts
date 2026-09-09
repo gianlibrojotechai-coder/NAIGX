@@ -105,6 +105,7 @@ import {
   renderIntentBrief,
   renderArchitectureRecommendation,
   renderAssessmentFeedback,
+  renderBusinessAnalysis,
   renderSkillGapAnalysis,
   renderMermaidDiagram,
   renderRiskAssessment,
@@ -1870,6 +1871,8 @@ export function createPipeline(deps: PipelineDependencies) {
 
     const rendered = await emitDerivedArtifacts(input, assessmentPlan, {
       assessment_feedback: () => renderAssessmentFeedback(architecture),
+      // D-77: the problem as understood — Stages 2 and 3, nothing later.
+      business_analysis: () => renderBusinessAnalysis(intent, context),
       architecture_recommendation: () =>
         renderArchitectureRecommendation(architecture),
       mermaid_diagram: () => renderMermaidDiagram(architecture),
