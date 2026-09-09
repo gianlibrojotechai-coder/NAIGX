@@ -283,7 +283,23 @@ was marked `timed_out`, so the harness's figure for it was low by one call.
 | Cancellation verification (br-001 under a 30 s deadline): 2 completed calls recorded + 1 aborted call recorded at $0 | 3 | $0.0186 recorded; **+ up to $0.039 unrecorded** for the aborted call |
 | **New account, this record** | **27** | **$0.6100 recorded; ≤ $0.6490 with the aborted call's upper bound** |
 | Retired account, earlier this continuation — ⚠️ corrected: the harness read the timed-out run before its two post-deadline Stage 9 calls landed ($0.1051 more than reported) | 65 | $1.2370 |
-| **Continuation total** | **92** | **$1.8470 recorded; budgeted at the upper bound $1.8860** of the US$10 cap — **$8.1140 remaining** |
+| Sonnet 5 `M-20` sample (latency log §8): 30 runs, 0 timed out, 0 aborted | 131 | $3.1895 (harness = trace store) |
+| **Continuation total** | **223** | **$5.0365 recorded; budgeted at the upper bound $5.0755** of the US$10 cap — **$4.9245 remaining** |
+
+⚠️ Provider-side usage was not reconciled: a regular API key exposes no
+usage or cost endpoint (those are Admin API surfaces, which need an admin
+key the organisation does not have). The trace store is the record.
+
+### 7.4 Deployed — 2026-09-09, replay mode only
+
+Owner-authorised rebuild, no provider credentials, no live calls. Host
+checkout `a12ce54`, 0 migrations, outgoing image tagged
+`naigx-backend:rollback-1da10e3`, new image `a59c966a36cb`; `schemas
+check` and `fragments status` clean on the new image before the swap;
+readiness 200; all four recorded paths completed through the public API,
+jd-002 through Stage 9. `deploy/README.md`'s runbook, followed in order.
+The `M-20` Sonnet 5 sample then ran against this same build locally, at
+the 180 s default: 30 of 30 completed (§8 of the latency log).
 
 Both timed-out runs are counted **in full**, including every call that
 finished after the deadline. With cancellation in place a future timeout

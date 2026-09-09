@@ -70,6 +70,18 @@ const array = (items: OutputSchema): OutputSchema => ({
   type: "array",
   items,
 });
+/**
+ * A list that must not be empty. `minItems` is supported by constrained
+ * decoding for the values 0 and 1 only, which is exactly enough: the
+ * published portfolio schema's `nonEmptyStringList` is `minItems: 1`, and the
+ * one artifact failure in the 30-run Sonnet 5 sample was an empty
+ * `platforms` list that this now prevents at the source.
+ */
+const nonEmptyArray = (items: OutputSchema): OutputSchema => ({
+  type: "array",
+  minItems: 1,
+  items,
+});
 
 /**
  * An object in which every property is required — except those named in
@@ -212,21 +224,21 @@ const recommendationGeneration = object({
  * `""`, and the published schema correctly refused it.
  */
 const portfolioSuggestions = object({
-  projects: array(
+  projects: nonEmptyArray(
     object(
       {
         rank: integer,
         name: string,
         complexity: enumOf(PORTFOLIO_COMPLEXITY),
-        primary_gaps: array(string),
-        secondary_capabilities: array(string),
+        primary_gaps: nonEmptyArray(string),
+        secondary_capabilities: nonEmptyArray(string),
         why_this_project: string,
         business_problem: string,
         what_to_build: string,
-        workflow: array(string),
-        platforms: array(string),
-        technical_concepts: array(string),
-        evidence_to_produce: array(
+        workflow: nonEmptyArray(string),
+        platforms: nonEmptyArray(string),
+        technical_concepts: nonEmptyArray(string),
+        evidence_to_produce: nonEmptyArray(
           object({
             type: enumOf(PORTFOLIO_EVIDENCE_TYPES),
             what_it_shows: string,

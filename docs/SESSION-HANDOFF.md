@@ -1,6 +1,6 @@
 # NAIGX — Session Handoff
 
-**Written:** 2026-09-08 · **Last updated:** 2026-09-09 (D-65: Sonnet 5 with structured outputs, verified live on the new account across all four paths; M-20 measured and NOT MET; `NFR-021` absent on the VPS)
+**Written:** 2026-09-08 · **Last updated:** 2026-09-09 (D-65 deployed to production in replay mode; FR-094 cancellation fixed; M-20 re-measured on Sonnet 5, full sample, NOT MET on both models)
 **Purpose:** hand a new chat session everything it needs to continue building NAIGX without re-deriving context or re-litigating settled decisions.
 
 > **Read this first, then `docs/STATUS.md`.** STATUS.md is the authoritative current-state record. This file covers the most recent working sessions, and the exact next step.
@@ -65,7 +65,7 @@ These are standing instructions given explicitly. **They override default thorou
 | **M-17** Accessibility | **Implemented, NOT verified.** 4 violations fixed, axe running. The manual WCAG walk is unwalked |
 | **M-18** Security | **Reviewed, NOT passed.** `NFR-027` found and fixed; `DB §13.1` app-level encryption implemented against a **host-held key file** (D-61 retired AWS KMS). ✅ Its key-file **fail-closed mechanism is now verified on the VPS** (D-61 §8) — H-2 and the milestone still open |
 | **M-19** Deployment | ✅ **CLOSED 2026-09-09.** Deploy ✅ (ready, four paths serving recorded inputs) · monitoring ✅ (Prometheus scraping, `health: up`) · alerting ✅ (owner-authorised test alert delivered to the ntfy receiver in 30 s, read back from the topic) · verified rollback ✅ (production drill, ~1.7 s / ~2.0 s) · restore drill ✅ on production data and from off-site. `STATUS.md` → Completed. ⚠️ Replay mode; migration-crossing rollback not exercised; device receipt of the alert is the owner's to confirm |
-| **M-20** Performance | **NOT PASSED — now on evidence.** ✅ `NFR-001`/`NFR-002` **measured live 2026-09-09** (owner-authorised, $1.1319): full completion **p50 74.3 s / p95 161.6 s** (n=8, budget 60/120); first artifact **p50 85.3 s / p95 161.6 s** (n=4, budget 15/40). Both over budget at p50; `NFR-001` is structurally out of reach for this pipeline shape. ⚠️ Sample cut short at 11 attempts by **provider credit exhaustion** — the owner's account, not the cap. `docs/performance/M-20-LATENCY-LOG.md` §7. **What closes it is a requirements decision**, see §7b |
+| **M-20** Performance | **NOT PASSED — on evidence from two separate live samples.** Sonnet 4.5 (§7 of the log, n=8 of 11, cut short by credit exhaustion): `NFR-002` p50 74.3 s / p95 161.6 s, `NFR-001` p50 85.3 s / p95 161.6 s. **Sonnet 5 (§8, full n=30, 180 s default, nothing excluded): `NFR-002` p50 77.2 s / p95 128.0 s, `NFR-001` p50 91.4 s / p95 126.6 s; 0 timed out, 0 failed, 1 degraded.** Budgets 60/120 and 15/40. Both models miss both at p50; `NFR-001` is structurally out of reach for this pipeline shape. **What closes it is a requirements decision**, see §7b |
 
 ### Sprint 5 deliverables still outstanding
 
@@ -391,11 +391,26 @@ calls. Fixed by threading an `AbortSignal` executor → pipeline → invoker →
 adapter (D-65 §7.2), pinned by `tests/unit/cancellation.test.ts`, and
 **verified live** under a 30 s deadline: the Stage 3 call was aborted at
 the deadline, recorded as cancelled, and nothing ran or was written after. Spend on the new
-account: **$0.5914** (24 calls, reconciled from the trace store). ⚠️ The
-production host still runs image `14c8321f5b9b` from `1da10e3` in replay
-mode with no provider variables; the D-65 source is on `main` and on the
-host checkout but **not built into the running image** — rebuilding is
-harmless in replay mode and is **not** authorised as a live switch.
+account: see §8's constraint row for the reconciled total.
+
+✅ **DEPLOYED TO PRODUCTION IN REPLAY MODE, 2026-09-09, owner-authorised**
+(the rebuild only — no provider credentials, no live calls). Host checkout
+`a12ce54`; 0 migrations; the outgoing image `14c8321f5b9b` was tagged
+**`naigx-backend:rollback-1da10e3`** and `naigx-backend:rollback-target`
+(`56d7269`) is still present; new image **`a59c966a36cb`**, marker = the
+cancellation string in `dist/provider/adapters/anthropic.js`; `schemas
+check` 5 matching and 15 fragments active on the new image before the
+swap; `Replay corpus loaded` 15 served / 54 fixtures / 0 excluded;
+readiness **200** in-container and at `https://naigx.tech` (TLS verify 0),
+`/internal/metrics` 404 from outside; **all four recorded paths completed
+through the public API — jd-002 through Stage 9 with its artifact
+generated, ew-001 and ta-005 with both artifacts, br-001 with none by
+design.** n8n and Traefik untouched. Production still sets no provider
+variable. ⚠️ One refinement landed on `main` **after** that image was
+built: `minItems: 1` on the portfolio request schema's list fields (the
+one degraded run in the Sonnet 5 sample was an empty `platforms` list).
+It is source-only, affects live mode only, and is **not** in
+`a59c966a36cb`; the next replay-mode rebuild picks it up harmlessly.
 
 ### The replay-mode increment (2026-09-08) — still true, now the floor
 
@@ -640,7 +655,7 @@ Two mechanisms, because neither covers both directions:
 
 | Constraint | Source |
 |---|---|
-| **No provider spend without authorisation.** ⚠️ AMENDED 2026-09-09 (evening): the owner replaced per-case approval with a **US$10 cap for the Sprint 5 continuation**, "only when necessary", free verification preferred where it measures the same thing, no subscriptions or recurring infrastructure. **Spent under it: $1.8470 recorded, budgeted at $1.8860** — $1.2370 on the retired account (the M-20 live sample, 65 invocations; ⚠️ corrected from $1.1319 after reconciling the trace store: two Stage 9 calls landed after the timed-out run's deadline) and $0.6100 recorded on the new account (D-65 verification 24 calls + the cancellation check 3 calls), plus **up to $0.039 the trace cannot see** for the one deliberately aborted call (an aborted response carries no usage). **Remaining: $8.1140** at the upper bound. ⚠️ The retired account is exhausted and **must not be used again** (owner, 2026-09-09); the new account's $100 balance is the account's, not the task's. Earlier campaign spend: $1.7121, case by case. Project cumulative: **$4.42** across all live work recorded in `STATUS.md` and the campaign. | Owner, 2026-09-09 |
+| **No provider spend without authorisation.** ⚠️ AMENDED 2026-09-09 (evening): the owner replaced per-case approval with a **US$10 cap for the Sprint 5 continuation**, "only when necessary", free verification preferred where it measures the same thing, no subscriptions or recurring infrastructure. **Spent under it: $5.0365 recorded, budgeted at $5.0755** — $1.2370 on the retired account (the Sonnet 4.5 M-20 sample, 65 invocations; ⚠️ corrected from $1.1319 after reconciling the trace store: two Stage 9 calls landed after the timed-out run's deadline) and $3.7995 recorded on the new account (D-65 verification 24 calls $0.5914; cancellation check 3 calls $0.0186; the Sonnet 5 M-20 sample 131 calls $3.1895 — harness and trace store identical), plus **up to $0.039 the trace cannot see** for the one deliberately aborted call (an aborted response carries no usage; not free, explicitly unknown). **Remaining: $4.9245** at the upper bound. ⚠️ Provider-side usage could not be reconciled: a regular API key exposes no usage or cost endpoint, and no Admin API key exists for the organisation. ⚠️ The retired account is exhausted and **must not be used again** (owner, 2026-09-09); the new account's $100 balance is the account's, not the task's. Earlier campaign spend: $1.7121, case by case. Project cumulative: **$4.42** across all live work recorded in `STATUS.md` and the campaign. | Owner, 2026-09-09 |
 | ~~**Prompt fragments stay inactive.**~~ ✅ **SUPERSEDED 2026-09-09** — the owner authorised publication with `d4abcd42626452df`; 15 versions are active in production through the unchanged gate. D-39's *principle* stands: nothing further activates without a covering reference and an authorisation. | **D-39**, owner 2026-09-09 |
 | **No M-08 packet review, no rubric verdicts.** AI review excluded "in any capacity, for any criterion". | `docs/10` §4.3 |
 | **Do not implement `platform_recommendation`** / expand `business_requirement`. | Owner, explicit |

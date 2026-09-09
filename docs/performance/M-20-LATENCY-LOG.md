@@ -322,8 +322,59 @@ longer a measurement: it is a decision about `NFR-001`'s definition and
 
 ⚠️ **The figures above are Sonnet 4.5 figures and stay labelled as such.**
 The live model moved to `claude-sonnet-5` later the same day
-([D-65](../40-D-65-Structured-Outputs-And-Sonnet-5.md)); its four-path
-verification recorded wall-clock times of 85–141 s per completed analysis at
-`medium` effort and ~195 s for the job-description path — **an
-observation from five runs, not an `M-20` measurement**, and not a pass
-either. A Sonnet 5 `M-20` sample would be a fresh D-58 run.
+([D-65](../40-D-65-Structured-Outputs-And-Sonnet-5.md)). Its own D-58
+sample is §8, kept separate.
+
+---
+
+## 8. `NFR-001` / `NFR-002` on Claude Sonnet 5 — 2026-09-09 — the full 30-run sample, and NOT MET
+
+Same methodology as §7, same 10-case rotation, same two clocks, **one
+analysis at a time**, the **180 s default deadline** (no override), the
+deployed build `a12ce54` run locally in live mode with D-65's structured
+outputs and `effort: medium`, on the owner-confirmed new account. Nothing
+was excluded: every run is in the record and every run counts.
+
+### 8.1 The sample
+
+| | |
+|---|---|
+| Runs | **30 of 30 completed** — 0 timed out, 0 failed |
+| Degraded | 1 (run 15, `jd-008`: the portfolio artifact failed the published schema twice on an empty `platforms` list; the analysis completed with the artifact labelled failed) |
+| Calls / cost | **131 calls, $3.1895** — the harness and the trace store agree to the cent; 0 zero-cost calls, 0 cancelled calls |
+| Tokens | 588,008 in / 201,349 out |
+| Evidence | `evidence/m20-sonnet5-runs-2026-09-09.jsonl` and `.log` |
+
+### 8.2 Results against the requirement
+
+| Requirement | Budget | Measured (server, `M-16` formula) | Measured (client) | n | Met? |
+|---|---|---|---|---|---|
+| `NFR-002` full completion | ≤60 s p50 / ≤120 s p95 | **p50 77.2 s / p95 128.0 s**, max 139.8 s | p50 77.2 s / p95 128.1 s | 30 | ❌ p50 over by 29%; 18 of 30 runs over 60 s, 4 over 120 s |
+| `NFR-001` first artifact (M-16: first artifact row, any status) | ≤15 s p50 / ≤40 s p95 | **p50 91.4 s / p95 126.6 s** | p50 77.2 s / p95 126.8 s | 21 | ❌ p50 over by 6× |
+| `NFR-001`, generated artifacts only | same | p50 77.2 s / p95 126.6 s | — | 20 | ❌ |
+
+By path (all completed): `technical_assessment` p50 41.9 s (max 77.2),
+`business_requirement` 54.9 s (max 139.8, **no artifact by design**),
+`existing_workflow` 65.3 s (max 126.7), `job_description` 110.4 s (max
+126.6, artifact at Stage 9). Cost per analysis $0.06–$0.17; mean $0.106.
+
+### 8.3 Read against the Sonnet 4.5 sample — separately
+
+| | Sonnet 4.5 (§7, n=8 completed of 11) | Sonnet 5 (n=30 of 30) |
+|---|---|---|
+| `NFR-002` p50 / p95 | 74.3 s / 161.6 s | 77.2 s / 128.0 s |
+| `NFR-001` p50 / p95 | 85.3 s / 161.6 s (n=4) | 91.4 s / 126.6 s (n=21) |
+| Timed out / failed | 1 / 2 (of 11) | 0 / 0 (of 30) |
+| Shape failures at a parser | 1 | **0** |
+| Cost per completed analysis | $0.07–$0.19 | $0.06–$0.17 |
+
+The two samples are different sizes, different models and different
+adapters (structured outputs only on Sonnet 5); they are placed side by
+side to show both miss the same requirement in the same way, **not** to
+rank the models. §7.4's finding stands on both: no artifact exists before
+Stage 6/7 completes, so `NFR-001` cannot be met by a faster model. Sonnet
+5's variance is narrower (Stage 3 21–95 s across the whole sample) and
+nothing hit the deadline, but the p50s sit in the same place.
+
+**`M-20` stays NOT PASSED on both models.** What closes it remains the
+owner's decision on `NFR-001`'s definition and `NFR-002`'s target.
