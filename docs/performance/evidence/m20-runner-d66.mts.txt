@@ -1,0 +1,158 @@
+/**
+ * M-20 D-58 live sample on the D-66 build. Identical to m20-runner.mts
+ * (docs/performance/evidence/m20-runner.mts.txt) except that each record also
+ * carries `serverFirstReasoningArtifactS` — the first artifact row that is
+ * NOT the intent brief — so the pre-D-66 definition of "first artifact"
+ * stays reportable beside the new one. Nothing else changed.
+ */
+import fs from "node:fs";
+import { execFileSync } from "node:child_process";
+import { loadCorpus } from "./src/regression/corpus.js";
+
+const BASE = process.env["M20_BASE"] ?? "http://127.0.0.1:3998";
+const OUT = process.env["M20_OUT"]!;
+const CEILING = Number(process.env["M20_CEILING_USD"] ?? "8.00");
+const WORST_RUN = 0.3;
+const RUNS = Number(process.env["M20_RUNS"] ?? "30");
+const ROTATION = [
+  "jd-002", "br-001", "ew-001", "ta-005", "jd-008",
+  "br-002", "ew-001", "ta-005", "br-003", "jd-002",
+];
+const corpus = loadCorpus();
+
+const psql = (db: string, sql: string): string =>
+  execFileSync(
+    "docker",
+    ["exec", "naigx-postgres", "psql", "-U", "naigx", "-d", db, "-tAc", sql],
+    { encoding: "utf8" },
+  ).trim();
+const sleep = (ms: number): Promise<void> =>
+  new Promise((r) => setTimeout(r, ms));
+const log = (s: string): void => {
+  console.log(s);
+  fs.appendFileSync(OUT + ".log", s + "\n");
+};
+
+async function register(i: number): Promise<string> {
+  const email = `m20d66-${String(Date.now())}-${String(i)}@naigx.test`;
+  const r = await fetch(`${BASE}/users`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password: "m20-measurement-run-passphrase" }),
+  });
+  const body: any = await r.json();
+  const d = body.data;
+  const token = d?.access_token ?? d?.accessToken ?? d?.session?.access_token;
+  if (!token) {
+    throw new Error(`register ${String(r.status)}: ${JSON.stringify(body).slice(0, 300)}`);
+  }
+  return token as string;
+}
+
+let spent = 0;
+const done: any[] = fs.existsSync(OUT)
+  ? fs.readFileSync(OUT, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l))
+  : [];
+for (const d of done) spent += Number(d.costUsd ?? 0);
+
+const accounts: string[] = [];
+for (let i = 0; i < 3; i++) accounts.push(await register(i));
+log(`accounts=3 resumeFrom=${String(done.length)} spentSoFar=$${spent.toFixed(4)} ceiling=$${CEILING.toFixed(2)}`);
+
+for (let i = done.length; i < RUNS; i++) {
+  if (spent + WORST_RUN > CEILING) {
+    log(`STOP before run ${String(i + 1)}: spent $${spent.toFixed(4)} + worst-case $${String(WORST_RUN)} would exceed $${String(CEILING)}`);
+    break;
+  }
+  const caseId = ROTATION[i % ROTATION.length]!;
+  const c = corpus.find((x) => x.caseId === caseId)!;
+  const headers = {
+    Authorization: `Bearer ${accounts[Math.floor(i / 10) % 3]}`,
+    "Content-Type": "application/json",
+  };
+  const t0 = Date.now();
+  const cr = await fetch(`${BASE}/analyses`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ content: c.inputText, source_type: "paste" }),
+  });
+  const tAccepted = Date.now();
+  const cd: any = await cr.json();
+  if (cr.status !== 202) {
+    log(`run ${String(i + 1)} ${caseId}: POST ${String(cr.status)} ${JSON.stringify(cd).slice(0, 200)}`);
+    if (cr.status === 429) {
+      await sleep(60_000);
+      i--;
+      continue;
+    }
+    break;
+  }
+  const id: string = cd.data.analysis_id;
+  let tFirstVisible: number | null = null;
+  let tDone: number | null = null;
+  let full: any = null;
+  const deadline = t0 + 300_000;
+  while (Date.now() < deadline) {
+    const r = await fetch(`${BASE}/analyses/${id}`, { headers });
+    full = ((await r.json()) as any).data;
+    const arts: any[] = full?.artifacts ?? [];
+    if (tFirstVisible === null && arts.some((a) => a.outcome === "generated")) {
+      tFirstVisible = Date.now();
+    }
+    if (["completed", "failed", "timed_out"].includes(full?.status)) {
+      tDone = Date.now();
+      break;
+    }
+    await sleep(400);
+  }
+  const row = psql(
+    "naigx",
+    `select extract(epoch from created_at), extract(epoch from completed_at), status from analysis where analysis_id='${id}'`,
+  ).split("|");
+  const firstArt = psql(
+    "naigx",
+    `select extract(epoch from min(created_at)) from artifact where analysis_id='${id}'`,
+  );
+  const firstGen = psql(
+    "naigx",
+    `select extract(epoch from min(created_at)) from artifact where analysis_id='${id}' and validation_status='valid'`,
+  );
+  const firstReasoning = psql(
+    "naigx",
+    `select extract(epoch from min(created_at)) from artifact where analysis_id='${id}' and artifact_type<>'intent_brief'`,
+  );
+  const costSql = `from provider_invocation p join stage_trace s on s.stage_trace_id=p.stage_trace_id where s.analysis_id='${id}'`;
+  const cost = Number(psql("naigx_trace", `select coalesce(sum(p.estimated_cost),0) ${costSql}`));
+  const calls = Number(psql("naigx_trace", `select count(*) ${costSql}`));
+  spent += cost;
+  const created = Number(row[0]);
+  const completed = row[1] ? Number(row[1]) : null;
+  const rec = {
+    run: i + 1,
+    caseId,
+    analysisId: id,
+    status: full?.status,
+    type: full?.classification?.determined_type,
+    verdict: full?.verdict ?? null,
+    degraded: full?.degraded ?? null,
+    artifacts: (full?.artifacts ?? []).map((a: any) => `${String(a.artifact_type ?? a.type)}:${String(a.outcome)}`),
+    clientAcceptMs: tAccepted - t0,
+    clientFirstArtifactS: tFirstVisible === null ? null : (tFirstVisible - t0) / 1000,
+    clientCompleteS: tDone === null ? null : (tDone - t0) / 1000,
+    serverFirstArtifactS: firstArt ? Number(firstArt) - created : null,
+    serverFirstGeneratedS: firstGen ? Number(firstGen) - created : null,
+    serverFirstReasoningArtifactS: firstReasoning ? Number(firstReasoning) - created : null,
+    serverFullS: completed === null ? null : completed - created,
+    providerCalls: calls,
+    costUsd: cost,
+    cumulativeUsd: Number(spent.toFixed(6)),
+  };
+  fs.appendFileSync(OUT, JSON.stringify(rec) + "\n");
+  log(
+    `run ${String(rec.run)} ${caseId} ${String(rec.status)} type=${String(rec.type)} ` +
+      `first=${rec.serverFirstArtifactS?.toFixed(1) ?? "-"}s reasoning=${rec.serverFirstReasoningArtifactS?.toFixed(1) ?? "-"}s full=${rec.serverFullS?.toFixed(1) ?? "-"}s ` +
+      `calls=${String(calls)} cost=$${cost.toFixed(4)} cum=$${spent.toFixed(4)} arts=${rec.artifacts.join(",")}`,
+  );
+}
+fs.writeFileSync(OUT + ".done", `spent=${spent.toFixed(4)}\n`);
+log(`DONE spent=$${spent.toFixed(4)}`);

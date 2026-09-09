@@ -1,0 +1,67 @@
+import fs from "node:fs";
+
+const rows = fs
+  .readFileSync(process.argv[2], "utf8")
+  .trim()
+  .split("\n")
+  .filter(Boolean)
+  .map((l) => JSON.parse(l));
+
+// Nearest-rank percentile — the same definition src/db/metrics.ts uses.
+const pct = (v, p) => {
+  if (!v.length) return null;
+  const s = [...v].sort((a, b) => a - b);
+  return s[Math.max(0, Math.ceil((p / 100) * s.length) - 1)];
+};
+const f = (x) => (x === null || x === undefined ? "—" : x.toFixed(1));
+const series = (label, xs, budget) =>
+  console.log(
+    `${label}: p50=${f(pct(xs, 50))}s p95=${f(pct(xs, 95))}s max=${xs.length ? f(Math.max(...xs)) : "—"}s n=${xs.length}${budget ? `  [budget ${budget}]` : ""}`,
+  );
+
+const completed = rows.filter((r) => r.status === "completed");
+const terminal = rows.filter((r) => ["completed", "timed_out", "failed"].includes(r.status));
+const brief = rows.filter((r) => r.serverFirstArtifactS !== null);
+const reasoning = rows.filter((r) => r.serverFirstReasoningArtifactS !== null);
+const spend = rows.reduce((a, r) => a + r.costUsd, 0);
+const calls = rows.reduce((a, r) => a + r.providerCalls, 0);
+
+console.log(
+  `runs=${rows.length} completed=${completed.length} timed_out=${rows.filter((r) => r.status === "timed_out").length} ` +
+    `failed=${rows.filter((r) => r.status === "failed").length} other=${rows.length - terminal.length} ` +
+    `spend(recorded)=$${spend.toFixed(4)} calls=${calls}`,
+);
+// NFR-001 as M-16 defines it: first ARTIFACT row of any status. On a D-66 build
+// that row is the intent brief. Every run that reached Stage 2 has one, so the
+// series includes timed-out and failed runs that got that far.
+series("NFR-001 first artifact = intent brief (server, M-16 formula, all runs with one)", brief.map((r) => r.serverFirstArtifactS), "15 / 40");
+series("NFR-001 first artifact = intent brief (client-observed, 400ms poll)", rows.filter((r) => r.clientFirstArtifactS !== null).map((r) => r.clientFirstArtifactS));
+// The pre-D-66 series, for comparison with §7/§8 only — NOT the requirement's measure on this build.
+series("first REASONING artifact (pre-D-66 definition, comparison only)", reasoning.map((r) => r.serverFirstReasoningArtifactS));
+series("NFR-002 full completion (server, completed runs)", completed.map((r) => r.serverFullS), "60 / 120");
+series("NFR-002 full completion (client-observed, completed runs)", completed.map((r) => r.clientCompleteS));
+// Honest variant: every terminal run, with a timed-out run counted at its
+// deadline-bounded wall clock (completed_at is null; use the client clock).
+series("NFR-002 all terminal runs, timeouts at their observed wall clock", terminal.map((r) => r.serverFullS ?? r.clientCompleteS));
+
+const byType = {};
+for (const r of rows) (byType[r.type ?? "?"] ??= []).push(r);
+for (const [t, rs] of Object.entries(byType)) {
+  const c = rs.filter((r) => r.status === "completed");
+  const b = rs.filter((r) => r.serverFirstArtifactS !== null);
+  console.log(
+    `  ${t}: n=${rs.length} completed=${c.length} ` +
+      `full p50=${f(pct(c.map((r) => r.serverFullS), 50))}s max=${c.length ? f(Math.max(...c.map((r) => r.serverFullS))) : "—"}s ` +
+      `brief p50=${f(pct(b.map((r) => r.serverFirstArtifactS), 50))}s max=${b.length ? f(Math.max(...b.map((r) => r.serverFirstArtifactS))) : "—"}s ` +
+      `cost/run=$${(rs.reduce((a, r) => a + r.costUsd, 0) / rs.length).toFixed(4)}`,
+  );
+}
+console.log("runs with NO brief:", rows.filter((r) => r.serverFirstArtifactS === null).map((r) => `${r.caseId}#${r.run}:${r.status}`).join(", ") || "none");
+console.log("non-completed runs:", rows.filter((r) => r.status !== "completed").map((r) => `${r.caseId}#${r.run}:${r.status}`).join(", ") || "none");
+console.log("degraded runs:", rows.filter((r) => r.degraded).map((r) => `${r.caseId}#${r.run}`).join(", ") || "none");
+console.log("per-run:");
+for (const r of rows) {
+  console.log(
+    `  ${String(r.run).padStart(2)} ${r.caseId.padEnd(6)} ${String(r.status).padEnd(9)} brief=${f(r.serverFirstArtifactS).padStart(6)}s reasoning=${f(r.serverFirstReasoningArtifactS).padStart(6)}s full=${f(r.serverFullS ?? r.clientCompleteS).padStart(6)}s calls=${r.providerCalls} $${r.costUsd.toFixed(4)}${r.degraded ? " degraded" : ""}`,
+  );
+}

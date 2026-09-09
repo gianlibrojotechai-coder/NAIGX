@@ -1,0 +1,32 @@
+accounts=3 resumeFrom=0 spentSoFar=$0.0000 ceiling=$4.37
+run 1 jd-002 completed type=job_description first=10.0s reasoning=173.2s full=173.3s calls=5 cost=$0.1574 cum=$0.1574 arts=intent_brief:generated,skill_gap_analysis:omitted,interview_guidance:omitted,portfolio_suggestions:generated
+run 2 br-001 completed type=business_requirement first=10.0s reasoning=-s full=58.9s calls=4 cost=$0.0934 cum=$0.2509 arts=intent_brief:generated
+run 3 ew-001 completed type=existing_workflow first=7.1s reasoning=59.2s full=59.2s calls=4 cost=$0.0930 cum=$0.3439 arts=intent_brief:generated,workflow_recommendation:generated,risk_assessment:generated
+run 4 ta-005 completed type=technical_assessment first=11.0s reasoning=81.2s full=81.2s calls=4 cost=$0.0597 cum=$0.4036 arts=intent_brief:generated,assessment_feedback:generated,mermaid_diagram:generated
+run 5 jd-008 completed type=job_description first=8.9s reasoning=143.8s full=143.9s calls=6 cost=$0.1915 cum=$0.5952 arts=intent_brief:generated,skill_gap_analysis:omitted,interview_guidance:omitted,portfolio_suggestions:generated
+run 6 br-002 completed type=business_requirement first=8.3s reasoning=-s full=58.4s calls=4 cost=$0.0902 cum=$0.6853 arts=intent_brief:generated
+run 7 ew-001 completed type=existing_workflow first=7.3s reasoning=69.7s full=69.7s calls=4 cost=$0.1042 cum=$0.7896 arts=intent_brief:generated,workflow_recommendation:generated,risk_assessment:generated
+run 8 ta-005 completed type=technical_assessment first=6.4s reasoning=46.1s full=46.1s calls=4 cost=$0.0688 cum=$0.8584 arts=intent_brief:generated,assessment_feedback:generated,mermaid_diagram:generated
+run 9 br-003 completed type=business_requirement first=7.2s reasoning=-s full=95.9s calls=4 cost=$0.0669 cum=$0.9253 arts=intent_brief:generated
+run 10 jd-002 completed type=job_description first=10.6s reasoning=172.9s full=172.9s calls=5 cost=$0.1503 cum=$1.0757 arts=skill_gap_analysis:omitted,intent_brief:generated,interview_guidance:omitted,portfolio_suggestions:generated
+run 11 jd-002 completed type=job_description first=9.2s reasoning=170.5s full=170.6s calls=5 cost=$0.1534 cum=$1.2290 arts=intent_brief:generated,skill_gap_analysis:omitted,interview_guidance:omitted,portfolio_suggestions:generated
+run 12 br-001 completed type=business_requirement first=9.8s reasoning=-s full=57.1s calls=4 cost=$0.0903 cum=$1.3193 arts=intent_brief:generated
+run 13 ew-001 completed type=existing_workflow first=6.5s reasoning=61.2s full=61.2s calls=4 cost=$0.0964 cum=$1.4156 arts=intent_brief:generated,workflow_recommendation:generated,risk_assessment:generated
+run 14 ta-005 completed type=technical_assessment first=7.9s reasoning=38.4s full=38.5s calls=4 cost=$0.0625 cum=$1.4782 arts=intent_brief:generated,assessment_feedback:generated,mermaid_diagram:generated
+run 15 jd-008 completed type=job_description first=11.3s reasoning=106.5s full=106.5s calls=5 cost=$0.1552 cum=$1.6334 arts=intent_brief:generated,skill_gap_analysis:omitted,interview_guidance:omitted,portfolio_suggestions:generated
+run 16 br-002 completed type=business_requirement first=8.5s reasoning=-s full=116.9s calls=4 cost=$0.0849 cum=$1.7183 arts=intent_brief:generated
+run 17 ew-001 completed type=existing_workflow first=8.0s reasoning=62.8s full=62.8s calls=4 cost=$0.0979 cum=$1.8162 arts=intent_brief:generated,workflow_recommendation:generated,risk_assessment:generated
+run 18 ta-005 completed type=technical_assessment first=6.9s reasoning=37.1s full=37.1s calls=4 cost=$0.0588 cum=$1.8751 arts=intent_brief:generated,assessment_feedback:generated,mermaid_diagram:generated
+run 19 br-003 completed type=business_requirement first=7.9s reasoning=-s full=37.3s calls=4 cost=$0.0642 cum=$1.9393 arts=intent_brief:generated
+run 20 jd-002 completed type=job_description first=10.1s reasoning=104.4s full=104.4s calls=5 cost=$0.1558 cum=$2.0951 arts=intent_brief:generated,skill_gap_analysis:omitted,interview_guidance:omitted,portfolio_suggestions:generated
+run 21 jd-002 completed type=job_description first=9.3s reasoning=104.8s full=104.8s calls=5 cost=$0.1544 cum=$2.2495 arts=intent_brief:generated,skill_gap_analysis:omitted,interview_guidance:omitted,portfolio_suggestions:generated
+run 22 br-001 completed type=business_requirement first=10.9s reasoning=-s full=127.3s calls=4 cost=$0.0912 cum=$2.3407 arts=intent_brief:generated
+run 23 ew-001 completed type=existing_workflow first=7.1s reasoning=63.2s full=63.2s calls=4 cost=$0.0976 cum=$2.4383 arts=intent_brief:generated,workflow_recommendation:generated,risk_assessment:generated
+run 24 ta-005 completed type=technical_assessment first=8.3s reasoning=84.9s full=84.9s calls=4 cost=$0.0619 cum=$2.5002 arts=intent_brief:generated,assessment_feedback:generated,mermaid_diagram:generated
+run 25 jd-008 completed type=job_description first=9.2s reasoning=-s full=118.4s calls=4 cost=$0.1589 cum=$2.6592 arts=intent_brief:generated,skill_gap_analysis:omitted,portfolio_suggestions:omitted,interview_guidance:omitted
+run 26 br-002 completed type=business_requirement first=8.6s reasoning=-s full=113.0s calls=4 cost=$0.0759 cum=$2.7350 arts=intent_brief:generated
+run 27 ew-001 completed type=existing_workflow first=6.7s reasoning=128.0s full=128.0s calls=4 cost=$0.0987 cum=$2.8337 arts=intent_brief:generated,workflow_recommendation:generated,risk_assessment:generated
+run 28 ta-005 completed type=technical_assessment first=8.4s reasoning=37.8s full=37.8s calls=4 cost=$0.0588 cum=$2.8925 arts=intent_brief:generated,assessment_feedback:generated,mermaid_diagram:generated
+run 29 br-003 completed type=business_requirement first=7.4s reasoning=-s full=40.7s calls=4 cost=$0.0693 cum=$2.9618 arts=intent_brief:generated
+run 30 jd-002 completed type=job_description first=9.6s reasoning=122.4s full=122.4s calls=5 cost=$0.1703 cum=$3.1321 arts=intent_brief:generated,skill_gap_analysis:omitted,interview_guidance:omitted,portfolio_suggestions:generated
+DONE spent=$3.1321

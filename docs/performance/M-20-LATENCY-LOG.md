@@ -506,6 +506,8 @@ recorded. Budgeted total for the evaluation: **$0.5495**.
 
 ## 10. D-66 — the early artifact, built; not yet measured — 2026-09-09
 
+> ▶ **Superseded the same day by §11**: the build was deployed and the sample taken. §10 is kept as the record of what was expected before measurement.
+
 §9.4's first architectural row was taken, on the owner's instruction:
 [D-66](../41-D-66-Intent-Brief-Early-Artifact.md) adds `intent_brief`, a
 deterministic artifact rendered from the Stage 2 intent record when Stage 2
@@ -543,3 +545,128 @@ time, 180 s default, nothing excluded) on the deployed D-66 build, reported
 here as §11 with Sonnet 5 kept separate from §7's Sonnet 4.5 as before. On
 the recorded Stage 2 timings it should pass; the sample is what says so.
 `M-20` stays open until then, and `NFR-002` stays NOT MET regardless.
+
+## 11. `NFR-001` / `NFR-002` on the D-66 build, Claude Sonnet 5 — 2026-09-09 — `NFR-001` MET, `NFR-002` NOT MET, M-20 stays open
+
+Owner-authorised the same day, after the D-66 build (`edaeb08`, image
+`068918c16b58`) was deployed to production in replay mode and all four
+recorded paths verified through the public API. The sample itself ran in an
+**isolated live environment**: the same commit's compiled `dist/` on the
+development machine, `NAIGX_EXECUTION_MODE=live`, port 3998, the local
+Postgres only, the new account's key. **Production stayed in replay mode with
+no provider credentials throughout.**
+
+### 11.1 Apparatus
+
+Identical to §8 except for the build: D-58's method, one analysis at a time,
+the §7 rotation over all four paths, three dev accounts, **180 s default
+deadline (no override)**, `effort: medium`, structured outputs, the
+15-fragment production composition (published to the dev DB through the
+unchanged gate under `d4abcd42626452df`; proved by a replay start listing
+15 served / 54 fixtures / 0 excluded before the live start). Harness:
+`evidence/m20-runner-d66.mts.txt` — the §7 harness with one added field,
+`serverFirstReasoningArtifactS`, the first artifact row that is **not** the
+brief, so the pre-D-66 definition stays reportable beside the new one.
+Evidence: `evidence/m20-sonnet5-d66-runs-2026-09-09.jsonl` and `.log`;
+summary: `evidence/m20-summary-d66.mjs.txt` (nearest-rank percentiles, the
+`src/db/metrics.ts` definition).
+
+### 11.2 The sample
+
+**30 of 30 completed. 0 timed out, 0 failed, 0 degraded.** Nothing
+excluded. Path mix: 9 job_description, 9 business_requirement, 6
+existing_workflow, 6 technical_assessment. 129 provider calls, every one
+`success` with usage — **no cancelled or server-error call in this sample, so
+no unknown-cost allowance is needed.** One Stage 9 regeneration (run 5); one
+`apply_now` verdict on jd-008 (run 25) that correctly planned
+`portfolio_suggestions` as omitted (`FR-091`), so that run has a brief and no
+reasoning artifact.
+
+### 11.3 Results against the requirements
+
+| | Budget | Measured (server, M-16 formula) | Client-observed (400 ms poll) | n | Verdict |
+|---|---|---|---|---|---|
+| **`NFR-001` first artifact** — now the intent brief | ≤ 15 s p50 / ≤ 40 s p95 | **p50 8.4 s / p95 11.0 s / max 11.3 s** | p50 8.6 s / p95 11.2 s | 30 of 30 | ✅ **MET**, on every run, with margin at both percentiles |
+| **`NFR-002` full completion** | ≤ 60 s p50 / ≤ 120 s p95 | **p50 81.2 s / p95 172.9 s / max 173.3 s** | p50 81.5 s / p95 173.0 s | 30 of 30 | ❌ **NOT MET** — p50 over by 1.35×, p95 over by 1.44× |
+| *First reasoning artifact (the pre-D-66 definition, comparison only)* | — | p50 81.2 s / p95 172.9 s | — | 20 | not the requirement's measure on this build; shown so §7/§8 remain comparable |
+
+Per path (server, completed runs):
+
+| Path | n | Brief p50 / max | Full p50 / max | Cost per run |
+|---|---|---|---|---|
+| job_description | 9 | 9.6 s / 11.3 s | **122.4 s / 173.3 s** | $0.1608 |
+| business_requirement | 9 | 8.5 s / 10.9 s | 58.9 s / 127.3 s | $0.0807 |
+| existing_workflow | 6 | 7.1 s / 8.0 s | 62.8 s / 128.0 s | $0.0980 |
+| technical_assessment | 6 | 7.9 s / 11.0 s | 38.5 s / 84.9 s | $0.0618 |
+
+**M-20 is NOT passed.** Its criterion is both requirements; one is met.
+
+### 11.4 Read against §7 and §8 — separately, and with the definition change stated
+
+- **`NFR-001` changed definition-in-effect, not by editing the requirement.**
+  §7 and §8 measured the first artifact *that existed then* (a Stage 6/7/9
+  product: p50 85–91 s). §11 measures the first artifact that exists now —
+  the brief, a Stage 2 product. The §11 "first reasoning artifact" row is
+  the like-for-like continuation of the §8 series (p50 81.2 s vs §8's
+  91.4 s; the difference is sampling, not a change — Stages 3–9 are
+  untouched). **Do not read the §8 → §11 fall in `time_to_first_artifact` as
+  a reasoning speed-up.**
+- **`NFR-002` is the same miss with a worse tail this time.** §8: p50 77.2 /
+  p95 128.0 s. §11: p50 81.2 / p95 172.9 s. The cause is the one §9.3
+  named — Stage 3's bimodal provider throughput — and this sample drew the
+  slow mode more often: **10 of 30 Stage 3 calls at 24–32 tok/s took 80–95 s;
+  the other 20 at ≥ 50 tok/s took 20.8 s p50 / 28.2 s max** on the same token
+  counts. §8 saw 6 of 30. Three jd-002 runs finished at 170–173 s, within
+  10 s of the deadline, each carrying a ~90 s Stage 3.
+- Per stage this sample (p50 / p95 / share of call time): Stage 3
+  **24.3 s / 93.3 s / 44.8 %**; Stage 7 46.7 / 85.4 / 17.6 % (4,870 output
+  tokens p50); Stage 6 24.0 / 32.2 / 18.5 %; Stage 9 31.3 / 39.3 / 9.6 %;
+  Stage 2 6.0 / 8.6 / 7.0 %; Stage 1 2.2 / 2.7 / 2.5 %. Same ordering as §9.2.
+- The Sonnet 4.5 sample (§7) is not compared here beyond noting it is a
+  different model and a different first-artifact definition.
+
+### 11.5 Spend and reconciliation
+
+Harness-recorded **$3.1321** (129 calls). Trace store for the same 30
+analyses: 129 invocations, $3.13207, 0 at zero cost, 0 non-success —
+**reconciled exactly; nothing to carry as unknown.** Budget before the run:
+$4.3750 (reconciled: $4.9245 − the §9.5 evaluation's $0.5495 = $0.4544
+recorded + $0.0951 allowance). **Remaining: $1.2429.** The runner's hard
+ceiling was $4.37 and was not approached. Provider-side usage still cannot
+be reconciled from a regular key (no usage endpoint).
+
+### 11.6 `NFR-002`: the smallest practical improvement, from these traces
+
+The owner asked for the smallest practical improvement and that the target
+not be relaxed without approval. It is not relaxed here. Two facts from the
+traces bound what any change can do:
+
+1. **The p95 miss is Stage 3's slow mode and nothing else.** Every run over
+   120 s in this sample carries either a Stage 3 call at < 35 tok/s (10 runs)
+   or, in three cases, the job-description path's ordinary length.
+2. **The p50 miss is the job-description path's serial length.** Sum of
+   stage medians: JD (1+2+3+7+9) = **110.5 s**; the four-call paths
+   (1+2+3+6) = **56.5 s**. The JD path cannot reach a 60 s p50 at these
+   output sizes with any tail fix; the other three paths sit at the budget.
+
+**Recommended (smallest): a throughput-floor hedge on Stage 3.** Stream
+the Stage 3 response; if, after ~30 s, observed output throughput is below
+~50 tok/s, abort and retry once. Normal calls finish in 20.8 s p50 / 28.2 s
+max, so a genuine slow-mode call is identifiable by 30 s with no false
+positives in this sample. **Counterfactual on this sample's 30 runs**
+(each slow call replaced by 30 s + the normal p50): **p50 81.2 → 73.7 s,
+p95 172.9 → 136.3 s, max 173.3 → 143.9 s.** Cost: the aborted partial call
+is still billed — ~$0.01–0.02 per slow run, ~10 in 30. What it takes: a
+retry-policy change (`AI §10.4`: a throughput floor is a new abort reason),
+streaming in the adapter to observe throughput, and one D-record; no prompt,
+schema, gate or requirement changes. **Honestly stated: this does not meet
+`NFR-002`.** It cuts the tail by a third and moves the p50 by ~7 s; both
+targets are still missed.
+
+**What would be needed beyond it — each an owner decision, none taken:**
+shorter Stage 7 output on the JD path via its fragment (4,870 tokens p50 is
+the largest single p50 contributor there; a prompt change through the
+D-63/D-64 route with capture spend); routing Stage 3 to a faster-tier model
+(`AI §10.3`, a two-model analysis needing its own record and attribution
+per stage); or a decision on `NFR-002`'s target for the JD path, which the
+owner has reserved.

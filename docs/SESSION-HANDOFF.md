@@ -65,7 +65,7 @@ These are standing instructions given explicitly. **They override default thorou
 | **M-17** Accessibility | **Implemented, NOT verified.** 4 violations fixed, axe running. The manual WCAG walk is unwalked |
 | **M-18** Security | **Reviewed, NOT passed.** `NFR-027` found and fixed; `DB §13.1` app-level encryption implemented against a **host-held key file** (D-61 retired AWS KMS). ✅ Its key-file **fail-closed mechanism is now verified on the VPS** (D-61 §8) — H-2 and the milestone still open |
 | **M-19** Deployment | ✅ **CLOSED 2026-09-09.** Deploy ✅ (ready, four paths serving recorded inputs) · monitoring ✅ (Prometheus scraping, `health: up`) · alerting ✅ (owner-authorised test alert delivered to the ntfy receiver in 30 s, read back from the topic) · verified rollback ✅ (production drill, ~1.7 s / ~2.0 s) · restore drill ✅ on production data and from off-site. `STATUS.md` → Completed. ⚠️ Replay mode; migration-crossing rollback not exercised; device receipt of the alert is the owner's to confirm |
-| **M-20** Performance | **NOT PASSED — on evidence from two separate live samples.** Sonnet 4.5 (§7 of the log, n=8 of 11, cut short by credit exhaustion): `NFR-002` p50 74.3 s / p95 161.6 s, `NFR-001` p50 85.3 s / p95 161.6 s. **Sonnet 5 (§8, full n=30, 180 s default, nothing excluded): `NFR-002` p50 77.2 s / p95 128.0 s, `NFR-001` p50 91.4 s / p95 126.6 s; 0 timed out, 0 failed, 1 degraded.** Budgets 60/120 and 15/40. Both models miss both at p50; `NFR-001` was structurally out of reach for the catalogue as it stood. ▶ **[D-66](41-D-66-Intent-Brief-Early-Artifact.md) implemented 2026-09-09 on the owner's instruction**: the intent brief is now the first artifact on every path. **Still open**: not deployed, not measured live — see §7b |
+| **M-20** Performance | **NOT PASSED — on evidence from two separate live samples.** Sonnet 4.5 (§7 of the log, n=8 of 11, cut short by credit exhaustion): `NFR-002` p50 74.3 s / p95 161.6 s, `NFR-001` p50 85.3 s / p95 161.6 s. **Sonnet 5 (§8, full n=30, 180 s default, nothing excluded): `NFR-002` p50 77.2 s / p95 128.0 s, `NFR-001` p50 91.4 s / p95 126.6 s; 0 timed out, 0 failed, 1 degraded.** Budgets 60/120 and 15/40. Both models miss both at p50; `NFR-001` was structurally out of reach for the catalogue as it stood. ▶ **[D-66](41-D-66-Intent-Brief-Early-Artifact.md) implemented, deployed and measured 2026-09-09** (log §11, n=30, 180 s default, nothing excluded): **`NFR-001` MET — brief p50 8.4 s / p95 11.0 s / max 11.3 s on 30 of 30.** **`NFR-002` NOT MET — p50 81.2 s / p95 172.9 s.** M-20 stays open on `NFR-002`; what closes it is an owner decision — see §7b |
 
 ### Sprint 5 deliverables still outstanding
 
@@ -83,7 +83,7 @@ These are standing instructions given explicitly. **They override default thorou
 - ~~**A production rollback drill**~~ ✅ **DONE 2026-09-09.** [ROLLBACK-DRILL-LOG](deployment/ROLLBACK-DRILL-LOG.md). ⚠️ The previous image had to be **rebuilt from source** — a cron prunes dangling images and nothing tags the outgoing release. `naigx-backend:rollback-target` (`56d7269`) is now kept on the host; tag every outgoing release at deploy time.
 - ~~**A restore drill against production data**~~ ✅ **DONE 2026-09-09, twice** — [RESTORE-DRILL-LOG](deployment/RESTORE-DRILL-LOG.md). ⚠️ The runbook's `exec postgres bash /usr/local/bin/naigx-restore-drill` **never existed in any container**; the drill is piped into `naigx-backup`. Corrected in both the log and `deploy/README.md`.
 - ~~**Off-host backup storage**~~ ✅ **VERIFIED 2026-09-09 — and the previous edition was STALE.** The remote is not empty and the upload leg does run: a host-only `naigx-offsite-sync` (script + systemd hourly timer, `RandomizedDelaySec=300`) encrypts each dump with `backup.key` (`openssl aes-256-cbc -pbkdf2 -iter 200000`), uploads to `gdrive:naigx-backups`, verifies by read-back, prunes both sides at 7 days, and alerts via an `ntfy` URL file on every failure path; the journal shows every hourly run since 2026-09-08 succeeding. The 2026-09-09 dumps were pulled **back** from the remote, decrypted, SHA-256-matched to staging and restore-drilled. ⚠️ **The concrete remaining step is not an upload step.** It is that the script and its two units are **not in this repository** (`STATUS.md` → Open); nothing was changed on the host beyond one manual `systemctl start` of the existing unit.
-- ~~**~$8 of provider spend, or an explicit decline**~~ ✅ spent and measured (§7b). **▶ Now: deploy D-66 in replay mode and measure the brief live** — needs the owner's deploy authorisation (a rebuild plus publishing the **sixth** artifact schema, a production write) and then a D-58 sample within the remaining budget. Until then M-20 stays open.
+- ~~**~$8 of provider spend, or an explicit decline**~~ ✅ spent and measured (§7b). ~~**▶ Deploy D-66 and measure the brief live**~~ ✅ **DONE 2026-09-09** (owner-authorised): production `068918c16b58` in replay mode, sixth schema published, `rollback-7cb3eb6` tagged, four paths verified; 30-run live sample on the same build in isolation — `NFR-001` MET, `NFR-002` NOT MET (log §11). **▶ Now open on M-20: the owner's decision on `NFR-002`** (log §11.6). $1.2429 of the cap remains.
 - **M-17 manual WCAG walk** — needs a person with a screen reader. Unowned.
 - **M-08 rubric review** — needs a human reviewer. Unowned, carried from Sprint 2.
 
@@ -457,13 +457,29 @@ the document itself. No prompt, gate, parser or recording changed.
   path through the public API of a local replay instance — brief first and
   `generated` on all four, plan rows merged, artifact row → plan entry →
   published schema, exactly one Stage 2 trace. D-66 §7 has the table.
-- ⚠️ **NOT deployed, NOT measured live.** The deploy needs the owner's
-  authorisation (rebuild + `schemas publish` for the sixth schema — a
-  production write — + rollback tag, per the runbook). A local live check was
-  prepared and not run (tool permission denied); **nothing was spent**. The
-  measurement is a D-58 sample of first-artifact time; the expectation from
-  the recorded Stage 2 timings is ~7.6 s p50 / 11.4 s p95 on Sonnet 5.
-  `NFR-002` is unchanged by this.
+- ✅ **Deployed 2026-09-09, owner-authorised**, per the runbook: outgoing
+  image tagged `naigx-backend:rollback-7cb3eb6` (`9b4f0cb4866c`), host
+  fast-forwarded `7cb3eb6` → `edaeb08`, no migrations, backend built first,
+  `schemas publish` from the new image (*Published 1; 5 unchanged*; check
+  clean at 6), 15 fragments active, `up -d --build`; new image
+  **`068918c16b58`**, marker `intent_brief` in `dist/nie/contracts.js`,
+  6 files in `/app/schemas`, replay mode, 15 served / 54 fixtures / 0
+  excluded, readiness 200 in-container and at `https://naigx.tech` (TLS
+  verify 0 from a client), `/internal/metrics` 404 outside. Four recorded
+  paths completed through the public API with the brief first; production
+  DB rows verified (plan entry beside the path rows, artifact `valid`,
+  referencing its plan entry and the published schema). Host rollback tags
+  now: `rollback-7cb3eb6`, `rollback-a12ce54`, `rollback-1da10e3`,
+  `rollback-target`. **No provider variable set in production.**
+- ✅ **Measured live 2026-09-09** in an isolated live environment (same
+  commit's `dist/`, local DB, new account), D-58 method, 30 runs, 180 s
+  default, nothing excluded — log §11: **`NFR-001` MET, brief p50 8.4 s /
+  p95 11.0 s / max 11.3 s on 30 of 30; `NFR-002` NOT MET, p50 81.2 s /
+  p95 172.9 s.** 0 timeouts, 0 failures, 0 degraded. $3.1321, reconciled
+  exactly against the trace store (129 calls, all with usage). **M-20 stays
+  open — its criterion is both requirements.** §11.6 has the smallest
+  `NFR-002` improvement (a Stage 3 throughput-floor hedge; counterfactual
+  p95 173 → 136 s) and says plainly it does not meet the target either.
 - **Read the number honestly when it lands:** `M-16`'s
   `time_to_first_artifact` will fall because the *catalogue* changed, not
   because reasoning got faster.
@@ -711,7 +727,7 @@ Two mechanisms, because neither covers both directions:
 
 | Constraint | Source |
 |---|---|
-| **No provider spend without authorisation.** ⚠️ AMENDED 2026-09-09 (evening): the owner replaced per-case approval with a **US$10 cap for the Sprint 5 continuation**, "only when necessary", free verification preferred where it measures the same thing, no subscriptions or recurring infrastructure. **Spent under it: $5.4909 recorded, budgeted at $5.6250** — $1.2370 on the retired account (the Sonnet 4.5 M-20 sample, 65 invocations; ⚠️ corrected from $1.1319 after reconciling the trace store) and $4.2539 recorded on the new account (D-65 verification $0.5914; cancellation check $0.0186; the Sonnet 5 M-20 sample $3.1895; the per-task effort evaluation $0.4544), plus **two cancelled calls the trace cannot price** — carried at their upper bounds, $0.039 and $0.0951 — and five server-error calls recorded at $0 (no usage; expected unbilled, unverifiable from the key). **Remaining: $4.3750** at the upper bound. ⚠️ Provider-side usage could not be reconciled: a regular API key exposes no usage or cost endpoint, and no Admin API key exists for the organisation. ⚠️ The retired account is exhausted and **must not be used again** (owner, 2026-09-09); the new account's $100 balance is the account's, not the task's. Earlier campaign spend: $1.7121, case by case. Project cumulative: **$4.42** across all live work recorded in `STATUS.md` and the campaign. | Owner, 2026-09-09 |
+| **No provider spend without authorisation.** ⚠️ AMENDED 2026-09-09 (evening): the owner replaced per-case approval with a **US$10 cap for the Sprint 5 continuation**, "only when necessary", free verification preferred where it measures the same thing, no subscriptions or recurring infrastructure. **Spent under it: $8.6230 recorded, budgeted at $8.7571** — $1.2370 on the retired account (the Sonnet 4.5 M-20 sample, 65 invocations; ⚠️ corrected from $1.1319 after reconciling the trace store) and $7.3860 recorded on the new account (D-65 verification $0.5914; cancellation check $0.0186; the Sonnet 5 M-20 sample $3.1895; the per-task effort evaluation $0.4544; **the D-66 M-20 sample $3.1321**, 129 calls, every one with usage, reconciled exactly), plus **two cancelled calls the trace cannot price** — carried at their upper bounds, $0.039 and $0.0951 — and five server-error calls recorded at $0 (no usage; expected unbilled, unverifiable from the key). **Remaining: $1.2429** at the upper bound (the earlier $4.9245 → $4.3750 step was the §9.5 evaluation's $0.5495; $4.3750 − $3.1321 = $1.2429). ⚠️ Provider-side usage could not be reconciled: a regular API key exposes no usage or cost endpoint, and no Admin API key exists for the organisation. ⚠️ The retired account is exhausted and **must not be used again** (owner, 2026-09-09); the new account's $100 balance is the account's, not the task's. Earlier campaign spend: $1.7121, case by case. Project cumulative: **$10.34 recorded** ($1.7121 campaign + $8.6230 under the cap; ⚠️ the earlier "$4.42" figure was stale). | Owner, 2026-09-09 |
 | ~~**Prompt fragments stay inactive.**~~ ✅ **SUPERSEDED 2026-09-09** — the owner authorised publication with `d4abcd42626452df`; 15 versions are active in production through the unchanged gate. D-39's *principle* stands: nothing further activates without a covering reference and an authorisation. | **D-39**, owner 2026-09-09 |
 | **No M-08 packet review, no rubric verdicts.** AI review excluded "in any capacity, for any criterion". | `docs/10` §4.3 |
 | **Do not implement `platform_recommendation`** / expand `business_requirement`. | Owner, explicit |
