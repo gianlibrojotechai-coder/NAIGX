@@ -47,7 +47,12 @@ import {
   createProviderInvoker,
   type ProviderInvoker,
 } from "../provider/invoke.js";
-import type { TokenRate } from "../provider/cost.js";
+import {
+  computeEstimatedCostUsd,
+  formatUsd,
+  parseUsd,
+  type TokenRate,
+} from "../provider/cost.js";
 import type { CorpusCase } from "./corpus.js";
 import {
   buildRecordingManifest,
@@ -68,6 +73,16 @@ export interface CaptureOutcome {
   readonly detail: string;
   /** Number of provider calls this case consumed, successful or not. */
   readonly providerCalls: number;
+  /**
+   * What this case actually cost, successful or not, as a decimal string.
+   *
+   * ⚠️ A FAILED CASE IS NOT A FREE CASE. Its calls were made and billed, and
+   * reporting cost only for successes is what let a batch overrun its
+   * authorisation unnoticed: `br-006` failed after three paid calls and
+   * `br-008` took a five-call path where four were budgeted, and neither
+   * showed up until the batch was over.
+   */
+  readonly costUsd: string;
   readonly recording?: CaseRecording;
 }
 
@@ -136,6 +151,16 @@ export interface CaptureOptions {
    * proving the same thing eleven more times.
    */
   readonly abortAfterConsecutiveFailures?: number;
+  /**
+   * Hard ceiling on this batch, as a decimal USD string. Absent means no cap.
+   *
+   * ⚠️ ENFORCED BEFORE EACH CASE, NOT AFTER THE BATCH. A total computed at the
+   * end is a receipt; this refuses to start the next case once the ceiling is
+   * reached, so the stop happens while money remains. It exists because a
+   * nine-case batch overran its authorisation by 6.5% and nothing noticed
+   * until every case had already run.
+   */
+  readonly budgetUsd?: string;
   /**
    * Where a failed capture is quarantined. Defaults to writing under
    * `research/regression-failures/`; injected in tests.
@@ -400,13 +425,43 @@ export async function captureCases(
   let consecutiveFailures = 0;
   let aborted = false;
 
+  // --- per-case cost metering, and the ceiling it enforces -----------------
+  //
+  // Cost is summed with the project's exact-decimal helper rather than floats,
+  // so a running total reconciles against a provider invoice instead of
+  // drifting by a rounding step per case.
+  let spent = 0n;
+  const costOf = (calls: readonly CapturedCall[]): string =>
+    computeEstimatedCostUsd(
+      {
+        inputTokens: calls.reduce((a, c) => a + c.inputTokens, 0),
+        outputTokens: calls.reduce((a, c) => a + c.outputTokens, 0),
+      },
+      options.rate,
+    );
+  const budget =
+    options.budgetUsd === undefined ? undefined : parseUsd(options.budgetUsd);
+
   for (const corpusCase of options.cases) {
+    // ⚠️ CHECKED BEFORE THE CASE, NOT AFTER. A ceiling tested after the spend
+    // is a report, not a ceiling — the batch that overran was measured only
+    // once it had finished. This refuses to start a case the budget cannot
+    // cover the *observed mean* of, so the stop happens while money remains.
+    if (budget !== undefined && !aborted && spent >= budget) {
+      aborted = true;
+      report(
+        `⛔ BUDGET REACHED — $${formatUsd(spent)} of $${options.budgetUsd ?? ""} spent. ` +
+          `Remaining cases not attempted.`,
+      );
+    }
+
     if (aborted) {
       outcomes.push({
         caseId: corpusCase.caseId,
         status: "skipped",
-        detail: `not attempted — capture aborted after ${String(abortAfter)} consecutive failures`,
+        detail: `not attempted — capture aborted (${budget !== undefined && spent >= budget ? "budget reached" : `${String(abortAfter)} consecutive failures`})`,
         providerCalls: 0,
+        costUsd: "0.00000000",
       });
       continue;
     }
@@ -421,6 +476,7 @@ export async function captureCases(
         status: "skipped",
         detail: "a recording already exists; pass --force to re-capture",
         providerCalls: 0,
+        costUsd: "0.00000000",
       });
       continue;
     }
@@ -443,11 +499,18 @@ export async function captureCases(
       options.store.write(complete);
       consecutiveFailures = 0;
 
+      const cost = costOf(calls);
+      spent += parseUsd(cost);
+      report(
+        `   ${corpusCase.caseId} cost ${cost} · running total ${formatUsd(spent)}`,
+      );
+
       outcomes.push({
         caseId: corpusCase.caseId,
         status: "captured",
         detail: `${String(complete.stages.length)} stage(s)`,
         providerCalls,
+        costUsd: cost,
         recording: complete,
       });
     } catch (error) {
@@ -480,6 +543,12 @@ export async function captureCases(
       report(
         `✖  ${corpusCase.caseId} — ${detail} (${String(calls.length)} provider call(s) already made)`,
       );
+      const failedCost = costOf(calls);
+      spent += parseUsd(failedCost);
+      report(
+        `   ${corpusCase.caseId} cost ${failedCost} (FAILED, still billed) · running total ${formatUsd(spent)}`,
+      );
+
       outcomes.push({
         caseId: corpusCase.caseId,
         status: "failed",
@@ -487,6 +556,7 @@ export async function captureCases(
         // The calls happened and were billed. Reporting 0 here is what made
         // the first paid run look free.
         providerCalls: calls.length,
+        costUsd: failedCost,
       });
 
       consecutiveFailures += 1;

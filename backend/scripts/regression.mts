@@ -199,6 +199,12 @@ if (command === "capture") {
   // ⚠️ IT LOWERS NOTHING. The pipeline, the assertions, the authored resolver
   // and the validation a capture must satisfy are all untouched; only the
   // destination directory moves.
+  // ⚠️ REQUIRED FOR ANY PAID BATCH. A ceiling that is only checked afterwards
+  // is a receipt. This is passed into captureCases, which tests it BEFORE each
+  // case and refuses to start one once the ceiling is reached.
+  const budgetArg = process.argv.find((a) => a.startsWith("--budget="));
+  const budgetUsd = budgetArg?.slice("--budget=".length);
+
   const outArg = process.argv.find((a) => a.startsWith("--out="));
   const outRoot =
     outArg === undefined
@@ -365,6 +371,7 @@ if (command === "capture") {
       lowVarianceSampling: dryRun,
       // D-63: capture composes the candidate fragments, and the recording says so.
       captureResolution: "authored",
+      ...(budgetUsd !== undefined ? { budgetUsd } : {}),
       force,
       ...(quarantine !== undefined ? { quarantine } : {}),
       onProgress: (message) => {
@@ -377,6 +384,28 @@ if (command === "capture") {
       `\n${String(t.captured)} captured · ${String(t.skipped)} skipped · ${String(t.failed)} failed`,
     );
     console.log(`${String(t.providerCalls)} provider call(s) made`);
+
+    // ⚠️ EVERY CASE, INCLUDING FAILURES. A failed capture is billed and its
+    // cost belongs in the total; omitting it is what made a batch look
+    // cheaper than it was.
+    {
+      const spent = report.cases.reduce((a, o) => a + Number(o.costUsd), 0);
+      console.log("\ncost by case:");
+      for (const o of report.cases) {
+        if (o.status === "skipped" && Number(o.costUsd) === 0) continue;
+        console.log(
+          `   ${o.caseId.padEnd(10)}$${Number(o.costUsd).toFixed(4)}  ${o.status}` +
+            `${o.status === "failed" ? " (billed anyway)" : ""}`,
+        );
+      }
+      console.log(`   ${"TOTAL".padEnd(10)}$${spent.toFixed(4)}`);
+      if (budgetUsd !== undefined) {
+        console.log(
+          `   ${"BUDGET".padEnd(10)}$${Number(budgetUsd).toFixed(4)}` +
+            `${spent > Number(budgetUsd) ? "   ⚠️ EXCEEDED" : "   ok"}`,
+        );
+      }
+    }
     const failures = report.cases.filter((o) => o.status === "failed");
     for (const outcome of failures) {
       // First line only: a Prisma or provider error is many lines long, and
