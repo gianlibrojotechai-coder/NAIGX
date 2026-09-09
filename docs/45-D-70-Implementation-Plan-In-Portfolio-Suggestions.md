@@ -19,9 +19,9 @@ never asked for.
 
 ## 2. The decision
 
-**The Stage 9 generator adds an optional `implementation` block to a
-project when, and only when, the project is built on an automation platform
-it names (n8n, Make, Zapier):**
+**The Stage 9 generator adds an `implementation` block to a project
+whenever any platform it names is an automation platform (n8n, Make,
+Zapier), and writes `null` when none is:**
 
 ```
 implementation: {
@@ -40,10 +40,12 @@ implementation: {
 - `setup` is what a person configures — operation, fields, expressions,
   method — and `credential` is the credential the node needs by the
   platform's name, or null.
-- Absent entirely for a project that is not such a workflow. The field is
-  optional in the published schema and in the constrained-decoding contract
-  (the dialect test's whitelist of optional fields now names it beside
-  `why_not_consolidated`, deliberately).
+- `null` for a project that names no automation platform. In the
+  constrained-decoding contract the field is **required but nullable** — the
+  first capture showed that an optional field is the easiest thing for a
+  model to skip, so the model must now decide explicitly. The published
+  schema accepts the block, `null`, or absence; the parser treats `null` and
+  absence alike.
 
 **Presentation.** The build card on the decision-first view shows *Build it
 in n8n — node by node* in place of the plain step list when the block is
