@@ -326,6 +326,25 @@ const primedAdapter = async (
       context: contextHandoffView(context),
       architecture: architectureHandoffView(architecture),
     });
+    // D-80: the complexity assessment, keyed on the same handoff.
+    await add(
+      "complexity_assessment",
+      requirementHandoff,
+      JSON.stringify({
+        factors: [
+          "workflow",
+          "integration",
+          "data_logic",
+          "failure_risk",
+          "operational",
+        ].map((factor) => ({
+          factor,
+          score: 2,
+          justification: "A placeholder justification for this design",
+        })),
+      }),
+      "business_requirement",
+    );
     // D-79: the risk register, keyed on the same handoff.
     await add(
       "risk_assessment",
@@ -538,7 +557,7 @@ test(
       assert.equal(
         usages.length,
         // D-78: the requirement path's Stage 9 platform generator composes six too.
-        5 + 6 + 6 + 6 + 6 + 6,
+        5 + 6 + 6 + 6 + 6 + 6 + 6,
         "stage 1 has no type modifier yet",
       );
       const stage1 = usages.filter((u) => u.stage === "input_classification");
@@ -562,7 +581,7 @@ test(
       });
       assert.deepEqual(
         traces.map((t) => t.stageNumber),
-        [1, 2, 3, 5, 6, 9, 9, 10, 12],
+        [1, 2, 3, 5, 6, 9, 9, 9, 10, 12],
       );
       assert.deepEqual(
         traces.map((t) => t.outcome),
@@ -570,6 +589,7 @@ test(
         // 10 (response validation) and Stage 12 (assembly) are traced on every
         // response since D-72. All three are deterministic here.
         [
+          "success",
           "success",
           "success",
           "success",
@@ -711,14 +731,14 @@ test("a trace-store outage does not fail the analysis", { skip }, async () => {
     assert.equal(result.context?.sufficiency, "sufficient");
     // Stages 1-3, the deterministic Stage 5 (`docs/12` D-35), Stage 6, the
     // rendering Stage 9 (D-73) and the deterministic Stages 10 and 12 (D-72).
-    assert.equal(seen.length, 9, "each failed trace write is surfaced");
+    assert.equal(seen.length, 10, "each failed trace write is surfaced");
 
     // The durable record still landed: fragment usage is primary-store data.
     const usages = await primary.fragmentUsage.count({
       where: { analysisId: seed.analysisId },
     });
     // D-78: five composing stages of six fragments, less the type modifier at Stage 1.
-    assert.equal(usages, 35);
+    assert.equal(usages, 41);
   } finally {
     await brokenTracePool.end().catch(() => undefined);
     await seed.cleanup();

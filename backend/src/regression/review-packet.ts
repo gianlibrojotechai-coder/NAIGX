@@ -264,6 +264,7 @@ const STAGE_LABELS: Readonly<Record<string, string>> = {
   interview_guidance: "Interview guidance",
   platform_recommendation: "Platform recommendation",
   risk_assessment: "Risk register",
+  complexity_assessment: "Complexity assessment",
 };
 
 /**

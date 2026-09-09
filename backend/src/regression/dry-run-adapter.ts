@@ -313,6 +313,20 @@ export function createDryRunAdapter(
       recommendation === undefined ? undefined : portfolioFrom(["req-2"]),
     // D-76: the second generator, answered whenever Stage 7 was.
     interview_guidance: interviewFrom(recommendation),
+    // D-80: five placeholder factor scores, both paths.
+    complexity_assessment: JSON.stringify({
+      factors: [
+        "workflow",
+        "integration",
+        "data_logic",
+        "failure_risk",
+        "operational",
+      ].map((factor) => ({
+        factor,
+        score: 2,
+        justification: "Dry-run placeholder justification",
+      })),
+    }),
     // D-79: the requirement path's risk register against the one component.
     risk_assessment:
       type === "business_requirement"

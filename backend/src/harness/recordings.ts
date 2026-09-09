@@ -279,6 +279,48 @@ export const DEFAULT_BUSINESS_REQUIREMENT_RECORDING: RecordingSet = [
     outputTokens: 240,
     latencyMs: 1500,
   },
+  // D-80: the complexity factors for the sample design.
+  {
+    stageKey: "complexity_assessment",
+    classifiedAs: "business_requirement",
+    output: JSON.stringify({
+      factors: [
+        {
+          factor: "workflow",
+          score: 2,
+          justification:
+            "Two components in sequence with one routing decision.",
+        },
+        {
+          factor: "integration",
+          score: 2,
+          justification:
+            "One inbound mailbox integration with a conventional interface.",
+        },
+        {
+          factor: "data_logic",
+          score: 3,
+          justification:
+            "Attachments are normalised into invoice records with routing rules by department.",
+        },
+        {
+          factor: "failure_risk",
+          score: 3,
+          justification:
+            "Unparseable attachments and unroutable invoices each need deliberate handling.",
+        },
+        {
+          factor: "operational",
+          score: 2,
+          justification:
+            "Routing rules change when approvers change; otherwise unattended.",
+        },
+      ],
+    }),
+    inputTokens: 590,
+    outputTokens: 210,
+    latencyMs: 1400,
+  },
 ];
 
 /**
@@ -338,6 +380,10 @@ export async function buildReplayFixtures(
     // D-78: the requirement path's Stage 9 keys on the parsed architecture.
     ...(outputFor("architecture_analysis") !== undefined
       ? { architecture: outputFor("architecture_analysis") as string }
+      : {}),
+    // D-80: the workflow path's Stage 9 keys on the parsed review.
+    ...(outputFor("workflow_review") !== undefined
+      ? { review: outputFor("workflow_review") as string }
       : {}),
   });
 

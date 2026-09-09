@@ -119,7 +119,7 @@ test("the workflow path plans its whole AI §9.1 set", () => {
 
   assert.deepEqual(
     plan.map((entry) => entry.artifactType),
-    ["workflow_recommendation", "risk_assessment"],
+    ["workflow_recommendation", "risk_assessment", "complexity_score"],
   );
   assert.ok(plan.every((entry) => entry.planned));
   assert.equal(plan[0]?.inclusionReason, "because");
@@ -135,7 +135,7 @@ test("the assessment path plans its whole AI §9.1 set", () => {
   assert.ok(plan.every((entry) => entry.planned));
 });
 
-test("the requirement path plans its five artifacts in precedence order (D-73, D-77, D-78, D-79)", () => {
+test("the requirement path plans its six artifacts in precedence order (D-73, D-77, D-78, D-79, D-80)", () => {
   // The rest of its `AI §9.1` set is reasoning work and is not declared, so
   // the plan carries no omission rows for it — nothing was deliberated over.
   const plan = planDerivedArtifacts("business_requirement", "because");
@@ -147,6 +147,7 @@ test("the requirement path plans its five artifacts in precedence order (D-73, D
       "architecture_recommendation",
       "platform_recommendation",
       "risk_assessment",
+      "complexity_score",
       "mermaid_diagram",
     ],
   );

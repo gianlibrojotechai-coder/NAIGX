@@ -138,9 +138,12 @@ test("an empty project list is rejected", () => {
 // --- registration --------------------------------------------------------
 
 test("an artifact type with no registered schema raises rather than skipping", () => {
+  // D-80 registered the last of the specified types (`complexity_score`),
+  // so the unregistered type is now a name nothing declares — the guard is
+  // about the registry, not about any particular type.
   const error = capture(() =>
     validateArtifact(
-      "complexity_score" as Parameters<typeof validateArtifact>[0],
+      "not_a_registered_type" as Parameters<typeof validateArtifact>[0],
       {},
     ),
   );

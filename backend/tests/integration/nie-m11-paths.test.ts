@@ -29,6 +29,7 @@ import {
 } from "../../src/provider/adapters/replay.js";
 import type { CapabilityRequest } from "../../src/provider/capability.js";
 import {
+  architectureHandoffView,
   contextHandoffView,
   createPipeline,
   stageHandoff,
@@ -37,6 +38,7 @@ import {
 import { parseClassification } from "../../src/nie/stages/classification.js";
 import { parseIntent } from "../../src/nie/stages/intent.js";
 import { parseContext } from "../../src/nie/stages/context-extraction.js";
+import { parseWorkflowReview } from "../../src/nie/stages/workflow-review.js";
 import { composePrompt } from "../../src/nie/prompt.js";
 import type { AnalysisEvent } from "../../src/nie/events.js";
 import type {
@@ -333,6 +335,43 @@ const primedAdapter = async (
     scenario.type,
   );
 
+  // D-80: the workflow path's Stage 9 complexity assessment is keyed on the
+  // observed structure the review produced.
+  if (scenario.type === "existing_workflow") {
+    try {
+      const review = parseWorkflowReview(stageOutput, context);
+      await add(
+        "complexity_assessment",
+        stageHandoff({
+          context: contextHandoffView(context),
+          architecture: architectureHandoffView({
+            summary: review.summary,
+            dataFlowDescription: review.dataFlowDescription,
+            components: review.structure,
+            unknownDispositions: [],
+          }),
+        }),
+        JSON.stringify({
+          factors: [
+            "workflow",
+            "integration",
+            "data_logic",
+            "failure_risk",
+            "operational",
+          ].map((factor) => ({
+            factor,
+            score: 2,
+            justification: "A placeholder justification for this workflow",
+          })),
+        }),
+        scenario.type,
+      );
+    } catch {
+      // A review fixture that does not parse describes a run that stops at
+      // Stage 6; there is no Stage 9 call to key.
+    }
+  }
+
   return createReplayProvider({ fixtures, lowVarianceSampling: true });
 };
 
@@ -491,17 +530,27 @@ test("components are persisted before the findings that reference them", async (
   assert.equal(recorded.findings[0]?.componentIndex, 0);
 });
 
-test("the workflow path produces its two AI §9.1 artifacts with no provider call", async () => {
+test("the workflow path produces its two rendered AI §9.1 artifacts and, since D-80, the scored complexity", async () => {
   const { recorded, events } = await harness(WORKFLOW);
 
   // D-66: the intent brief precedes the path's own set on every path.
   assert.deepEqual(
     recorded.plan().map((entry) => entry.artifactType),
-    ["intent_brief", "workflow_recommendation", "risk_assessment"],
+    [
+      "intent_brief",
+      "workflow_recommendation",
+      "risk_assessment",
+      "complexity_score",
+    ],
   );
   assert.deepEqual(
     recorded.artifacts.map((a) => a.artifactType),
-    ["intent_brief", "workflow_recommendation", "risk_assessment"],
+    [
+      "intent_brief",
+      "complexity_score",
+      "workflow_recommendation",
+      "risk_assessment",
+    ],
   );
   // Rendered, not sampled: there is no second attempt to make.
   assert.ok(recorded.artifacts.every((a) => a.generationAttemptCount === 1));
@@ -510,8 +559,8 @@ test("the workflow path produces its two AI §9.1 artifacts with no provider cal
   const announced = events.filter((e) => e.type === "artifact");
   assert.equal(
     announced.length,
-    3,
-    "FR-041 — the browser sees the brief and both path artifacts",
+    4,
+    "FR-041 — the browser sees the brief, the score and both path artifacts",
   );
 });
 

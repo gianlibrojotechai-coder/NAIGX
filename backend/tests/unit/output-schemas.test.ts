@@ -105,6 +105,7 @@ test("1. every stage schema is in the constrained-decoding dialect", () => {
   }
   assert.deepEqual(Object.keys(STAGE_OUTPUT_SCHEMAS).sort(), [
     "architecture_analysis",
+    "complexity_assessment",
     "context_extraction",
     "input_classification",
     "intent_detection",

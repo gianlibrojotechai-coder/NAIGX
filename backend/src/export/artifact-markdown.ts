@@ -438,6 +438,48 @@ const dispositionLines = (document: Record<string, unknown>): string[] => {
   return lines;
 };
 
+// --- complexity_score --------------------------------------------------------
+
+/**
+ * The complexity score with its table (D-80). `docs/09` §1.4: a score shown
+ * without the factor, weight and contribution table is a defect.
+ */
+const renderComplexityScore = (document: unknown): ArtifactRender => {
+  if (!isRecord(document)) return unrenderable("complexity_score");
+  const factors = list(document.factors).filter(isRecord);
+  const score = int(document.complexity_score);
+  const weighted =
+    typeof document.weighted_score === "number"
+      ? document.weighted_score
+      : null;
+  if (factors.length === 0 || score === null || weighted === null) {
+    return unrenderable("complexity_score");
+  }
+  const lines: string[] = [
+    `**Complexity score: ${String(score)} of 100** on the ${str(document.scale_version) ?? "complexity-v1"} scale. The lowest achievable score is 20, because every factor scores at least 1.`,
+    "",
+    "| Factor | Score (1–5) | Weight | Contribution | Why |",
+    "|---|---|---|---|---|",
+  ];
+  for (const f of factors) {
+    const weight =
+      typeof f.weight === "number"
+        ? `${String(Math.round(f.weight * 100))}%`
+        : "—";
+    const contribution =
+      typeof f.contribution === "number" ? f.contribution.toFixed(2) : "—";
+    lines.push(
+      `| ${inlineCell(str(f.label) ?? str(f.factor) ?? "—")} | ${String(int(f.score) ?? "—")} | ${weight} | ${contribution} | ${inlineCell(str(f.justification) ?? "—")} |`,
+    );
+  }
+  lines.push(
+    `| **Weighted score** (sum of contributions) | | | **${weighted.toFixed(2)}** | |`,
+    `| **Complexity score** (weighted × 20) | | | **${String(score)}** | |`,
+    "",
+  );
+  return { lines, rendered: true };
+};
+
 // --- platform_recommendation -------------------------------------------------
 
 /**
@@ -828,6 +870,7 @@ export const ARTIFACT_TITLES: Readonly<Record<string, string>> = {
   business_analysis: "Business Analysis",
   architecture_recommendation: "Architecture Recommendation",
   platform_recommendation: "Platform Recommendation",
+  complexity_score: "Complexity Score",
   mermaid_diagram: "Architecture Diagram",
 };
 
@@ -919,6 +962,7 @@ const RENDERERS: Readonly<
   business_analysis: renderBusinessAnalysis,
   architecture_recommendation: renderArchitectureRecommendation,
   platform_recommendation: renderPlatformRecommendation,
+  complexity_score: renderComplexityScore,
   mermaid_diagram: renderMermaidDiagram,
 };
 

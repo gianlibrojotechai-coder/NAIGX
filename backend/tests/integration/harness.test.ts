@@ -206,9 +206,10 @@ test(
         (s) => s.implemented && !JOB_DESCRIPTION_PATH_ONLY.has(s.stageNumber),
       )
         .map((s) => s.stageNumber)
-        // D-78/D-79: Stage 9 runs twice on this path — the platform
-        // generator, then the risk register — each with its own trace.
-        .flatMap((n) => (n === 9 ? [9, 9] : [n]));
+        // D-78/D-79/D-80: Stage 9 runs three times on this path — the platform
+        // generator, the risk register, the complexity assessment — each
+        // with its own trace.
+        .flatMap((n) => (n === 9 ? [9, 9, 9] : [n]));
       assert.deepEqual(
         report.trace.stages.map((s) => s.stageNumber),
         implemented,

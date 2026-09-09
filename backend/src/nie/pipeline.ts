@@ -40,6 +40,7 @@ import {
   type InterviewGuidance,
   type PlatformRecommendation,
   type RiskRegister,
+  type ComplexityAssessment,
   type ArtifactType,
   type RecommendationForArtifacts,
   type WorkflowReviewResult,
@@ -50,6 +51,10 @@ import { parseRecommendation } from "./stages/recommendation-generation.js";
 import { parseInterviewGuidance } from "./stages/interview-guidance.js";
 import { parsePlatformRecommendation } from "./stages/platform-recommendation.js";
 import { parseRiskRegister } from "./stages/risk-assessment.js";
+import {
+  parseComplexityFactors,
+  renderComplexityScore,
+} from "./stages/complexity-assessment.js";
 import {
   eligibleGaps,
   isPlanned,
@@ -249,6 +254,8 @@ export function stageProviderInputs(
      * keyed (D-78) — the same shape as `recommendation` for the job path.
      */
     readonly architecture?: string;
+    /** Stage 6W's raw output, so the workflow path's Stage 9 can be keyed (D-80). */
+    readonly review?: string;
   },
 ): ReadonlyMap<string, string> {
   const inputs = new Map<string, string>();
@@ -337,6 +344,8 @@ export function stageProviderInputs(
         // D-79: the risk register is keyed on the same handoff; only the task
         // and the composed prompt differ, which `replayKeyFor` distinguishes.
         inputs.set("risk_assessment", requirementHandoff);
+        // D-80: so is the complexity assessment.
+        inputs.set("complexity_assessment", requirementHandoff);
       } catch {
         // An architecture fixture that does not parse describes a run that
         // stops at Stage 6; there is no Stage 9 call to key.
@@ -356,6 +365,28 @@ export function stageProviderInputs(
         context: contextHandoffView(context),
       }),
     );
+    // D-80: the workflow path's complexity assessment is keyed on the
+    // observed structure the review produced.
+    if (outputs.review !== undefined) {
+      try {
+        const review = parseWorkflowReview(outputs.review, context);
+        inputs.set(
+          "complexity_assessment",
+          stageHandoff({
+            context: contextHandoffView(context),
+            architecture: architectureHandoffView({
+              summary: review.summary,
+              dataFlowDescription: review.dataFlowDescription,
+              components: review.structure,
+              unknownDispositions: [],
+            }),
+          }),
+        );
+      } catch {
+        // A review fixture that does not parse describes a run that stops at
+        // Stage 6; there is no Stage 9 call to key.
+      }
+    }
   }
 
   // `AI §9.1` gives the job-description path no architecture, so a fixture set
@@ -1099,6 +1130,124 @@ export function createPipeline(deps: PipelineDependencies) {
             : "Generation did not produce a usable document.";
     }
     return { outcome, wire, register, attempts, traceId, failureReason };
+  };
+
+  /**
+   * The complexity assessment (D-80, `FR-033`): the generator scores the
+   * five factors; the document — weight, contribution, weighted and complexity
+   * score — is rendered here by `docs/09` §1.3 arithmetic and validated
+   * against the published schema. Runs on the requirement path against the
+   * Stage 6 architecture and on the workflow path against the observed
+   * structure.
+   */
+  const generateComplexity = async (
+    input: PipelineInput,
+    classifiedAs: ClassificationType,
+    architecture: ArchitectureResult,
+    context: ContextResult,
+  ): Promise<{
+    readonly outcome: ArtifactOutcome;
+    readonly wire: unknown;
+    readonly assessment: ComplexityAssessment | undefined;
+    readonly attempts: number;
+    readonly traceId: string | null;
+    readonly failureReason: string;
+  }> => {
+    let wire: unknown;
+    let attempts = 1;
+    let traceId: string | null = null;
+    let assessment: ComplexityAssessment | undefined;
+    let outcome: ArtifactOutcome = "generated";
+    let failureReason = "";
+    try {
+      assessment = await runStage(input, {
+        stageNumber: 9,
+        stageKey: "complexity_assessment",
+        classifiedAs,
+        onStageTrace: (id) => {
+          traceId = id;
+        },
+        structuredInput: { architecture },
+        buildRequest: (prompt) =>
+          request(
+            prompt,
+            "complexity_assessment",
+            stageHandoff({
+              context: contextHandoffView(context),
+              architecture: architectureHandoffView(architecture),
+            }),
+          ),
+        parse: (text) => {
+          const parsed = parseComplexityFactors(text);
+          // The artifact is the rendered table, not the model's factor list:
+          // the arithmetic is the pipeline's, so the document a reader gets
+          // always carries the basis `FR-033` requires.
+          const document = renderComplexityScore(parsed);
+          wire = document;
+          validateArtifact("complexity_score", document);
+          return parsed;
+        },
+        regenerateOnce: (error) => {
+          if (!(error instanceof ArtifactSchemaError)) return false;
+          attempts += 1;
+          return { addendum: correctionFor(error) };
+        },
+      });
+      const deep = await deepValidate(input, traceId, "complexity_score", wire);
+      if (deep !== null) {
+        assessment = undefined;
+        throw new ResponseValidationError(deep);
+      }
+    } catch (error) {
+      outcome = "failed";
+      failureReason =
+        error instanceof ResponseValidationError
+          ? error.message
+          : error instanceof ArtifactSchemaError
+            ? "Generated but did not satisfy its output schema."
+            : "Generation did not produce a usable document.";
+    }
+    return { outcome, wire, assessment, attempts, traceId, failureReason };
+  };
+
+  const settleComplexity = async (
+    input: PipelineInput,
+    generated: Awaited<ReturnType<typeof generateComplexity>>,
+  ): Promise<void> => {
+    emit(
+      input.analysisId,
+      generated.outcome === "generated" && generated.assessment !== undefined
+        ? {
+            type: "artifact",
+            artifactType: "complexity_score",
+            content: generated.wire,
+          }
+        : {
+            type: "artifact_failed",
+            artifactType: "complexity_score",
+            reason: generated.failureReason,
+            retryAvailable: isRetryableArtifactType("complexity_score"),
+          },
+    );
+    if (generated.wire !== undefined) {
+      await deps.resultSink?.persistArtifact?.(input.analysisId, {
+        artifactType: "complexity_score",
+        content: generated.wire,
+        depthLevel: "standard",
+        generationAttemptCount: generated.attempts,
+        validationStatus:
+          generated.outcome === "generated" ? "valid" : "failed",
+      });
+    }
+    await recordValidation({
+      stageTraceId: generated.traceId,
+      artifactType: "complexity_score",
+      passed: generated.outcome === "generated",
+      ...(generated.outcome === "generated"
+        ? {}
+        : { failureDetail: generated.failureReason }),
+      regenerationTriggered: generated.attempts > 1,
+    });
   };
 
   const settleRiskRegister = async (
@@ -2097,10 +2246,24 @@ export function createPipeline(deps: PipelineDependencies) {
         workflowPlan,
       );
 
-      const rendered = await emitDerivedArtifacts(input, workflowPlan, {
-        workflow_recommendation: () => renderWorkflowRecommendation(review),
-        risk_assessment: () => renderRiskAssessment(review),
-      });
+      // D-80 — the complexity assessment against the observed structure;
+      // the rendered artifacts attach to its Stage 9 trace.
+      const complexity = await generateComplexity(
+        input,
+        classification.determinedType,
+        observed,
+        context,
+      );
+      await settleComplexity(input, complexity);
+      const rendered = await emitDerivedArtifacts(
+        input,
+        withOutcome(workflowPlan, "complexity_score", complexity.outcome),
+        {
+          workflow_recommendation: () => renderWorkflowRecommendation(review),
+          risk_assessment: () => renderRiskAssessment(review),
+        },
+        complexity.traceId === null ? {} : { traceId: complexity.traceId },
+      );
 
       return {
         classification,
@@ -2109,6 +2272,9 @@ export function createPipeline(deps: PipelineDependencies) {
         architecture: observed,
         workflowReview: review,
         artifactPlan: withBrief(rendered),
+        ...(complexity.assessment !== undefined
+          ? { complexityAssessment: complexity.assessment }
+          : {}),
       };
     }
 
@@ -2186,39 +2352,62 @@ export function createPipeline(deps: PipelineDependencies) {
       mermaid_diagram: () => renderMermaidDiagram(architecture),
     };
 
-    // D-78 — the requirement path's generator runs first; the rendered
-    // artifacts attach to its Stage 9 trace, as the job path's do (`AP-8`).
+    // D-78/D-79/D-80 — the requirement path's three Stage 9 generators: the
+    // platform recommendation, the risk register, the complexity assessment.
+    // Each takes the same handoff (the context set and the architecture with
+    // its dispositions) and none reads another's answer, so they run
+    // CONCURRENTLY: the path's wall time is the slowest generator, not the
+    // sum. Sequentially, at Opus 5 high effort, the two D-79 generators
+    // alone put a live run at 380 s of its 420 s deadline (D-79 §5); a third
+    // in series would have breached it. Each generator still has its own
+    // Stage 9 trace, its own regeneration and its own deep validation; the
+    // deadline signal cancels all three together (FR-094). They are SETTLED
+    // in a fixed order — platform, risk, complexity — so the events, the
+    // persisted artifacts and the validation records keep the precedence
+    // the plan states; only the three traces' completion order is the
+    // provider's. The rendered artifacts attach to the last trace to finish.
     if (
       classification.determinedType === "business_requirement" &&
       isPlanned(assessmentPlan, "platform_recommendation")
     ) {
-      const platform = await generatePlatformRecommendation(
-        input,
-        classification.determinedType,
-        architecture,
-        context,
-      );
+      const [platform, risk, complexity] = await Promise.all([
+        generatePlatformRecommendation(
+          input,
+          classification.determinedType,
+          architecture,
+          context,
+        ),
+        generateRiskRegister(
+          input,
+          classification.determinedType,
+          architecture,
+          context,
+        ),
+        generateComplexity(
+          input,
+          classification.determinedType,
+          architecture,
+          context,
+        ),
+      ]);
       await settlePlatformRecommendation(input, platform);
-      // D-79 — the risk register, the path's second generator; the rendered
-      // artifacts attach to the last generator's Stage 9 trace.
-      const risk = await generateRiskRegister(
-        input,
-        classification.determinedType,
-        architecture,
-        context,
-      );
       await settleRiskRegister(input, risk);
-      const lastTrace = risk.traceId ?? platform.traceId;
+      await settleComplexity(input, complexity);
+      const lastTrace = complexity.traceId ?? risk.traceId ?? platform.traceId;
       const rendered = await emitDerivedArtifacts(
         input,
         withOutcome(
           withOutcome(
-            assessmentPlan,
-            "platform_recommendation",
-            platform.outcome,
+            withOutcome(
+              assessmentPlan,
+              "platform_recommendation",
+              platform.outcome,
+            ),
+            "risk_assessment",
+            risk.outcome,
           ),
-          "risk_assessment",
-          risk.outcome,
+          "complexity_score",
+          complexity.outcome,
         ),
         renderers,
         lastTrace === null ? {} : { traceId: lastTrace },
@@ -2233,6 +2422,9 @@ export function createPipeline(deps: PipelineDependencies) {
           ? { platformRecommendation: platform.recommendation }
           : {}),
         ...(risk.register !== undefined ? { riskRegister: risk.register } : {}),
+        ...(complexity.assessment !== undefined
+          ? { complexityAssessment: complexity.assessment }
+          : {}),
       };
     }
 

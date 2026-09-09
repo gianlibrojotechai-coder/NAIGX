@@ -38,6 +38,8 @@ import type {
   WorkflowReviewResult,
 } from "../contracts.js";
 import { namesDesignPart } from "./risk-assessment.js";
+import { scoreComplexity } from "./complexity-assessment.js";
+import { COMPLEXITY_FACTORS, type ComplexityFactorKey } from "../contracts.js";
 
 /** Thrown when an enforced Stage 10 class fails an artifact (D-72). */
 export class ResponseValidationError extends Error {
@@ -379,6 +381,31 @@ export function checkInternalConsistency(
         if (!diagram.includes(c.name))
           problems.push(`component "${c.name}" is not in the diagram`);
       }
+      break;
+    }
+    case "complexity_score": {
+      // `FR-033`: reconstructible from the displayed basis — so reconstruct it.
+      const scores = new Map<ComplexityFactorKey, number>();
+      for (const f of asArray(doc["factors"])) {
+        const rec2 = asRecord(f);
+        const key = rec2?.["factor"];
+        const score = rec2?.["score"];
+        if (typeof key === "string" && typeof score === "number")
+          scores.set(key as ComplexityFactorKey, score);
+      }
+      if (scores.size !== COMPLEXITY_FACTORS.length)
+        problems.push(
+          `${String(scores.size)} factors scored, ${String(COMPLEXITY_FACTORS.length)} required`,
+        );
+      const expected = scoreComplexity(scores);
+      if (doc["complexity_score"] !== expected.complexityScore)
+        problems.push(
+          `complexity_score ${String(doc["complexity_score"])} does not follow from the factors (expected ${String(expected.complexityScore)})`,
+        );
+      if (doc["weighted_score"] !== expected.weightedScore)
+        problems.push(
+          `weighted_score ${String(doc["weighted_score"])} does not follow from the factors (expected ${String(expected.weightedScore)})`,
+        );
       break;
     }
     case "platform_recommendation": {

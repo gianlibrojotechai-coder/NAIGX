@@ -37,6 +37,7 @@ import {
   asArchitectureRecommendation,
   asAssessmentFeedback,
   asBusinessAnalysis,
+  asComplexityScore,
   asIntentBrief,
   asInterviewGuidance,
   asMermaidDiagram,
@@ -60,6 +61,7 @@ import {
 import { ArchitectureRecommendationView } from "./ArchitectureRecommendation";
 import { AssessmentFeedbackView } from "./AssessmentFeedback";
 import { BusinessAnalysisView } from "./BusinessAnalysis";
+import { ComplexityScoreView } from "./ComplexityScore";
 import { IntentBriefView } from "./IntentBrief";
 import { InterviewGuidanceView } from "./InterviewGuidance";
 import { N8nWorkflowView } from "./N8nWorkflow";
@@ -349,6 +351,15 @@ const ARTIFACT_PRESENTERS: Readonly<Record<string, ArtifactPresenter>> = {
       return recommendation === null ? null : (
         <PlatformRecommendationView recommendation={recommendation} />
       );
+    },
+  },
+  complexity_score: {
+    title: "Complexity score",
+    subtitle:
+      "Five factors scored against fixed anchors, and the arithmetic that combines them",
+    render: (content) => {
+      const score = asComplexityScore(content);
+      return score === null ? null : <ComplexityScoreView score={score} />;
     },
   },
   mermaid_diagram: {

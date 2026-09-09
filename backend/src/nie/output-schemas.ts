@@ -42,6 +42,7 @@ import {
   BUILD_EFFORT,
   CLASSIFICATION_TYPES,
   COMPETENCY_STANDING,
+  COMPLEXITY_FACTORS,
   CONTEXT_CATEGORIES,
   CONTEXT_PROVENANCE,
   GAP_PRIORITIES,
@@ -353,6 +354,17 @@ const riskAssessment = object({
   no_risks_statement: nullable(string),
 });
 
+/** D-80: the five factor scores; the arithmetic is the pipeline's. */
+const complexityAssessment = object({
+  factors: nonEmptyArray(
+    object({
+      factor: enumOf(COMPLEXITY_FACTORS.map((f) => f.key)),
+      score: enumOf([1, 2, 3, 4, 5]),
+      justification: string,
+    }),
+  ),
+});
+
 /**
  * Keyed by the `task` the pipeline puts on each `CapabilityRequest` — the
  * stage key, or the generator key for Stage 9 (`docs/12` D-29).
@@ -368,4 +380,5 @@ export const STAGE_OUTPUT_SCHEMAS: Readonly<Record<string, OutputSchema>> = {
   interview_guidance: interviewGuidance,
   platform_recommendation: platformRecommendation,
   risk_assessment: riskAssessment,
+  complexity_assessment: complexityAssessment,
 };

@@ -171,6 +171,8 @@ test("coverage reflects the composed set, not assumed path membership", async ()
       "platform_recommendation",
       // D-79: and its second.
       "risk_assessment",
+      // D-80: and its third.
+      "complexity_assessment",
     ],
     "stage sequence is read from the recording, not inferred from the type",
   );

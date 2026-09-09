@@ -499,6 +499,31 @@ export interface UnknownDisposition {
   readonly content?: string;
 }
 
+/** `backend/schemas/complexity_score.schema.json` (D-80). */
+export interface ComplexityScore {
+  readonly scale_version: string;
+  readonly factors: readonly {
+    readonly factor: string;
+    readonly label: string;
+    readonly score: number;
+    readonly weight: number;
+    readonly contribution: number;
+    readonly justification: string;
+  }[];
+  readonly weighted_score: number;
+  readonly complexity_score: number;
+}
+
+export const asComplexityScore = (content: unknown): ComplexityScore | null => {
+  if (content === null || typeof content !== "object") return null;
+  const candidate = content as Partial<ComplexityScore>;
+  if (!Array.isArray(candidate.factors) || candidate.factors.length === 0)
+    return null;
+  if (typeof candidate.complexity_score !== "number") return null;
+  if (typeof candidate.weighted_score !== "number") return null;
+  return candidate as ComplexityScore;
+};
+
 /** `backend/schemas/platform_recommendation.schema.json` (D-78). */
 export interface PlatformRecommendation {
   readonly criteria_applied: readonly {

@@ -179,6 +179,20 @@ const STAGE_OUTPUTS = {
     knowledge_currency_note:
       "Platform capabilities and pricing change; verify before committing.",
   }),
+  // D-80: five placeholder factor scores.
+  complexity: JSON.stringify({
+    factors: [
+      "workflow",
+      "integration",
+      "data_logic",
+      "failure_risk",
+      "operational",
+    ].map((factor) => ({
+      factor,
+      score: 2,
+      justification: "A placeholder justification for this design",
+    })),
+  }),
   // D-79: the risk register against the one component.
   risk: JSON.stringify({
     risks: [
@@ -202,6 +216,7 @@ const ALL_STAGES = [
   { key: "architecture_analysis", of: "architecture" },
   { key: "platform_recommendation", of: "platform" },
   { key: "risk_assessment", of: "risk" },
+  { key: "complexity_assessment", of: "complexity" },
 ] as const;
 
 /**

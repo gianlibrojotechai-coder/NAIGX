@@ -252,6 +252,25 @@ const primedAdapter = async (
       PLATFORM_OUTPUT,
       "business_requirement",
     );
+    // D-80: the complexity assessment, keyed on the same handoff.
+    await add(
+      "complexity_assessment",
+      requirementHandoff,
+      JSON.stringify({
+        factors: [
+          "workflow",
+          "integration",
+          "data_logic",
+          "failure_risk",
+          "operational",
+        ].map((factor) => ({
+          factor,
+          score: 2,
+          justification: "A placeholder justification for this design",
+        })),
+      }),
+      "business_requirement",
+    );
     // D-79: the risk register, the path's second generator, same handoff.
     await add(
       "risk_assessment",
@@ -260,7 +279,8 @@ const primedAdapter = async (
         risks: [
           {
             component: "Invoice Ingestion",
-            description: "An unreadable attachment is quarantined and the invoice waits unnoticed",
+            description:
+              "An unreadable attachment is quarantined and the invoice waits unnoticed",
             severity: 3,
             likelihood: 3,
             mitigation: "Alert finance on every quarantine",
@@ -367,7 +387,7 @@ test("runs stages 1-3 in order and produces typed handoffs", async () => {
   assert.deepEqual(
     traces.map((t) => t.stageNumber),
     // D-72: Stages 10 and 12 trace on every response.
-    [1, 2, 3, 5, 6, 9, 9, 10, 12],
+    [1, 2, 3, 5, 6, 9, 9, 9, 10, 12],
   );
   assert.deepEqual(
     traces.map((t) => t.stageKey),
@@ -382,6 +402,8 @@ test("runs stages 1-3 in order and produces typed handoffs", async () => {
       "platform_recommendation",
       // D-79: the risk register, the path's second generator.
       "risk_assessment",
+      // D-80: the complexity assessment, its third.
+      "complexity_assessment",
       "response_validation",
       "response_assembly",
     ],
@@ -402,7 +424,7 @@ test("every stage emits a trace event (AP-8, FR-100)", async () => {
   assert.deepEqual(
     traces.map((t) => t.stageNumber),
     // D-72: Stages 10 and 12 trace on every response.
-    [1, 2, 3, 5, 6, 9, 9, 10, 12],
+    [1, 2, 3, 5, 6, 9, 9, 9, 10, 12],
   );
   for (const trace of traces) {
     assert.equal(trace.analysisId, ANALYSIS_ID);
@@ -582,7 +604,7 @@ test("cost accounting flows through the shared provider path per stage", async (
 
   // Stages 1, 2, 3, 6 and, since D-78, the requirement path's Stage 9
   // platform generator.
-  assert.equal(invocations.length, 6, "one provider call per provider stage");
+  assert.equal(invocations.length, 7, "one provider call per provider stage");
   for (const invocation of invocations) {
     assert.equal(invocation.outcome, "success");
     // 20 × $3/M + 30 × $15/M = 0.00006 + 0.00045

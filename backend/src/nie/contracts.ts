@@ -163,6 +163,8 @@ export interface PipelineResult {
   readonly platformRecommendation?: PlatformRecommendation;
   /** D-79 — present when the requirement path's risk register generated. */
   readonly riskRegister?: RiskRegister;
+  /** D-80 — present when the complexity assessment generated. */
+  readonly complexityAssessment?: ComplexityAssessment;
   /**
    * Stage 6W, existing-workflow path only (`FR-021`, `docs/15` D-40).
    *
@@ -584,6 +586,46 @@ export interface InterviewGuidance {
   readonly framing: string;
 }
 
+// --- Stage 9, complexity assessment (D-80, FR-033, docs/09 §1) ----------------
+
+/** `docs/09` §1.1 — five factors, weights totalling 100%. Scale `complexity-v1`. */
+export const COMPLEXITY_FACTORS = [
+  { key: "workflow", label: "Workflow Complexity", weight: 0.25 },
+  { key: "integration", label: "Integration Complexity", weight: 0.2 },
+  {
+    key: "data_logic",
+    label: "Data Transformation / Logic Complexity",
+    weight: 0.2,
+  },
+  { key: "failure_risk", label: "Error / Failure Risk", weight: 0.2 },
+  {
+    key: "operational",
+    label: "Operational / Maintenance Complexity",
+    weight: 0.15,
+  },
+] as const;
+export type ComplexityFactorKey = (typeof COMPLEXITY_FACTORS)[number]["key"];
+
+export interface ComplexityFactorScore {
+  readonly factor: ComplexityFactorKey;
+  readonly label: string;
+  /** 1–5, the generator's judgement against the `docs/09` §1.5 anchors. */
+  readonly score: number;
+  readonly weight: number;
+  /** score × weight, two decimals. */
+  readonly contribution: number;
+  readonly justification: string;
+}
+
+export interface ComplexityAssessment {
+  readonly scaleVersion: "complexity-v1";
+  readonly factors: readonly ComplexityFactorScore[];
+  /** Σ contributions, 1.00–5.00. */
+  readonly weightedScore: number;
+  /** weighted × 20, 20–100. */
+  readonly complexityScore: number;
+}
+
 // --- Stage 9, risk register on the requirement path (D-79, FR-032) -----------
 
 export interface RiskItem {
@@ -679,6 +721,8 @@ export const ARTIFACT_TYPES = [
   // D-78: the requirement path's `FR-034` artifact, generated at Stage 9 from
   // the Stage 6 architecture and the context set.
   "platform_recommendation",
+  // D-80: the `FR-033` score — requirement and workflow paths (`AI §9.1`).
+  "complexity_score",
 ] as const;
 export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
 
@@ -711,9 +755,16 @@ export const PATH_ARTIFACT_TYPES: Readonly<
     // D-79: generated here, rendered on the workflow path — one type, one
     // schema, two sources (`AI §9.1`: "Requirement, workflow").
     "risk_assessment",
+    // D-80: scored at Stage 9 against the architecture.
+    "complexity_score",
     "mermaid_diagram",
   ],
-  existing_workflow: ["workflow_recommendation", "risk_assessment"],
+  existing_workflow: [
+    "workflow_recommendation",
+    "risk_assessment",
+    // D-80: scored against the observed structure.
+    "complexity_score",
+  ],
   job_description: [
     "skill_gap_analysis",
     "portfolio_suggestions",
@@ -740,6 +791,7 @@ export const IMPLEMENTED_ARTIFACT_TYPES = [
   "architecture_recommendation",
   "business_analysis",
   "platform_recommendation",
+  "complexity_score",
 ] as const;
 
 /**
