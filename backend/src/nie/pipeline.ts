@@ -60,6 +60,9 @@ import { parseImplementationRoadmap } from "./stages/implementation-roadmap.js";
 import { parseEdgeCaseAnalysis } from "./stages/edge-case-analysis.js";
 import { parseIntegrationRequirements } from "./stages/integration-requirements.js";
 import { renderExecutiveSummary } from "./stages/executive-summary.js";
+import { evaluateConfidence } from "./stages/confidence-evaluation.js";
+import { renderConfidence } from "./confidence-wire.js";
+import { CONFIDENCE_MODEL_V1 } from "./confidence-model.js";
 import {
   parseComplexityFactors,
   renderComplexityScore,
@@ -474,6 +477,14 @@ export interface PipelineInput {
    * orchestrator the sole owner of job state (`SA §3.3`).
    */
   readonly signal?: AbortSignal;
+  /**
+   * D-86 — stop cleanly after this stage, with the run recorded as halted
+   * there. The one use is the confidence-feature capture: Stage 3's output
+   * is what CF-2 and CF-4 are computed from (`AI §8.2`, D-33), and the
+   * thirty-odd corpus cases with no recording can supply it for the cost of
+   * three calls each rather than a whole run. Never set by the orchestrator.
+   */
+  readonly stopAfterStage?: 3;
   /**
    * A user-corrected classification (`FR-014`, `API §7.5`).
    *
@@ -2055,14 +2066,43 @@ export function createPipeline(deps: PipelineDependencies) {
       );
     }
 
+    // --- Stage 11 -------------------------------------------------------
+    // D-86: deterministic, from measured factors, never model-reported
+    // (`AIP-2`). Runs on every result that reaches here — a halt or a
+    // refusal takes `low` by D-31 decision 1 — so the band is never absent
+    // from a completed analysis.
+    const confidence = evaluateConfidence(
+      {
+        ...(result.context !== undefined ? { context: result.context } : {}),
+        ...(result.artifactPlan !== undefined
+          ? { artifactPlan: result.artifactPlan }
+          : {}),
+      },
+      CONFIDENCE_MODEL_V1,
+    );
+    await recordDeterministicStage(input, {
+      stageNumber: 11,
+      structuredInput: {
+        model: CONFIDENCE_MODEL_V1.version,
+        elements: result.context?.elements.length ?? 0,
+        generated: (result.artifactPlan ?? []).filter(
+          (e) => e.planned && e.outcome === "generated",
+        ).length,
+      },
+      structuredOutput: renderConfidence(confidence),
+    });
+    await deps.resultSink?.persistConfidence?.(input.analysisId, confidence);
+    const withConfidence: PipelineResult = { ...result, confidence };
+
     // --- Stage 12 -------------------------------------------------------
     try {
-      const report = assembleResponse(result);
+      const report = assembleResponse(withConfidence);
       await recordDeterministicStage(input, {
         stageNumber: 12,
         structuredInput: {
           planned: (result.artifactPlan ?? []).length,
           halted: result.haltedAt !== undefined,
+          confidence: confidence.band,
         },
         structuredOutput: report,
       });
@@ -2080,7 +2120,7 @@ export function createPipeline(deps: PipelineDependencies) {
       throw error;
     }
     runValidation.delete(input.analysisId);
-    return result;
+    return withConfidence;
   };
 
   /** Runs stages 1-3 in the `FR-010` order, halting where the spec halts. */
@@ -2213,6 +2253,21 @@ export function createPipeline(deps: PipelineDependencies) {
     // The problem as understood, which `FR-040` puts first and `FR-041` wants
     // visible before the slow stages run.
     emit(input.analysisId, understandingEvent(intent, context));
+
+    // D-86: a feature capture wants Stage 3's output and nothing after it.
+    if (input.stopAfterStage === 3) {
+      return {
+        classification,
+        intent,
+        context,
+        artifactPlan: withBrief(),
+        haltedAt: {
+          stageNumber: 3,
+          reason:
+            "Stopped after Stage 3 by request — a confidence-feature capture (D-86)",
+        },
+      };
+    }
 
     if (!contextProceeds(context)) {
       emit(

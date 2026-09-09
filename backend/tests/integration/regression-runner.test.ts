@@ -366,12 +366,14 @@ test("a case with a recording runs through the real pipeline and passes", async 
   assert.equal(byId.get("run_completeness")?.status, "passed");
   // What the run did not measure is stated, not omitted.
   assert.equal(byId.get("artifact_set")?.status, "deferred");
-  assert.equal(byId.get("confidence_band")?.status, "deferred");
+  // D-86: the band is evaluated; the synthetic Stage 3 answer is all stated
+  // and specific, so it reproduces the case's `high`.
+  assert.equal(byId.get("confidence_band")?.status, "passed");
 
   // Only what actually ran is reported as evaluated.
   assert.ok(outcome.assertionsEvaluated.includes("classification"));
   assert.ok(
-    !outcome.assertionsEvaluated.includes("confidence_band"),
+    !outcome.assertionsEvaluated.includes("artifact_set"),
     "a deferred assertion measured nothing and must not count as coverage",
   );
   assert.ok(
@@ -501,7 +503,12 @@ test("a truncated recording claiming insufficiency fails an ordinary case", asyn
 test("a truncated recording is still correct when the case expects a halt", async () => {
   // Symmetry matters: a rule that failed every early halt would fail br-005
   // and un-001, which are supposed to stop early.
-  const target = corpusCase({ special_class: "insufficient" });
+  // D-86: a halted analysis carries `low` by rule (D-31 decision 1), which
+  // is what the corpus freezes for br-005.
+  const target = corpusCase({
+    special_class: "insufficient",
+    expected_confidence_band: "low",
+  });
   const report = await run(
     [target],
     storeOf(
@@ -672,7 +679,7 @@ test("a clean run issues a reference naming the evidence it used", async () => {
     !entry.assertionsEvaluated.includes("artifact_set"),
     "per-case coverage, not the static catalogue",
   );
-  assert.ok(reference.assertionsDeferred.includes("confidence_band"));
+  assert.ok(reference.assertionsDeferred.includes("artifact_set"));
   assert.match(reference.attests, /NOT evidence that the current prompt/);
   assert.equal(
     entry.fragmentsCompositionHash,
@@ -694,6 +701,8 @@ test("a suite spanning several compositions still issues a reference", async () 
     case_id: "tt-halt",
     special_class: "unsupported",
     expected_classification: "unsupported",
+    // D-86: a refusal carries `low` by rule (D-31 decision 1).
+    expected_confidence_band: "low",
   });
 
   const fullRecording = await recordingFor(full);
@@ -816,4 +825,26 @@ test("a blocked or failed run issues no pass reference at all", async () => {
       `a ${label} run must not unlock fragment activation (DB §4.5)`,
     );
   }
+});
+
+// --- D-86: the confidence band is advisory ---------------------------------
+
+test("a confidence-band mismatch is reported but does not fail the case (D-86)", async () => {
+  // The synthetic Stage 3 answer is all stated and specific, so the band is
+  // high; a case frozen as medium disagrees with the v1 model, which is a
+  // calibration finding (fit.md: 34 of 44), not a regression of the fragment.
+  const target = corpusCase({ expected_confidence_band: "medium" });
+  const report = await run([target], storeOf(await recordingFor(target)));
+
+  assert.equal(report.totals.passed, 1, "the case still passes");
+  const outcome = report.cases[0];
+  assert.ok(outcome);
+  const band = outcome.assertions.find((a) => a.id === "confidence_band");
+  assert.equal(band?.status, "failed", "the mismatch is measured and reported");
+  assert.equal(band?.advisory, true);
+  assert.match(band?.detail ?? "", /expected medium, got high/);
+  assert.ok(
+    outcome.assertionsEvaluated.includes("confidence_band"),
+    "an advisory assertion still counts as evaluated",
+  );
 });

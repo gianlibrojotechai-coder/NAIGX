@@ -161,6 +161,8 @@ export interface AnalysisView {
   readonly derived_title: string | null;
   readonly sufficiency_level: string | null;
   readonly overall_confidence_band: string | null;
+  /** D-86: the band with its factors, as Stage 11 exposed them; null before Stage 11 ran. */
+  readonly overall_confidence: unknown;
   readonly degraded: boolean;
   readonly timed_out: boolean;
   /**
@@ -287,6 +289,7 @@ export async function readAnalysis(
     derived_title: analysis.derivedTitle,
     sufficiency_level: analysis.sufficiencyLevel,
     overall_confidence_band: analysis.overallConfidenceBand,
+    overall_confidence: analysis.overallConfidenceFactors ?? null,
     degraded: analysis.degradationFlag,
     timed_out: analysis.timeoutFlag,
     refusal,

@@ -165,6 +165,53 @@ const degradationBlock = (analysis: AnalysisView): string[] => {
   return [];
 };
 
+/**
+ * D-86 — the analysis-level band with the seven factors behind it, before
+ * the sections (`AI §8.4`: factors always exposed; `FR-045`). Absent only
+ * when Stage 11 never ran, which the degradation block above already says.
+ */
+const confidenceBlock = (analysis: AnalysisView): string[] => {
+  const c = analysis.overall_confidence;
+  if (c === null || typeof c !== "object") return [];
+  const rec = c as Record<string, unknown>;
+  const band = typeof rec["band"] === "string" ? rec["band"] : null;
+  if (band === null) return [];
+  const decided: Record<string, string> = {
+    no_artifacts: "no recommendation was produced, so the band is low by rule",
+    conflict_cap:
+      "the input carries a contradiction Stage 3 flagged, which caps the band at medium",
+    weighted_base:
+      "decided by the weighted measurement of requirement clarity and evidence quality",
+  };
+  const why = decided[String(rec["decided_by"])] ?? String(rec["decided_by"]);
+  const lines = [
+    `**Confidence: ${humanise(band)}.** ${why.charAt(0).toUpperCase()}${why.slice(1)}${typeof rec["base_score"] === "number" ? ` (base ${rec["base_score"].toFixed(3)}, ${String(rec["model_version"])})` : ""}.`,
+    "",
+    "| Factor | Value | Weight | Part played | Note |",
+    "|---|---|---|---|---|",
+  ];
+  for (const f of Array.isArray(rec["factors"]) ? rec["factors"] : []) {
+    const fr = f as Record<string, unknown>;
+    const value =
+      typeof fr["value"] === "number" ? fr["value"].toFixed(3) : "—";
+    const weight =
+      typeof fr["weight"] === "number"
+        ? `${String(Math.round(fr["weight"] * 100))}%`
+        : "—";
+    const role =
+      fr["role"] === "weighted"
+        ? "Weighted"
+        : fr["role"] === "cap"
+          ? "Cap"
+          : "Not measured in v1";
+    lines.push(
+      `| ${String(fr["id"])} ${String(fr["label"])} | ${value} | ${weight} | ${role} | ${String(fr["note"]).replace(/|/g, "\|")} |`,
+    );
+  }
+  lines.push("");
+  return lines;
+};
+
 const intentSection = (analysis: AnalysisView, step: number): string[] => {
   const lines = [`## ${String(step)}. The problem as understood`, ""];
   if (analysis.intent === null) {
@@ -271,7 +318,7 @@ const verdictSection = (analysis: AnalysisView, step: number): string[] => {
   // not as one where the measurement does not exist.
   if (verdict.confidence_band === null) {
     lines.push(
-      "**Confidence: not available.** NAIGX does not yet compute a confidence band, and printing one here would be inventing the measurement. Weigh this verdict on its rationale and on the unknowns listed below.",
+      "**Confidence: not available.** Per-recommendation confidence is not computed in this version (D-31 decision 5); the analysis-level band, with the factors behind it, is stated at the top of this document.",
       "",
     );
   } else {
@@ -685,6 +732,7 @@ export function renderAnalysisMarkdown(
   const lines: string[] = [`# ${title}`, ""];
   lines.push(...metadataBlock(analysis, options.generatedAt));
   lines.push(...degradationBlock(analysis));
+  lines.push(...confidenceBlock(analysis));
 
   if (selection !== null) {
     lines.push(

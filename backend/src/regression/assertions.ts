@@ -31,6 +31,17 @@ export interface AssertionOutcome {
   /** Why it failed, or which stage will make a deferred assertion runnable. */
   readonly detail: string;
   readonly specRef: string;
+  /**
+   * D-86: an ADVISORY assertion is measured and reported, and a mismatch is
+   * a finding about the model it measures rather than a failure of the
+   * fragment under test — so it never fails the case. `confidence_band` is
+   * one: the v1 confidence model reproduces 34 of the 44 frozen labels
+   * (`research/confidence-calibration/fit.md`), and a case whose band
+   * disagrees with the corpus author's is calibration evidence, not a
+   * regression. The mismatch is still printed, still recorded on the run,
+   * and still counted as evaluated.
+   */
+  readonly advisory?: true;
 }
 
 /**
@@ -94,8 +105,12 @@ export const ASSERTION_CATALOGUE = [
   {
     id: "confidence_band",
     specRef: "docs/11 §9, AI §8",
-    supported: false,
-    deferredTo: "Stage 11 (confidence evaluation), Sprint 2",
+    // D-86: Stage 11 exists and the model is fitted against these labels —
+    // and reproduces 34 of 44, so the assertion is advisory (see
+    // `AssertionOutcome.advisory`).
+    supported: true,
+    deferredTo: null,
+    advisory: true,
   },
   {
     id: "do_not_automate_conclusion",
@@ -116,11 +131,17 @@ export const DEFERRED_ASSERTIONS: readonly AssertionId[] =
 const spec = (id: AssertionId): string =>
   ASSERTION_CATALOGUE.find((a) => a.id === id)?.specRef ?? "";
 
+const isAdvisory = (id: AssertionId): boolean => {
+  const entry = ASSERTION_CATALOGUE.find((a) => a.id === id);
+  return entry !== undefined && "advisory" in entry && entry.advisory === true;
+};
+
 const pass = (id: AssertionId, detail: string): AssertionOutcome => ({
   id,
   status: "passed",
   detail,
   specRef: spec(id),
+  ...(isAdvisory(id) ? { advisory: true as const } : {}),
 });
 
 const failed = (id: AssertionId, detail: string): AssertionOutcome => ({
@@ -128,6 +149,7 @@ const failed = (id: AssertionId, detail: string): AssertionOutcome => ({
   status: "failed",
   detail,
   specRef: spec(id),
+  ...(isAdvisory(id) ? { advisory: true as const } : {}),
 });
 
 const deferred = (id: AssertionId): AssertionOutcome => ({
@@ -161,6 +183,25 @@ export function evaluateCase(
           "classification",
           `expected ${corpusCase.expectedClassification}, got ${determined}`,
         ),
+  );
+
+  // --- confidence band (`AI §8`, D-86) --------------------------------------
+  // The frozen label is the oracle the v1 model was fitted against; a
+  // mismatch is a measured disagreement between Stage 3's output on this
+  // recording and the corpus author's assessment of the input.
+  const band = result.confidence?.band;
+  outcomes.push(
+    band === undefined
+      ? failed("confidence_band", "Stage 11 produced no band")
+      : band === corpusCase.expectedConfidenceBand
+        ? pass(
+            "confidence_band",
+            `${band} (${result.confidence?.decidedBy ?? ""}, base ${String(result.confidence?.baseScore ?? "—")})`,
+          )
+        : failed(
+            "confidence_band",
+            `expected ${corpusCase.expectedConfidenceBand}, got ${band} (${result.confidence?.decidedBy ?? ""}, base ${String(result.confidence?.baseScore ?? "—")})`,
+          ),
   );
 
   // --- confidence bound (`FR-011` 0.6, `FR-015`) --------------------------
@@ -370,4 +411,4 @@ export function evaluateCase(
 }
 
 export const caseFailed = (outcomes: readonly AssertionOutcome[]): boolean =>
-  outcomes.some((o) => o.status === "failed");
+  outcomes.some((o) => o.status === "failed" && o.advisory !== true);

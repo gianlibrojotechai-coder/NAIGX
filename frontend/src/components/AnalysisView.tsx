@@ -69,6 +69,7 @@ import { ComplexityScoreView } from "./ComplexityScore";
 import { ImplementationRoadmapView } from "./ImplementationRoadmap";
 import { EdgeCasesAndPracticesView } from "./EdgeCasesAndPractices";
 import { ExecutiveSummaryView } from "./ExecutiveSummary";
+import { OverallConfidenceView } from "./OverallConfidence";
 import { IntegrationRequirementsView } from "./IntegrationRequirements";
 import { IntentBriefView } from "./IntentBrief";
 import { InterviewGuidanceView } from "./InterviewGuidance";
@@ -685,6 +686,12 @@ export function AnalysisView({
             </dl>
           )}
 
+          {/* D-86 — Stage 11's band, with every factor exposed (AI §8.4). */}
+          {analysis.overall_confidence !== null &&
+            analysis.overall_confidence !== undefined && (
+              <OverallConfidenceView confidence={analysis.overall_confidence} />
+            )}
+
           {/* `FR-014` — "a control allows reclassification to any supported
             type". It re-submits rather than editing; `API §7.5` creates a new
             analysis and keeps this one. */}
@@ -783,13 +790,13 @@ export function AnalysisView({
                 </div>
               )}
 
-              {/* FR-045. Null is the honest answer while Stage 11 is deferred. */}
+              {/* FR-045. Per-recommendation confidence is deferred (D-31 decision 5);
+                  the analysis-level band and its factors are shown above (D-86). */}
               {analysis.verdict.confidence_band === null ? (
                 <Unavailable>
-                  Confidence is not available. NAIGX does not yet compute a
-                  confidence band, and showing one here would be inventing the
-                  measurement. Weigh this verdict on its rationale and on the
-                  unknowns below.
+                  Per-recommendation confidence is not computed in this
+                  version. The confidence band for this analysis, with the
+                  factors behind it, is shown above.
                 </Unavailable>
               ) : (
                 <Field label="Confidence">

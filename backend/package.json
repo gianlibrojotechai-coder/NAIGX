@@ -33,7 +33,9 @@
     "encrypt:init": "tsx src/ops/encrypt.ts init",
     "encrypt:status": "tsx src/ops/encrypt.ts status",
     "encrypt:backfill": "tsx src/ops/encrypt.ts backfill",
-    "bench": "tsx src/ops/bench.ts"
+    "bench": "tsx src/ops/bench.ts",
+    "confidence:features": "tsx scripts/confidence-features.mts",
+    "confidence:fit": "tsx scripts/confidence-fit.mts"
   },
   "keywords": [],
   "author": "",

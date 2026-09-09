@@ -21,6 +21,7 @@ import type {
   ContextResult,
   RecommendationResult,
   IntentResult,
+  ConfidenceEvaluation,
 } from "./contracts.js";
 
 /**
@@ -160,6 +161,15 @@ export interface StageResultSink {
   ): Promise<void>;
   persistIntent(analysisId: string, intent: IntentResult): Promise<void>;
   persistContext(analysisId: string, context: ContextResult): Promise<void>;
+  /**
+   * D-86: Stage 11's band and factors. `ANALYSIS.overall_confidence_band` is
+   * "written at Stage 11" (`DB §6.1`); the factors land beside it so
+   * `AI §8.4`'s "factors are always exposed" survives a read-back.
+   */
+  persistConfidence?(
+    analysisId: string,
+    confidence: ConfidenceEvaluation,
+  ): Promise<void>;
   /**
    * Stage 7, job-description path (`FR-022`). Optional so a caller wired for
    * Sprint 1 only keeps compiling; a sink that omits it simply stores no

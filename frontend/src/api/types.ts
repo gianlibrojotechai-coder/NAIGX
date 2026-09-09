@@ -197,6 +197,22 @@ export interface Refusal {
   readonly supportedTypes: readonly string[];
 }
 
+/** Stage 11's exposed band and factors (D-86, `AI §8.4`). */
+export interface OverallConfidence {
+  readonly band: string;
+  readonly model_version: string;
+  readonly decided_by: string;
+  readonly base_score: number | null;
+  readonly factors: readonly {
+    readonly id: string;
+    readonly label: string;
+    readonly value: number | null;
+    readonly weight: number;
+    readonly role: string;
+    readonly note: string;
+  }[];
+}
+
 export interface Analysis {
   readonly analysis_id: string;
   readonly status: AnalysisStatus;
@@ -205,6 +221,8 @@ export interface Analysis {
   readonly derived_title: string | null;
   readonly sufficiency_level: string | null;
   readonly overall_confidence_band: string | null;
+  /** D-86: the band with the seven factors behind it; null before Stage 11 ran. */
+  readonly overall_confidence: OverallConfidence | null;
   readonly degraded: boolean;
   readonly timed_out: boolean;
   readonly input: {
@@ -586,7 +604,9 @@ export interface ExecutiveSummary {
   readonly not_summarised: readonly string[];
 }
 
-export const asExecutiveSummary = (content: unknown): ExecutiveSummary | null => {
+export const asExecutiveSummary = (
+  content: unknown,
+): ExecutiveSummary | null => {
   if (content === null || typeof content !== "object") return null;
   const candidate = content as Partial<ExecutiveSummary>;
   if (typeof candidate.headline !== "string") return null;

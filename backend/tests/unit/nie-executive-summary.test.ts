@@ -248,10 +248,12 @@ test("Stage 10 recomputes every figure against its source (FR-038: contradiction
   assert.match(bad.detail ?? "", /Zapier/);
 
   // A summary of a register that did not generate is a contradiction too.
-  const orphan = checkInternalConsistency("executive_summary", full(), {
-    ...ctx,
-    riskRegister: undefined,
-  });
+  const { riskRegister: _omitted, ...withoutRegister } = ctx;
+  const orphan = checkInternalConsistency(
+    "executive_summary",
+    full(),
+    withoutRegister,
+  );
   assert.equal(orphan.passed, false);
   assert.match(orphan.detail ?? "", /risk/);
 });

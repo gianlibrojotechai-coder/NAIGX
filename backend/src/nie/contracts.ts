@@ -171,6 +171,8 @@ export interface PipelineResult {
   readonly edgeCaseAnalysis?: EdgeCaseAnalysis;
   /** D-84 — present when the integration requirements generated. */
   readonly integrationRequirements?: IntegrationRequirements;
+  /** D-86 — Stage 11's band and factors, on every result that reaches it. */
+  readonly confidence?: ConfidenceEvaluation;
   /**
    * Stage 6W, existing-workflow path only (`FR-021`, `docs/15` D-40).
    *
@@ -655,6 +657,50 @@ export interface RoadmapPhase {
 export interface ImplementationRoadmap {
   readonly phases: readonly RoadmapPhase[];
   readonly sequencingRationale: string;
+}
+
+// --- Stage 11, confidence evaluation (D-86, AI §8, FR-045) ----------------------
+
+export const CONFIDENCE_BANDS = ["high", "medium", "low"] as const;
+export type ConfidenceBand = (typeof CONFIDENCE_BANDS)[number];
+
+/** The v1 model's fitted parameters (D-31 decision 6; D-86 §2). */
+export interface ConfidenceModel {
+  readonly version: string;
+  /** Weight on CF-2; CF-4 takes 1 − this. */
+  readonly clarityWeight: number;
+  /** Base score at or above which the band is `high` (before caps). */
+  readonly highThreshold: number;
+  /** Base score at or above which the band is `medium`; below is `low`. */
+  readonly mediumThreshold: number;
+  /** Where the numbers came from, for the reader of an exposed factor list. */
+  readonly fittedAgainst: string;
+}
+
+export type ConfidenceFactorId =
+  "CF-1" | "CF-2" | "CF-3" | "CF-4" | "CF-5" | "CF-6" | "CF-7";
+
+export interface ConfidenceFactor {
+  readonly id: ConfidenceFactorId;
+  readonly label: string;
+  /** Measured value in [0,1], or null when the factor has no measurement source in v1. */
+  readonly value: number | null;
+  /** Weight in the base score; 0 for the versioned exclusions and the caps. */
+  readonly weight: number;
+  /** How the factor took part. */
+  readonly role: "weighted" | "cap" | "unmeasured";
+  readonly note: string;
+}
+
+export interface ConfidenceEvaluation {
+  readonly band: ConfidenceBand;
+  readonly modelVersion: string;
+  /** Which rule decided the band. */
+  readonly decidedBy: "no_artifacts" | "conflict_cap" | "weighted_base";
+  /** The weighted base score in [0,1], or null when no context was measured. */
+  readonly baseScore: number | null;
+  /** All seven `AI §8.2` factors, always exposed (`AI §8.4`). */
+  readonly factors: readonly ConfidenceFactor[];
 }
 
 // --- Stage 9, edge cases and practices (D-83, FR-037) -------------------------

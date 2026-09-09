@@ -501,7 +501,7 @@ test("Stage 7 emits a trace like every other stage (AP-8, FR-100)", async () => 
     // Stage 5 plans the reasoning deterministically before Stage 7 runs it
     // (`docs/12` D-35).
     // D-72: Stages 10 and 12 trace on every response.
-    [1, 2, 3, 5, 7, 8, 9, 9, 10, 12],
+    [1, 2, 3, 5, 7, 8, 9, 9, 10, 11, 12],
   );
   const stage7 = traces.find((t) => t.stageNumber === 7);
   assert.ok(stage7);
@@ -545,7 +545,7 @@ test("without a capability profile the run stops before Stage 7, and says why", 
     traces.map((t) => t.stageNumber),
     // Stage 5 planned the reasoning before the missing profile halted the run:
     // the plan was legitimately made, and the halt is Stage 7's.
-    [1, 2, 3, 5, 10, 12],
+    [1, 2, 3, 5, 10, 11, 12],
     "no Stage 7 trace, because no Stage 7 call was made",
   );
 });
@@ -640,7 +640,7 @@ test("stages 8 and 9 are traced like every other stage (AP-8, FR-100)", async ()
     // Stage 5 plans the reasoning deterministically before Stage 7 runs it
     // (`docs/12` D-35).
     // D-72: Stages 10 and 12 trace on every response.
-    [1, 2, 3, 5, 7, 8, 9, 9, 10, 12],
+    [1, 2, 3, 5, 7, 8, 9, 9, 10, 11, 12],
   );
 
   // Stage 8 reaches no provider, and is traced anyway — the one stage whose
@@ -764,7 +764,7 @@ test("apply_now plans no generated artifact; Stage 9 still renders the gap analy
   assert.equal(result.portfolioSuggestions, undefined);
   assert.deepEqual(
     traces.map((t) => t.stageNumber),
-    [1, 2, 3, 5, 7, 8, 9, 10, 12],
+    [1, 2, 3, 5, 7, 8, 9, 10, 11, 12],
     "Stage 9 is traced for the rendered gap analysis, with no provider call",
   );
   const gap = (result.artifactPlan ?? []).find(

@@ -1,0 +1,38 @@
+{
+  "caseId": "jd-004",
+  "corpusVersion": "corpus-v1",
+  "failedAt": "2026-09-09T22:05:39.654Z",
+  "provider": {
+    "adapter": "anthropic",
+    "modelKey": "claude-sonnet-5"
+  },
+  "failure": {
+    "stageNumber": 3,
+    "stageKey": "context_extraction",
+    "message": "stage 3 (context_extraction): elements[5]: source_quote does not occur in the input — \"Zapier and Make specialist... Must know HubSpot\""
+  },
+  "providerCalls": 3,
+  "responses": [
+    {
+      "task": "input_classification",
+      "output": "{\"determined_type\":\"job_description\",\"confidence\":0.9,\"candidate_types\":[\"job_description\"],\"dominant_type\":\"job_description\"}",
+      "inputTokens": 2553,
+      "outputTokens": 48,
+      "latencyMs": 1539
+    },
+    {
+      "task": "intent_detection",
+      "output": "{\"primary_objective\":{\"content\":\"Understand what this role demands (skills, tools, commitment level, rate) in order to assess fit against it, likely from a candidate's perspective\",\"provenance\":\"inferred\"},\"secondary_objectives\":[{\"content\":\"Identify which requirements are mandatory versus merely implied by the posting\",\"provenance\":\"inferred\"},{\"content\":\"Gauge the seniority and scope of the role from the tools and terms listed\",\"provenance\":\"inferred\"}],\"inferred_scope\":\"A short job posting for a part-time, remote automation specialist role naming Zapier, Make, and HubSpot, with a daily rate of £250; scope is limited to assessing this single posting's requirements, not designing any automation.\"}",
+      "inputTokens": 2484,
+      "outputTokens": 239,
+      "latencyMs": 3736
+    },
+    {
+      "task": "context_extraction",
+      "output": "{\"elements\":[{\"id\":\"e1\",\"content\":\"Role requires Zapier and Make specialist skills\",\"category\":\"constraint\",\"provenance\":\"stated\",\"specificity_score\":0.7,\"source_quote\":\"Zapier and Make specialist\",\"inference_basis\":null,\"resolution_hint\":null,\"conflicts_with_id\":null},{\"id\":\"e2\",\"content\":\"Role is part-time\",\"category\":\"environment\",\"provenance\":\"stated\",\"specificity_score\":0.5,\"source_quote\":\"part-time\",\"inference_basis\":null,\"resolution_hint\":null,\"conflicts_with_id\":null},{\"id\":\"e3\",\"content\":\"Role is remote\",\"category\":\"environment\",\"provenance\":\"stated\",\"specificity_score\":0.5,\"source_quote\":\"remote\",\"inference_basis\":null,\"resolution_hint\":null,\"conflicts_with_id\":null},{\"id\":\"e4\",\"content\":\"HubSpot knowledge is mandatory\",\"category\":\"constraint\",\"provenance\":\"stated\",\"specificity_score\":0.6,\"source_quote\":\"Must know HubSpot\",\"inference_basis\":null,\"resolution_hint\":null,\"conflicts_with_id\":null},{\"id\":\"e5\",\"content\":\"Daily rate is £250\",\"category\":\"scale\",\"provenance\":\"stated\",\"specificity_score\":0.9,\"source_quote\":\"£250/day\",\"inference_basis\":null,\"resolution_hint\":null,\"conflicts_with_id\":null},{\"id\":\"e6\",\"content\":\"Named systems: Zapier, Make, HubSpot\",\"category\":\"system\",\"provenance\":\"stated\",\"specificity_score\":0.9,\"source_quote\":\"Zapier and Make specialist... Must know HubSpot\",\"inference_basis\":null,\"resolution_hint\":null,\"conflicts_with_id\":null},{\"id\":\"e7\",\"content\":\"Seniority level implied by role is unclear (junior vs senior specialist)\",\"category\":\"environment\",\"provenance\":\"unknown\",\"specificity_score\":0.3,\"source_quote\":null,\"inference_basis\":null,\"resolution_hint\":\"Does the posting specify years of experience or seniority level expected?\",\"conflicts_with_id\":null},{\"id\":\"e8\",\"content\":\"Number of hours or days per week expected is unspecified\",\"category\":\"scale\",\"provenance\":\"unknown\",\"specificity_score\":0.3,\"source_quote\":null,\"inference_basis\":null,\"resolution_hint\":\"How many days or hours per week does 'part-time' entail?\",\"conflicts_with_id\":null},{\"id\":\"e9\",\"content\":\"Nature of tasks or scope of automation work expected is unspecified\",\"category\":\"environment\",\"provenance\":\"unknown\",\"specificity_score\":0.3,\"source_quote\":null,\"inference_basis\":null,\"resolution_hint\":\"What kinds of workflows or projects will this specialist be building or maintaining?\",\"conflicts_with_id\":null},{\"id\":\"e10\",\"content\":\"Team structure or reporting line is unspecified\",\"category\":\"environment\",\"provenance\":\"unknown\",\"specificity_score\":0.2,\"source_quote\":null,\"inference_basis\":null,\"resolution_hint\":\"Who does this role report to, and is there a team or is the candidate solo?\",\"conflicts_with_id\":null}],\"sufficiency\":\"thin\"}",
+      "inputTokens": 3658,
+      "outputTokens": 1048,
+      "latencyMs": 44871
+    }
+  ]
+}

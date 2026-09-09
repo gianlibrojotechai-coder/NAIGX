@@ -38,6 +38,7 @@ import type {
   WorkflowFinding,
 } from "../nie/contracts.js";
 import type { PersistedArtifact, StageResultSink } from "../nie/ports.js";
+import { renderConfidence } from "../nie/confidence-wire.js";
 import { requirePublishedSchemaId } from "./artifact-schema-publisher.js";
 
 /**
@@ -194,6 +195,17 @@ export function createStageResultSink(prisma: PrismaClient): StageResultSink {
       });
 
       contextElementIds.set(analysisId, ids);
+    },
+
+    /** D-86 — Stage 11, on every analysis that reaches it. */
+    async persistConfidence(analysisId, confidence) {
+      await prisma.analysis.update({
+        where: { analysisId },
+        data: {
+          overallConfidenceBand: confidence.band,
+          overallConfidenceFactors: renderConfidence(confidence) as object,
+        },
+      });
     },
 
     /**

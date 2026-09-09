@@ -316,6 +316,9 @@ export function createAnalysisExecutor(
           degraded,
           timedOut: false,
           artifactCounts: artifactCounts(result),
+          ...(result.confidence !== undefined
+            ? { confidenceBand: result.confidence.band }
+            : {}),
           ...(haltedAt !== undefined
             ? {
                 refused: true,

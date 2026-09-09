@@ -267,7 +267,7 @@ export function createDryRunAdapter(
           category: "environment",
           provenance: "stated",
           source_quote: quote,
-          specificity_score: 0.5,
+          specificity_score: 0.95,
         },
       ],
       sufficiency:

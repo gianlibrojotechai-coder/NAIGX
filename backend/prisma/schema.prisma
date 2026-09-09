@@ -273,6 +273,8 @@ model Analysis {
   modelVersionId        String?           @map("model_version_id") @db.Uuid
   /// Written at Stage 11 (§6.1).
   overallConfidenceBand ConfidenceBand?   @map("overall_confidence_band")
+  /// D-86: the seven `AI §8.2` factors behind the band, as Stage 11 exposed them.
+  overallConfidenceFactors Json?          @map("overall_confidence_factors")
   /// Written at Stage 3 (`AI §5.4`).
   sufficiencyLevel      SufficiencyLevel? @map("sufficiency_level")
   degradationFlag       Boolean           @default(false) @map("degradation_flag")

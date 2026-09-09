@@ -205,7 +205,27 @@ if (command === "capture") {
   const budgetArg = process.argv.find((a) => a.startsWith("--budget="));
   const budgetUsd = budgetArg?.slice("--budget=".length);
 
+  // D-86: `--through=3` captures Stages 1–3 only — the confidence features —
+  // and is refused without `--out=`, because such a recording is not corpus
+  // evidence and must never land in the canonical store.
+  const throughArg = process.argv.find((a) => a.startsWith("--through="));
+  const stopAfterStage =
+    throughArg === undefined
+      ? undefined
+      : Number(throughArg.slice("--through=".length));
+  if (stopAfterStage !== undefined && stopAfterStage !== 3) {
+    console.error(
+      "❌ --through accepts only 3 (the confidence-feature capture, D-86).",
+    );
+    process.exit(1);
+  }
   const outArg = process.argv.find((a) => a.startsWith("--out="));
+  if (stopAfterStage !== undefined && outArg === undefined) {
+    console.error(
+      "❌ --through=3 requires --out=<dir>: a Stage 1–3 recording is calibration evidence, not corpus evidence.",
+    );
+    process.exit(1);
+  }
   const outRoot =
     outArg === undefined
       ? undefined
@@ -385,6 +405,7 @@ if (command === "capture") {
       captureResolution: "authored",
       ...(budgetUsd !== undefined ? { budgetUsd } : {}),
       force,
+      ...(stopAfterStage === 3 ? { stopAfterStage: 3 as const } : {}),
       ...(quarantine !== undefined ? { quarantine } : {}),
       onProgress: (message) => {
         console.log(message);
@@ -600,7 +621,9 @@ if (command === "run") {
         `${mark} ${outcome.caseId}${outcome.detail === "" ? "" : ` — ${outcome.detail}`}`,
       );
       for (const a of outcome.assertions.filter((x) => x.status === "failed")) {
-        console.log(`     ${a.id}: ${a.detail} (${a.specRef})`);
+        console.log(
+          `     ${a.advisory === true ? "⚠ advisory " : ""}${a.id}: ${a.detail} (${a.specRef})`,
+        );
       }
     }
 
@@ -825,9 +848,10 @@ if (command === "evaluate") {
     // what was actually evaluated — including what was deferred and therefore
     // judged nothing.
     for (const a of outcome.assertions) {
-      const status = { passed: "  ok", failed: "FAIL", deferred: "  --" }[
-        a.status
-      ];
+      const status =
+        a.status === "failed" && a.advisory === true
+          ? "warn"
+          : { passed: "  ok", failed: "FAIL", deferred: "  --" }[a.status];
       console.log(
         `     ${status} ${a.id}${a.detail === "" ? "" : ` — ${a.detail}`}`,
       );

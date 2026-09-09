@@ -451,7 +451,7 @@ test("runs stages 1-3 in order and produces typed handoffs", async () => {
   assert.deepEqual(
     traces.map((t) => t.stageNumber),
     // D-72: Stages 10 and 12 trace on every response.
-    [1, 2, 3, 5, 6, 9, 9, 9, 9, 9, 9, 10, 12],
+    [1, 2, 3, 5, 6, 9, 9, 9, 9, 9, 9, 10, 11, 12],
   );
   assert.deepEqual(
     traces.map((t) => t.stageKey),
@@ -474,6 +474,8 @@ test("runs stages 1-3 in order and produces typed handoffs", async () => {
       "integration_requirements",
       "edge_case_analysis",
       "response_validation",
+      // D-86: Stage 11 between them.
+      "confidence_evaluation",
       "response_assembly",
     ],
   );
@@ -493,7 +495,7 @@ test("every stage emits a trace event (AP-8, FR-100)", async () => {
   assert.deepEqual(
     traces.map((t) => t.stageNumber),
     // D-72: Stages 10 and 12 trace on every response.
-    [1, 2, 3, 5, 6, 9, 9, 9, 9, 9, 9, 10, 12],
+    [1, 2, 3, 5, 6, 9, 9, 9, 9, 9, 9, 10, 11, 12],
   );
   for (const trace of traces) {
     assert.equal(trace.analysisId, ANALYSIS_ID);
@@ -575,7 +577,7 @@ test("unsupported input halts after stage 1 with no reasoning performed", async 
   // the reasoning stages are what must be absent.
   assert.deepEqual(
     traces.map((t) => t.stageNumber),
-    [1, 10, 12],
+    [1, 10, 11, 12],
     "stages 2 and 3 never ran",
   );
 });
@@ -610,7 +612,7 @@ test("insufficient context halts before reasoning but keeps what was extracted",
   // D-72: plus Stages 10 and 12, which trace on every response.
   assert.deepEqual(
     traces.map((t) => t.stageNumber),
-    [1, 2, 3, 10, 12],
+    [1, 2, 3, 10, 11, 12],
     "all three stages ran and were traced",
   );
 });
@@ -731,7 +733,7 @@ test("the stage inventory is twelve stages, ten implemented", () => {
     STAGES.filter((s) => s.implemented).map((s) => s.stageNumber),
     // D-72: 10 (response validation) and 12 (response assembly) landed;
     // 4 (knowledge assembly, D-15) and 11 (confidence, D-33) stay deferred.
-    [1, 2, 3, 5, 6, 7, 8, 9, 10, 12],
+    [1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12],
   );
   assert.equal(
     STAGES.find((s) => s.stageNumber === 6)?.stageKey,
@@ -1108,4 +1110,52 @@ test("the fixture builder and the pipeline agree on what is sent", async () => {
       `${stageKey}: the pipeline and stageProviderInputs must agree`,
     );
   }
+});
+
+// --- D-86: a feature capture stops after Stage 3 ---------------------------
+
+test("stopAfterStage 3 halts cleanly after context extraction, before any reasoning stage (D-86)", async () => {
+  const { pipeline, traces, invocations } = await harness();
+  const result = await pipeline.run({
+    analysisId: ANALYSIS_ID,
+    text: INPUT,
+    stopAfterStage: 3,
+  });
+  assert.equal(result.haltedAt?.stageNumber, 3);
+  assert.match(result.haltedAt?.reason ?? "", /D-86/);
+  assert.ok(result.context, "Stage 3's output is what the capture is for");
+  assert.deepEqual(
+    traces.map((t) => t.stageNumber).filter((n) => n <= 9),
+    [1, 2, 3],
+    "no reasoning stage runs after the stop",
+  );
+  assert.equal(invocations.length, 3, "three provider calls, nothing more");
+});
+
+// --- D-86: Stage 11 runs on every result, deterministically ----------------
+
+test("Stage 11 traces after Stage 10 and the result carries a band with all seven factors exposed (D-86)", async () => {
+  const { pipeline, traces } = await harness();
+  const result = await pipeline.run({ analysisId: ANALYSIS_ID, text: INPUT });
+  const eleven = traces.filter((t) => t.stageNumber === 11);
+  assert.equal(eleven.length, 1, "one Stage 11 trace");
+  assert.equal(eleven[0]?.stageKey, "confidence_evaluation");
+  assert.ok(result.confidence, "the band is on the result");
+  assert.ok(
+    ["high", "medium", "low"].includes(result.confidence?.band ?? ""),
+    "a band, not a score",
+  );
+  assert.equal(
+    result.confidence?.factors.length,
+    7,
+    "AI §8.4: factors always exposed",
+  );
+  assert.equal(
+    result.confidence?.decidedBy,
+    "weighted_base",
+    "a completed requirement analysis with artifacts is decided by the weighted base",
+  );
+  // Deterministic: the same input evaluates to the same band.
+  const again = await pipeline.run({ analysisId: ANALYSIS_ID, text: INPUT });
+  assert.equal(again.confidence?.band, result.confidence?.band);
 });

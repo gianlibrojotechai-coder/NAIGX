@@ -140,7 +140,9 @@ export const STAGES: readonly StageDefinition[] = [
     stageNumber: 11,
     stageKey: "confidence_evaluation",
     name: "Confidence Evaluation",
-    implemented: false,
+    // D-86: the reduced v1 model (CF-2 and CF-4 weighted, CF-3 a cap, the
+    // rest versioned at weight 0), fitted against the frozen corpus bands.
+    implemented: true,
     producesArtifactTypes: [],
   },
   {

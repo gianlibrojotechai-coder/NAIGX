@@ -1,0 +1,84 @@
+{
+  "suite": "corpus-regression",
+  "reference": "corpus-regression:corpus-v2+fragments-v1:efa67a16d03574d1",
+  "mode": "recorded",
+  "suiteVersion": "corpus-v2",
+  "fragmentsManifestVersion": "fragments-v1",
+  "fragmentsCompositions": [
+    "16a930b7f1fe014963da1d330ad1bbc676c8a2153775619e40aafddfa8beb0cf",
+    "a17cb11887a47a0d70b6fe7cea1ce9d42a48d8d2bb421ffd64ebc67b44e7a850",
+    "c91c32085e635b37a1d297d0ef794eec130b06b4349f60bf69d4abfa905b4250",
+    "f06c2fd33e16631b071f9e8682d7c8b3db64ace8b167300c276641aba81d797e"
+  ],
+  "selectionScope": "partial",
+  "runId": "efa67a16d03574d1",
+  "completedAt": "2026-09-09T22:21:30.050Z",
+  "cases": [
+    {
+      "caseId": "br-004",
+      "recordingHash": "5cf86e2a0995f2f4ebf2969b9835e846238e2a4d08739d087efcad38ff2d90dd",
+      "capturedAt": "2026-09-09T21:31:20.546Z",
+      "fragmentsCompositionHash": "a17cb11887a47a0d70b6fe7cea1ce9d42a48d8d2bb421ffd64ebc67b44e7a850",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "confidence_band",
+        "classification_confidence_bound",
+        "run_completeness",
+        "artifact_generation",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "ew-001",
+      "recordingHash": "767e137207171f10dbd6b9862ecd4e80650c281f5fe626b98e433398ec537a26",
+      "capturedAt": "2026-09-09T20:29:53.135Z",
+      "fragmentsCompositionHash": "c91c32085e635b37a1d297d0ef794eec130b06b4349f60bf69d4abfa905b4250",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "confidence_band",
+        "classification_confidence_bound",
+        "run_completeness",
+        "artifact_generation",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "jd-002",
+      "recordingHash": "151549cd2f2a66be099fa6a3929fd8d6b5f5259dd29a1af28d2e38392147c681",
+      "capturedAt": "2026-09-09T18:08:58.156Z",
+      "fragmentsCompositionHash": "16a930b7f1fe014963da1d330ad1bbc676c8a2153775619e40aafddfa8beb0cf",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "confidence_band",
+        "classification_confidence_bound",
+        "run_completeness",
+        "artifact_generation",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "ta-005",
+      "recordingHash": "fbddbed9e8e9340ee1e31fe6acaa5f7e14b7adff96102e431b69f01aed668162",
+      "capturedAt": "2026-09-09T18:57:45.966Z",
+      "fragmentsCompositionHash": "f06c2fd33e16631b071f9e8682d7c8b3db64ace8b167300c276641aba81d797e",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "confidence_band",
+        "classification_confidence_bound",
+        "run_completeness",
+        "artifact_generation",
+        "reference_integrity"
+      ]
+    }
+  ],
+  "assertionsDeferred": [
+    "artifact_set",
+    "do_not_automate_conclusion"
+  ],
+  "fragmentResolution": "authored",
+  "attests": "Recorded mode: the pipeline, parser and deterministic corpus expectations hold against previously captured provider responses. This is NOT evidence that the current prompt produces these responses — that requires a capture or live run against the fragments in force (docs/12 D-24). Fragment resolution: AUTHORED — composed from the authored fragment versions on disk, which MAY DIFFER from the versions active in any database. This is evidence about a candidate composition, not about what production is serving (docs/38 D-63 §4)."
+}

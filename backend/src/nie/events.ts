@@ -159,6 +159,8 @@ export interface CompleteEvent {
     readonly failed: number;
     readonly omitted: number;
   };
+  /** D-86: Stage 11's band, when the run reached it. */
+  readonly confidenceBand?: string;
   /**
    * The run stopped by design rather than producing an analysis (`API §9.3`).
    *

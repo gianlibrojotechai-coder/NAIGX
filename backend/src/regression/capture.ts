@@ -142,6 +142,13 @@ export interface CaptureOptions {
   /** Re-capture cases that already have a recording. */
   readonly force?: boolean;
   /**
+   * D-86: capture Stages 1–3 only, for the confidence features. Such a
+   * recording is evidence for Stage 11's calibration and nothing else — it
+   * must be written to a store outside the canonical corpus, where the
+   * runner would read it as an unexpected halt.
+   */
+  readonly stopAfterStage?: 3;
+  /**
    * Abort the batch after this many consecutive failures. Default 2.
    *
    * A failing case has usually already been paid for — the provider answered
@@ -378,6 +385,9 @@ export async function captureCase(
   const result = await pipeline.run({
     analysisId: randomUUID(),
     text: corpusCase.inputText,
+    ...(options.stopAfterStage !== undefined
+      ? { stopAfterStage: options.stopAfterStage }
+      : {}),
   });
 
   // D-76 §4: a completed run can still carry a failed artifact — the

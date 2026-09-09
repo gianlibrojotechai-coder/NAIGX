@@ -660,7 +660,7 @@ test(
       });
       assert.deepEqual(
         traces.map((t) => t.stageNumber),
-        [1, 2, 3, 5, 6, 9, 9, 9, 9, 9, 9, 10, 12],
+        [1, 2, 3, 5, 6, 9, 9, 9, 9, 9, 9, 10, 11, 12],
       );
       assert.deepEqual(
         traces.map((t) => t.outcome),
@@ -668,6 +668,7 @@ test(
         // 10 (response validation) and Stage 12 (assembly) are traced on every
         // response since D-72. All three are deterministic here.
         [
+          "success",
           "success",
           "success",
           "success",
@@ -813,7 +814,7 @@ test("a trace-store outage does not fail the analysis", { skip }, async () => {
     assert.equal(result.context?.sufficiency, "sufficient");
     // Stages 1-3, the deterministic Stage 5 (`docs/12` D-35), Stage 6, the
     // rendering Stage 9 (D-73) and the deterministic Stages 10 and 12 (D-72).
-    assert.equal(seen.length, 13, "each failed trace write is surfaced");
+    assert.equal(seen.length, 14, "each failed trace write is surfaced");
 
     // The durable record still landed: fragment usage is primary-store data.
     const usages = await primary.fragmentUsage.count({
@@ -937,7 +938,7 @@ test(
       // Stages 10 and 12 (D-72) are deterministic for the same reason, and
       // Stage 9 on this path renders rather than generates (D-73).
       // D-78: Stage 9 on this path is the platform generator, a provider call.
-      const DETERMINISTIC = new Set([5, 10, 12]);
+      const DETERMINISTIC = new Set([5, 10, 11, 12]);
       const providerTraces = stageTraces.filter(
         (t) => !DETERMINISTIC.has(t.stageNumber),
       );

@@ -34,6 +34,7 @@ const baseAnalysis: AnalysisView = {
   derived_title: "Automation Engineer at Northwind",
   sufficiency_level: "sufficient",
   overall_confidence_band: null,
+  overall_confidence: null,
   degraded: false,
   timed_out: false,
   refusal: null,
@@ -284,7 +285,7 @@ test("an unrecognised provenance document is reported as silence, not guessed", 
 test("FR-045 — an unavailable confidence is stated with its reason, not omitted", () => {
   const { document } = render();
   assert.match(document, /\*\*Confidence: not available\.\*\*/);
-  assert.match(document, /would be inventing the measurement/);
+  assert.match(document, /not computed in this version/);
 });
 
 test("a stored confidence band is printed when one exists", () => {
