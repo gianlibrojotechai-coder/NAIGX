@@ -165,6 +165,12 @@ export interface PipelineResult {
   readonly riskRegister?: RiskRegister;
   /** D-80 — present when the complexity assessment generated. */
   readonly complexityAssessment?: ComplexityAssessment;
+  /** D-82 — present when the implementation roadmap generated. */
+  readonly implementationRoadmap?: ImplementationRoadmap;
+  /** D-83 — present when the edge-case analysis generated. */
+  readonly edgeCaseAnalysis?: EdgeCaseAnalysis;
+  /** D-84 — present when the integration requirements generated. */
+  readonly integrationRequirements?: IntegrationRequirements;
   /**
    * Stage 6W, existing-workflow path only (`FR-021`, `docs/15` D-40).
    *
@@ -626,6 +632,96 @@ export interface ComplexityAssessment {
   readonly complexityScore: number;
 }
 
+// --- Stage 9, implementation roadmap (D-82, FR-036) --------------------------
+
+export interface RoadmapPhase {
+  /** 1 to n, in the order given. */
+  readonly ordinal: number;
+  readonly name: string;
+  readonly objective: string;
+  /** Architecture component names this phase builds or extends. */
+  readonly components: readonly string[];
+  /** Ordinals of earlier phases; empty for one that can start first. */
+  readonly dependsOn: readonly number[];
+  /** What exists, and works, at the end of the phase. */
+  readonly outcome: string;
+  /** Present only when the input supplied a basis (`FR-036`). */
+  readonly estimate?: {
+    readonly duration: string;
+    readonly basisContextIndex: number;
+  };
+}
+
+export interface ImplementationRoadmap {
+  readonly phases: readonly RoadmapPhase[];
+  readonly sequencingRationale: string;
+}
+
+// --- Stage 9, edge cases and practices (D-83, FR-037) -------------------------
+
+export interface EdgeCase {
+  /** A component of the architecture, or an external system one names. */
+  readonly component: string;
+  readonly scenario: string;
+  readonly consequence: string;
+  readonly handling: string;
+}
+
+export interface Practice {
+  readonly appliesTo: string;
+  readonly practice: string;
+  readonly rationale: string;
+}
+
+export interface EdgeCaseAnalysis {
+  readonly edgeCases: readonly EdgeCase[];
+  /** May be empty: a practice is listed only when it applies to a part of the design. */
+  readonly practices: readonly Practice[];
+}
+
+// --- Stage 9, integration requirements (D-84, FR-035) -------------------------
+
+export const INTEGRATION_DIRECTIONS = [
+  "inbound",
+  "outbound",
+  "bidirectional",
+] as const;
+export type IntegrationDirection = (typeof INTEGRATION_DIRECTIONS)[number];
+
+/**
+ * How a constraint is known: `stated` by the context (and cited), or
+ * `general_knowledge` of the platform — the kind that goes stale (`O-4`).
+ */
+export const CONSTRAINT_PROVENANCES = ["stated", "general_knowledge"] as const;
+export type ConstraintProvenance = (typeof CONSTRAINT_PROVENANCES)[number];
+
+export interface IntegrationConstraint {
+  readonly constraint: string;
+  readonly provenance: ConstraintProvenance;
+  /** Present exactly when `provenance` is `stated`. */
+  readonly contextIndex?: number;
+}
+
+export interface IntegrationRequirement {
+  /** The external system, as the architecture names it. */
+  readonly system: string;
+  /** The architecture component that integrates it. */
+  readonly component: string;
+  readonly purpose: string;
+  readonly direction: IntegrationDirection;
+  readonly capabilitiesRequired: readonly string[];
+  readonly constraints: readonly IntegrationConstraint[];
+  /** What must be verified before building; disclosed, never asserted. */
+  readonly uncertainties: readonly string[];
+}
+
+export interface IntegrationRequirements {
+  readonly integrations: readonly IntegrationRequirement[];
+  /** Present exactly when `integrations` is empty. */
+  readonly noIntegrationsStatement?: string;
+  readonly knowledgeCurrencyNote: string;
+}
+
 // --- Stage 9, risk register on the requirement path (D-79, FR-032) -----------
 
 export interface RiskItem {
@@ -723,6 +819,15 @@ export const ARTIFACT_TYPES = [
   "platform_recommendation",
   // D-80: the `FR-033` score — requirement and workflow paths (`AI §9.1`).
   "complexity_score",
+  // D-82: the `FR-036` roadmap — requirement path, generated at Stage 9.
+  "implementation_roadmap",
+  // D-83: the `FR-037` edge cases and practices — requirement path.
+  "edge_cases_and_practices",
+  // D-84: the `FR-035` integration requirements — requirement path.
+  "integration_requirements",
+  // D-85: the `FR-038` executive summary — requirement path, RENDERED from
+  // the settled artifacts after the generators, so it cannot contradict them.
+  "executive_summary",
 ] as const;
 export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
 
@@ -749,6 +854,9 @@ export const PATH_ARTIFACT_TYPES: Readonly<
   // Order is precedence (`AI §9.1`: the business analysis "precedes all
   // solution artifacts").
   business_requirement: [
+    // D-85: first in precedence (`AI §9.1` lists it first) though rendered
+    // last — it summarises everything below it.
+    "executive_summary",
     "business_analysis",
     "architecture_recommendation",
     "platform_recommendation",
@@ -757,6 +865,12 @@ export const PATH_ARTIFACT_TYPES: Readonly<
     "risk_assessment",
     // D-80: scored at Stage 9 against the architecture.
     "complexity_score",
+    // D-82: sequenced at Stage 9 against the architecture.
+    "implementation_roadmap",
+    // D-84: every external system the design touches.
+    "integration_requirements",
+    // D-83: the boundary conditions and the practices that apply.
+    "edge_cases_and_practices",
     "mermaid_diagram",
   ],
   existing_workflow: [
@@ -792,6 +906,10 @@ export const IMPLEMENTED_ARTIFACT_TYPES = [
   "business_analysis",
   "platform_recommendation",
   "complexity_score",
+  "implementation_roadmap",
+  "edge_cases_and_practices",
+  "integration_requirements",
+  "executive_summary",
 ] as const;
 
 /**
@@ -841,6 +959,11 @@ export const isRetryableArtifactType = (artifactType: string): boolean =>
 export const PATH_GENERATED_ARTIFACT_TYPES = {
   risk_assessment: ["business_requirement"],
   complexity_score: ["business_requirement", "existing_workflow"],
+  // D-82: generated on the requirement path only.
+  implementation_roadmap: ["business_requirement"],
+  // D-83/D-84: likewise.
+  edge_cases_and_practices: ["business_requirement"],
+  integration_requirements: ["business_requirement"],
 } as const satisfies Partial<
   Record<ArtifactType, readonly ClassificationType[]>
 >;

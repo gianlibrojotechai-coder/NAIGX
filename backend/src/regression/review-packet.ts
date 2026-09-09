@@ -265,6 +265,9 @@ const STAGE_LABELS: Readonly<Record<string, string>> = {
   platform_recommendation: "Platform recommendation",
   risk_assessment: "Risk register",
   complexity_assessment: "Complexity assessment",
+  implementation_roadmap: "Implementation roadmap",
+  edge_case_analysis: "Edge cases and practices",
+  integration_requirements: "Integration requirements",
 };
 
 /**

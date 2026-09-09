@@ -36,8 +36,19 @@ import type {
   PortfolioSuggestions,
   RecommendationResult,
   WorkflowReviewResult,
+  PlatformRecommendation,
+  RiskRegister,
+  ComplexityAssessment,
+  ImplementationRoadmap,
 } from "../contracts.js";
 import { namesDesignPart } from "./risk-assessment.js";
+import { unbuiltComponents } from "./implementation-roadmap.js";
+import {
+  EXECUTIVE_SUMMARY_STANDING,
+  complexityBand,
+  principalRisks,
+} from "./executive-summary.js";
+import { integrationOf, uncoveredSystems } from "./integration-requirements.js";
 import { scoreComplexity } from "./complexity-assessment.js";
 import { COMPLEXITY_FACTORS, type ComplexityFactorKey } from "../contracts.js";
 
@@ -77,6 +88,11 @@ export interface ReasoningContext {
   readonly workflowReview?: WorkflowReviewResult;
   readonly recommendation?: RecommendationResult;
   readonly portfolio?: PortfolioSuggestions;
+  /** D-85: the requirement path's settled generator results, for the summary. */
+  readonly platformRecommendation?: PlatformRecommendation;
+  readonly riskRegister?: RiskRegister;
+  readonly complexityAssessment?: ComplexityAssessment;
+  readonly implementationRoadmap?: ImplementationRoadmap;
   /** Platform names the operator already evidences (capability profile). */
   readonly knownPlatforms?: readonly string[];
 }
@@ -406,6 +422,155 @@ export function checkInternalConsistency(
         problems.push(
           `weighted_score ${String(doc["weighted_score"])} does not follow from the factors (expected ${String(expected.weightedScore)})`,
         );
+      break;
+    }
+    case "executive_summary": {
+      // D-85: every figure recomputed against the source it was projected
+      // from. A section present without its source is a summary of something
+      // that does not exist — the contradiction `FR-038` calls a defect.
+      if (doc["standing"] !== EXECUTIVE_SUMMARY_STANDING)
+        problems.push("standing is not summary_of_detailed_artifacts");
+      if (
+        ctx.intent !== undefined &&
+        doc["headline"] !== ctx.intent.primaryObjective.content
+      )
+        problems.push("headline differs from the intent record's objective");
+      const approach = asRecord(doc["approach"]);
+      if (ctx.architecture !== undefined) {
+        const names = ctx.architecture.components.map((c) => c.name);
+        const listed = asArray(approach?.["components"]).map(String);
+        if (listed.join("|") !== names.join("|"))
+          problems.push("approach.components differ from the architecture");
+        if (approach?.["summary"] !== ctx.architecture.summary)
+          problems.push("approach.summary differs from the architecture");
+      }
+      const platform = asRecord(doc["platform"]);
+      if (platform !== null) {
+        if (ctx.platformRecommendation === undefined)
+          problems.push("a platform is summarised but none was recommended");
+        else if (
+          platform["recommended"] !==
+          ctx.platformRecommendation.recommendedPlatform
+        )
+          problems.push(
+            `platform "${String(platform["recommended"])}" differs from the recommendation`,
+          );
+      }
+      const risks = doc["principal_risks"];
+      if (risks !== undefined) {
+        if (ctx.riskRegister === undefined)
+          problems.push("risks are summarised but no risk register generated");
+        else {
+          const expected = principalRisks(ctx.riskRegister);
+          const listed = asArray(risks).map((r) => asRecord(r));
+          if (
+            listed.length !== expected.length ||
+            listed.some(
+              (r, i) =>
+                r?.["component"] !== expected[i]?.component ||
+                r?.["description"] !== expected[i]?.description,
+            )
+          )
+            problems.push(
+              "principal_risks differ from the register's top risks",
+            );
+        }
+      }
+      const complexity = asRecord(doc["complexity"]);
+      if (complexity !== null) {
+        if (ctx.complexityAssessment === undefined)
+          problems.push("a complexity score is summarised but none generated");
+        else {
+          const score = ctx.complexityAssessment.complexityScore;
+          if (complexity["score"] !== score)
+            problems.push(
+              `complexity ${String(complexity["score"])} differs from the score ${String(score)}`,
+            );
+          if (complexity["band"] !== complexityBand(score))
+            problems.push("complexity band does not follow from the score");
+        }
+      }
+      const phases = doc["phases"];
+      if (phases !== undefined) {
+        if (ctx.implementationRoadmap === undefined)
+          problems.push("phases are summarised but no roadmap generated");
+        else {
+          const names = ctx.implementationRoadmap.phases.map((p) => p.name);
+          const listed = asArray(phases).map((p) =>
+            String(asRecord(p)?.["name"] ?? ""),
+          );
+          if (listed.join("|") !== names.join("|"))
+            problems.push("phases differ from the roadmap");
+        }
+      }
+      break;
+    }
+    case "edge_cases_and_practices": {
+      // D-83: every edge case and every practice names a part of the design.
+      if (ctx.architecture === undefined) break;
+      for (const e of asArray(doc["edge_cases"])) {
+        const name = String(asRecord(e)?.["component"] ?? "");
+        if (!namesDesignPart(name, ctx.architecture))
+          problems.push(
+            `edge case names "${name}", which the architecture neither has nor integrates`,
+          );
+      }
+      for (const p of asArray(doc["practices"])) {
+        const name = String(asRecord(p)?.["applies_to"] ?? "");
+        if (!namesDesignPart(name, ctx.architecture))
+          problems.push(
+            `practice applies to "${name}", which the architecture neither has nor integrates`,
+          );
+      }
+      break;
+    }
+    case "integration_requirements": {
+      // D-84: every integration is one the architecture names, and every one
+      // it names is covered.
+      if (ctx.architecture === undefined) break;
+      const listed: { system: string; component: string }[] = [];
+      for (const i of asArray(doc["integrations"])) {
+        const rec = asRecord(i);
+        const system = String(rec?.["system"] ?? "");
+        const component = String(rec?.["component"] ?? "");
+        listed.push({ system, component });
+        if (integrationOf(system, component, ctx.architecture) === null)
+          problems.push(
+            `integration "${system}" via "${component}" is not one the architecture names`,
+          );
+      }
+      for (const s of uncoveredSystems(listed, ctx.architecture))
+        problems.push(`no integration covers "${s}"`);
+      break;
+    }
+    case "implementation_roadmap": {
+      // D-82: `AI §9.4` — "roadmap phases verified against components".
+      if (ctx.architecture === undefined) break;
+      const built: string[] = [];
+      for (const p of asArray(doc["phases"])) {
+        const phase = asRecord(p);
+        const ordinal = phase?.["ordinal"];
+        for (const c of asArray(phase?.["components"])) {
+          const name = String(c);
+          built.push(name);
+          if (!namesDesignPart(name, ctx.architecture))
+            problems.push(
+              `phase ${String(ordinal)} builds "${name}", which the architecture does not have`,
+            );
+        }
+        for (const d of asArray(phase?.["depends_on"])) {
+          if (
+            typeof ordinal === "number" &&
+            typeof d === "number" &&
+            d >= ordinal
+          )
+            problems.push(
+              `phase ${String(ordinal)} depends on phase ${String(d)}, which is not earlier`,
+            );
+        }
+      }
+      for (const name of unbuiltComponents(built, ctx.architecture))
+        problems.push(`no phase builds "${name}"`);
       break;
     }
     case "platform_recommendation": {

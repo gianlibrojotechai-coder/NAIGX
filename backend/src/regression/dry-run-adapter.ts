@@ -343,6 +343,50 @@ export function createDryRunAdapter(
             no_risks_statement: null,
           })
         : undefined,
+    // D-83: one edge case in the one dry-run component, no practices.
+    edge_case_analysis:
+      type === "business_requirement"
+        ? JSON.stringify({
+            edge_cases: [
+              {
+                component: "Dry Run Component",
+                scenario: "Dry-run placeholder scenario",
+                consequence: "Dry-run placeholder consequence",
+                handling: "Dry-run placeholder handling",
+              },
+            ],
+            practices: [],
+          })
+        : undefined,
+    // D-84: the dry-run architecture names no external system.
+    integration_requirements:
+      type === "business_requirement"
+        ? JSON.stringify({
+            integrations: [],
+            no_integrations_statement:
+              "Dry-run placeholder: the dry-run design touches no external system",
+            knowledge_currency_note:
+              "Dry-run placeholder: platform capabilities change; verify against current documentation.",
+          })
+        : undefined,
+    // D-82: the roadmap — one phase building the one dry-run component.
+    implementation_roadmap:
+      type === "business_requirement"
+        ? JSON.stringify({
+            phases: [
+              {
+                ordinal: 1,
+                name: "Dry-run phase",
+                objective: "Dry-run placeholder objective",
+                components: ["Dry Run Component"],
+                depends_on: [],
+                outcome: "Dry-run placeholder outcome",
+                estimate: null,
+              },
+            ],
+            sequencing_rationale: "Dry-run placeholder rationale",
+          })
+        : undefined,
     // D-78: the requirement path's generator, grounded in the dry-run
     // architecture's one component and the context's one element.
     platform_recommendation:

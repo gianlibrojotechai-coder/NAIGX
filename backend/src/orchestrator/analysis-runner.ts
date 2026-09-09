@@ -202,7 +202,10 @@ export async function createAnalysisRunner(
       const regenerated =
         artifactType === "platform_recommendation" ||
         artifactType === "risk_assessment" ||
-        artifactType === "complexity_score"
+        artifactType === "complexity_score" ||
+        artifactType === "implementation_roadmap" ||
+        artifactType === "edge_cases_and_practices" ||
+        artifactType === "integration_requirements"
           ? await (async () => {
               const stored = await readArchitectureForRetry(
                 deps.prisma,

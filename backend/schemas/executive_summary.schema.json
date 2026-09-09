@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://naigx/schemas/executive_summary.schema.json",
+  "title": "Executive Summary",
+  "description": "Requirement-path artifact (FR-038, AI §9.1). RENDERED, not generated: every figure and name is projected from the analysis's own stored reasoning and settled artifacts — the intent record, the context set, the architecture, the platform recommendation, the risk register, the complexity score and the roadmap — so it cannot contradict them (AI §9.4). The connective prose is the renderer's and is plain; the quoted content is the analysis's own.\n\n`standing` says what the document is: a summary of the detailed artifacts, which govern. A section is absent when the artifact it summarises did not generate, and `not_summarised` names it.",
+  "type": "object",
+  "required": [
+    "standing",
+    "headline",
+    "problem",
+    "approach",
+    "not_summarised"
+  ],
+  "properties": {
+    "standing": { "type": "string", "const": "summary_of_detailed_artifacts" },
+    "headline": { "$ref": "#/$defs/nonEmptyString" },
+    "problem": {
+      "type": "object",
+      "required": ["objective", "scope", "key_constraints"],
+      "properties": {
+        "objective": { "$ref": "#/$defs/nonEmptyString" },
+        "scope": { "$ref": "#/$defs/nonEmptyString" },
+        "key_constraints": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/nonEmptyString" },
+          "description": "The stated constraints, at most three."
+        },
+        "open_questions": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "How many things the input left unknown."
+        }
+      }
+    },
+    "approach": {
+      "type": "object",
+      "required": ["summary", "components", "data_flow"],
+      "properties": {
+        "summary": { "$ref": "#/$defs/nonEmptyString" },
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/nonEmptyString" },
+          "description": "The architecture's component names, in order."
+        },
+        "data_flow": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "platform": {
+      "type": "object",
+      "required": ["recommended", "rationale"],
+      "properties": {
+        "recommended": {
+          "type": ["string", "null"],
+          "description": "The recommended platform, or null for no platform."
+        },
+        "rationale": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "principal_risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["component", "description", "severity", "likelihood"],
+        "properties": {
+          "component": { "$ref": "#/$defs/nonEmptyString" },
+          "description": { "$ref": "#/$defs/nonEmptyString" },
+          "severity": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "likelihood": { "type": "integer", "minimum": 1, "maximum": 5 }
+        }
+      },
+      "description": "The register's highest-scoring risks, at most three; empty when the register is empty."
+    },
+    "complexity": {
+      "type": "object",
+      "required": ["score", "band"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 20, "maximum": 100 },
+        "band": {
+          "type": "string",
+          "enum": ["low", "moderate", "high", "severe"]
+        }
+      }
+    },
+    "phases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["ordinal", "name", "outcome"],
+        "properties": {
+          "ordinal": { "type": "integer", "minimum": 1 },
+          "name": { "$ref": "#/$defs/nonEmptyString" },
+          "outcome": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "not_summarised": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/nonEmptyString" },
+      "description": "The detailed artifacts that did not generate and are therefore not summarised."
+    }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1, "pattern": "\\S" }
+  }
+}

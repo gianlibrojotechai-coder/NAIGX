@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://naigx/schemas/implementation_roadmap.schema.json",
+  "title": "Implementation Roadmap",
+  "description": "Stage 9 artifact for the business_requirement path (FR-036, AI §9.1). Generated against the Stage 6 architecture and the context set.\n\nEVERY PHASE NAMES WHAT IT BUILDS, WHAT IT DEPENDS ON, AND WHAT EXISTS WHEN IT IS DONE. FR-036 states all three. The components are names from the architecture (AI §9.4 shared vocabulary); the pipeline refuses a phase naming a component the design does not have, a dependency on a later phase, and a roadmap that leaves a component of the design unbuilt.\n\nAn estimate is optional and, when present, cites the context element that supplied its basis: FR-036 permits no calendar estimate the input gave no basis for.",
+  "type": "object",
+  "required": ["phases", "sequencing_rationale"],
+  "properties": {
+    "phases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "ordinal",
+          "name",
+          "objective",
+          "components",
+          "depends_on",
+          "outcome"
+        ],
+        "properties": {
+          "ordinal": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "1 to n, in the order the phases are given."
+          },
+          "name": { "$ref": "#/$defs/nonEmptyString" },
+          "objective": {
+            "$ref": "#/$defs/nonEmptyString",
+            "description": "What this phase sets out to do, in terms of the design."
+          },
+          "components": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/$defs/nonEmptyString" },
+            "description": "Architecture component names this phase builds or extends, copied exactly."
+          },
+          "depends_on": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 1 },
+            "description": "Ordinals of earlier phases this one requires. Empty for a phase that can start first."
+          },
+          "outcome": {
+            "$ref": "#/$defs/nonEmptyString",
+            "description": "What exists, and works, at the end of this phase."
+          },
+          "estimate": {
+            "type": "object",
+            "required": ["duration", "basis_context_index"],
+            "properties": {
+              "duration": { "$ref": "#/$defs/nonEmptyString" },
+              "basis_context_index": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "The context element that supplied the basis for the estimate."
+              }
+            }
+          }
+        }
+      }
+    },
+    "sequencing_rationale": {
+      "$ref": "#/$defs/nonEmptyString",
+      "description": "Why the phases are in this order, in terms of the design's dependencies."
+    }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1, "pattern": "\\S" }
+  }
+}

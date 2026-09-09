@@ -122,7 +122,11 @@ export function assembleResponse(result: PipelineResult): AssemblyReport {
       types.has("mermaid_diagram") ||
       types.has("architecture_recommendation") ||
       types.has("platform_recommendation") ||
-      types.has("complexity_score")) &&
+      types.has("complexity_score") ||
+      types.has("implementation_roadmap") ||
+      types.has("edge_cases_and_practices") ||
+      types.has("integration_requirements") ||
+      types.has("executive_summary")) &&
     result.architecture === undefined
   ) {
     problems.push(

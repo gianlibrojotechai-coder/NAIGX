@@ -524,6 +524,134 @@ export const asComplexityScore = (content: unknown): ComplexityScore | null => {
   return candidate as ComplexityScore;
 };
 
+/** `backend/schemas/implementation_roadmap.schema.json` (D-82). */
+export interface ImplementationRoadmap {
+  readonly phases: readonly {
+    readonly ordinal: number;
+    readonly name: string;
+    readonly objective: string;
+    readonly components: readonly string[];
+    readonly depends_on: readonly number[];
+    readonly outcome: string;
+    readonly estimate?: {
+      readonly duration: string;
+      readonly basis_context_index: number;
+    } | null;
+  }[];
+  readonly sequencing_rationale: string;
+}
+
+export const asImplementationRoadmap = (
+  content: unknown,
+): ImplementationRoadmap | null => {
+  if (content === null || typeof content !== "object") return null;
+  const candidate = content as Partial<ImplementationRoadmap>;
+  if (!Array.isArray(candidate.phases) || candidate.phases.length === 0)
+    return null;
+  if (typeof candidate.sequencing_rationale !== "string") return null;
+  return candidate as ImplementationRoadmap;
+};
+
+/** `backend/schemas/executive_summary.schema.json` (D-85). */
+export interface ExecutiveSummary {
+  readonly standing: string;
+  readonly headline: string;
+  readonly problem: {
+    readonly objective: string;
+    readonly scope: string;
+    readonly key_constraints: readonly string[];
+    readonly open_questions?: number;
+  };
+  readonly approach: {
+    readonly summary: string;
+    readonly components: readonly string[];
+    readonly data_flow: string;
+  };
+  readonly platform?: {
+    readonly recommended: string | null;
+    readonly rationale: string;
+  };
+  readonly principal_risks?: readonly {
+    readonly component: string;
+    readonly description: string;
+    readonly severity: number;
+    readonly likelihood: number;
+  }[];
+  readonly complexity?: { readonly score: number; readonly band: string };
+  readonly phases?: readonly {
+    readonly ordinal: number;
+    readonly name: string;
+    readonly outcome: string;
+  }[];
+  readonly not_summarised: readonly string[];
+}
+
+export const asExecutiveSummary = (content: unknown): ExecutiveSummary | null => {
+  if (content === null || typeof content !== "object") return null;
+  const candidate = content as Partial<ExecutiveSummary>;
+  if (typeof candidate.headline !== "string") return null;
+  if (candidate.problem === undefined || candidate.approach === undefined)
+    return null;
+  if (!Array.isArray(candidate.approach.components)) return null;
+  if (!Array.isArray(candidate.not_summarised)) return null;
+  return candidate as ExecutiveSummary;
+};
+
+/** `backend/schemas/edge_cases_and_practices.schema.json` (D-83). */
+export interface EdgeCasesAndPractices {
+  readonly edge_cases: readonly {
+    readonly component: string;
+    readonly scenario: string;
+    readonly consequence: string;
+    readonly handling: string;
+  }[];
+  readonly practices: readonly {
+    readonly applies_to: string;
+    readonly practice: string;
+    readonly rationale: string;
+  }[];
+}
+
+export const asEdgeCasesAndPractices = (
+  content: unknown,
+): EdgeCasesAndPractices | null => {
+  if (content === null || typeof content !== "object") return null;
+  const candidate = content as Partial<EdgeCasesAndPractices>;
+  if (!Array.isArray(candidate.edge_cases) || candidate.edge_cases.length === 0)
+    return null;
+  if (!Array.isArray(candidate.practices)) return null;
+  return candidate as EdgeCasesAndPractices;
+};
+
+/** `backend/schemas/integration_requirements.schema.json` (D-84). */
+export interface IntegrationRequirements {
+  readonly integrations: readonly {
+    readonly system: string;
+    readonly component: string;
+    readonly purpose: string;
+    readonly direction: string;
+    readonly capabilities_required: readonly string[];
+    readonly constraints: readonly {
+      readonly constraint: string;
+      readonly provenance: string;
+      readonly context_index?: number;
+    }[];
+    readonly uncertainties: readonly string[];
+  }[];
+  readonly no_integrations_statement?: string;
+  readonly knowledge_currency_note: string;
+}
+
+export const asIntegrationRequirements = (
+  content: unknown,
+): IntegrationRequirements | null => {
+  if (content === null || typeof content !== "object") return null;
+  const candidate = content as Partial<IntegrationRequirements>;
+  if (!Array.isArray(candidate.integrations)) return null;
+  if (typeof candidate.knowledge_currency_note !== "string") return null;
+  return candidate as IntegrationRequirements;
+};
+
 /** `backend/schemas/platform_recommendation.schema.json` (D-78). */
 export interface PlatformRecommendation {
   readonly criteria_applied: readonly {

@@ -116,8 +116,8 @@ test("every fragment the composer requires exists", () => {
   // `architecture_analysis` are two jobs with two prompts, never one.
   assert.equal(
     required.length,
-    19,
-    "4 foundation + 11 stage + 4 type modifier",
+    22,
+    "4 foundation + 14 stage + 4 type modifier",
   );
 });
 

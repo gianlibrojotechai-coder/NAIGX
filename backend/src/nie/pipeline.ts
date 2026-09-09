@@ -43,6 +43,9 @@ import {
   type PlatformRecommendation,
   type RiskRegister,
   type ComplexityAssessment,
+  type ImplementationRoadmap,
+  type EdgeCaseAnalysis,
+  type IntegrationRequirements,
   type ArtifactType,
   type RecommendationForArtifacts,
   type WorkflowReviewResult,
@@ -53,6 +56,10 @@ import { parseRecommendation } from "./stages/recommendation-generation.js";
 import { parseInterviewGuidance } from "./stages/interview-guidance.js";
 import { parsePlatformRecommendation } from "./stages/platform-recommendation.js";
 import { parseRiskRegister } from "./stages/risk-assessment.js";
+import { parseImplementationRoadmap } from "./stages/implementation-roadmap.js";
+import { parseEdgeCaseAnalysis } from "./stages/edge-case-analysis.js";
+import { parseIntegrationRequirements } from "./stages/integration-requirements.js";
+import { renderExecutiveSummary } from "./stages/executive-summary.js";
 import {
   parseComplexityFactors,
   renderComplexityScore,
@@ -348,6 +355,11 @@ export function stageProviderInputs(
         inputs.set("risk_assessment", requirementHandoff);
         // D-80: so is the complexity assessment.
         inputs.set("complexity_assessment", requirementHandoff);
+        // D-82: and the implementation roadmap.
+        inputs.set("implementation_roadmap", requirementHandoff);
+        // D-83/D-84: and the edge cases and the integration requirements.
+        inputs.set("edge_case_analysis", requirementHandoff);
+        inputs.set("integration_requirements", requirementHandoff);
       } catch {
         // An architecture fixture that does not parse describes a run that
         // stops at Stage 6; there is no Stage 9 call to key.
@@ -1210,6 +1222,387 @@ export function createPipeline(deps: PipelineDependencies) {
             : "Generation did not produce a usable document.";
     }
     return { outcome, wire, assessment, attempts, traceId, failureReason };
+  };
+
+  /**
+   * The implementation roadmap (D-82, `FR-036`): the requirement path's
+   * fourth generator, keyed on the same handoff, its own Stage 9 trace.
+   */
+  const generateRoadmap = async (
+    input: PipelineInput,
+    classifiedAs: ClassificationType,
+    architecture: ArchitectureResult,
+    context: ContextResult,
+  ): Promise<{
+    readonly outcome: ArtifactOutcome;
+    readonly wire: unknown;
+    readonly roadmap: ImplementationRoadmap | undefined;
+    readonly attempts: number;
+    readonly traceId: string | null;
+    readonly failureReason: string;
+  }> => {
+    let wire: unknown;
+    let attempts = 1;
+    let traceId: string | null = null;
+    let roadmap: ImplementationRoadmap | undefined;
+    let outcome: ArtifactOutcome = "generated";
+    let failureReason = "";
+    try {
+      roadmap = await runStage(input, {
+        stageNumber: 9,
+        stageKey: "implementation_roadmap",
+        classifiedAs,
+        onStageTrace: (id) => {
+          traceId = id;
+        },
+        structuredInput: { architecture },
+        buildRequest: (prompt) =>
+          request(
+            prompt,
+            "implementation_roadmap",
+            stageHandoff({
+              context: contextHandoffView(context),
+              architecture: architectureHandoffView(architecture),
+            }),
+          ),
+        parse: (text) => {
+          const parsed = parseStructured(9, "implementation_roadmap", text);
+          // The published schema has no null: an absent estimate is absent.
+          // The request schema makes it required-but-nullable, so a null is
+          // dropped from every phase here.
+          for (const p of Array.isArray(parsed["phases"])
+            ? parsed["phases"]
+            : []) {
+            if (
+              p !== null &&
+              typeof p === "object" &&
+              (p as Record<string, unknown>)["estimate"] === null
+            ) {
+              delete (p as Record<string, unknown>)["estimate"];
+            }
+          }
+          wire = parsed;
+          validateArtifact("implementation_roadmap", parsed);
+          return parseImplementationRoadmap(text, architecture, context);
+        },
+        regenerateOnce: (error) => {
+          if (!(error instanceof ArtifactSchemaError)) return false;
+          attempts += 1;
+          return { addendum: correctionFor(error) };
+        },
+      });
+      const deep = await deepValidate(
+        input,
+        traceId,
+        "implementation_roadmap",
+        wire,
+      );
+      if (deep !== null) {
+        roadmap = undefined;
+        throw new ResponseValidationError(deep);
+      }
+    } catch (error) {
+      outcome = "failed";
+      failureReason =
+        error instanceof ResponseValidationError
+          ? error.message
+          : error instanceof ArtifactSchemaError
+            ? "Generated but did not satisfy its output schema."
+            : "Generation did not produce a usable document.";
+    }
+    return { outcome, wire, roadmap, attempts, traceId, failureReason };
+  };
+
+  const settleRoadmap = async (
+    input: PipelineInput,
+    generated: Awaited<ReturnType<typeof generateRoadmap>>,
+  ): Promise<void> => {
+    emit(
+      input.analysisId,
+      generated.outcome === "generated" && generated.roadmap !== undefined
+        ? {
+            type: "artifact",
+            artifactType: "implementation_roadmap",
+            content: generated.wire,
+          }
+        : {
+            type: "artifact_failed",
+            artifactType: "implementation_roadmap",
+            reason: generated.failureReason,
+            // Generated on this path only (D-81).
+            retryAvailable: isRetryableArtifact(
+              "implementation_roadmap",
+              "business_requirement",
+            ),
+          },
+    );
+    if (generated.wire !== undefined) {
+      await deps.resultSink?.persistArtifact?.(input.analysisId, {
+        artifactType: "implementation_roadmap",
+        content: generated.wire,
+        depthLevel: "standard",
+        generationAttemptCount: generated.attempts,
+        validationStatus:
+          generated.outcome === "generated" ? "valid" : "failed",
+      });
+    }
+    await recordValidation({
+      stageTraceId: generated.traceId,
+      artifactType: "implementation_roadmap",
+      passed: generated.outcome === "generated",
+      ...(generated.outcome === "generated"
+        ? {}
+        : { failureDetail: generated.failureReason }),
+      regenerationTriggered: generated.attempts > 1,
+    });
+  };
+
+  const generateEdgeCases = async (
+    input: PipelineInput,
+    classifiedAs: ClassificationType,
+    architecture: ArchitectureResult,
+    context: ContextResult,
+  ): Promise<{
+    readonly outcome: ArtifactOutcome;
+    readonly wire: unknown;
+    readonly analysis: EdgeCaseAnalysis | undefined;
+    readonly attempts: number;
+    readonly traceId: string | null;
+    readonly failureReason: string;
+  }> => {
+    let wire: unknown;
+    let attempts = 1;
+    let traceId: string | null = null;
+    let analysis: EdgeCaseAnalysis | undefined;
+    let outcome: ArtifactOutcome = "generated";
+    let failureReason = "";
+    try {
+      analysis = await runStage(input, {
+        stageNumber: 9,
+        stageKey: "edge_case_analysis",
+        classifiedAs,
+        onStageTrace: (id) => {
+          traceId = id;
+        },
+        structuredInput: { architecture },
+        buildRequest: (prompt) =>
+          request(
+            prompt,
+            "edge_case_analysis",
+            stageHandoff({
+              context: contextHandoffView(context),
+              architecture: architectureHandoffView(architecture),
+            }),
+          ),
+        parse: (text) => {
+          const parsed = parseStructured(9, "edge_case_analysis", text);
+
+          wire = parsed;
+          validateArtifact("edge_cases_and_practices", parsed);
+          return parseEdgeCaseAnalysis(text, architecture);
+        },
+        regenerateOnce: (error) => {
+          if (!(error instanceof ArtifactSchemaError)) return false;
+          attempts += 1;
+          return { addendum: correctionFor(error) };
+        },
+      });
+      const deep = await deepValidate(
+        input,
+        traceId,
+        "edge_cases_and_practices",
+        wire,
+      );
+      if (deep !== null) {
+        analysis = undefined;
+        throw new ResponseValidationError(deep);
+      }
+    } catch (error) {
+      outcome = "failed";
+      failureReason =
+        error instanceof ResponseValidationError
+          ? error.message
+          : error instanceof ArtifactSchemaError
+            ? "Generated but did not satisfy its output schema."
+            : "Generation did not produce a usable document.";
+    }
+    return { outcome, wire, analysis, attempts, traceId, failureReason };
+  };
+
+  const settleEdgeCases = async (
+    input: PipelineInput,
+    generated: Awaited<ReturnType<typeof generateEdgeCases>>,
+  ): Promise<void> => {
+    emit(
+      input.analysisId,
+      generated.outcome === "generated" && generated.analysis !== undefined
+        ? {
+            type: "artifact",
+            artifactType: "edge_cases_and_practices",
+            content: generated.wire,
+          }
+        : {
+            type: "artifact_failed",
+            artifactType: "edge_cases_and_practices",
+            reason: generated.failureReason,
+            // Generated on this path only (D-81).
+            retryAvailable: isRetryableArtifact(
+              "edge_cases_and_practices",
+              "business_requirement",
+            ),
+          },
+    );
+    if (generated.wire !== undefined) {
+      await deps.resultSink?.persistArtifact?.(input.analysisId, {
+        artifactType: "edge_cases_and_practices",
+        content: generated.wire,
+        depthLevel: "standard",
+        generationAttemptCount: generated.attempts,
+        validationStatus:
+          generated.outcome === "generated" ? "valid" : "failed",
+      });
+    }
+    await recordValidation({
+      stageTraceId: generated.traceId,
+      artifactType: "edge_cases_and_practices",
+      passed: generated.outcome === "generated",
+      ...(generated.outcome === "generated"
+        ? {}
+        : { failureDetail: generated.failureReason }),
+      regenerationTriggered: generated.attempts > 1,
+    });
+  };
+
+  const generateIntegrations = async (
+    input: PipelineInput,
+    classifiedAs: ClassificationType,
+    architecture: ArchitectureResult,
+    context: ContextResult,
+  ): Promise<{
+    readonly outcome: ArtifactOutcome;
+    readonly wire: unknown;
+    readonly requirements: IntegrationRequirements | undefined;
+    readonly attempts: number;
+    readonly traceId: string | null;
+    readonly failureReason: string;
+  }> => {
+    let wire: unknown;
+    let attempts = 1;
+    let traceId: string | null = null;
+    let requirements: IntegrationRequirements | undefined;
+    let outcome: ArtifactOutcome = "generated";
+    let failureReason = "";
+    try {
+      requirements = await runStage(input, {
+        stageNumber: 9,
+        stageKey: "integration_requirements",
+        classifiedAs,
+        onStageTrace: (id) => {
+          traceId = id;
+        },
+        structuredInput: { architecture },
+        buildRequest: (prompt) =>
+          request(
+            prompt,
+            "integration_requirements",
+            stageHandoff({
+              context: contextHandoffView(context),
+              architecture: architectureHandoffView(architecture),
+            }),
+          ),
+        parse: (text) => {
+          const parsed = parseStructured(9, "integration_requirements", text);
+          // The published schema has no null: the statement and a
+          // constraint's context index are absent when absent. The request
+          // schema makes both required-but-nullable, so nulls are dropped.
+          if (parsed["no_integrations_statement"] === null) {
+            delete parsed["no_integrations_statement"];
+          }
+          for (const i of Array.isArray(parsed["integrations"])
+            ? parsed["integrations"]
+            : []) {
+            const rec = i as Record<string, unknown>;
+            for (const c of Array.isArray(rec["constraints"])
+              ? rec["constraints"]
+              : []) {
+              const cr = c as Record<string, unknown>;
+              if (cr["context_index"] === null) delete cr["context_index"];
+            }
+          }
+          wire = parsed;
+          validateArtifact("integration_requirements", parsed);
+          return parseIntegrationRequirements(text, architecture, context);
+        },
+        regenerateOnce: (error) => {
+          if (!(error instanceof ArtifactSchemaError)) return false;
+          attempts += 1;
+          return { addendum: correctionFor(error) };
+        },
+      });
+      const deep = await deepValidate(
+        input,
+        traceId,
+        "integration_requirements",
+        wire,
+      );
+      if (deep !== null) {
+        requirements = undefined;
+        throw new ResponseValidationError(deep);
+      }
+    } catch (error) {
+      outcome = "failed";
+      failureReason =
+        error instanceof ResponseValidationError
+          ? error.message
+          : error instanceof ArtifactSchemaError
+            ? "Generated but did not satisfy its output schema."
+            : "Generation did not produce a usable document.";
+    }
+    return { outcome, wire, requirements, attempts, traceId, failureReason };
+  };
+
+  const settleIntegrations = async (
+    input: PipelineInput,
+    generated: Awaited<ReturnType<typeof generateIntegrations>>,
+  ): Promise<void> => {
+    emit(
+      input.analysisId,
+      generated.outcome === "generated" && generated.requirements !== undefined
+        ? {
+            type: "artifact",
+            artifactType: "integration_requirements",
+            content: generated.wire,
+          }
+        : {
+            type: "artifact_failed",
+            artifactType: "integration_requirements",
+            reason: generated.failureReason,
+            // Generated on this path only (D-81).
+            retryAvailable: isRetryableArtifact(
+              "integration_requirements",
+              "business_requirement",
+            ),
+          },
+    );
+    if (generated.wire !== undefined) {
+      await deps.resultSink?.persistArtifact?.(input.analysisId, {
+        artifactType: "integration_requirements",
+        content: generated.wire,
+        depthLevel: "standard",
+        generationAttemptCount: generated.attempts,
+        validationStatus:
+          generated.outcome === "generated" ? "valid" : "failed",
+      });
+    }
+    await recordValidation({
+      stageTraceId: generated.traceId,
+      artifactType: "integration_requirements",
+      passed: generated.outcome === "generated",
+      ...(generated.outcome === "generated"
+        ? {}
+        : { failureDetail: generated.failureReason }),
+      regenerationTriggered: generated.attempts > 1,
+    });
   };
 
   const settleComplexity = async (
@@ -2383,46 +2776,137 @@ export function createPipeline(deps: PipelineDependencies) {
       classification.determinedType === "business_requirement" &&
       isPlanned(assessmentPlan, "platform_recommendation")
     ) {
-      const [platform, risk, complexity] = await Promise.all([
-        generatePlatformRecommendation(
-          input,
-          classification.determinedType,
-          architecture,
-          context,
-        ),
-        generateRiskRegister(
-          input,
-          classification.determinedType,
-          architecture,
-          context,
-        ),
-        generateComplexity(
-          input,
-          classification.determinedType,
-          architecture,
-          context,
-        ),
-      ]);
+      const [platform, risk, complexity, roadmap, integrations, edgeCases] =
+        await Promise.all([
+          generatePlatformRecommendation(
+            input,
+            classification.determinedType,
+            architecture,
+            context,
+          ),
+          generateRiskRegister(
+            input,
+            classification.determinedType,
+            architecture,
+            context,
+          ),
+          generateComplexity(
+            input,
+            classification.determinedType,
+            architecture,
+            context,
+          ),
+          // D-82: the roadmap, the path's fourth generator.
+          generateRoadmap(
+            input,
+            classification.determinedType,
+            architecture,
+            context,
+          ),
+          // D-84/D-83: the integration requirements and the edge cases.
+          generateIntegrations(
+            input,
+            classification.determinedType,
+            architecture,
+            context,
+          ),
+          generateEdgeCases(
+            input,
+            classification.determinedType,
+            architecture,
+            context,
+          ),
+        ]);
       await settlePlatformRecommendation(input, platform);
       await settleRiskRegister(input, risk);
       await settleComplexity(input, classification.determinedType, complexity);
-      const lastTrace = complexity.traceId ?? risk.traceId ?? platform.traceId;
+      await settleRoadmap(input, roadmap);
+      await settleIntegrations(input, integrations);
+      await settleEdgeCases(input, edgeCases);
+      // D-85: the settled results reach Stage 10, which checks the executive
+      // summary's every figure against them.
+      extendContext(input, {
+        ...(platform.recommendation !== undefined
+          ? { platformRecommendation: platform.recommendation }
+          : {}),
+        ...(risk.register !== undefined ? { riskRegister: risk.register } : {}),
+        ...(complexity.assessment !== undefined
+          ? { complexityAssessment: complexity.assessment }
+          : {}),
+        ...(roadmap.roadmap !== undefined
+          ? { implementationRoadmap: roadmap.roadmap }
+          : {}),
+      });
+      const notSummarised = [
+        ...(platform.recommendation === undefined
+          ? ["the platform recommendation"]
+          : []),
+        ...(risk.register === undefined ? ["the risk register"] : []),
+        ...(complexity.assessment === undefined
+          ? ["the complexity score"]
+          : []),
+        ...(roadmap.roadmap === undefined
+          ? ["the implementation roadmap"]
+          : []),
+      ];
+      const lastTrace =
+        edgeCases.traceId ??
+        integrations.traceId ??
+        roadmap.traceId ??
+        complexity.traceId ??
+        risk.traceId ??
+        platform.traceId;
       const rendered = await emitDerivedArtifacts(
         input,
         withOutcome(
           withOutcome(
             withOutcome(
-              assessmentPlan,
-              "platform_recommendation",
-              platform.outcome,
+              withOutcome(
+                withOutcome(
+                  withOutcome(
+                    assessmentPlan,
+                    "platform_recommendation",
+                    platform.outcome,
+                  ),
+                  "risk_assessment",
+                  risk.outcome,
+                ),
+                "complexity_score",
+                complexity.outcome,
+              ),
+              "implementation_roadmap",
+              roadmap.outcome,
             ),
-            "risk_assessment",
-            risk.outcome,
+            "integration_requirements",
+            integrations.outcome,
           ),
-          "complexity_score",
-          complexity.outcome,
+          "edge_cases_and_practices",
+          edgeCases.outcome,
         ),
-        renderers,
+        {
+          ...renderers,
+          // D-85: rendered from the settled results, after the generators,
+          // so it cannot contradict them; listed first in the plan.
+          executive_summary: () =>
+            renderExecutiveSummary({
+              intent,
+              context,
+              architecture,
+              ...(platform.recommendation !== undefined
+                ? { platform: platform.recommendation }
+                : {}),
+              ...(risk.register !== undefined
+                ? { riskRegister: risk.register }
+                : {}),
+              ...(complexity.assessment !== undefined
+                ? { complexity: complexity.assessment }
+                : {}),
+              ...(roadmap.roadmap !== undefined
+                ? { roadmap: roadmap.roadmap }
+                : {}),
+              notSummarised,
+            }),
+        },
         lastTrace === null ? {} : { traceId: lastTrace },
       );
       return {
@@ -2437,6 +2921,15 @@ export function createPipeline(deps: PipelineDependencies) {
         ...(risk.register !== undefined ? { riskRegister: risk.register } : {}),
         ...(complexity.assessment !== undefined
           ? { complexityAssessment: complexity.assessment }
+          : {}),
+        ...(roadmap.roadmap !== undefined
+          ? { implementationRoadmap: roadmap.roadmap }
+          : {}),
+        ...(edgeCases.analysis !== undefined
+          ? { edgeCaseAnalysis: edgeCases.analysis }
+          : {}),
+        ...(integrations.requirements !== undefined
+          ? { integrationRequirements: integrations.requirements }
           : {}),
       };
     }
@@ -2494,7 +2987,10 @@ export function createPipeline(deps: PipelineDependencies) {
     if (
       input.artifactType === "platform_recommendation" ||
       input.artifactType === "risk_assessment" ||
-      input.artifactType === "complexity_score"
+      input.artifactType === "complexity_score" ||
+      input.artifactType === "implementation_roadmap" ||
+      input.artifactType === "edge_cases_and_practices" ||
+      input.artifactType === "integration_requirements"
     ) {
       if (input.architecture === undefined || input.context === undefined) {
         throw new Error(
@@ -2522,12 +3018,33 @@ export function createPipeline(deps: PipelineDependencies) {
                 input.architecture,
                 input.context,
               )
-            : await generateComplexity(
-                stageInput,
-                input.classifiedAs,
-                input.architecture,
-                input.context,
-              );
+            : input.artifactType === "implementation_roadmap"
+              ? await generateRoadmap(
+                  stageInput,
+                  input.classifiedAs,
+                  input.architecture,
+                  input.context,
+                )
+              : input.artifactType === "edge_cases_and_practices"
+                ? await generateEdgeCases(
+                    stageInput,
+                    input.classifiedAs,
+                    input.architecture,
+                    input.context,
+                  )
+                : input.artifactType === "integration_requirements"
+                  ? await generateIntegrations(
+                      stageInput,
+                      input.classifiedAs,
+                      input.architecture,
+                      input.context,
+                    )
+                  : await generateComplexity(
+                      stageInput,
+                      input.classifiedAs,
+                      input.architecture,
+                      input.context,
+                    );
       return {
         artifactType: input.artifactType,
         content: generated.wire,

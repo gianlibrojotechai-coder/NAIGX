@@ -160,21 +160,30 @@ test("coverage reflects the composed set, not assumed path membership", async ()
   const architecture = await coverageFor("stage.architecture_analysis");
   const br001 = architecture.cases.find((c) => c.caseId === "br-001");
   assert.ok(br001);
+  // The four reasoning stages in pipeline order, then the requirement path's
+  // six Stage 9 generators — which run CONCURRENTLY since D-80 §2, so the
+  // recording holds them in the order the provider answered, not a fixed one.
   assert.deepEqual(
-    br001.stageKeys,
+    br001.stageKeys.slice(0, 4),
     [
       "input_classification",
       "intent_detection",
       "context_extraction",
       "architecture_analysis",
-      // D-78: the requirement path's Stage 9 generator is recorded too.
-      "platform_recommendation",
-      // D-79: and its second.
-      "risk_assessment",
-      // D-80: and its third.
-      "complexity_assessment",
     ],
     "stage sequence is read from the recording, not inferred from the type",
+  );
+  assert.deepEqual(
+    [...br001.stageKeys.slice(4)].sort(),
+    [
+      "complexity_assessment",
+      "edge_case_analysis",
+      "implementation_roadmap",
+      "integration_requirements",
+      "platform_recommendation",
+      "risk_assessment",
+    ],
+    "every generator the path runs is recorded (D-78 to D-84)",
   );
   assert.ok(br001.fragmentKeys.includes("foundation.provenance_rules"));
   assert.equal(

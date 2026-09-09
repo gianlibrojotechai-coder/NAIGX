@@ -38,6 +38,10 @@ import {
   asAssessmentFeedback,
   asBusinessAnalysis,
   asComplexityScore,
+  asImplementationRoadmap,
+  asEdgeCasesAndPractices,
+  asExecutiveSummary,
+  asIntegrationRequirements,
   asIntentBrief,
   asInterviewGuidance,
   asMermaidDiagram,
@@ -62,6 +66,10 @@ import { ArchitectureRecommendationView } from "./ArchitectureRecommendation";
 import { AssessmentFeedbackView } from "./AssessmentFeedback";
 import { BusinessAnalysisView } from "./BusinessAnalysis";
 import { ComplexityScoreView } from "./ComplexityScore";
+import { ImplementationRoadmapView } from "./ImplementationRoadmap";
+import { EdgeCasesAndPracticesView } from "./EdgeCasesAndPractices";
+import { ExecutiveSummaryView } from "./ExecutiveSummary";
+import { IntegrationRequirementsView } from "./IntegrationRequirements";
 import { IntentBriefView } from "./IntentBrief";
 import { InterviewGuidanceView } from "./InterviewGuidance";
 import { N8nWorkflowView } from "./N8nWorkflow";
@@ -270,6 +278,15 @@ const ARTIFACT_PRESENTERS: Readonly<Record<string, ArtifactPresenter>> = {
       );
     },
   },
+  executive_summary: {
+    title: "Executive summary",
+    subtitle:
+      "The problem, the approach, the principal risks and the complexity, in a page — every figure taken from the artifacts below",
+    render: (content) => {
+      const summary = asExecutiveSummary(content);
+      return summary === null ? null : <ExecutiveSummaryView summary={summary} />;
+    },
+  },
   intent_brief: {
     title: "Intent brief",
     subtitle:
@@ -360,6 +377,39 @@ const ARTIFACT_PRESENTERS: Readonly<Record<string, ArtifactPresenter>> = {
     render: (content) => {
       const score = asComplexityScore(content);
       return score === null ? null : <ComplexityScoreView score={score} />;
+    },
+  },
+  implementation_roadmap: {
+    title: "Implementation roadmap",
+    subtitle:
+      "The phases in which to build it, each with what it depends on and what exists when it is done",
+    render: (content) => {
+      const roadmap = asImplementationRoadmap(content);
+      return roadmap === null ? null : (
+        <ImplementationRoadmapView roadmap={roadmap} />
+      );
+    },
+  },
+  integration_requirements: {
+    title: "Integration requirements",
+    subtitle:
+      "Every external system the design touches: what for, which way, what its API must offer, and what to verify",
+    render: (content) => {
+      const requirements = asIntegrationRequirements(content);
+      return requirements === null ? null : (
+        <IntegrationRequirementsView requirements={requirements} />
+      );
+    },
+  },
+  edge_cases_and_practices: {
+    title: "Edge cases and practices",
+    subtitle:
+      "The boundary conditions this design will meet, and the practices that apply to specific parts of it",
+    render: (content) => {
+      const analysis = asEdgeCasesAndPractices(content);
+      return analysis === null ? null : (
+        <EdgeCasesAndPracticesView analysis={analysis} />
+      );
     },
   },
   mermaid_diagram: {

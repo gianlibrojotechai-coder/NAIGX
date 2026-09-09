@@ -345,12 +345,14 @@ test("FR-053 — a one-artifact selection is what copy-to-clipboard fetches", as
 });
 
 test("an artifact type that names nothing is refused with the valid set", async () => {
-  const res = await post({ artifact_types: ["executive_summary"] });
+  // D-85 made `executive_summary` a real type; the unrecognised name is now one
+  // nothing declares.
+  const res = await post({ artifact_types: ["not_an_artifact_type"] });
   const body = JSON.parse(res.body);
 
   assert.equal(res.statusCode, 400);
   assert.equal(body.error.code, "validation_failed");
-  assert.deepEqual(body.error.details.unrecognised, ["executive_summary"]);
+  assert.deepEqual(body.error.details.unrecognised, ["not_an_artifact_type"]);
 });
 
 test("an empty selection is refused rather than treated as 'everything'", async () => {

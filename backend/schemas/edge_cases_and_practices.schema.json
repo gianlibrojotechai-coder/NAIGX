@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://naigx/schemas/edge_cases_and_practices.schema.json",
+  "title": "Edge Cases and Practices",
+  "description": "Stage 9 artifact for the business_requirement path (FR-037, AI §9.1). Generated against the Stage 6 architecture and the context set.\n\nEVERY EDGE CASE AND EVERY PRACTICE NAMES THE PART OF THE DESIGN IT CONCERNS. FR-037: generic advice not tied to the submitted design is a defect. The pipeline refuses an edge case or a practice naming a component the architecture neither has nor integrates.\n\nAn edge case is a concrete scenario with its consequence and how the design handles it (or should). A practice is a specific, applicable practice with the component it applies to and why.",
+  "type": "object",
+  "required": ["edge_cases", "practices"],
+  "properties": {
+    "edge_cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["component", "scenario", "consequence", "handling"],
+        "properties": {
+          "component": {
+            "$ref": "#/$defs/nonEmptyString",
+            "description": "The architecture component, or the external system a component names, the scenario arises in."
+          },
+          "scenario": {
+            "$ref": "#/$defs/nonEmptyString",
+            "description": "A concrete situation, in terms of this design's inputs, volumes or systems."
+          },
+          "consequence": {
+            "$ref": "#/$defs/nonEmptyString",
+            "description": "What happens if it is not handled."
+          },
+          "handling": {
+            "$ref": "#/$defs/nonEmptyString",
+            "description": "What the design does about it, or what it should do."
+          }
+        }
+      }
+    },
+    "practices": {
+      "type": "array",
+      "description": "May be empty: a practice is listed only when it applies to a specific part of this design.",
+      "items": {
+        "type": "object",
+        "required": ["applies_to", "practice", "rationale"],
+        "properties": {
+          "applies_to": {
+            "$ref": "#/$defs/nonEmptyString",
+            "description": "The component or integration the practice applies to."
+          },
+          "practice": { "$ref": "#/$defs/nonEmptyString" },
+          "rationale": {
+            "$ref": "#/$defs/nonEmptyString",
+            "description": "Why it applies here, in terms of this design."
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1, "pattern": "\\S" }
+  }
+}

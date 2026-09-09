@@ -321,6 +321,116 @@ export const DEFAULT_BUSINESS_REQUIREMENT_RECORDING: RecordingSet = [
     outputTokens: 210,
     latencyMs: 1400,
   },
+  // D-82: the roadmap for the sample design — capture first, routing second.
+  {
+    stageKey: "implementation_roadmap",
+    classifiedAs: "business_requirement",
+    output: JSON.stringify({
+      phases: [
+        {
+          ordinal: 1,
+          name: "Capture invoices from the mailbox",
+          objective:
+            "Build Invoice Capture so every emailed PDF becomes a normalised record, with unparseable attachments quarantined",
+          components: ["Invoice Capture"],
+          depends_on: [],
+          outcome:
+            "Finance sees every inbound invoice as a record within minutes of its arrival, and nothing is keyed by hand",
+          estimate: null,
+        },
+        {
+          ordinal: 2,
+          name: "Route approvals",
+          objective:
+            "Build the Approval Router over the captured records, with the per-department approver count parameterised",
+          components: ["Approval Router"],
+          depends_on: [1],
+          outcome:
+            "Each invoice reaches its approver and its decision is recorded with a timestamp; unrouted invoices are held and escalated",
+          estimate: null,
+        },
+      ],
+      sequencing_rationale:
+        "The router consumes captured records, so capture is built and proven first; the approver count is the one deferred unknown and is parameterised rather than blocking",
+    }),
+    inputTokens: 610,
+    outputTokens: 260,
+    latencyMs: 1500,
+  },
+  // D-83: the sample design's edge cases and one practice.
+  {
+    stageKey: "edge_case_analysis",
+    classifiedAs: "business_requirement",
+    output: JSON.stringify({
+      edge_cases: [
+        {
+          component: "Invoice Capture",
+          scenario:
+            "An email carries two PDF attachments, one an invoice and one a remittance advice",
+          consequence:
+            "The remittance advice is captured as a second invoice and routed for approval",
+          handling:
+            "Capture classifies each attachment and quarantines any it cannot classify as an invoice, alerting finance",
+        },
+        {
+          component: "Approval Router",
+          scenario:
+            "The approver for a department is on leave and no deputy is configured",
+          consequence: "Invoices for that department wait unrouted",
+          handling:
+            "The router holds them in the unrouted queue and escalates after a stated period rather than defaulting to an approver",
+        },
+      ],
+      practices: [
+        {
+          applies_to: "Invoice Capture",
+          practice:
+            "Key each captured record on the message id and attachment hash so a re-polled mailbox cannot capture an invoice twice",
+          rationale:
+            "The capture polls a shared mailbox and retries transient errors, so the same message can be read more than once",
+        },
+      ],
+    }),
+    inputTokens: 600,
+    outputTokens: 280,
+    latencyMs: 1500,
+  },
+  // D-84: the sample design's one integration, the shared mailbox.
+  {
+    stageKey: "integration_requirements",
+    classifiedAs: "business_requirement",
+    output: JSON.stringify({
+      integrations: [
+        {
+          system: "Shared mailbox",
+          component: "Invoice Capture",
+          purpose: "Read inbound invoice emails and their PDF attachments",
+          direction: "inbound",
+          capabilities_required: [
+            "List messages in a shared mailbox since a watermark",
+            "Download attachments by message id",
+          ],
+          constraints: [
+            {
+              constraint:
+                "Invoices arrive as PDF attachments, so capture must handle PDF and nothing else is promised",
+              provenance: "stated",
+              context_index: 0,
+            },
+          ],
+          uncertainties: [
+            "Whether the mailbox provider offers push notification on new mail, or capture must poll",
+          ],
+        },
+      ],
+      no_integrations_statement: null,
+      knowledge_currency_note:
+        "Mailbox provider capabilities and limits change; verify the current API before building.",
+    }),
+    inputTokens: 590,
+    outputTokens: 230,
+    latencyMs: 1400,
+  },
 ];
 
 /**

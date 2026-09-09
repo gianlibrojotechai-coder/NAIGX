@@ -1,0 +1,38 @@
+{
+  "caseId": "br-004",
+  "corpusVersion": "corpus-v1",
+  "failedAt": "2026-09-09T21:03:52.202Z",
+  "provider": {
+    "adapter": "anthropic",
+    "modelKey": "claude-sonnet-5"
+  },
+  "failure": {
+    "stageNumber": 3,
+    "stageKey": "context_extraction",
+    "message": "stage 3 (context_extraction): elements[4]: source_quote does not occur in the input — \"x\""
+  },
+  "providerCalls": 3,
+  "responses": [
+    {
+      "task": "input_classification",
+      "output": "{\"determined_type\":\"business_requirement\",\"confidence\":0.75,\"candidate_types\":[\"business_requirement\",\"existing_workflow\"],\"dominant_type\":\"business_requirement\"}",
+      "inputTokens": 2541,
+      "outputTokens": 61,
+      "latencyMs": 2268
+    },
+    {
+      "task": "intent_detection",
+      "output": "{\"primary_objective\":{\"content\":\"Automate the delivery of a weekly HubSpot deal report to Slack every Monday morning, replacing whatever manual process currently produces and shares it\",\"provenance\":\"inferred\"},\"secondary_objectives\":[{\"content\":\"Ensure the report is delivered on a reliable recurring weekly schedule (Monday mornings)\",\"provenance\":\"stated\"}],\"inferred_scope\":\"The process concerns pulling deal data from HubSpot and posting a summary report to a Slack channel on a weekly cadence. The input does not specify which HubSpot deal fields or pipeline the report covers, which Slack channel or audience receives it, report format, volume of deals, or who would build/operate the automation.\"}",
+      "inputTokens": 2506,
+      "outputTokens": 241,
+      "latencyMs": 4086
+    },
+    {
+      "task": "context_extraction",
+      "output": "{\"elements\":[{\"id\":\"e1\",\"content\":\"HubSpot is the source system for the deal report\",\"category\":\"system\",\"provenance\":\"stated\",\"specificity_score\":0.9,\"source_quote\":\"our weekly HubSpot deal report\",\"inference_basis\":null,\"resolution_hint\":null,\"conflicts_with_id\":null},{\"id\":\"e2\",\"content\":\"Slack is the delivery/destination system\",\"category\":\"system\",\"provenance\":\"stated\",\"specificity_score\":0.9,\"source_quote\":\"to Slack every Monday morning\",\"inference_basis\":null,\"resolution_hint\":null,\"conflicts_with_id\":null},{\"id\":\"e3\",\"content\":\"Delivery cadence is weekly, on Monday mornings\",\"category\":\"scale\",\"provenance\":\"stated\",\"specificity_score\":0.7,\"source_quote\":\"every Monday morning\",\"inference_basis\":null,\"resolution_hint\":null,\"conflicts_with_id\":null},{\"id\":\"e4\",\"content\":\"The report must be produced and shared automatically, replacing a manual process\",\"category\":\"objective\",\"provenance\":\"inferred\",\"specificity_score\":0.4,\"source_quote\":null,\"inference_basis\":\"The request to 'send' a report implies an existing manual process is being automated, though no manual process is described.\",\"resolution_hint\":null,\"conflicts_with_id\":null}, {\"id\":\"placeholder\",\"content\":\"placeholder\",\"category\":\"objective\",\"provenance\":\"stated\",\"specificity_score\":0,\"source_quote\":\"x\",\"inference_basis\":null,\"resolution_hint\":null,\"conflicts_with_id\":null}],\"sufficiency\":\"insufficient\"}",
+      "inputTokens": 3659,
+      "outputTokens": 532,
+      "latencyMs": 9374
+    }
+  ]
+}

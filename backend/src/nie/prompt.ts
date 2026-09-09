@@ -50,6 +50,12 @@ export const STAGE_FRAGMENT_KEYS: Readonly<Record<string, string>> = {
   risk_assessment: "stage.risk_assessment",
   // D-80: the complexity assessment, one fragment for both of its paths.
   complexity_assessment: "stage.complexity_assessment",
+  // D-82: the requirement path's implementation roadmap.
+  implementation_roadmap: "stage.implementation_roadmap",
+  // D-83: its edge cases and practices.
+  edge_case_analysis: "stage.edge_case_analysis",
+  // D-84: its integration requirements.
+  integration_requirements: "stage.integration_requirements",
 };
 
 /** Type modifier per classified path (`AI §6.1` TYPE group). */

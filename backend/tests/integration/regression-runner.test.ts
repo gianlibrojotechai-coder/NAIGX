@@ -193,6 +193,40 @@ const STAGE_OUTPUTS = {
       justification: "A placeholder justification for this design",
     })),
   }),
+  // D-82: one phase building the one component.
+  roadmap: JSON.stringify({
+    phases: [
+      {
+        ordinal: 1,
+        name: "Build capture",
+        objective: "Build Invoice Capture",
+        components: ["Invoice Capture"],
+        depends_on: [],
+        outcome: "Invoices are captured",
+        estimate: null,
+      },
+    ],
+    sequencing_rationale: "There is one component",
+  }),
+  // D-84: the one component names no external system.
+  integrations: JSON.stringify({
+    integrations: [],
+    no_integrations_statement: "The one component touches no external system",
+    knowledge_currency_note:
+      "Platform capabilities change; verify before building.",
+  }),
+  // D-83: one edge case in the one component.
+  edgeCases: JSON.stringify({
+    edge_cases: [
+      {
+        component: "Invoice Capture",
+        scenario: "An attachment is not a PDF",
+        consequence: "It is not captured",
+        handling: "Quarantine it and alert finance",
+      },
+    ],
+    practices: [],
+  }),
   // D-79: the risk register against the one component.
   risk: JSON.stringify({
     risks: [
@@ -217,6 +251,9 @@ const ALL_STAGES = [
   { key: "platform_recommendation", of: "platform" },
   { key: "risk_assessment", of: "risk" },
   { key: "complexity_assessment", of: "complexity" },
+  { key: "implementation_roadmap", of: "roadmap" },
+  { key: "integration_requirements", of: "integrations" },
+  { key: "edge_case_analysis", of: "edgeCases" },
 ] as const;
 
 /**
@@ -364,7 +401,7 @@ test("a recording that lacks a stage the path now runs fails, not passes (docs/5
   assert.equal(byId.get("artifact_generation")?.status, "failed");
   assert.match(
     byId.get("artifact_generation")?.detail ?? "",
-    /complexity_score/,
+    /edge_case_analysis|edge_cases_and_practices/,
   );
   // The run itself completed: a failed generator does not halt the path.
   assert.equal(byId.get("run_completeness")?.status, "passed");

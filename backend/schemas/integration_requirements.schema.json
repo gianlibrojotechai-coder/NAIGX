@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://naigx/schemas/integration_requirements.schema.json",
+  "title": "Integration Requirements",
+  "description": "Stage 9 artifact for the business_requirement path (FR-035, AI §9.1). Generated against the Stage 6 architecture and the context set.\n\nEVERY INTEGRATION NAMES THE SYSTEM, THE COMPONENT, THE PURPOSE AND THE DIRECTION (FR-035), and the API capabilities it demands. Constraints are labelled by provenance: `stated` cites the context element that stated it; `general_knowledge` is what the model knows of the platform, which the knowledge-currency note covers — platform capabilities change, and the reader is told to verify (O-4). Uncertainty is disclosed in `uncertainties`, never asserted as a capability.\n\nThe pipeline refuses an integration with a system the architecture does not name, and a document that omits one the architecture does name. A design with no external system carries `no_integrations_statement` and an empty list.",
+  "type": "object",
+  "required": ["integrations", "knowledge_currency_note"],
+  "properties": {
+    "integrations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "system",
+          "component",
+          "purpose",
+          "direction",
+          "capabilities_required",
+          "constraints",
+          "uncertainties"
+        ],
+        "properties": {
+          "system": {
+            "$ref": "#/$defs/nonEmptyString",
+            "description": "The external system, as the architecture names it."
+          },
+          "component": {
+            "$ref": "#/$defs/nonEmptyString",
+            "description": "The architecture component that integrates it."
+          },
+          "purpose": { "$ref": "#/$defs/nonEmptyString" },
+          "direction": {
+            "type": "string",
+            "enum": ["inbound", "outbound", "bidirectional"]
+          },
+          "capabilities_required": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/$defs/nonEmptyString" },
+            "description": "What the system's API must offer for this integration to work."
+          },
+          "constraints": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["constraint", "provenance"],
+              "properties": {
+                "constraint": { "$ref": "#/$defs/nonEmptyString" },
+                "provenance": {
+                  "type": "string",
+                  "enum": ["stated", "general_knowledge"]
+                },
+                "context_index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Present exactly when provenance is stated."
+                }
+              }
+            }
+          },
+          "uncertainties": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/nonEmptyString" },
+            "description": "What is not known about the system's current capability and must be verified before building."
+          }
+        }
+      }
+    },
+    "no_integrations_statement": {
+      "$ref": "#/$defs/nonEmptyString",
+      "description": "Present when integrations is empty: why this design touches no external system."
+    },
+    "knowledge_currency_note": {
+      "$ref": "#/$defs/nonEmptyString",
+      "description": "Always present: platform capabilities, limits and pricing change; verify before committing (O-4)."
+    }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1, "pattern": "\\S" }
+  }
+}

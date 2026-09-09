@@ -43,6 +43,8 @@ import {
   CLASSIFICATION_TYPES,
   COMPETENCY_STANDING,
   COMPLEXITY_FACTORS,
+  CONSTRAINT_PROVENANCES,
+  INTEGRATION_DIRECTIONS,
   CONTEXT_CATEGORIES,
   CONTEXT_PROVENANCE,
   GAP_PRIORITIES,
@@ -366,6 +368,69 @@ const complexityAssessment = object({
 });
 
 /**
+ * D-82: the roadmap's phases. `estimate` is required-but-nullable here; the
+ * published schema has no null, and the pipeline drops it before validating.
+ */
+const implementationRoadmap = object({
+  phases: nonEmptyArray(
+    object({
+      ordinal: integer,
+      name: string,
+      objective: string,
+      components: nonEmptyArray(string),
+      depends_on: array(integer),
+      outcome: string,
+      estimate: nullable(
+        object({ duration: string, basis_context_index: integer }),
+      ),
+    }),
+  ),
+  sequencing_rationale: string,
+});
+
+/** D-83: edge cases (at least one) and practices (may be none). */
+const edgeCaseAnalysis = object({
+  edge_cases: nonEmptyArray(
+    object({
+      component: string,
+      scenario: string,
+      consequence: string,
+      handling: string,
+    }),
+  ),
+  practices: array(
+    object({ applies_to: string, practice: string, rationale: string }),
+  ),
+});
+
+/**
+ * D-84: the integrations. `no_integrations_statement` and a constraint's
+ * `context_index` are required-but-nullable here; the published schema has
+ * no null, and the pipeline drops them before validating.
+ */
+const integrationRequirements = object({
+  integrations: array(
+    object({
+      system: string,
+      component: string,
+      purpose: string,
+      direction: enumOf(INTEGRATION_DIRECTIONS),
+      capabilities_required: nonEmptyArray(string),
+      constraints: array(
+        object({
+          constraint: string,
+          provenance: enumOf(CONSTRAINT_PROVENANCES),
+          context_index: nullable(integer),
+        }),
+      ),
+      uncertainties: array(string),
+    }),
+  ),
+  no_integrations_statement: nullable(string),
+  knowledge_currency_note: string,
+});
+
+/**
  * Keyed by the `task` the pipeline puts on each `CapabilityRequest` — the
  * stage key, or the generator key for Stage 9 (`docs/12` D-29).
  */
@@ -381,4 +446,7 @@ export const STAGE_OUTPUT_SCHEMAS: Readonly<Record<string, OutputSchema>> = {
   platform_recommendation: platformRecommendation,
   risk_assessment: riskAssessment,
   complexity_assessment: complexityAssessment,
+  implementation_roadmap: implementationRoadmap,
+  edge_case_analysis: edgeCaseAnalysis,
+  integration_requirements: integrationRequirements,
 };

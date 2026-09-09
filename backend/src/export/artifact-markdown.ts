@@ -480,6 +480,206 @@ const renderComplexityScore = (document: unknown): ArtifactRender => {
   return { lines, rendered: true };
 };
 
+// --- implementation_roadmap ---------------------------------------------------
+
+/**
+ * The implementation roadmap (D-82, `FR-036`): each phase with what it
+ * builds, what it depends on and what exists when it is done; the estimate
+ * only when one was given with its basis; the sequencing rationale last.
+ */
+const renderImplementationRoadmap = (document: unknown): ArtifactRender => {
+  if (!isRecord(document)) return unrenderable("implementation_roadmap");
+  const phases = list(document.phases).filter(isRecord);
+  const rationale = str(document.sequencing_rationale);
+  if (phases.length === 0 || rationale === null) {
+    return unrenderable("implementation_roadmap");
+  }
+  const lines: string[] = [];
+  for (const p of phases) {
+    const deps = list(p.depends_on)
+      .map((d) => int(d))
+      .filter((d): d is number => d !== null);
+    const estimate = isRecord(p.estimate) ? p.estimate : null;
+    lines.push(
+      `### Phase ${String(int(p.ordinal) ?? "—")} — ${str(p.name) ?? "—"}`,
+      "",
+      str(p.objective) ?? "",
+      "",
+      `**Builds:** ${strList(p.components).join(", ")}`,
+      `**Depends on:** ${
+        deps.length === 0
+          ? "nothing earlier; it can start first"
+          : deps.map((d) => `phase ${String(d)}`).join(", ")
+      }`,
+      `**When it is done:** ${str(p.outcome) ?? "—"}`,
+    );
+    if (estimate !== null) {
+      lines.push(
+        `**Estimate:** ${str(estimate.duration) ?? "—"} (on the basis of context element #${String(int(estimate.basis_context_index) ?? "—")})`,
+      );
+    }
+    lines.push("");
+  }
+  lines.push(`**Why this order.** ${rationale}`, "");
+  return { lines, rendered: true };
+};
+
+// --- executive_summary ----------------------------------------------------------
+
+/** The analysis in a page; every figure projected from the artifacts below it (D-85). */
+const renderExecutiveSummaryMarkdown = (document: unknown): ArtifactRender => {
+  if (!isRecord(document)) return unrenderable("executive_summary");
+  const headline = str(document.headline);
+  const problem = isRecord(document.problem) ? document.problem : null;
+  const approach = isRecord(document.approach) ? document.approach : null;
+  if (headline === null || problem === null || approach === null) {
+    return unrenderable("executive_summary");
+  }
+  const lines: string[] = [`**${headline}**`, ""];
+  lines.push("**The problem.** " + (str(problem.scope) ?? ""));
+  const constraints = strList(problem.key_constraints);
+  if (constraints.length > 0) lines.push(...bullets(constraints));
+  const open = int(problem.open_questions);
+  if (open !== null && open > 0) {
+    lines.push(
+      open === 1
+        ? "One thing the input left open still needs an answer."
+        : `${String(open)} things the input left open still need answers.`,
+    );
+  }
+  lines.push(
+    "",
+    "**The proposed approach.** " + (str(approach.summary) ?? ""),
+    str(approach.data_flow) ?? "",
+    `Parts to build: ${strList(approach.components).join(", ")}.`,
+  );
+  const platform = isRecord(document.platform) ? document.platform : null;
+  if (platform !== null) {
+    lines.push(
+      `**Platform.** ${
+        platform.recommended === null
+          ? "No automation platform is recommended."
+          : `${str(platform.recommended) ?? "—"}.`
+      } ${str(platform.rationale) ?? ""}`,
+    );
+  }
+  const risks = list(document.principal_risks).filter(isRecord);
+  if (Array.isArray(document.principal_risks)) {
+    lines.push("", "**Principal risks.**");
+    if (risks.length === 0)
+      lines.push("The register lists no risks for this design.");
+    for (const r of risks) {
+      lines.push(
+        `- **${str(r.component) ?? "—"}:** ${str(r.description) ?? "—"} (severity ${String(int(r.severity) ?? "—")} of 5, likelihood ${String(int(r.likelihood) ?? "—")} of 5)`,
+      );
+    }
+  }
+  const complexity = isRecord(document.complexity) ? document.complexity : null;
+  if (complexity !== null) {
+    lines.push(
+      "",
+      `**Complexity.** ${String(int(complexity.score) ?? "—")} of 100 — ${str(complexity.band) ?? "—"}. The full score, with the factors that produced it, is below.`,
+    );
+  }
+  const phases = list(document.phases).filter(isRecord);
+  if (phases.length > 0) {
+    lines.push("", "**How it would be built.**");
+    for (const p of phases) {
+      lines.push(
+        `${String(int(p.ordinal) ?? "—")}. **${str(p.name) ?? "—"}:** ${str(p.outcome) ?? "—"}`,
+      );
+    }
+  }
+  const missing = strList(document.not_summarised);
+  lines.push(
+    "",
+    `_This page summarises the detailed artifacts below, which govern where they say more.${
+      missing.length > 0
+        ? ` Not summarised, because it did not generate: ${missing.join(", ")}.`
+        : ""
+    }_`,
+    "",
+  );
+  return { lines, rendered: true };
+};
+
+// --- edge_cases_and_practices -------------------------------------------------
+
+/** Edge cases with consequence and handling; practices under the part they apply to (D-83). */
+const renderEdgeCases = (document: unknown): ArtifactRender => {
+  if (!isRecord(document)) return unrenderable("edge_cases_and_practices");
+  const edgeCases = list(document.edge_cases).filter(isRecord);
+  const practices = list(document.practices).filter(isRecord);
+  if (edgeCases.length === 0) return unrenderable("edge_cases_and_practices");
+  const lines: string[] = ["**Edge cases this design will meet**", ""];
+  edgeCases.forEach((e, i) => {
+    lines.push(
+      `${String(i + 1)}. **${str(e.scenario) ?? "—"}** (${str(e.component) ?? "—"})`,
+      `   - If unhandled: ${str(e.consequence) ?? "—"}`,
+      `   - Handling: ${str(e.handling) ?? "—"}`,
+    );
+  });
+  lines.push("", "**Practices that apply here**", "");
+  if (practices.length === 0) {
+    lines.push(
+      "No practice was listed: none applied to a specific part of this design beyond what the components already state.",
+    );
+  } else {
+    for (const p of practices) {
+      lines.push(
+        `- **${str(p.practice) ?? "—"}** (${str(p.applies_to) ?? "—"}) — ${str(p.rationale) ?? "—"}`,
+      );
+    }
+  }
+  lines.push("");
+  return { lines, rendered: true };
+};
+
+// --- integration_requirements -------------------------------------------------
+
+/** Every integration with purpose, direction, capabilities, constraints by provenance, uncertainties; the currency note last (D-84). */
+const renderIntegrationRequirements = (document: unknown): ArtifactRender => {
+  if (!isRecord(document)) return unrenderable("integration_requirements");
+  const integrations = list(document.integrations).filter(isRecord);
+  const note = str(document.knowledge_currency_note);
+  if (note === null) return unrenderable("integration_requirements");
+  const lines: string[] = [];
+  if (integrations.length === 0) {
+    lines.push(
+      `**No external system.** ${str(document.no_integrations_statement) ?? ""}`,
+      "",
+    );
+  }
+  for (const i of integrations) {
+    lines.push(
+      `### ${str(i.system) ?? "—"} — via ${str(i.component) ?? "—"} (${str(i.direction) ?? "—"})`,
+      "",
+      str(i.purpose) ?? "",
+      "",
+      "**The API must offer:**",
+      ...bullets(strList(i.capabilities_required)),
+    );
+    const constraints = list(i.constraints).filter(isRecord);
+    if (constraints.length > 0) {
+      lines.push("", "**Known constraints:**");
+      for (const c of constraints) {
+        const provenance =
+          str(c.provenance) === "stated"
+            ? `stated, context #${String(int(c.context_index) ?? "—")}`
+            : "general knowledge — verify";
+        lines.push(`- ${str(c.constraint) ?? "—"} _(${provenance})_`);
+      }
+    }
+    const uncertainties = strList(i.uncertainties);
+    if (uncertainties.length > 0) {
+      lines.push("", "**Verify before building:**", ...bullets(uncertainties));
+    }
+    lines.push("");
+  }
+  lines.push(`_${note}_`, "");
+  return { lines, rendered: true };
+};
+
 // --- platform_recommendation -------------------------------------------------
 
 /**
@@ -871,6 +1071,10 @@ export const ARTIFACT_TITLES: Readonly<Record<string, string>> = {
   architecture_recommendation: "Architecture Recommendation",
   platform_recommendation: "Platform Recommendation",
   complexity_score: "Complexity Score",
+  implementation_roadmap: "Implementation Roadmap",
+  executive_summary: "Executive Summary",
+  edge_cases_and_practices: "Edge Cases and Practices",
+  integration_requirements: "Integration Requirements",
   mermaid_diagram: "Architecture Diagram",
 };
 
@@ -963,6 +1167,10 @@ const RENDERERS: Readonly<
   architecture_recommendation: renderArchitectureRecommendation,
   platform_recommendation: renderPlatformRecommendation,
   complexity_score: renderComplexityScore,
+  implementation_roadmap: renderImplementationRoadmap,
+  executive_summary: renderExecutiveSummaryMarkdown,
+  edge_cases_and_practices: renderEdgeCases,
+  integration_requirements: renderIntegrationRequirements,
   mermaid_diagram: renderMermaidDiagram,
 };
 

@@ -271,6 +271,70 @@ const primedAdapter = async (
       }),
       "business_requirement",
     );
+    // D-82: the implementation roadmap, keyed on the same handoff.
+    await add(
+      "implementation_roadmap",
+      requirementHandoff,
+      JSON.stringify({
+        phases: [
+          {
+            ordinal: 1,
+            name: "Capture invoices",
+            objective:
+              "Build the mailbox capture so invoices arrive as records",
+            components: ["Invoice Ingestion"],
+            depends_on: [],
+            outcome: "Every emailed invoice becomes a normalised record",
+            estimate: null,
+          },
+          {
+            ordinal: 2,
+            name: "Route approvals",
+            objective: "Route captured invoices to approvers and track state",
+            components: ["Invoice Ingestion"],
+            depends_on: [1],
+            outcome:
+              "Invoices reach the right approver and their decisions are recorded",
+            estimate: null,
+          },
+        ],
+        sequencing_rationale:
+          "Routing consumes captured records, so capture is proven first",
+      }),
+      "business_requirement",
+    );
+    // D-83/D-84: the edge cases and the integration requirements, same handoff.
+    await add(
+      "edge_case_analysis",
+      requirementHandoff,
+      JSON.stringify({
+        edge_cases: [
+          {
+            component: "Invoice Ingestion",
+            scenario:
+              "An email carries two PDFs, one an invoice and one a remittance advice",
+            consequence:
+              "The remittance advice is captured as a second invoice",
+            handling:
+              "Classify attachments and quarantine any that cannot be classified",
+          },
+        ],
+        practices: [],
+      }),
+      "business_requirement",
+    );
+    await add(
+      "integration_requirements",
+      requirementHandoff,
+      JSON.stringify({
+        integrations: [],
+        no_integrations_statement:
+          "Every component reads and writes its own store; nothing external is touched",
+        knowledge_currency_note:
+          "Platform capabilities, limits and pricing change; verify before building.",
+      }),
+      "business_requirement",
+    );
     // D-79: the risk register, the path's second generator, same handoff.
     await add(
       "risk_assessment",
@@ -387,7 +451,7 @@ test("runs stages 1-3 in order and produces typed handoffs", async () => {
   assert.deepEqual(
     traces.map((t) => t.stageNumber),
     // D-72: Stages 10 and 12 trace on every response.
-    [1, 2, 3, 5, 6, 9, 9, 9, 10, 12],
+    [1, 2, 3, 5, 6, 9, 9, 9, 9, 9, 9, 10, 12],
   );
   assert.deepEqual(
     traces.map((t) => t.stageKey),
@@ -404,6 +468,11 @@ test("runs stages 1-3 in order and produces typed handoffs", async () => {
       "risk_assessment",
       // D-80: the complexity assessment, its third.
       "complexity_assessment",
+      // D-82: the implementation roadmap, its fourth.
+      "implementation_roadmap",
+      // D-84/D-83: the integration requirements and the edge cases.
+      "integration_requirements",
+      "edge_case_analysis",
       "response_validation",
       "response_assembly",
     ],
@@ -424,7 +493,7 @@ test("every stage emits a trace event (AP-8, FR-100)", async () => {
   assert.deepEqual(
     traces.map((t) => t.stageNumber),
     // D-72: Stages 10 and 12 trace on every response.
-    [1, 2, 3, 5, 6, 9, 9, 9, 10, 12],
+    [1, 2, 3, 5, 6, 9, 9, 9, 9, 9, 9, 10, 12],
   );
   for (const trace of traces) {
     assert.equal(trace.analysisId, ANALYSIS_ID);
@@ -604,7 +673,7 @@ test("cost accounting flows through the shared provider path per stage", async (
 
   // Stages 1, 2, 3, 6 and, since D-78, the requirement path's Stage 9
   // platform generator.
-  assert.equal(invocations.length, 7, "one provider call per provider stage");
+  assert.equal(invocations.length, 10, "one provider call per provider stage");
   for (const invocation of invocations) {
     assert.equal(invocation.outcome, "success");
     // 20 × $3/M + 30 × $15/M = 0.00006 + 0.00045

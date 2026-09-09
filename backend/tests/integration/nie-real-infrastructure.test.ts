@@ -345,6 +345,85 @@ const primedAdapter = async (
       }),
       "business_requirement",
     );
+    // D-82: the implementation roadmap, keyed on the same handoff.
+    await add(
+      "implementation_roadmap",
+      requirementHandoff,
+      JSON.stringify({
+        phases: [
+          {
+            ordinal: 1,
+            name: "Capture invoices",
+            objective:
+              "Build the mailbox capture so invoices arrive as records",
+            components: ["Invoice Ingestion"],
+            depends_on: [],
+            outcome: "Every emailed invoice becomes a normalised record",
+            estimate: null,
+          },
+          {
+            ordinal: 2,
+            name: "Route approvals",
+            objective: "Route captured invoices to approvers and track state",
+            components: ["Invoice Ingestion"],
+            depends_on: [1],
+            outcome:
+              "Invoices reach the right approver and their decisions are recorded",
+            estimate: null,
+          },
+        ],
+        sequencing_rationale:
+          "Routing consumes captured records, so capture is proven first",
+      }),
+      "business_requirement",
+    );
+    // D-83/D-84: the edge cases and the integration requirements, same handoff.
+    await add(
+      "edge_case_analysis",
+      requirementHandoff,
+      JSON.stringify({
+        edge_cases: [
+          {
+            component: "Invoice Ingestion",
+            scenario:
+              "An email carries two PDFs, one an invoice and one a remittance advice",
+            consequence:
+              "The remittance advice is captured as a second invoice",
+            handling:
+              "Classify attachments and quarantine any that cannot be classified",
+          },
+        ],
+        practices: [],
+      }),
+      "business_requirement",
+    );
+    await add(
+      "integration_requirements",
+      requirementHandoff,
+      JSON.stringify({
+        integrations: [
+          {
+            system: "Xero",
+            component: "Invoice Ingestion",
+            purpose: "Create the approved bill in the ledger",
+            direction: "outbound",
+            capabilities_required: ["Create a bill with line items"],
+            constraints: [
+              {
+                constraint: "60 calls per minute per tenant",
+                provenance: "general_knowledge",
+                context_index: null,
+              },
+            ],
+            uncertainties: [],
+          },
+        ],
+        no_integrations_statement: null,
+        knowledge_currency_note:
+          "Platform capabilities, limits and pricing change; verify before building.",
+      }),
+      "business_requirement",
+    );
     // D-79: the risk register, keyed on the same handoff.
     await add(
       "risk_assessment",
@@ -557,7 +636,7 @@ test(
       assert.equal(
         usages.length,
         // D-78: the requirement path's Stage 9 platform generator composes six too.
-        5 + 6 + 6 + 6 + 6 + 6 + 6,
+        5 + 6 + 6 + 6 + 6 + 6 + 6 + 6 + 6 + 6,
         "stage 1 has no type modifier yet",
       );
       const stage1 = usages.filter((u) => u.stage === "input_classification");
@@ -581,7 +660,7 @@ test(
       });
       assert.deepEqual(
         traces.map((t) => t.stageNumber),
-        [1, 2, 3, 5, 6, 9, 9, 9, 10, 12],
+        [1, 2, 3, 5, 6, 9, 9, 9, 9, 9, 9, 10, 12],
       );
       assert.deepEqual(
         traces.map((t) => t.outcome),
@@ -589,6 +668,9 @@ test(
         // 10 (response validation) and Stage 12 (assembly) are traced on every
         // response since D-72. All three are deterministic here.
         [
+          "success",
+          "success",
+          "success",
           "success",
           "success",
           "success",
@@ -731,14 +813,14 @@ test("a trace-store outage does not fail the analysis", { skip }, async () => {
     assert.equal(result.context?.sufficiency, "sufficient");
     // Stages 1-3, the deterministic Stage 5 (`docs/12` D-35), Stage 6, the
     // rendering Stage 9 (D-73) and the deterministic Stages 10 and 12 (D-72).
-    assert.equal(seen.length, 10, "each failed trace write is surfaced");
+    assert.equal(seen.length, 13, "each failed trace write is surfaced");
 
     // The durable record still landed: fragment usage is primary-store data.
     const usages = await primary.fragmentUsage.count({
       where: { analysisId: seed.analysisId },
     });
     // D-78: five composing stages of six fragments, less the type modifier at Stage 1.
-    assert.equal(usages, 41);
+    assert.equal(usages, 59);
   } finally {
     await brokenTracePool.end().catch(() => undefined);
     await seed.cleanup();

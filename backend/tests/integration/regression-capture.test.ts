@@ -161,9 +161,10 @@ test("capture runs the production pipeline and writes a valid recording", async 
       captured: 1,
       skipped: 0,
       failed: 0,
-      // Stages 1, 2, 3, 6 and the requirement path's three Stage 9
-      // generators (D-78 platform, D-79 risk register, D-80 complexity).
-      providerCalls: 7,
+      // Stages 1, 2, 3, 6 and the requirement path's six Stage 9
+      // generators (D-78 platform, D-79 risk register, D-80 complexity,
+      // D-82 roadmap, D-84 integrations, D-83 edge cases).
+      providerCalls: 10,
     });
 
     const store = createRecordingStore(root);
@@ -198,6 +199,11 @@ test("capture runs the production pipeline and writes a valid recording", async 
         "risk_assessment",
         // D-80: its third.
         "complexity_assessment",
+        // D-82: its fourth.
+        "implementation_roadmap",
+        // D-84 and D-83: its fifth and sixth.
+        "integration_requirements",
+        "edge_case_analysis",
       ],
     );
     assert.equal(recording.stages[0]?.classifiedAs, undefined);
@@ -476,11 +482,7 @@ test("capture takes the selection it is given, case by case", async () => {
     const report = await captureCases(options(root, cases));
 
     assert.equal(report.totals.captured, 3);
-    assert.equal(
-      report.totals.providerCalls,
-      21,
-      "seven stages per case (D-80)",
-    );
+    assert.equal(report.totals.providerCalls, 30, "ten stages per case (D-84)");
     assert.deepEqual(createRecordingStore(root).list("corpus-v1"), [
       "cc-010",
       "cc-011",
@@ -498,7 +500,7 @@ test("captureCase reports the calls it made and the adapter that answered", asyn
     options(tempRoot(), [target]),
   );
 
-  assert.equal(providerCalls, 7);
+  assert.equal(providerCalls, 10);
   assert.equal(recording.provider.adapter, DRY_RUN_ADAPTER_ID);
   assert.equal(
     recording.stages.every((s) => s.inputTokens === 0),
