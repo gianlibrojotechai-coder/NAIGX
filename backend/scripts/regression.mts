@@ -180,6 +180,30 @@ if (command === "capture") {
   // store, because a dry-run recording is plumbing output and not evidence.
   const dryRun = process.argv.includes("--dry-run");
   const force = process.argv.includes("--force");
+
+  // --- `--out=<dir>` — capture WITHOUT touching the canonical store --------
+  //
+  // ⚠️ WHY THIS EXISTS. A re-capture of a case that already has a recording had
+  // exactly two outcomes before this: skipped (`capture.ts` refuses to
+  // overwrite without `--force`), or `--force`, which **destroys the existing
+  // recording in place**. Neither is usable for a pilot whose whole purpose is
+  // to find out whether a new capture is valid *before* anything is admitted —
+  // the first cannot run, and the second spends the evidence it is testing.
+  //
+  // So a paid capture may be directed at a root outside the store, which is
+  // what `research/regression-pending/` is for: held evidence, invisible to
+  // `createRecordingStore`, the manifest gate, coverage and the activation
+  // gate. Admission stays a separate, deliberate decision — the same route
+  // `ew-001` took.
+  //
+  // ⚠️ IT LOWERS NOTHING. The pipeline, the assertions, the authored resolver
+  // and the validation a capture must satisfy are all untouched; only the
+  // destination directory moves.
+  const outArg = process.argv.find((a) => a.startsWith("--out="));
+  const outRoot =
+    outArg === undefined
+      ? undefined
+      : path.resolve(ROOT, outArg.slice("--out=".length));
   const only = process.argv
     .filter((a) => a.startsWith("--case="))
     .map((a) => a.slice("--case=".length));
@@ -308,8 +332,22 @@ if (command === "capture") {
         inputUsdPerMillionTokens: inputRate,
         outputUsdPerMillionTokens: outputRate,
       };
+      if (outRoot !== undefined) {
+        // Held evidence, not admitted evidence. Failures go beside it rather
+        // than into the repository's committed failure record, because a
+        // pilot's diagnostics are not a corpus artefact until someone says so.
+        captureStore = createRecordingStore(outRoot);
+        quarantine = (record) =>
+          writeFailureRecord(record, path.join(outRoot, "failures"));
+      }
+
       console.log(
         `💳 PAID CAPTURE — ${String(cases.length)} case(s) against ${model}.\n`,
+      );
+      console.log(
+        outRoot === undefined
+          ? "   ⚠️  Writing to the CANONICAL store.\n"
+          : `   Held output (canonical store untouched): ${path.relative(ROOT, outRoot)}\n`,
       );
     }
 
