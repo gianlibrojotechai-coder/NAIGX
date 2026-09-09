@@ -901,12 +901,12 @@ couple of minutes.
 
 ```bash
 # backend (from backend/)
-npm test              # 959 tests, 955 pass, 0 fail, 4 skipped
+npm test              # 1118 tests, 1114 pass, 0 fail, 4 skipped (2026-09-10, late)
 npm run typecheck
 npm run lint
 npm run format:check
-npm run fragments:check   # 15 fragments match the manifest
-npm run schemas:check     # 5 artifact schemas published and matching
+npm run fragments:check   # 23 fragments match the manifest (2026-09-10, late)
+npm run schemas:check     # 17 artifact schemas published and matching (v3)
 
 # (An earlier edition warned that format:check flagged
 # tests/unit/regression-coverage.test.ts as a CRLF artifact. That file was
@@ -932,12 +932,15 @@ node tools/boundary-checks/check.mjs   # 8 enforcing · 0 failing
 **Regression and fragment evidence (offline, free — no provider, no spend):**
 
 ```bash
-npm run fragments:check               # 15 authored fragments match the manifest
+npm run fragments:check               # 23 authored fragments match the manifest
 npm run regression:recordings:check   # 15 recordings, manifested and unedited
 npm run regression:run                # the 13-case FIRST_VERTICAL default (unchanged)
 npm run regression:run -- --case=<id> # case-named; selectionScope stays "partial"
 npm run regression:run -- --fragment=<key>   # D-64 §4.4 targeted; scope "targeted"
 npm run regression:evaluate -- --case=<id> --from=<dir>   # read-only, no reference
+npm run regression:capture -- --through=3 --out=<dir> --case=<id>   # ⚠️ PAID: Stages 1–3 only, for the confidence features (D-86); refused without --out
+npm run confidence:features -- --write   # free: CF-2/CF-4 per case → research/confidence-calibration/features.*
+npm run confidence:fit -- --write        # free: the grid-searched model → model.json (copy into src/nie/confidence-model.ts; a unit test checks they agree)
 
 # ⚠️ THE FULL 15-CASE RUN is not a single flag — FIRST_VERTICAL is 13 cases and
 # does NOT include ta-005, jd-002 or jd-008. Name all fifteen to reproduce the
@@ -946,7 +949,7 @@ npm run regression:evaluate -- --case=<id> --from=<dir>   # read-only, no refere
 #     --case=br-004 --case=br-005 --case=br-007 --case=br-009 --case=br-010 \
 #     --case=br-011 --case=un-001 --case=un-002 --case=ew-001 --case=ta-005 \
 #     --case=jd-002 --case=jd-008
-#   → 15 passed · corpus-regression:corpus-v2+fragments-v1:d4abcd42626452df
+#   → 15 passed · corpus-regression:corpus-v2+fragments-v1:a249714e093716f7 (2026-09-10, late; three advisory confidence-band notes are expected — D-86 §2)
 
 # ⚠️ PAID. Only `capture` without --dry-run spends money.
 npm run regression:capture:dry -- --case=<id>          # free rehearsal
