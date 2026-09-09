@@ -80,4 +80,5 @@ the JSON itself is not printed into a PDF.
 | Seventh schema published locally; boundary check 5 (every type has a schema) | ✅ 7 published and matching; 8/0 |
 | Fifteen recordings replay and reproduce the existing reference | ✅ `d1b67b9017b86257` reproduced |
 | Full suite, lint, format, build; frontend tsc, lint, build | ✅ 1020 tests / 0 fail (Postgres suites required; two job-path assertions updated deliberately for the new plan entry and its plan event); lint, format; frontend tsc, lint, build |
-| Production: schema published, deploy, one owner-side import | ⏳ |
+| Offline end to end: jd-002 replayed through the real pipeline → `n8n_workflow` generated, 10 nodes mapped (Webhook, Code, Salesforce, IF, Salesforce 2, HTTP Request, Postgres, Schedule Trigger, Slack, Code 2), 12 notes, 8 connections, 0 placeholders | ✅ |
+| Production | ✅ **2026-09-10.** Image `e9e3f7c75a3b` at `6de98d5` under the live overlay (rollback tag `rollback-e579e17`); seventh schema published (7 v2 rows); fragments unchanged (15 active); readiness 200 publicly, anonymous 401, stranger 403; the served bundle carries the download control. The owner's first import into n8n is the remaining real-world test (§3) |

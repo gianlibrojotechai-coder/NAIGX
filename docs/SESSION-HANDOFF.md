@@ -129,7 +129,7 @@ These are standing instructions given explicitly. **They override default thorou
 
 | `docs/45` **D-70** | **The n8n implementation plan** in Stage 9's portfolio artifact — a fragment change taken through the gate: capture ($1.0644, two attempts), admission, targeted reference `6e1e63a24da922a9`, schemas v2. Built, gate-green; **DEPLOYED 2026-09-10** with D-68 as `d69c2bdaba6b` at `a5377fe` |
 
-| `docs/46` **D-71** | **The n8n workflow scaffold** — a seventh artifact: the implementation plan as a file n8n imports, one node per step wired in order with a sticky note per node (purpose, setup, credential) and a README stating it is a scaffold. Rendered, deterministic, no prompt change. Built, gate-green |
+| `docs/46` **D-71** | **The n8n workflow scaffold** — a seventh artifact: the implementation plan as a file n8n imports, one node per step wired in order with a sticky note per node (purpose, setup, credential) and a README stating it is a scaffold. Rendered, deterministic, no prompt change. **DEPLOYED 2026-09-10** as `e9e3f7c75a3b` at `6de98d5` |
 
 **Numbering convention: the next standalone record is `docs/47` D-72.** Nothing is currently owed.
 
@@ -528,10 +528,10 @@ is already what production runs, in REPLAY mode** (redeployed 2026-09-09 per
 the runbook: outgoing image tagged `rollback-edaeb08`, new image
 `de27c39b8888` at `426c4a5`, readiness 200, four paths verified, zero provider
 variables in the container) — so the switch is the overlay alone, no rebuild.
-▶ **Now running: image `d69c2bdaba6b` at `a5377fe` (D-68 redesign with
-motion, D-69 Opus 5 high, D-70 n8n plan; schema v2; fragment reference
-`6e1e63a24da922a9`), LIVE under the overlay; outgoing image kept as
-`rollback-efaca0c`.** Host checkout = `origin/main`. Caps 6.00 / 50.00, reserve 1.00, deadline 420 s.
+▶ **Now running: image `e9e3f7c75a3b` at `6de98d5` (D-68 redesign with
+motion, D-69 Opus 5 high, D-70 n8n plan, D-71 n8n workflow scaffold; schema
+v2 with 7 types; fragment reference `6e1e63a24da922a9`), LIVE under the
+overlay; outgoing image kept as `rollback-e579e17`.** Host checkout = `origin/main`. Caps 6.00 / 50.00, reserve 1.00, deadline 420 s.
 ▶ **Production is LIVE (owner-only) since 2026-09-09** — see D-67 §9; the
 replay rollback is the same command without the overlay. The frontend's
 sign-up toggle now reads *Create the owner account* and states the
