@@ -45,6 +45,9 @@ export const STAGE_FRAGMENT_KEYS: Readonly<Record<string, string>> = {
   interview_guidance: "stage.interview_guidance",
   // D-78: the requirement path's generator, with its own fragment.
   platform_recommendation: "stage.platform_recommendation",
+  // D-79: the requirement path's risk register — generated here, rendered on
+  // the workflow path, so the key is the generator's.
+  risk_assessment: "stage.risk_assessment",
 };
 
 /** Type modifier per classified path (`AI §6.1` TYPE group). */

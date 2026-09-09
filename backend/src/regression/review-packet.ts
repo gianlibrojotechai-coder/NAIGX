@@ -263,6 +263,7 @@ const STAGE_LABELS: Readonly<Record<string, string>> = {
   // D-76: the second Stage 9 generator.
   interview_guidance: "Interview guidance",
   platform_recommendation: "Platform recommendation",
+  risk_assessment: "Risk register",
 };
 
 /**

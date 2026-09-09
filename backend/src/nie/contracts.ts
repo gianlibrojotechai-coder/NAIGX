@@ -161,6 +161,8 @@ export interface PipelineResult {
   readonly interviewGuidance?: InterviewGuidance;
   /** D-78 — present when the platform recommendation generated. */
   readonly platformRecommendation?: PlatformRecommendation;
+  /** D-79 — present when the requirement path's risk register generated. */
+  readonly riskRegister?: RiskRegister;
   /**
    * Stage 6W, existing-workflow path only (`FR-021`, `docs/15` D-40).
    *
@@ -582,6 +584,25 @@ export interface InterviewGuidance {
   readonly framing: string;
 }
 
+// --- Stage 9, risk register on the requirement path (D-79, FR-032) -----------
+
+export interface RiskItem {
+  /** A component name, or an external system one of the components names. */
+  readonly component: string;
+  readonly description: string;
+  /** `docs/09` §2, 1–5. */
+  readonly severity: number;
+  readonly likelihood: number;
+  readonly mitigation: string;
+}
+
+export interface RiskRegister {
+  /** Ordered by severity × likelihood, highest first. */
+  readonly risks: readonly RiskItem[];
+  /** Present exactly when `risks` is empty. */
+  readonly noRisksStatement?: string;
+}
+
 // --- Stage 9, platform recommendation (D-78, FR-034) ------------------------
 
 export interface PlatformCriterion {
@@ -687,6 +708,9 @@ export const PATH_ARTIFACT_TYPES: Readonly<
     "business_analysis",
     "architecture_recommendation",
     "platform_recommendation",
+    // D-79: generated here, rendered on the workflow path — one type, one
+    // schema, two sources (`AI §9.1`: "Requirement, workflow").
+    "risk_assessment",
     "mermaid_diagram",
   ],
   existing_workflow: ["workflow_recommendation", "risk_assessment"],

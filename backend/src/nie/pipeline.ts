@@ -39,6 +39,7 @@ import {
   type GeneratedArtifactType,
   type InterviewGuidance,
   type PlatformRecommendation,
+  type RiskRegister,
   type ArtifactType,
   type RecommendationForArtifacts,
   type WorkflowReviewResult,
@@ -48,6 +49,7 @@ import type { CapabilityProfile } from "./capability-profile.js";
 import { parseRecommendation } from "./stages/recommendation-generation.js";
 import { parseInterviewGuidance } from "./stages/interview-guidance.js";
 import { parsePlatformRecommendation } from "./stages/platform-recommendation.js";
+import { parseRiskRegister } from "./stages/risk-assessment.js";
 import {
   eligibleGaps,
   isPlanned,
@@ -327,13 +329,14 @@ export function stageProviderInputs(
           context,
           false,
         );
-        inputs.set(
-          "platform_recommendation",
-          stageHandoff({
-            context: contextHandoffView(context),
-            architecture: architectureHandoffView(architecture),
-          }),
-        );
+        const requirementHandoff = stageHandoff({
+          context: contextHandoffView(context),
+          architecture: architectureHandoffView(architecture),
+        });
+        inputs.set("platform_recommendation", requirementHandoff);
+        // D-79: the risk register is keyed on the same handoff; only the task
+        // and the composed prompt differ, which `replayKeyFor` distinguishes.
+        inputs.set("risk_assessment", requirementHandoff);
       } catch {
         // An architecture fixture that does not parse describes a run that
         // stops at Stage 6; there is no Stage 9 call to key.
@@ -1019,6 +1022,123 @@ export function createPipeline(deps: PipelineDependencies) {
             : "Generation did not produce a usable document.";
     }
     return { outcome, wire, recommendation, attempts, traceId, failureReason };
+  };
+
+  /**
+   * The requirement path's risk register (D-79, `FR-032`): the same handoff
+   * as the platform generator, its own Stage 9 trace, the shared
+   * `risk_assessment` schema.
+   */
+  const generateRiskRegister = async (
+    input: PipelineInput,
+    classifiedAs: ClassificationType,
+    architecture: ArchitectureResult,
+    context: ContextResult,
+  ): Promise<{
+    readonly outcome: ArtifactOutcome;
+    readonly wire: unknown;
+    readonly register: RiskRegister | undefined;
+    readonly attempts: number;
+    readonly traceId: string | null;
+    readonly failureReason: string;
+  }> => {
+    let wire: unknown;
+    let attempts = 1;
+    let traceId: string | null = null;
+    let register: RiskRegister | undefined;
+    let outcome: ArtifactOutcome = "generated";
+    let failureReason = "";
+    try {
+      register = await runStage(input, {
+        stageNumber: 9,
+        stageKey: "risk_assessment",
+        classifiedAs,
+        onStageTrace: (id) => {
+          traceId = id;
+        },
+        structuredInput: { architecture },
+        buildRequest: (prompt) =>
+          request(
+            prompt,
+            "risk_assessment",
+            stageHandoff({
+              context: contextHandoffView(context),
+              architecture: architectureHandoffView(architecture),
+            }),
+          ),
+        parse: (text) => {
+          const parsed = parseStructured(9, "risk_assessment", text);
+          // The published schema (shared with the rendered workflow-path
+          // artifact) has no null: an absent statement is absent. The request
+          // schema makes it required-but-nullable, so null is dropped here.
+          if (parsed["no_risks_statement"] === null) {
+            delete parsed["no_risks_statement"];
+          }
+          wire = parsed;
+          validateArtifact("risk_assessment", parsed);
+          return parseRiskRegister(text, architecture);
+        },
+        regenerateOnce: (error) => {
+          if (!(error instanceof ArtifactSchemaError)) return false;
+          attempts += 1;
+          return { addendum: correctionFor(error) };
+        },
+      });
+      const deep = await deepValidate(input, traceId, "risk_assessment", wire);
+      if (deep !== null) {
+        register = undefined;
+        throw new ResponseValidationError(deep);
+      }
+    } catch (error) {
+      outcome = "failed";
+      failureReason =
+        error instanceof ResponseValidationError
+          ? error.message
+          : error instanceof ArtifactSchemaError
+            ? "Generated but did not satisfy its output schema."
+            : "Generation did not produce a usable document.";
+    }
+    return { outcome, wire, register, attempts, traceId, failureReason };
+  };
+
+  const settleRiskRegister = async (
+    input: PipelineInput,
+    generated: Awaited<ReturnType<typeof generateRiskRegister>>,
+  ): Promise<void> => {
+    emit(
+      input.analysisId,
+      generated.outcome === "generated" && generated.register !== undefined
+        ? {
+            type: "artifact",
+            artifactType: "risk_assessment",
+            content: generated.wire,
+          }
+        : {
+            type: "artifact_failed",
+            artifactType: "risk_assessment",
+            reason: generated.failureReason,
+            retryAvailable: isRetryableArtifactType("risk_assessment"),
+          },
+    );
+    if (generated.wire !== undefined) {
+      await deps.resultSink?.persistArtifact?.(input.analysisId, {
+        artifactType: "risk_assessment",
+        content: generated.wire,
+        depthLevel: "standard",
+        generationAttemptCount: generated.attempts,
+        validationStatus:
+          generated.outcome === "generated" ? "valid" : "failed",
+      });
+    }
+    await recordValidation({
+      stageTraceId: generated.traceId,
+      artifactType: "risk_assessment",
+      passed: generated.outcome === "generated",
+      ...(generated.outcome === "generated"
+        ? {}
+        : { failureDetail: generated.failureReason }),
+      regenerationTriggered: generated.attempts > 1,
+    });
   };
 
   const settlePlatformRecommendation = async (
@@ -2079,15 +2199,29 @@ export function createPipeline(deps: PipelineDependencies) {
         context,
       );
       await settlePlatformRecommendation(input, platform);
+      // D-79 — the risk register, the path's second generator; the rendered
+      // artifacts attach to the last generator's Stage 9 trace.
+      const risk = await generateRiskRegister(
+        input,
+        classification.determinedType,
+        architecture,
+        context,
+      );
+      await settleRiskRegister(input, risk);
+      const lastTrace = risk.traceId ?? platform.traceId;
       const rendered = await emitDerivedArtifacts(
         input,
         withOutcome(
-          assessmentPlan,
-          "platform_recommendation",
-          platform.outcome,
+          withOutcome(
+            assessmentPlan,
+            "platform_recommendation",
+            platform.outcome,
+          ),
+          "risk_assessment",
+          risk.outcome,
         ),
         renderers,
-        platform.traceId === null ? {} : { traceId: platform.traceId },
+        lastTrace === null ? {} : { traceId: lastTrace },
       );
       return {
         classification,
@@ -2098,6 +2232,7 @@ export function createPipeline(deps: PipelineDependencies) {
         ...(platform.recommendation !== undefined
           ? { platformRecommendation: platform.recommendation }
           : {}),
+        ...(risk.register !== undefined ? { riskRegister: risk.register } : {}),
       };
     }
 

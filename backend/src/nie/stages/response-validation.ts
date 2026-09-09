@@ -37,6 +37,7 @@ import type {
   RecommendationResult,
   WorkflowReviewResult,
 } from "../contracts.js";
+import { namesDesignPart } from "./risk-assessment.js";
 
 /** Thrown when an enforced Stage 10 class fails an artifact (D-72). */
 export class ResponseValidationError extends Error {
@@ -540,6 +541,18 @@ export function checkInternalConsistency(
       break;
     }
     case "risk_assessment": {
+      if (ctx.workflowReview === undefined && ctx.architecture !== undefined) {
+        // D-79: generated on the requirement path — every risk names a
+        // component of the architecture or an external system it integrates.
+        for (const r of asArray(doc["risks"])) {
+          const name = String(asRecord(r)?.["component"] ?? "");
+          if (!namesDesignPart(name, ctx.architecture))
+            problems.push(
+              `risk names "${name}", which the architecture neither has nor integrates`,
+            );
+        }
+        break;
+      }
       const risks = asArray(doc["risks"]).length;
       const expected = ctx.workflowReview?.findings.length ?? 0;
       if (risks !== expected)

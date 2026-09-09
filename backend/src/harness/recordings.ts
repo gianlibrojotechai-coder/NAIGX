@@ -248,6 +248,37 @@ export const DEFAULT_BUSINESS_REQUIREMENT_RECORDING: RecordingSet = [
     outputTokens: 310,
     latencyMs: 1800,
   },
+  // D-79: the requirement path's risk register against the sample's components.
+  {
+    stageKey: "risk_assessment",
+    classifiedAs: "business_requirement",
+    output: JSON.stringify({
+      risks: [
+        {
+          component: "Invoice Capture",
+          description:
+            "An attachment that is not a PDF, or a PDF the extractor cannot read, is quarantined and the invoice waits unnoticed",
+          severity: 3,
+          likelihood: 3,
+          mitigation:
+            "Alert finance on every quarantine and report the queue length daily",
+        },
+        {
+          component: "Approval Router",
+          description:
+            "An invoice whose department cannot be resolved sits in the unrouted queue past the discount window",
+          severity: 3,
+          likelihood: 2,
+          mitigation:
+            "Escalate unrouted invoices after one working day, ahead of the discount deadline",
+        },
+      ],
+      no_risks_statement: null,
+    }),
+    inputTokens: 610,
+    outputTokens: 240,
+    latencyMs: 1500,
+  },
 ];
 
 /**

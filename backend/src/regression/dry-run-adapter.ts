@@ -313,6 +313,22 @@ export function createDryRunAdapter(
       recommendation === undefined ? undefined : portfolioFrom(["req-2"]),
     // D-76: the second generator, answered whenever Stage 7 was.
     interview_guidance: interviewFrom(recommendation),
+    // D-79: the requirement path's risk register against the one component.
+    risk_assessment:
+      type === "business_requirement"
+        ? JSON.stringify({
+            risks: [
+              {
+                component: "Dry Run Component",
+                description: "Dry-run placeholder risk",
+                severity: 2,
+                likelihood: 2,
+                mitigation: "Dry-run placeholder mitigation",
+              },
+            ],
+            no_risks_statement: null,
+          })
+        : undefined,
     // D-78: the requirement path's generator, grounded in the dry-run
     // architecture's one component and the context's one element.
     platform_recommendation:

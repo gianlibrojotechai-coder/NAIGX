@@ -169,6 +169,8 @@ test("coverage reflects the composed set, not assumed path membership", async ()
       "architecture_analysis",
       // D-78: the requirement path's Stage 9 generator is recorded too.
       "platform_recommendation",
+      // D-79: and its second.
+      "risk_assessment",
     ],
     "stage sequence is read from the recording, not inferred from the type",
   );

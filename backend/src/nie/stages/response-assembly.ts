@@ -129,7 +129,8 @@ export function assembleResponse(result: PipelineResult): AssemblyReport {
     );
   }
   if (
-    (types.has("workflow_recommendation") || types.has("risk_assessment")) &&
+    (types.has("workflow_recommendation") ||
+      (types.has("risk_assessment") && result.architecture === undefined)) &&
     result.workflowReview === undefined
   ) {
     problems.push(

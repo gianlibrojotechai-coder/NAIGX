@@ -300,7 +300,7 @@ const ARTIFACT_PRESENTERS: Readonly<Record<string, ArtifactPresenter>> = {
   },
   risk_assessment: {
     title: "Risk assessment",
-    subtitle: "Each risk scored, attributed to a step, and mitigated",
+    subtitle: "Each risk scored, attributed to a component, and mitigated",
     render: (content) => {
       const assessment = asRiskAssessment(content);
       return assessment === null ? null : (

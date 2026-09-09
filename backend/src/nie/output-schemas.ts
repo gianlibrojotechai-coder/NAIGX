@@ -335,6 +335,25 @@ const platformRecommendation = object({
 });
 
 /**
+ * Derived from `schemas/risk_assessment.schema.json` (D-79): the same
+ * published schema the workflow path renders against. `no_risks_statement`
+ * is required-but-nullable here; the parser requires it exactly when the
+ * list is empty.
+ */
+const riskAssessment = object({
+  risks: array(
+    object({
+      component: string,
+      description: string,
+      severity: enumOf([1, 2, 3, 4, 5]),
+      likelihood: enumOf([1, 2, 3, 4, 5]),
+      mitigation: string,
+    }),
+  ),
+  no_risks_statement: nullable(string),
+});
+
+/**
  * Keyed by the `task` the pipeline puts on each `CapabilityRequest` — the
  * stage key, or the generator key for Stage 9 (`docs/12` D-29).
  */
@@ -348,4 +367,5 @@ export const STAGE_OUTPUT_SCHEMAS: Readonly<Record<string, OutputSchema>> = {
   portfolio_suggestions: portfolioSuggestions,
   interview_guidance: interviewGuidance,
   platform_recommendation: platformRecommendation,
+  risk_assessment: riskAssessment,
 };

@@ -31,4 +31,4 @@ D-76 §4 recorded that a recording whose Stage 9 answer the parser rejected pass
 | Requirement path plans three artifacts in precedence order; retry refused as deterministic | ✅ `nie-derived-artifacts`, `degradation` |
 | Runner: `artifact_generation` evaluated; capture refuses a failed artifact and reports outcomes | ✅ `regression-assertions`, `regression-runner`, `regression-capture` (+2) |
 | Full suite, lint, format, typecheck, build; `schemas:check` 11 published and matching | ✅ 2026-09-10 — 1062 tests, 1058 pass, 0 fail, 4 skipped |
-| Production | ⏳ |
+| Production | ✅ deployed 2026-09-10 with D-78 as `948838c7ff38` at `12f5af9`; the live `br-001` run listed "Business analysis" among its five artifacts |

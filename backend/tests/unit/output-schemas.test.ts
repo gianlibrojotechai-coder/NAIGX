@@ -112,6 +112,7 @@ test("1. every stage schema is in the constrained-decoding dialect", () => {
     "platform_recommendation",
     "portfolio_suggestions",
     "recommendation_generation",
+    "risk_assessment",
     "workflow_review",
   ]);
 });

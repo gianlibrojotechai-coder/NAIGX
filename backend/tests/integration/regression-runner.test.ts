@@ -179,6 +179,20 @@ const STAGE_OUTPUTS = {
     knowledge_currency_note:
       "Platform capabilities and pricing change; verify before committing.",
   }),
+  // D-79: the risk register against the one component.
+  risk: JSON.stringify({
+    risks: [
+      {
+        component: "Invoice Capture",
+        description:
+          "An unreadable attachment is quarantined and waits unnoticed",
+        severity: 3,
+        likelihood: 3,
+        mitigation: "Alert finance on every quarantine",
+      },
+    ],
+    no_risks_statement: null,
+  }),
 };
 
 const ALL_STAGES = [
@@ -187,6 +201,7 @@ const ALL_STAGES = [
   { key: "context_extraction", of: "context" },
   { key: "architecture_analysis", of: "architecture" },
   { key: "platform_recommendation", of: "platform" },
+  { key: "risk_assessment", of: "risk" },
 ] as const;
 
 /**

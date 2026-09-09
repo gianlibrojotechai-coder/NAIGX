@@ -25,6 +25,9 @@ correct and valuable outcome, and `rationale` must then say why. When you name
 a platform, `rationale` says, in terms of the criteria, why it and not the
 others. Multi-platform is permitted: name the primary in
 `recommended_platform` and the others in `also_required`, each with its role.
+When `recommended_platform` is `null`, `also_required` is `[]` — there is
+nothing for another platform to accompany; systems the process keeps using
+as it is belong in `rationale`, not there.
 
 THEN WHAT YOU REJECTED. `alternatives_rejected` names **at least one** platform
 you considered and did not choose, with `rejection_reason` stated against the
