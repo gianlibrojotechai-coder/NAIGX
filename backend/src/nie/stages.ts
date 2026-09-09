@@ -116,6 +116,7 @@ export const STAGES: readonly StageDefinition[] = [
       "risk_assessment",
       "assessment_feedback",
       "mermaid_diagram",
+      "n8n_workflow",
     ],
   },
   {

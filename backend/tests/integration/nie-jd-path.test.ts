@@ -566,6 +566,9 @@ test("Stage 8 records an omission reason for every generator it lacks", async ()
       "skill_gap_analysis",
       "portfolio_suggestions",
       "interview_guidance",
+      // D-71: decided at Stage 9 from the portfolio's implementation block —
+      // this fixture has none, so it is omitted with the reason.
+      "n8n_workflow",
     ],
   );
   for (const entry of plan) {
@@ -1082,6 +1085,9 @@ test("the run narrates itself in the order API §7.4 specifies", async () => {
       "reasoning_complete",
       "plan",
       "artifact",
+      // D-71: the n8n workflow is planned once the portfolio exists — an
+      // omission here, announced as a plan event like any other decision.
+      "plan",
     ],
     "each stage announces itself as it finishes (FR-041)",
   );

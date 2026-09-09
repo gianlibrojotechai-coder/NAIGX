@@ -43,6 +43,7 @@ import {
   type Analysis,
   type ArtifactEntry,
   type Requirement,
+  asN8nWorkflow,
 } from "../api/types";
 import {
   formatElapsed,
@@ -53,6 +54,7 @@ import {
 } from "../format";
 import { AssessmentFeedbackView } from "./AssessmentFeedback";
 import { IntentBriefView } from "./IntentBrief";
+import { N8nWorkflowView } from "./N8nWorkflow";
 import { ClassificationCorrection } from "./ClassificationCorrection";
 import { DecisionSummary } from "./DecisionSummary";
 import { CopyArtifactButton, ExportAnalysisButton } from "./ExportControls";
@@ -223,7 +225,7 @@ function ArtifactStatusRow({ entry }: { entry: ArtifactEntry }) {
 interface ArtifactPresenter {
   readonly title: string;
   readonly subtitle: string;
-  readonly render: (content: unknown) => ReactNode | null;
+  readonly render: (content: unknown, analysisId: string) => ReactNode | null;
 }
 
 const ARTIFACT_PRESENTERS: Readonly<Record<string, ArtifactPresenter>> = {
@@ -234,6 +236,17 @@ const ARTIFACT_PRESENTERS: Readonly<Record<string, ArtifactPresenter>> = {
       const suggestions = asPortfolioSuggestions(content);
       return suggestions === null ? null : (
         <PortfolioSuggestionsView suggestions={suggestions} />
+      );
+    },
+  },
+  n8n_workflow: {
+    title: "n8n workflow",
+    subtitle:
+      "An import file for n8n, with the guide beside it — a scaffold you finish by hand",
+    render: (content, analysisId) => {
+      const workflow = asN8nWorkflow(content);
+      return workflow === null ? null : (
+        <N8nWorkflowView workflow={workflow} analysisId={analysisId} />
       );
     },
   },
@@ -307,7 +320,7 @@ function ArtifactSection({
 }) {
   const rendered =
     entry.validation_status === "valid"
-      ? presenter.render(entry.content)
+      ? presenter.render(entry.content, analysisId)
       : null;
 
   return (

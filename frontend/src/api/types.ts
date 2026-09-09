@@ -270,6 +270,43 @@ export interface PortfolioProject {
   };
 }
 
+/** D-71 — the n8n import file, as stored. */
+export interface N8nWorkflow {
+  readonly name: string;
+  readonly nodes: readonly {
+    readonly name: string;
+    readonly type: string;
+    readonly typeVersion: number;
+    readonly parameters: Readonly<Record<string, unknown>>;
+    readonly notes?: string;
+  }[];
+  readonly connections: Readonly<Record<string, unknown>>;
+  readonly settings: Readonly<Record<string, unknown>>;
+  readonly naigx: {
+    readonly standing: "scaffold";
+    readonly platform: string;
+    readonly steps_mapped: number;
+    readonly steps_unmapped: readonly string[];
+  };
+}
+
+export const asN8nWorkflow = (content: unknown): N8nWorkflow | null => {
+  if (typeof content !== "object" || content === null) return null;
+  const c = content as Record<string, unknown>;
+  const naigx = c["naigx"];
+  if (
+    typeof c["name"] !== "string" ||
+    !Array.isArray(c["nodes"]) ||
+    typeof c["connections"] !== "object" ||
+    typeof naigx !== "object" ||
+    naigx === null ||
+    (naigx as Record<string, unknown>)["standing"] !== "scaffold"
+  ) {
+    return null;
+  }
+  return content as N8nWorkflow;
+};
+
 export interface PortfolioSuggestions {
   readonly projects: readonly PortfolioProject[];
   readonly consolidation_rationale: string;

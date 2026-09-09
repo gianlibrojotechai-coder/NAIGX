@@ -447,6 +447,7 @@ const renderMermaidDiagram = (document: unknown): ArtifactRender => {
 /** Human headings for the artifact types that have generators. */
 export const ARTIFACT_TITLES: Readonly<Record<string, string>> = {
   intent_brief: "Intent Brief",
+  n8n_workflow: "n8n Workflow (import file)",
   skill_gap_analysis: "Skill Gap Analysis",
   portfolio_suggestions: "Portfolio Suggestions",
   interview_guidance: "Interview Guidance",
@@ -494,10 +495,47 @@ const renderIntentBrief = (document: unknown): ArtifactRender => {
   return { rendered: true, lines };
 };
 
+/**
+ * D-71 — the import file is the artifact; the document lists what it holds
+ * and where to get it. The JSON itself is downloaded from the analysis view,
+ * not printed: a ten-node workflow is ~400 lines that a PDF reader cannot
+ * import anyway.
+ */
+const renderN8nWorkflow = (document: unknown): ArtifactRender => {
+  if (!isRecord(document)) return unrenderable("n8n_workflow");
+  const nodes = list(document.nodes).filter(isRecord);
+  const naigx = isRecord(document.naigx) ? document.naigx : {};
+  const steps = nodes.filter(
+    (n) => str(n.type) !== "n8n-nodes-base.stickyNote",
+  );
+  if (steps.length === 0) return unrenderable("n8n_workflow");
+  const lines: string[] = [
+    "*An n8n import file (Workflows → Import from File), downloadable from the analysis view. It is a scaffold: node types and wiring import as-is; every node's parameters are set by the builder from the note beside it.*",
+    "",
+    `**Nodes, in order** (${String(int(naigx.steps_mapped) ?? steps.length)} of ${String(steps.length)} mapped to a known n8n node):`,
+    "",
+  ];
+  steps.forEach((node, index) => {
+    const name = str(node.name) ?? "node";
+    const type = (str(node.type) ?? "").replace("n8n-nodes-base.", "");
+    const purpose = str(node.notes);
+    lines.push(
+      `${String(index + 1)}. **${name}** (${type})${purpose === null ? "" : ` — ${purpose}`}`,
+    );
+  });
+  const unmapped = strList(naigx.steps_unmapped);
+  if (unmapped.length > 0) {
+    lines.push("", `Placeholders to replace by hand: ${unmapped.join(", ")}.`);
+  }
+  lines.push("");
+  return { rendered: true, lines };
+};
+
 const RENDERERS: Readonly<
   Record<string, (document: unknown) => ArtifactRender>
 > = {
   intent_brief: renderIntentBrief,
+  n8n_workflow: renderN8nWorkflow,
   portfolio_suggestions: renderPortfolioSuggestions,
   workflow_recommendation: renderWorkflowRecommendation,
   risk_assessment: renderRiskAssessment,

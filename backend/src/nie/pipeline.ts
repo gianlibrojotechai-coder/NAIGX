@@ -51,6 +51,11 @@ import {
 } from "./stages/artifact-planning.js";
 import { parsePortfolioSuggestions } from "./stages/portfolio-suggestions.js";
 import {
+  n8nProjectOf,
+  planN8nWorkflow,
+  renderN8nWorkflow,
+} from "./stages/n8n-workflow.js";
+import {
   classificationEvent,
   insufficientContextEvent,
   planEvent,
@@ -1238,14 +1243,37 @@ export function createPipeline(deps: PipelineDependencies) {
         regenerationTriggered: portfolioAttempts > 1,
       });
 
+      // D-71 — the n8n import file, rendered from the portfolio's
+      // implementation plan. Planned here, at Stage 9, when the plan exists
+      // (like the brief at Stage 2): a decision either way, so an analysis
+      // whose project is not on n8n shows an omission with its reason.
+      const n8nPlan = planN8nWorkflow(
+        outcome === "generated" ? portfolioSuggestions : undefined,
+      );
+      emit(input.analysisId, planEvent(n8nPlan));
+      await deps.resultSink?.persistArtifactPlan?.(input.analysisId, n8nPlan);
+      const n8nProject =
+        portfolioSuggestions === undefined
+          ? null
+          : n8nProjectOf(portfolioSuggestions);
+      const n8nEntries = await emitDerivedArtifacts(
+        input,
+        n8nPlan,
+        n8nProject === null
+          ? {}
+          : { n8n_workflow: () => renderN8nWorkflow(n8nProject) },
+        portfolioTraceId === null ? {} : { traceId: portfolioTraceId },
+      );
+
       return {
         classification,
         intent,
         context,
         recommendation,
-        artifactPlan: withBrief(
-          withOutcome(artifactPlan, "portfolio_suggestions", outcome),
-        ),
+        artifactPlan: withBrief([
+          ...withOutcome(artifactPlan, "portfolio_suggestions", outcome),
+          ...n8nEntries,
+        ]),
         ...(portfolioSuggestions !== undefined ? { portfolioSuggestions } : {}),
       };
     }

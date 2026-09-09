@@ -129,7 +129,9 @@ These are standing instructions given explicitly. **They override default thorou
 
 | `docs/45` **D-70** | **The n8n implementation plan** in Stage 9's portfolio artifact — a fragment change taken through the gate: capture ($1.0644, two attempts), admission, targeted reference `6e1e63a24da922a9`, schemas v2. Built, gate-green; **DEPLOYED 2026-09-10** with D-68 as `d69c2bdaba6b` at `a5377fe` |
 
-**Numbering convention: the next standalone record is `docs/46` D-71.** Nothing is currently owed.
+| `docs/46` **D-71** | **The n8n workflow scaffold** — a seventh artifact: the implementation plan as a file n8n imports, one node per step wired in order with a sticky note per node (purpose, setup, credential) and a README stating it is a scaffold. Rendered, deterministic, no prompt change. Built, gate-green |
+
+**Numbering convention: the next standalone record is `docs/47` D-72.** Nothing is currently owed.
 
 ⚠️ **D-63 without its §7 amendment is actively wrong.** The original decision made the runner re-resolve recordings against authored fragments, which invalidated **10 of 13** committed recordings the moment authored content drifted. The amendment separates **replayability** from **evidential currency**: a recording that carries its own captured composition replays against *that* and is never stale for replay; only the activation gate asks the currency question. Read §7 before touching anything in `src/regression/`.
 

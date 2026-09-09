@@ -543,6 +543,9 @@ export const ARTIFACT_TYPES = [
   // Not in `PATH_ARTIFACT_TYPES`: it is planned at Stage 2, not Stage 8, and
   // a path planner that listed it would plan it twice.
   "intent_brief",
+  // D-71: rendered at Stage 9 from the portfolio's implementation plan —
+  // planned there, like the brief at Stage 2, so not in PATH_ARTIFACT_TYPES.
+  "n8n_workflow",
   // Job-description path (`docs/12` D-29).
   "skill_gap_analysis",
   "portfolio_suggestions",
@@ -592,6 +595,7 @@ export const PATH_ARTIFACT_TYPES: Readonly<
 /** The generators that exist. Phase 3A ships one (`docs/12` D-29). */
 export const IMPLEMENTED_ARTIFACT_TYPES = [
   "intent_brief",
+  "n8n_workflow",
   "portfolio_suggestions",
   "workflow_recommendation",
   "risk_assessment",
