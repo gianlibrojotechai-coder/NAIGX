@@ -1,6 +1,6 @@
 # NAIGX — Session Handoff
 
-**Written:** 2026-09-08 · **Last updated:** 2026-09-09 (M-19 CLOSED — alert delivery verified at the receiver; off-site sync preserved in `deploy/offsite/`)
+**Written:** 2026-09-08 · **Last updated:** 2026-09-09 (M-20 measured LIVE and NOT MET; provider credits exhausted mid-sample; `NFR-021` confirmed absent on the VPS)
 **Purpose:** hand a new chat session everything it needs to continue building NAIGX without re-deriving context or re-litigating settled decisions.
 
 > **Read this first, then `docs/STATUS.md`.** STATUS.md is the authoritative current-state record. This file covers the most recent working sessions, and the exact next step.
@@ -65,7 +65,7 @@ These are standing instructions given explicitly. **They override default thorou
 | **M-17** Accessibility | **Implemented, NOT verified.** 4 violations fixed, axe running. The manual WCAG walk is unwalked |
 | **M-18** Security | **Reviewed, NOT passed.** `NFR-027` found and fixed; `DB §13.1` app-level encryption implemented against a **host-held key file** (D-61 retired AWS KMS). ✅ Its key-file **fail-closed mechanism is now verified on the VPS** (D-61 §8) — H-2 and the milestone still open |
 | **M-19** Deployment | ✅ **CLOSED 2026-09-09.** Deploy ✅ (ready, four paths serving recorded inputs) · monitoring ✅ (Prometheus scraping, `health: up`) · alerting ✅ (owner-authorised test alert delivered to the ntfy receiver in 30 s, read back from the topic) · verified rollback ✅ (production drill, ~1.7 s / ~2.0 s) · restore drill ✅ on production data and from off-site. `STATUS.md` → Completed. ⚠️ Replay mode; migration-crossing rollback not exercised; device receipt of the alert is the owner's to confirm |
-| **M-20** Performance | **Measured and written up, milestone NOT passed.** `NFR-003`/`004`/`005` pass; `NFR-001`/`NFR-002` are **UNMEASURED** and that is M-20's own criterion. D-58 defines the bar. See §7b |
+| **M-20** Performance | **NOT PASSED — now on evidence.** ✅ `NFR-001`/`NFR-002` **measured live 2026-09-09** (owner-authorised, $1.1319): full completion **p50 74.3 s / p95 161.6 s** (n=8, budget 60/120); first artifact **p50 85.3 s / p95 161.6 s** (n=4, budget 15/40). Both over budget at p50; `NFR-001` is structurally out of reach for this pipeline shape. ⚠️ Sample cut short at 11 attempts by **provider credit exhaustion** — the owner's account, not the cap. `docs/performance/M-20-LATENCY-LOG.md` §7. **What closes it is a requirements decision**, see §7b |
 
 ### Sprint 5 deliverables still outstanding
 
@@ -307,7 +307,45 @@ provider adapter never left the process.
 
 ---
 
-## 7b. M-20 — done as an increment, open as a milestone
+## 7b. M-20 — measured live 2026-09-09, NOT MET, and now a decision
+
+✅ **`NFR-001`/`NFR-002` were measured live on 2026-09-09** under the owner's
+US$10 continuation cap, per D-58 §4 option 1 — the deployed build (`1da10e3`),
+the production fragment composition (published to the dev DB through the gate
+with `d4abcd42626452df`), Sonnet 4.5 at pricing re-verified that day, one
+analysis at a time. **Both are NOT MET:**
+
+| | Budget | Measured (M-16 formula) | n |
+|---|---|---|---|
+| `NFR-002` full completion | 60 s p50 / 120 s p95 | **74.3 s / 161.6 s** | 8 completed |
+| `NFR-001` first artifact | 15 s p50 / 40 s p95 | **85.3 s / 161.6 s** | 4 with an artifact |
+
+`docs/performance/M-20-LATENCY-LOG.md` §7 has the apparatus, every run, and
+the evidence files under `docs/performance/evidence/`. Two things to carry:
+
+- ⚠️ **`NFR-001` is structurally out of reach for this pipeline's shape.** No
+  artifact exists before Stage 6/7 reasoning completes; the JD path's only
+  artifact is Stage 9, the last call; `business_requirement` produces none.
+  Stages 1–3 alone take ~45 s. It cannot be met by a faster model. **Closing
+  M-20 is a requirements/architecture decision — `NFR-001`'s definition and
+  `NFR-002`'s target — and it is the owner's.** No D-record was written.
+- ⚠️ **The sample is 8, not 30, because the provider account's credit balance
+  ran out mid-run** — 11 attempted, 19 rejected at zero cost. Spent
+  **$1.1319**; $8.87 of the cap remains and is unusable until the owner adds
+  credits (an account purchase; not something this session can do).
+  Completing the sample would cost ~$2.5 and sharpen the p95, not change the
+  verdict.
+
+Also observed, recorded not fixed: one Stage 3 failure where the model emitted
+`category: "unknown"` (outside the enum — a live schema-conformance miss on
+Sonnet 4.5), and one run where every stage succeeded but the 180 s executor
+deadline fired during a 132 s Stage 9, so the user sees `timed_out` for work
+that finished.
+
+**Constraints honoured:** no replay number substituted; no implementation
+change; the measurement criteria are D-58's as written.
+
+### The replay-mode increment (2026-09-08) — still true, now the floor
 
 **M-20 is complete as an increment and open as a milestone.** Both halves are
 true at once, and collapsing them in either direction misrepresents it.
@@ -550,7 +588,7 @@ Two mechanisms, because neither covers both directions:
 
 | Constraint | Source |
 |---|---|
-| **No provider spend without per-case authorisation.** ⚠️ AMENDED 2026-09-09: the owner authorised **$1.7121** across the evidence campaign, case by case, each with a stated ceiling. The default is still no spend — but the mechanism is now `--budget=` plus an explicit approval, not a blanket prohibition. **Budget is frozen again; nothing further is authorised.** | Owner, repeatedly |
+| **No provider spend without authorisation.** ⚠️ AMENDED 2026-09-09 (evening): the owner replaced per-case approval with a **US$10 cap for the Sprint 5 continuation**, "only when necessary", free verification preferred where it measures the same thing, no subscriptions or recurring infrastructure. **Spent under it: $1.1319** (the M-20 live sample, 63 invocations). **Remaining: $8.87 — but UNUSABLE**: the provider account's credit balance is exhausted (`400 invalid_request_error: Your credit balance is too low`), which only the owner can change. Earlier campaign spend: $1.7121, case by case. Project cumulative: **$3.83** across all live work recorded in `STATUS.md` and the campaign. | Owner, 2026-09-09 |
 | ~~**Prompt fragments stay inactive.**~~ ✅ **SUPERSEDED 2026-09-09** — the owner authorised publication with `d4abcd42626452df`; 15 versions are active in production through the unchanged gate. D-39's *principle* stands: nothing further activates without a covering reference and an authorisation. | **D-39**, owner 2026-09-09 |
 | **No M-08 packet review, no rubric verdicts.** AI review excluded "in any capacity, for any criterion". | `docs/10` §4.3 |
 | **Do not implement `platform_recommendation`** / expand `business_requirement`. | Owner, explicit |
@@ -572,7 +610,7 @@ Two mechanisms, because neither covers both directions:
 | **Do not implement `API-071`/`072`/`073`.** Operator auth existing is not a licence. | **D-48** §5 |
 | **M-17 is not passed on a green axe run**; the manual walk is required. | **D-49** §3.3 |
 | **M-18 is not passed**, and must not be described as an independent review. | Owner, explicit |
-| **`M-20` stays NOT PASSED. `NFR-001`/`NFR-002` stay explicitly UNMEASURED** unless provider spend is authorised. | Owner, explicit, 2026-09-08 |
+| **`M-20` stays NOT PASSED.** ✅ `NFR-001`/`NFR-002` are now **MEASURED** (2026-09-09, live, D-58 methodology) and **NOT MET**. Do not report them as unmeasured any more, and do not report them as met. | Owner, 2026-09-08; measured 2026-09-09 |
 | **Never substitute replay latency for a provider-dominated metric.** Replay numbers describe this system's overhead and nothing else. | Owner, explicit, 2026-09-08 |
 | **Make no implementation change whose purpose is to manufacture M-20 evidence.** | Owner, explicit, 2026-09-08 |
 | **Keep the `bench.ts` status-code assertion.** It is a regression guard, not scaffolding — it is what exposed `/health` answering 503. Do not remove or weaken it. | Owner, explicit, 2026-09-08 |
