@@ -7,10 +7,14 @@ performed elsewhere, because it exercises the actual host, the actual data
 volume, and the actual migration state."* `TM-17` and `SA §9.3` require rollback
 verified, not assumed.
 
-⚠️ **THE PRODUCTION DRILL HAS NOT HAPPENED AND CANNOT YET.** No production
-deployment exists. What follows is a *rehearsal against the development
-database*, which establishes some things and explicitly does not establish
-others. `M-19`'s rollback criterion is **not met**.
+✅ **THE PRODUCTION DRILL WAS PERFORMED ON 2026-09-09** — see *Production
+drill* below. All four of "what verified requires" were met, with the
+observed numbers. The rehearsal section that follows is kept because the
+finding it records (D-57) is what made the production drill safe to attempt.
+
+⚠️ **This discharges the rollback criterion only.** `M-19` still has the
+off-host backup verification and the other items in `SESSION-HANDOFF.md` §7;
+the milestone is not claimed here.
 
 ---
 
@@ -150,4 +154,97 @@ All four, or the criterion is not met:
 
 | Date | From → to | Downtime | Content readable | Result |
 |---|---|---|---|---|
-| — | — | — | — | **Not yet performed. No production deployment exists.** |
+| 2026-09-09 | `1da10e3` (`14c8321f5b9b`) → `56d7269` (`83d3d5288359`), then forward again | **~1.7 s** back, **~2.0 s** forward (public readiness, 250 ms polling: one `502` window each) | ✅ existing analysis + Markdown export identical before/during/after; a fresh submission completed on the rolled-back build | **PASS** — all four criteria |
+
+## Production drill — 2026-09-09 (UTC), the live VPS
+
+Owner-authorised. Performed against the deployment at `https://naigx.tech`,
+the actual data volume (6 analyses at the moment of rollback, 1 encryption
+key, data format 2), and the actual migration state. **n8n and Traefik were not touched**; the edge image
+was unchanged between the two releases and was not swapped.
+
+### Which two releases, and why
+
+| | Build | What it lacks relative to the other |
+|---|---|---|
+| **Current** ("new release") | `1da10e3` — image `14c8321f5b9b` | — |
+| **Rollback target** ("previous release") | `56d7269` — image `83d3d5288359` | no `/app/schemas`, no `dist/ops/schemas.js` — the release actually deployed immediately before |
+
+⚠️ **The rollback target had to be rebuilt from source.** `/etc/cron.d/docker-image-prune`
+removes dangling images, and every `up -d --build` re-tags `latest`, so no
+previous image survived on the host. It was rebuilt in a detached
+`git worktree` at `56d7269` and tagged `naigx-backend:rollback-target`; that
+tag is **kept** on the host as a known-good rollback point. **Keep previous
+images tagged at deploy time** so a real rollback does not need a build.
+
+**Floor check (D-57 §4):** stored `data_format` = **2**; the target image's
+`SUPPORTED_DATA_FORMAT` = **2**. Both releases read the sealed columns. This is
+a rollback *within* the floor — the only kind D-57 permits — and the startup
+guard logged `stored: 2, supported: 2` on both.
+
+**Fresh dump first:** `naigx-backup once` → `naigx-20260909T080520Z.dump`
+(284K) + trace (236K), and the restore drill was run on them **before** the
+rollback ([RESTORE-DRILL-LOG](RESTORE-DRILL-LOG.md)).
+
+### What was run, in order
+
+```
+docker tag naigx-backend:latest naigx-backend:pre-drill          # 14c8321f5b9b
+git worktree add --detach /opt/naigx-rollback 56d7269
+docker build -t naigx-backend:rollback-target /opt/naigx-rollback/backend   # 83d3d5288359
+# --- ROLL BACK ---
+docker tag naigx-backend:rollback-target naigx-backend:latest
+docker compose ... up -d --no-build                              # 08:07:29.966 → 08:07:31.020
+# --- verify, then FORWARD ---
+docker tag naigx-backend:pre-drill naigx-backend:latest
+docker compose ... up -d --no-build                              # 08:10:22.176 → 08:10:23.350
+```
+
+### The four things "verified" requires — observed
+
+1. **The previous release started against the current schema.** Backend
+   recreated on `83d3d5288359`; startup logged `Field encryption active
+   provider=key-file … keyVersion=1`, `Data format stored: 2, supported: 2`,
+   `Replay corpus loaded … fixtures: 54, excluded: []`; in-container and
+   public readiness **200** within 25 s.
+2. **Existing analysis content rendered correctly.** An analysis created under
+   the current release *before* the drill (`d8839cfc…`, `technical_assessment`,
+   18 context elements, 2 generated artifacts) was retrieved on the rolled-back
+   build with identical fields, and its Markdown export was **200, 14,790
+   characters** — the same length as before and after — with no `naigx.v1.`
+   envelope text anywhere in it. ⚠️ The export omits the raw input by design,
+   so the cipher was exercised directly: a fresh `br-001` submission on the
+   rolled-back build **completed** (`9272b46a…`), which requires opening the
+   sealed `raw_content` it had just written through the same key ring the
+   current release uses. A `jd-002` submission on the rolled-back build
+   completed with `portfolio_suggestions: failed` — **expected**: that release
+   lacks the schema files, which is precisely what the forward release fixed.
+   The rollback reproduced the known limitation rather than hiding it.
+3. **Observed downtime.** Public `GET /health?check=readiness` through
+   Traefik → Caddy → backend, polled every 250 ms from outside the host:
+   - rollback: `200` until 08:07:30.632, `502` until 08:07:32.294, then `200`
+     — **~1.7 s**
+   - forward: `200` until 08:10:22.599, `502` until 08:10:24.560, then `200`
+     — **~2.0 s**
+   A single-instance container swap; the outage is the process restart plus
+   startup, during which the edge answers 502 rather than hanging.
+4. **Forward deployment worked afterwards.** Backend back on `14c8321f5b9b`;
+   `/app/schemas` 5 files, `dist/ops/schemas.js` present, readiness 200; a
+   `jd-002` submission completed with `portfolio_suggestions: generated`
+   (`7c89b440…`); the pre-drill analysis and its export unchanged.
+
+### Cost of the drill
+
+Four anonymous analyses were created in production (`d8839cfc`, `9272b46a`,
+`a8ba9890`, `7c89b440`); they expire under D-45. Provider spend: **$0.00** —
+every run was replay. The `pre-drill` tag was removed (it was `latest`); the
+worktree was removed; `naigx-backend:rollback-target` remains.
+
+### What this does not establish
+
+- Nothing about a rollback **below** the deployable floor. That is not a
+  rollback (D-57 §4) and was not attempted.
+- Nothing about a rollback that includes a **migration**. None of the
+  releases involved changed the schema, so `SA §9.3`'s reversible-migration
+  property was not exercised here.
+- Nothing about the edge image, which was identical across both releases.

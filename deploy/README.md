@@ -20,15 +20,21 @@ self-hosted PostgreSQL per [D-51](../docs/26-D-51-Self-Hosted-PostgreSQL.md).
 | `NFR-082` — error rate, latency percentiles, completion rate monitored with thresholds | **Implemented and verified** end to end (scrape → rule → annotation → delivery) |
 | `NFR-085` — alert on completion rate below the `NFR-010` 95% threshold | **Implemented and verified.** Observed firing with a rendered message on live data |
 | `D-51` §4 — scheduled dumps of both databases, 7-day rotation | **Implemented** |
-| `D-51` §4 — restore drill, recorded with a date | **Performed and recorded** — [RESTORE-DRILL-LOG](../docs/deployment/RESTORE-DRILL-LOG.md). ⚠️ Development database, not production |
-| `D-50` §4 — verified production rollback drill | **NOT DONE.** Rehearsed only — [ROLLBACK-DRILL-LOG](../docs/deployment/ROLLBACK-DRILL-LOG.md) |
+| `D-51` §4 — restore drill, recorded with a date | ✅ **Performed on PRODUCTION data 2026-09-09**, twice — from local staging and from the off-site copies — [RESTORE-DRILL-LOG](../docs/deployment/RESTORE-DRILL-LOG.md) |
+| `D-50` §4 — verified production rollback drill | ✅ **Performed on the production deployment 2026-09-09** — `1da10e3` → `56d7269` → forward; ~1.7 s / ~2.0 s outage windows; all four criteria — [ROLLBACK-DRILL-LOG](../docs/deployment/ROLLBACK-DRILL-LOG.md) |
 | `NFR-031` — data policy accessible before first submission | **Implemented and verified** by an automated check |
-| `D-51` §4 — backups stored off the deployment host | **Configuration, unverifiable here.** A property of where `NAIGX_BACKUP_DIR` points |
+| `D-51` §4 — backups stored off the deployment host | ✅ **Verified 2026-09-09.** Host-only `naigx-offsite-sync` (systemd hourly timer) encrypts each dump with `/etc/naigx/keys/backup.key` and uploads to `gdrive:naigx-backups`; the copies were pulled back, decrypted, SHA-256-matched and restore-drilled. ⚠️ The script and units are **not in this repository** — see the log |
 
 ### ⚠️ What is NOT verified
 
-**The rollback drill has not happened.** [D-50](../docs/25-D-50-Deployment-Topology.md) §4
-requires it on the production deployment, which does not exist.
+**Alert delivery to a person on this host.** The mechanism was verified against
+a webhook receiver on 2026-09-07 (below); the *deployed* Alertmanager has not
+yet been shown to reach the configured receiver. Step 6 of *First deploy* is
+the check, and it has not been run on the VPS.
+
+**A rollback that crosses a migration.** Both releases in the drill shared the
+schema, so `SA §9.3`'s reversible-migration property has not been exercised in
+production.
 
 The rehearsal found a real incompatibility, and it has since been **fixed**
 ([D-57](../docs/32-D-57-Rollback-Across-A-Data-Format-Change.md)): rolling back
@@ -41,9 +47,8 @@ the data is newer than the build.
 > columns.** Rolling back past it fails visibly rather than silently — check
 > the floor before attempting any rollback (D-57 §4).
 
-**The restore drill ran against the development database.** The mechanism is
-proven; the obligation is not discharged until a drill runs against a real
-backup of deployed data.
+~~**The restore drill ran against the development database.**~~ Discharged
+2026-09-09 on production data, including from the off-site copies.
 
 ### Monitoring, verified
 
@@ -267,8 +272,10 @@ C=(docker compose -f docker-compose.prod.yml --env-file deploy/.env)
 
 # 7. ⚠️ THE RESTORE DRILL. A completed backup is not a verified backup.
 #    Record the result in docs/deployment/RESTORE-DRILL-LOG.md.
-"${C[@]}" exec postgres bash /usr/local/bin/naigx-backup once
-"${C[@]}" exec postgres bash /usr/local/bin/naigx-restore-drill
+#    ⚠️ Both run in the BACKUP container (the postgres container has neither
+#    script). The drill is piped in from the checkout — it is mounted nowhere.
+docker exec naigx-backup bash /usr/local/bin/naigx-backup once
+docker exec -i -e BACKUP_DIR=/backups naigx-backup bash -s < deploy/restore-drill.sh
 
 # 8. ⚠️ THE ROLLBACK DRILL, before announcing the deployment (D-50 §4).
 #    Procedure and the four things "verified" requires:

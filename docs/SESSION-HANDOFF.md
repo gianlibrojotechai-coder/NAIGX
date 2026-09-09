@@ -1,6 +1,6 @@
 # NAIGX — Session Handoff
 
-**Written:** 2026-09-08 · **Last updated:** 2026-09-09 (deploy — fragments published, schemas published, instance READY and serving all four paths)
+**Written:** 2026-09-08 · **Last updated:** 2026-09-09 (drills — production rollback and restore drills PASSED, off-host restore verified; M-19 still open on alert delivery)
 **Purpose:** hand a new chat session everything it needs to continue building NAIGX without re-deriving context or re-litigating settled decisions.
 
 > **Read this first, then `docs/STATUS.md`.** STATUS.md is the authoritative current-state record. This file covers the most recent working sessions, and the exact next step.
@@ -15,7 +15,11 @@
 >
 > ⚠️ **A second provisioning defect was found DURING the deploy and fixed the same day** (§5): the artifact schemas had never been published and the image never carried them, so the first `jd-002` submission failed at Stage 9 *after* readiness said 200. `business_requirement` had hidden it. `br-001` alone would have passed the deploy check.
 >
-> ⚠️ **READY IS NOT GENERAL.** A replay instance serves exactly the 15 corpus inputs it holds recordings for, byte for byte, and fails anything else at Stage 1 without reaching a provider (D-62 §5). No milestone closed on this: M-19's drills, M-20's two latencies, M-08, M-17 and M-18 are exactly as open as before.
+> ⚠️ **READY IS NOT GENERAL.** A replay instance serves exactly the 15 corpus inputs it holds recordings for, byte for byte, and fails anything else at Stage 1 without reaching a provider (D-62 §5).
+>
+> ✅ **THE M-19 DRILLS WERE PERFORMED ON PRODUCTION, 2026-09-09, owner-authorised** — [ROLLBACK-DRILL-LOG](deployment/ROLLBACK-DRILL-LOG.md), [RESTORE-DRILL-LOG](deployment/RESTORE-DRILL-LOG.md). Rollback `1da10e3` → `56d7269` → forward, **~1.7 s / ~2.0 s** outage windows, all four criteria met. Restore drill on production data **passed twice** — from local staging and from the **off-site copies pulled back from Google Drive**, decrypted, SHA-256-matched. Provider spend $0.00; n8n and Traefik untouched.
+>
+> ⚠️ **M-19 IS STILL OPEN.** Its criterion is *"production deploy with monitoring, alerting, and verified rollback"*. Deploy ✅, monitoring ✅ (Prometheus on the host scrapes the backend, `health: up`), rollback ✅ — **alert delivery to a real receiver on the host has not been shown** (`deploy/README.md` first-deploy step 6, never run on the VPS). M-20, M-08, M-17, M-18 are exactly as open as before. **Two open issues were recorded, not fixed:** `API-060` does not probe artifact schemas, and the off-site sync script lives only on the host (`STATUS.md` → Open).
 >
 > ⚠️ **Read §7a's three thin points before claiming anything about quality.** `stage.portfolio_suggestions` rests on **one** recording produced by a **non-deterministic** verdict; four of the five input types are evidenced by one or two cases; and `br-006`/`br-008` were **withdrawn**, not fixed.
 >
@@ -76,9 +80,9 @@ These are standing instructions given explicitly. **They override default thorou
 - ~~**▶ Redeploy again.**~~ ✅ **DONE 2026-09-09.** Host `34ce193` → `1da10e3` = `origin/main`, twice in one session (the second to ship the schema fix below). Marker `Replay corpus loaded` = 1; readiness 200.
 - ✅ **ALSO DONE, unplanned: the artifact schemas.** Zero `artifact_schema` rows in production and no `schemas/` in the image — §5, third instance of the `tsx`-script defect. `src/ops/schemas.ts` + Dockerfile + `schemas` compose service; *Published 5; 0 unchanged*; `check` clean. ⚠️ This was a third production write, made under the redeploy authorisation because the deployment could not serve three of four paths without it; recorded here so it is visible rather than folded in.
 - ~~**`REPLAY_FIXTURES` is a hardcoded empty object**~~ ✅ **DONE 2026-09-09 (night).** `backend/src/regression/replay-corpus.ts` loads every canonical recording whose captured composition the **published** fragments reproduce, merges their fixtures into one replay adapter, and readiness reads the same object. `research/` is now mounted read-only into the `backend` compose service. Verified against the real store with the authored composition: **15 served, 0 excluded, 54 fixtures** (⚠️ an earlier edition said 55 — arithmetic error; 54 is the sum of recorded stages), and jd-002 runs through the production pipeline to a produced Stage 9 artifact. Verified as the **compiled** entrypoint against the local dev database: readiness 200, 3 legacy recordings served and 12 excluded with the exact reason (the dev DB holds the old active composition). ⚠️ It loads **once, at startup** — publish first, then rebuild/restart.
-- **A production rollback drill** — needs a deployed instance, which now exists. Newly *possible*, still undone.
-- **A restore drill against production data** — the mechanism is proven on dev data; backups are running on the host.
-- **Off-host backup storage** — `rclone` is installed with a `gdrive:` remote configured, but the remote is **empty** and the automated cycle does not upload. Encryption-before-upload exists; the upload leg does not run.
+- ~~**A production rollback drill**~~ ✅ **DONE 2026-09-09.** [ROLLBACK-DRILL-LOG](deployment/ROLLBACK-DRILL-LOG.md). ⚠️ The previous image had to be **rebuilt from source** — a cron prunes dangling images and nothing tags the outgoing release. `naigx-backend:rollback-target` (`56d7269`) is now kept on the host; tag every outgoing release at deploy time.
+- ~~**A restore drill against production data**~~ ✅ **DONE 2026-09-09, twice** — [RESTORE-DRILL-LOG](deployment/RESTORE-DRILL-LOG.md). ⚠️ The runbook's `exec postgres bash /usr/local/bin/naigx-restore-drill` **never existed in any container**; the drill is piped into `naigx-backup`. Corrected in both the log and `deploy/README.md`.
+- ~~**Off-host backup storage**~~ ✅ **VERIFIED 2026-09-09 — and the previous edition was STALE.** The remote is not empty and the upload leg does run: a host-only `naigx-offsite-sync` (script + systemd hourly timer, `RandomizedDelaySec=300`) encrypts each dump with `backup.key` (`openssl aes-256-cbc -pbkdf2 -iter 200000`), uploads to `gdrive:naigx-backups`, verifies by read-back, prunes both sides at 7 days, and alerts via an `ntfy` URL file on every failure path; the journal shows every hourly run since 2026-09-08 succeeding. The 2026-09-09 dumps were pulled **back** from the remote, decrypted, SHA-256-matched to staging and restore-drilled. ⚠️ **The concrete remaining step is not an upload step.** It is that the script and its two units are **not in this repository** (`STATUS.md` → Open); nothing was changed on the host beyond one manual `systemctl start` of the existing unit.
 - **~$8 of provider spend, or an explicit decline** — the other way `M-20` closes (D-58 §4). A decision, not a task. Now also reachable free, via production traffic.
 - **M-17 manual WCAG walk** — needs a person with a screen reader. Unowned.
 - **M-08 rubric review** — needs a human reviewer. Unowned, carried from Sprint 2.
@@ -521,11 +525,11 @@ Its criterion is **"production deploy with monitoring, alerting, and verified ro
 | ~~KMS unverified~~ | ✅ **RETIRED.** D-61 removed the dependency; `kms-live.test.ts` deleted, not left skipping |
 | ~~The instance is NOT READY~~ | ✅ **CLOSED 2026-09-09.** `GET /health` → **200**; 15 fragments active under `d4abcd42626452df`; 5 schemas published; 15 recordings / 54 fixtures served; four recorded inputs completed through the public API, one per path. §7a. ⚠️ Ready in **replay** mode — the 15 corpus inputs, nothing else |
 | ~~The deployed build is behind `main`~~ | ✅ **CLOSED 2026-09-09.** Host rebuilt to `34ce193` after pushing `main`. Marker `0` → `1`; `provider` now answers with D-62's replay message. The prerequisite is discharged — it did not, and could not, make the instance ready |
-| **Rollback drill NOT done** | D-50 §4 requires it *on production*. Now *possible* for the first time. ✅ The blocker it surfaced is fixed (D-57), but the drill is still unattempted: [ROLLBACK-DRILL-LOG](deployment/ROLLBACK-DRILL-LOG.md) |
-| **Restore drill was on dev data** | Mechanism proven. Backups **are running on the host** — `naigx-backup` wrote both dumps at 10:50Z and reported a clean cycle — so a production restore drill is now reachable |
-| **Off-host backup storage** | ⚠️ **Half done.** `rclone` is installed with a `gdrive:` remote and the encrypted `.enc` dumps exist on disk, but `rclone ls gdrive:` is **empty** and the automated cycle does not upload. A backup on the same host is not an off-host backup |
+| ~~Rollback drill NOT done~~ | ✅ **CLOSED 2026-09-09.** Performed on production: `1da10e3` → `56d7269` → forward, ~1.7 s / ~2.0 s public 502 windows, previous release started on the current schema, existing content and export identical, fresh submission completed on the rolled-back build, forward deploy verified with `jd-002` generating its artifact. [ROLLBACK-DRILL-LOG](deployment/ROLLBACK-DRILL-LOG.md). ⚠️ Not exercised: a rollback across a migration |
+| ~~Restore drill was on dev data~~ | ✅ **CLOSED 2026-09-09.** Production dumps restored into scratch on the production server, all 9 counts matched, envelope intact — from local staging (5 analyses) and again from the off-site copies (9 analyses). [RESTORE-DRILL-LOG](deployment/RESTORE-DRILL-LOG.md) |
+| ~~Off-host backup storage~~ | ✅ **CLOSED 2026-09-09.** The previous row was stale: the hourly `naigx-offsite-sync` unit has uploaded every cycle since 2026-09-08. Off-site copies pulled back, decrypted by key path, SHA-256-identical to staging, restore-drilled. ⚠️ Open issue: the script and units are host-only, not in the repo |
 | ~~Key-file permissions unverified on a POSIX host~~ | ✅ **CLOSED 2026-09-09.** Both *FAILS CLOSED* tests **ran and passed on the VPS** — 11 tests, **0 skipped**. D-61 §8. ⚠️ Verifies the code path, not the deployed file's mode |
-| **Alert delivery to a real person** | Verified as a mechanism. Alertmanager starts happily with an unreachable receiver — still a first-deploy check |
+| **Alert delivery to a real person** | ⚠️ **THE ONE M-19 CHECK STILL OPEN.** Verified as a mechanism 2026-09-07. On the host (2026-09-09, read-only): Prometheus scrapes `backend:3000/internal/metrics` with `health: up`; Alertmanager holds one webhook receiver; no alert is firing. The deployed receiver has never been shown to deliver — `deploy/README.md` first-deploy step 6 is the check, and it was **deliberately not run** in the drill session because it pages the owner's receiver and was outside the authorised scope |
 
 ### ✅ Phase 4a — the rollback/encryption incompatibility, fixed *(done)*
 
@@ -751,6 +755,8 @@ check.** Admission is a decision; the drift error is the difference between
 
 | Commit | What |
 |---|---|
+| *(next)* | **The M-19 drills** — rollback and restore logs filled in from production, runbook path corrected, off-host mechanism recorded, two open issues added to `STATUS.md`. Documentation only; the deployed build is unchanged |
+| `64651a0` | Record the deploy in the handoff |
 | `1da10e3` | **Ship the artifact schemas in the image; compiled `schemas` publisher** — the defect the deploy surfaced; **this is the deployed build** |
 | `56d7269` | Record the pushed state in the handoff |
 | `6afe6f4` | **Wire the replay corpus into the runtime; key Stage 9** — `REPLAY_FIXTURES` replaced by `replay-corpus.ts`, `research/` mounted into `backend`, the fourth capture/replay divergence fixed, runbook marker changed |
@@ -822,8 +828,8 @@ check.** Admission is a decision; the drift error is the difference between
 | `docs/accessibility/WCAG-AA-CHECKLIST.md` | The manual M-17 walk. **Result table is empty** |
 | `docs/security/M-18-SECURITY-REVIEW.md` | The M-18 review, with its H-2 correction visible |
 | `deploy/seccomp/README.md` | Why the seccomp profile exists and what it trades |
-| `docs/deployment/RESTORE-DRILL-LOG.md` | The restore drill — **passed on dev data**, production outstanding |
-| `docs/deployment/ROLLBACK-DRILL-LOG.md` | The rollback drill — **not attempted**; the incompatibility it found, and the fix |
+| `docs/deployment/RESTORE-DRILL-LOG.md` | The restore drill — **passed on PRODUCTION data 2026-09-09**, from staging and from the off-site copies; the working run command; the off-site decrypt parameters |
+| `docs/deployment/ROLLBACK-DRILL-LOG.md` | The rollback drill — **performed on production 2026-09-09**, all four criteria, with the outage windows; the 2026-09-07 rehearsal and D-57 kept beneath it |
 | `docs/33-D-58-Representative-Load.md` | What "representative load" means, and why `M-20` cannot pass on replay numbers |
 | `docs/35-D-60-Shared-Traefik-Edge.md` | Why NAIGX routes through the host's existing Traefik instead of binding 80/443 |
 | `docs/36-D-61-Host-Held-Key-File.md` | **The AWS dependency, removed.** What replaced it and what still has to be verified |
