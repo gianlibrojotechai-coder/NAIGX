@@ -699,7 +699,10 @@ weeks up.** D-60 routes NAIGX *through* that Traefik. Touch neither.
 committed, including the held and superseded recordings — paid evidence no
 longer sits untracked where a `git clean -xfd` could destroy it.
 
-⚠️ **`main` is 15 commit(s) ahead of `origin/main`** (local `0ae12cc`).
+✅ **`main` is PUSHED — `origin/main` = local `6afe6f4`, 0 ahead** (2026-09-09,
+night). The runbook's `git fetch origin && git merge --ff-only origin/main`
+will bring the host from `34ce193` to `6afe6f4`. Re-check before every
+redeploy anyway:
 
 ```
 git log --oneline origin/main..HEAD
@@ -730,6 +733,8 @@ check.** Admission is a decision; the drift error is the difference between
 
 | Commit | What |
 |---|---|
+| `6afe6f4` | **Wire the replay corpus into the runtime; key Stage 9** — `REPLAY_FIXTURES` replaced by `replay-corpus.ts`, `research/` mounted into `backend`, the fourth capture/replay divergence fixed, runbook marker changed |
+| `2c3928b` | Bring the handoff current: the evidence campaign, and what is actually left |
 | `0ae12cc` | **Admit the build_first jd-002** — all 15 fragments PERMITTED against `d4abcd42626452df` |
 | `07e5545` | Hold the build_first jd-002 — Stage 9 completed for the first time |
 | `a81b18f` | **Withdraw br-006/br-008, admit 11 held recordings** — 14 of 15 PERMITTED |
