@@ -24,6 +24,32 @@
  * and classification offline, with no key and no network (`AI-005` requires a
  * *continuously* passing test). The live path is covered separately and only
  * when a credential is explicitly configured.
+ *
+ * ## Model generations, and what each accepts ([D-65](../../../../docs/40-D-65-Structured-Outputs-And-Sonnet-5.md))
+ *
+ * The 2026-09-08 pilot of `claude-sonnet-5` failed 3 of 3 analyses on schema
+ * conformance and could not send `temperature: 0`. Both are properties of the
+ * model generation, verified against the migration guide on 2026-09-09:
+ *
+ *   · **Sampling parameters.** On the 5-generation models (`claude-sonnet-5`,
+ *     `claude-opus-5`, `claude-fable-*`, `claude-mythos-*`) any non-default
+ *     `temperature`, `top_p` or `top_k` returns **400**. `preferLowVariance`
+ *     therefore cannot be honoured there, and `AI §10.2` says what to do:
+ *     record the degradation rather than pretend. `lowVarianceSampling` is
+ *     declared per model, not per adapter.
+ *   · **Adaptive thinking** is on by default on those models and cannot be
+ *     given a token budget; depth is steered with `output_config.effort`.
+ *     Thinking tokens count toward `max_tokens` and are billed as output, so
+ *     the default budget is larger for them. `thinking` blocks precede `text`
+ *     blocks; content is selected by type, never by position.
+ *   · **Structured outputs.** `output_config.format` with a JSON schema makes
+ *     the provider constrain decoding to the schema. The adapter applies it
+ *     per task from a registry the composition root supplies, so the
+ *     `CapabilityRequest` — and with it every replay key — is unchanged. The
+ *     stage parsers still validate every field: the schema removes the *shape*
+ *     failures the pilot recorded and nothing else, and it weakens no gate.
+ *   · **Refusals** arrive as HTTP 200 with `stop_reason: "refusal"`. That is a
+ *     persistent failure — retrying reproduces it — and is classified as one.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -36,18 +62,35 @@ import {
   type ProviderCapabilities,
 } from "../capability.js";
 
+/** A JSON Schema object as `output_config.format` accepts it. */
+export type OutputSchema = Readonly<Record<string, unknown>>;
+
+/** `output_config.effort` — the documented levels; `high` equals omitting it. */
+export const EFFORT_LEVELS = ["low", "medium", "high", "xhigh", "max"] as const;
+export type EffortLevel = (typeof EFFORT_LEVELS)[number];
+
 /** Minimal shape this adapter needs from the SDK — the injectable seam. */
 export interface AnthropicMessagesClient {
-  create(params: {
-    model: string;
-    max_tokens: number;
-    temperature?: number;
-    system?: string;
-    messages: readonly { role: "user"; content: string }[];
-  }): Promise<{
-    content: readonly { type: string; text?: string }[];
-    usage: { input_tokens: number; output_tokens: number };
-  }>;
+  create(params: AnthropicMessageParams): Promise<AnthropicMessageResponse>;
+}
+
+/** Exported so a test can assert exactly what was sent. */
+export interface AnthropicMessageParams {
+  model: string;
+  max_tokens: number;
+  temperature?: number;
+  system?: string;
+  messages: readonly { role: "user"; content: string }[];
+  output_config?: {
+    effort?: EffortLevel;
+    format?: { type: "json_schema"; schema: OutputSchema };
+  };
+}
+
+export interface AnthropicMessageResponse {
+  content: readonly { type: string; text?: string }[];
+  usage: { input_tokens: number; output_tokens: number };
+  stop_reason?: string | null;
 }
 
 export interface AnthropicAdapterOptions {
@@ -57,26 +100,34 @@ export interface AnthropicAdapterOptions {
   readonly maxTokens?: number;
   /** Injected in tests; defaults to the official SDK. */
   readonly client?: AnthropicMessagesClient;
+  /**
+   * JSON schemas by `CapabilityRequest.task`, sent as `output_config.format`.
+   * Supplying this is what makes the adapter declare `structuredOutput`; a
+   * task with no entry is reported as a degradation rather than guessed at.
+   */
+  readonly outputSchemas?: Readonly<Record<string, OutputSchema>>;
+  /** `output_config.effort`. Omitted means the provider's default (`high`). */
+  readonly effort?: EffortLevel;
 }
 
-/** Generous enough for a full architecture; bounded so a runaway cannot bill. */
+/**
+ * Generous enough for a full architecture; bounded so a runaway cannot bill.
+ * Doubled for thinking models, where reasoning tokens share the budget.
+ */
 const DEFAULT_MAX_TOKENS = 8_000;
+const DEFAULT_MAX_TOKENS_THINKING = 16_000;
 
 /**
- * Declared honestly, per `AI §10.6` — "capability assumptions without
- * declaration" are prohibited and a false declaration is worse than none.
- *
- * `structuredOutput` is **false**: this adapter sends a plain message and asks
- * for JSON in the prompt. It cannot *guarantee* conformance to a supplied
- * contract, which is what the capability claims. Tool-use or structured-output
- * modes would change that, and would be a separate, declared change.
+ * The 5-generation models: adaptive thinking on by default, sampling
+ * parameters rejected (migration guide, verified 2026-09-09). Everything
+ * else — `claude-sonnet-4-5`, `claude-haiku-4-5`, the 4.x Opus line — keeps
+ * accepting `temperature`.
  */
-const CAPABILITIES: ProviderCapabilities = {
-  structuredOutput: false,
-  extendedContext: true,
-  lowVarianceSampling: true,
-  costLatencyTier: "standard",
-};
+const THINKING_GENERATION = /^claude-(sonnet-5|opus-5|fable-|mythos-)/;
+
+/** Exported for its own tests: the one place the generation is decided. */
+export const acceptsSamplingParameters = (model: string): boolean =>
+  !THINKING_GENERATION.test(model);
 
 /** Status codes that will not resolve by trying again (`AI §10.4`). */
 const PERSISTENT_STATUSES = new Set([400, 401, 403, 404, 413, 422]);
@@ -146,7 +197,13 @@ export function classifyAnthropicError(error: unknown): ProviderError {
   );
 }
 
-/** Concatenates the text blocks of a response, rejecting anything unusable. */
+/**
+ * Concatenates the text blocks of a response, rejecting anything unusable.
+ *
+ * Selected by `type`: on thinking models the first block is a `thinking`
+ * block with (by default) empty text, and reading by position would return
+ * nothing where the answer follows.
+ */
 function textOf(content: readonly { type: string; text?: string }[]): string {
   const text = content
     .filter((block) => block.type === "text" && typeof block.text === "string")
@@ -167,26 +224,73 @@ function textOf(content: readonly { type: string; text?: string }[]): string {
 export function createAnthropicProvider(
   options: AnthropicAdapterOptions,
 ): ProviderAdapter {
-  const maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
+  const thinkingModel = !acceptsSamplingParameters(options.model);
+  const maxTokens =
+    options.maxTokens ??
+    (thinkingModel ? DEFAULT_MAX_TOKENS_THINKING : DEFAULT_MAX_TOKENS);
+  const schemas = options.outputSchemas;
 
   const client: AnthropicMessagesClient =
     options.client ??
     (new Anthropic({ apiKey: options.apiKey })
-      .messages as AnthropicMessagesClient);
+      .messages as unknown as AnthropicMessagesClient);
+
+  /**
+   * Declared honestly, per `AI §10.6` — "capability assumptions without
+   * declaration" are prohibited and a false declaration is worse than none.
+   *
+   * `structuredOutput` is true only when a schema registry was supplied: then
+   * the provider constrains decoding to a contract for every task the
+   * registry names. `lowVarianceSampling` is a property of the model
+   * generation, not of this adapter.
+   */
+  const capabilities: ProviderCapabilities = {
+    structuredOutput: schemas !== undefined,
+    extendedContext: true,
+    lowVarianceSampling: !thinkingModel,
+    costLatencyTier: "standard",
+  };
 
   return {
-    capabilities: CAPABILITIES,
+    capabilities,
 
     async invoke(request: CapabilityRequest): Promise<CapabilityResponse> {
       const startedAt = Date.now();
+      const degradations: string[] = [];
+
+      // `AIP-7`: reasoning is reproducible where the provider allows it. Where
+      // it does not, `AI §10.2` — degrade to the closest available and record
+      // that determinism is reduced. Sending it anyway would be a 400.
+      const temperature: { temperature?: number } = {};
+      if (request.preferLowVariance) {
+        if (thinkingModel) {
+          degradations.push(
+            "low_variance_unavailable: this model generation rejects sampling parameters, so temperature 0 was not sent",
+          );
+        } else {
+          temperature.temperature = 0;
+        }
+      }
+
+      const schema = schemas?.[request.task];
+      if (schemas !== undefined && schema === undefined) {
+        degradations.push(
+          `structured_output_unavailable: no output schema is registered for task "${request.task}"`,
+        );
+      }
+      const outputConfig: NonNullable<AnthropicMessageParams["output_config"]> =
+        {
+          ...(options.effort !== undefined ? { effort: options.effort } : {}),
+          ...(schema !== undefined
+            ? { format: { type: "json_schema" as const, schema } }
+            : {}),
+        };
 
       try {
         const response = await client.create({
           model: options.model,
           max_tokens: maxTokens,
-          // `AIP-7`: reasoning is reproducible where the provider allows it.
-          // The capability is declared, so honouring it needs no degradation.
-          ...(request.preferLowVariance ? { temperature: 0 } : {}),
+          ...temperature,
           // The composed fragment set (`docs/12` D-12) becomes the system
           // prompt. It is framing, not content, and must stay separate from
           // the user's text — provenance discipline depends on the difference.
@@ -194,9 +298,30 @@ export function createAnthropicProvider(
             ? { system: request.instructions }
             : {}),
           messages: [{ role: "user", content: request.input }],
+          ...(Object.keys(outputConfig).length > 0
+            ? { output_config: outputConfig }
+            : {}),
         });
 
+        // A refusal is a 200 with nothing to parse. Retrying reproduces it.
+        if (response.stop_reason === "refusal") {
+          throw new ProviderError(
+            "persistent",
+            "Provider declined to answer this request",
+          );
+        }
+
         const output = textOf(response.content);
+
+        // Truncated output cannot be valid JSON for a structured task, and a
+        // second attempt with the same budget is the one retry `AI §10.4`
+        // grants a malformed response — it may finish under a shorter think.
+        if (response.stop_reason === "max_tokens") {
+          throw new ProviderError(
+            "malformed_response",
+            "Provider output was cut off at the token limit",
+          );
+        }
 
         return {
           output,
@@ -205,10 +330,7 @@ export function createAnthropicProvider(
             outputTokens: response.usage.output_tokens,
             latencyMs: Math.max(0, Date.now() - startedAt),
           },
-          // No degradation applies: `preferLowVariance` is honoured, and no
-          // output contract is sent because `structuredOutput` is declared
-          // false and the layer above never supplies one to this adapter.
-          degradations: [],
+          degradations,
         };
       } catch (error) {
         throw classifyAnthropicError(error);

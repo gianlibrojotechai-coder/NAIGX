@@ -46,6 +46,7 @@ import { createProvider } from "../provider/index.js";
 import { createAnthropicProvider } from "../provider/adapters/anthropic.js";
 import type { ProviderAdapter } from "../provider/capability.js";
 import { createPipeline } from "../nie/pipeline.js";
+import { STAGE_OUTPUT_SCHEMAS } from "../nie/output-schemas.js";
 import {
   loadCapabilityProfile,
   type CapabilityProfile,
@@ -235,6 +236,11 @@ export async function runHarness(
       adapter = createAnthropicProvider({
         apiKey: config.provider.apiKey,
         model,
+        // D-65: the same construction as production and capture.
+        outputSchemas: STAGE_OUTPUT_SCHEMAS,
+        ...(config.provider.effort !== undefined
+          ? { effort: config.provider.effort }
+          : {}),
       });
       rate = realProviderRate(config);
       note =

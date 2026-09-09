@@ -327,9 +327,18 @@ if (command === "capture") {
         );
         process.exit(1);
       }
+      const { STAGE_OUTPUT_SCHEMAS } =
+        await import("../src/nie/output-schemas.js");
+      // D-65: capture is built exactly as production builds its adapter —
+      // schemas by task, configured effort — or a recording would be an
+      // answer to a request production never sends.
       const anthropic = createAnthropicProvider({
         apiKey: config.provider.apiKey,
         model,
+        outputSchemas: STAGE_OUTPUT_SCHEMAS,
+        ...(config.provider.effort !== undefined
+          ? { effort: config.provider.effort }
+          : {}),
       });
       adapterFor = () => anthropic;
       adapterId = "anthropic";

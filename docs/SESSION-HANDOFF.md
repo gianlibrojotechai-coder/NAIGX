@@ -345,6 +345,36 @@ that finished.
 **Constraints honoured:** no replay number substituted; no implementation
 change; the measurement criteria are D-58's as written.
 
+### ▶ D-65 — Sonnet 5 with structured outputs, 2026-09-09 (owner-directed)
+
+The owner retired the exhausted provider account, installed a new key
+(suffix `…aQAA`, organisation `50a4c891-…` per the API's own header), and
+directed the switch of live analysis to **`claude-sonnet-5`** with the
+integration fixed end to end. [D-65](40-D-65-Structured-Outputs-And-Sonnet-5.md)
+records the decision; the code is committed and proved offline:
+
+- `src/provider/adapters/anthropic.ts` — per-generation sampling table (no
+  `temperature` to the 5-generation, degradation recorded), `output_config`
+  with **effort** and **per-task JSON schema**, thinking blocks skipped by
+  type, `refusal` → persistent, `max_tokens` → one retry, 16k budget on
+  thinking models.
+- `src/nie/output-schemas.ts` — the seven stage schemas in the
+  constrained-decoding dialect, vocabulary imported from `contracts.ts`.
+  **Request shape unchanged → replay keys unchanged → all 15 recordings and
+  `d4abcd42626452df` stand.**
+- `PROVIDER_EFFORT` (validated) in `config/env.ts`; `.env.example` at Sonnet
+  5 rates $2/$10 (verified on the pricing page); production `deploy/.env`
+  still has **no** provider variables.
+- Tests: 8 adapter request-shape tests; every schema dialect-checked; **all
+  54 canonical recorded outputs validate against their stage schema** with
+  `additionalProperties` relaxed — the schemas are not stricter than the
+  parsers. Suite 969 / 965 pass / 4 skips.
+
+⚠️ **Live verification is PENDING the owner's account confirmation** (D-65
+§8): the key reveals the organisation ID and nothing else — no name, no
+workspace, no balance. Spend so far on the new account: **$0.00** (two
+unbilled model-list/retrieve calls). Cap remaining: **$8.87**.
+
 ### The replay-mode increment (2026-09-08) — still true, now the floor
 
 **M-20 is complete as an increment and open as a milestone.** Both halves are

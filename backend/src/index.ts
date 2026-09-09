@@ -23,6 +23,7 @@ import { createReplayProvider } from "./provider/adapters/replay.js";
 import type { ProviderAdapter } from "./provider/capability.js";
 import type { TokenRate } from "./provider/cost.js";
 import { FOUNDATION_FRAGMENT_KEYS } from "./nie/prompt.js";
+import { STAGE_OUTPUT_SCHEMAS } from "./nie/output-schemas.js";
 import { loadCapabilityProfile } from "./nie/capability-profile.js";
 import type { CapabilityProfile } from "./nie/capability-profile.js";
 import type { FragmentResolver } from "./nie/ports.js";
@@ -165,7 +166,17 @@ function liveProvider(config: AppConfig): SelectedProvider {
   }
 
   return {
-    adapter: createAnthropicProvider({ apiKey, model }),
+    // D-65: every stage is decoded against its output schema, and thinking
+    // depth is the configured effort. Same construction as capture, so a
+    // recording is made the way production runs.
+    adapter: createAnthropicProvider({
+      apiKey,
+      model,
+      outputSchemas: STAGE_OUTPUT_SCHEMAS,
+      ...(config.provider.effort !== undefined
+        ? { effort: config.provider.effort }
+        : {}),
+    }),
     rate: { inputUsdPerMillionTokens, outputUsdPerMillionTokens },
     providerKey: "anthropic",
     modelKey: model,

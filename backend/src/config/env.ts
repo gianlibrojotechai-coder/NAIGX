@@ -135,8 +135,31 @@ export interface AppConfig {
     /** USD per million tokens, as decimal strings (`docs/12` D-4, D-10). */
     readonly inputUsdPerMillionTokens?: string;
     readonly outputUsdPerMillionTokens?: string;
+    /**
+     * `output_config.effort` for adaptive-thinking models (D-65). Omitted
+     * means the provider's default, which is `high` — the depth whose latency
+     * the 2026-09-08 pilot recorded. Validated against the documented levels.
+     */
+    readonly effort?: "low" | "medium" | "high" | "xhigh" | "max";
   };
 }
+
+const EFFORT_LEVELS = ["low", "medium", "high", "xhigh", "max"] as const;
+
+/**
+ * `PROVIDER_EFFORT` — refused rather than passed through. A misspelt level
+ * would reach the provider as a 400 on every call, which is a slower way of
+ * failing to start.
+ */
+const parseEffort = (value: string): (typeof EFFORT_LEVELS)[number] => {
+  const level = value.trim();
+  if (!(EFFORT_LEVELS as readonly string[]).includes(level)) {
+    throw new Error(
+      `PROVIDER_EFFORT must be one of ${EFFORT_LEVELS.join(", ")} (received ${JSON.stringify(value)})`,
+    );
+  }
+  return level as (typeof EFFORT_LEVELS)[number];
+};
 
 const isLogLevel = (value: string): value is LogLevel =>
   (LOG_LEVELS as readonly string[]).includes(value);
@@ -303,6 +326,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
               "PROVIDER_OUTPUT_USD_PER_MTOK",
             ) as string,
           }
+        : {}),
+      ...(optional("PROVIDER_EFFORT") !== undefined
+        ? { effort: parseEffort(optional("PROVIDER_EFFORT") as string) }
         : {}),
     },
     databaseUrl: rawDatabaseUrl as string,
