@@ -40,7 +40,9 @@ export const STAGES: readonly StageDefinition[] = [
     stageKey: "intent_detection",
     name: "Intent Detection",
     implemented: true,
-    producesArtifactTypes: [],
+    // D-66: the intent brief is rendered from this stage's output the moment
+    // it completes — the one artifact that exists before reasoning begins.
+    producesArtifactTypes: ["intent_brief"],
   },
   {
     stageNumber: 3,

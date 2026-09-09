@@ -84,6 +84,8 @@ import {
 } from "./stages/workflow-review.js";
 import {
   planDerivedArtifacts,
+  planIntentBrief,
+  renderIntentBrief,
   renderAssessmentFeedback,
   renderMermaidDiagram,
   renderRiskAssessment,
@@ -770,18 +772,26 @@ export function createPipeline(deps: PipelineDependencies) {
     input: PipelineInput,
     plan: readonly ArtifactPlanEntry[],
     renderers: Partial<Record<string, () => Record<string, unknown>>>,
+    // The trace the rendering is attributed to. The path artifacts record
+    // their own Stage 9 trace; the intent brief (D-66) is attributed to the
+    // Stage 2 trace that produced its source, so a stage still has exactly
+    // one trace (`AP-8`) and the validation event names the stage whose
+    // output it validated (`M-10`).
+    options: { readonly traceId?: string } = {},
   ): Promise<readonly ArtifactPlanEntry[]> => {
     let updated = plan;
 
-    // `M-10` — one Stage 9 trace for the rendered set, so each validation
-    // event names the stage that produced the artifact it describes. Rendered
-    // artifacts make no provider call, so this is a deterministic stage like
-    // Stage 5 and Stage 8.
-    const renderTraceId = await recordDeterministicStage(input, {
-      stageNumber: 9,
-      structuredInput: { rendered: plan.map((e) => e.artifactType) },
-      structuredOutput: { renderer: "derived-artifacts" },
-    });
+    // `M-10` — one trace for the rendered set, so each validation event names
+    // the stage that produced the artifact it describes. Rendered artifacts
+    // make no provider call, so this is a deterministic record like Stage 5
+    // and Stage 8.
+    const renderTraceId =
+      options.traceId ??
+      (await recordDeterministicStage(input, {
+        stageNumber: 9,
+        structuredInput: { rendered: plan.map((e) => e.artifactType) },
+        structuredOutput: { renderer: "derived-artifacts" },
+      }));
 
     for (const entry of plan) {
       const render = renderers[entry.artifactType];
@@ -912,9 +922,15 @@ export function createPipeline(deps: PipelineDependencies) {
       };
     }
 
+    // Captured so the brief's validation event names the stage that produced
+    // its source (`M-10`), without a second Stage 2 trace.
+    let intentTraceId: string | null = null;
     const intent: IntentResult = await runStage(input, {
       stageNumber: 2,
       classifiedAs: classification.determinedType,
+      onStageTrace: (id) => {
+        intentTraceId = id;
+      },
       structuredInput: { text: input.text, classification },
       buildRequest: (prompt) =>
         request(
@@ -927,6 +943,27 @@ export function createPipeline(deps: PipelineDependencies) {
     });
 
     await deps.resultSink?.persistIntent(input.analysisId, intent);
+
+    // D-66 — the intent brief: the first artifact of every reasoning path,
+    // rendered from the intent record the moment it exists. It says what the
+    // input asks for, as understood, and nothing more; its `standing` field
+    // says so in the document itself. Planned here rather than at Stage 8
+    // because its source stage is this one, and `DB §4.4`'s plan is written
+    // when the source stage completes (D-66 amends the "at Stage 8" wording).
+    // Everything after this point carries it in the plan, so a halt at Stage 3
+    // still reports the one artifact the run did produce (`FR-091`).
+    const briefPlan = planIntentBrief();
+    emit(input.analysisId, planEvent(briefPlan));
+    await deps.resultSink?.persistArtifactPlan?.(input.analysisId, briefPlan);
+    const brief = await emitDerivedArtifacts(
+      input,
+      briefPlan,
+      { intent_brief: () => renderIntentBrief(intent) },
+      intentTraceId === null ? {} : { traceId: intentTraceId },
+    );
+    const withBrief = (
+      plan: readonly ArtifactPlanEntry[] = [],
+    ): readonly ArtifactPlanEntry[] => [...brief, ...plan];
 
     const context: ContextResult = await runStage(input, {
       stageNumber: 3,
@@ -961,6 +998,7 @@ export function createPipeline(deps: PipelineDependencies) {
         classification,
         intent,
         context,
+        artifactPlan: withBrief(),
         haltedAt: {
           stageNumber: 3,
           reason:
@@ -994,6 +1032,7 @@ export function createPipeline(deps: PipelineDependencies) {
           classification,
           intent,
           context,
+          artifactPlan: withBrief(),
           haltedAt: {
             stageNumber: 7,
             reason:
@@ -1057,7 +1096,7 @@ export function createPipeline(deps: PipelineDependencies) {
           intent,
           context,
           recommendation,
-          artifactPlan,
+          artifactPlan: withBrief(artifactPlan),
         };
       }
 
@@ -1204,10 +1243,8 @@ export function createPipeline(deps: PipelineDependencies) {
         intent,
         context,
         recommendation,
-        artifactPlan: withOutcome(
-          artifactPlan,
-          "portfolio_suggestions",
-          outcome,
+        artifactPlan: withBrief(
+          withOutcome(artifactPlan, "portfolio_suggestions", outcome),
         ),
         ...(portfolioSuggestions !== undefined ? { portfolioSuggestions } : {}),
       };
@@ -1279,7 +1316,7 @@ export function createPipeline(deps: PipelineDependencies) {
         context,
         architecture: observed,
         workflowReview: review,
-        artifactPlan: rendered,
+        artifactPlan: withBrief(rendered),
       };
     }
 
@@ -1288,7 +1325,7 @@ export function createPipeline(deps: PipelineDependencies) {
       // paths. Skipping is correct, not a halt: the run completed everything
       // its path defines. The condition now reads from the Stage 5 plan, which
       // derives it from `producesArchitecture` — the same predicate, stated once.
-      return { classification, intent, context };
+      return { classification, intent, context, artifactPlan: withBrief() };
     }
 
     const architecture: ArchitectureResult = await runStage(input, {
@@ -1337,7 +1374,15 @@ export function createPipeline(deps: PipelineDependencies) {
     );
 
     if (assessmentPlan.length === 0) {
-      return { classification, intent, context, architecture };
+      // The requirement path plans no artifact of its own (M-07); the brief
+      // is still the one it produced.
+      return {
+        classification,
+        intent,
+        context,
+        architecture,
+        artifactPlan: withBrief(),
+      };
     }
 
     emit(input.analysisId, planEvent(assessmentPlan));

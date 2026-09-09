@@ -422,6 +422,7 @@ const renderMermaidDiagram = (document: unknown): ArtifactRender => {
 
 /** Human headings for the artifact types that have generators. */
 export const ARTIFACT_TITLES: Readonly<Record<string, string>> = {
+  intent_brief: "Intent Brief",
   skill_gap_analysis: "Skill Gap Analysis",
   portfolio_suggestions: "Portfolio Suggestions",
   interview_guidance: "Interview Guidance",
@@ -431,9 +432,48 @@ export const ARTIFACT_TITLES: Readonly<Record<string, string>> = {
   mermaid_diagram: "Architecture Diagram",
 };
 
+/**
+ * Intent Brief — what the input asks for, as understood (D-66).
+ *
+ * Rendered with its standing stated first, because a reader who skims to the
+ * artifacts must not mistake the problem statement for a conclusion.
+ */
+const renderIntentBrief = (document: unknown): ArtifactRender => {
+  if (!isRecord(document)) return unrenderable("intent_brief");
+  const objective = document.objective;
+  if (!isRecord(objective)) return unrenderable("intent_brief");
+  const content = str(objective.content);
+  const provenance = str(objective.provenance);
+  const scope = str(document.inferred_scope);
+  if (content === null || provenance === null || scope === null) {
+    return unrenderable("intent_brief");
+  }
+  const secondary = list(document.secondary_objectives).filter(isRecord);
+
+  const lines: string[] = [
+    "*How the input was understood before any reasoning ran. This is the problem as stated and inferred, not a conclusion.*",
+    "",
+    `**Objective** (${provenance}). ${content}`,
+    "",
+  ];
+  if (secondary.length > 0) {
+    lines.push("**Also aims to:**", "");
+    for (const item of secondary) {
+      const text = str(item.content);
+      const p = str(item.provenance);
+      if (text !== null)
+        lines.push(`- ${text}${p === null ? "" : ` *(${p})*`}`);
+    }
+    lines.push("");
+  }
+  lines.push(`**Scope, as inferred.** ${scope}`);
+  return { rendered: true, lines };
+};
+
 const RENDERERS: Readonly<
   Record<string, (document: unknown) => ArtifactRender>
 > = {
+  intent_brief: renderIntentBrief,
   portfolio_suggestions: renderPortfolioSuggestions,
   workflow_recommendation: renderWorkflowRecommendation,
   risk_assessment: renderRiskAssessment,

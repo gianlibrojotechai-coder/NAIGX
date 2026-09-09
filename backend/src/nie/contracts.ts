@@ -538,6 +538,11 @@ export interface RecommendationResult extends RecommendationForArtifacts {
  * cannot name at all would be neither.
  */
 export const ARTIFACT_TYPES = [
+  // Every reasoning path, rendered from the Stage 2 intent record the moment
+  // Stage 2 completes ([D-66](../../../docs/41-D-66-Intent-Brief-Early-Artifact.md)).
+  // Not in `PATH_ARTIFACT_TYPES`: it is planned at Stage 2, not Stage 8, and
+  // a path planner that listed it would plan it twice.
+  "intent_brief",
   // Job-description path (`docs/12` D-29).
   "skill_gap_analysis",
   "portfolio_suggestions",
@@ -586,6 +591,7 @@ export const PATH_ARTIFACT_TYPES: Readonly<
 
 /** The generators that exist. Phase 3A ships one (`docs/12` D-29). */
 export const IMPLEMENTED_ARTIFACT_TYPES = [
+  "intent_brief",
   "portfolio_suggestions",
   "workflow_recommendation",
   "risk_assessment",

@@ -394,6 +394,33 @@ export const asAssessmentFeedback = (
   return candidate as AssessmentFeedback;
 };
 
+/** `backend/schemas/intent_brief.schema.json` (D-66). */
+export interface IntentBrief {
+  readonly objective: {
+    readonly content: string;
+    readonly provenance: "stated" | "inferred";
+  };
+  readonly secondary_objectives: readonly {
+    readonly content: string;
+    readonly provenance: "stated" | "inferred";
+  }[];
+  readonly inferred_scope: string;
+  /** Fixed by the renderer: this artifact is understanding, not conclusion. */
+  readonly standing: "understanding_only";
+}
+
+export const asIntentBrief = (content: unknown): IntentBrief | null => {
+  if (content === null || typeof content !== "object") return null;
+  const candidate = content as Partial<IntentBrief>;
+  const objective = candidate.objective;
+  if (objective === undefined || typeof objective !== "object") return null;
+  if (typeof objective.content !== "string") return null;
+  if (!Array.isArray(candidate.secondary_objectives)) return null;
+  if (typeof candidate.inferred_scope !== "string") return null;
+  if (candidate.standing !== "understanding_only") return null;
+  return candidate as IntentBrief;
+};
+
 /** `backend/schemas/mermaid_diagram.schema.json`. */
 export interface MermaidDiagram {
   readonly diagram: string;

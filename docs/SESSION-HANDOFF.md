@@ -65,7 +65,7 @@ These are standing instructions given explicitly. **They override default thorou
 | **M-17** Accessibility | **Implemented, NOT verified.** 4 violations fixed, axe running. The manual WCAG walk is unwalked |
 | **M-18** Security | **Reviewed, NOT passed.** `NFR-027` found and fixed; `DB §13.1` app-level encryption implemented against a **host-held key file** (D-61 retired AWS KMS). ✅ Its key-file **fail-closed mechanism is now verified on the VPS** (D-61 §8) — H-2 and the milestone still open |
 | **M-19** Deployment | ✅ **CLOSED 2026-09-09.** Deploy ✅ (ready, four paths serving recorded inputs) · monitoring ✅ (Prometheus scraping, `health: up`) · alerting ✅ (owner-authorised test alert delivered to the ntfy receiver in 30 s, read back from the topic) · verified rollback ✅ (production drill, ~1.7 s / ~2.0 s) · restore drill ✅ on production data and from off-site. `STATUS.md` → Completed. ⚠️ Replay mode; migration-crossing rollback not exercised; device receipt of the alert is the owner's to confirm |
-| **M-20** Performance | **NOT PASSED — on evidence from two separate live samples.** Sonnet 4.5 (§7 of the log, n=8 of 11, cut short by credit exhaustion): `NFR-002` p50 74.3 s / p95 161.6 s, `NFR-001` p50 85.3 s / p95 161.6 s. **Sonnet 5 (§8, full n=30, 180 s default, nothing excluded): `NFR-002` p50 77.2 s / p95 128.0 s, `NFR-001` p50 91.4 s / p95 126.6 s; 0 timed out, 0 failed, 1 degraded.** Budgets 60/120 and 15/40. Both models miss both at p50; `NFR-001` is structurally out of reach for this pipeline shape. **What closes it is a requirements decision**, see §7b |
+| **M-20** Performance | **NOT PASSED — on evidence from two separate live samples.** Sonnet 4.5 (§7 of the log, n=8 of 11, cut short by credit exhaustion): `NFR-002` p50 74.3 s / p95 161.6 s, `NFR-001` p50 85.3 s / p95 161.6 s. **Sonnet 5 (§8, full n=30, 180 s default, nothing excluded): `NFR-002` p50 77.2 s / p95 128.0 s, `NFR-001` p50 91.4 s / p95 126.6 s; 0 timed out, 0 failed, 1 degraded.** Budgets 60/120 and 15/40. Both models miss both at p50; `NFR-001` was structurally out of reach for the catalogue as it stood. ▶ **[D-66](41-D-66-Intent-Brief-Early-Artifact.md) implemented 2026-09-09 on the owner's instruction**: the intent brief is now the first artifact on every path. **Still open**: not deployed, not measured live — see §7b |
 
 ### Sprint 5 deliverables still outstanding
 
@@ -83,7 +83,7 @@ These are standing instructions given explicitly. **They override default thorou
 - ~~**A production rollback drill**~~ ✅ **DONE 2026-09-09.** [ROLLBACK-DRILL-LOG](deployment/ROLLBACK-DRILL-LOG.md). ⚠️ The previous image had to be **rebuilt from source** — a cron prunes dangling images and nothing tags the outgoing release. `naigx-backend:rollback-target` (`56d7269`) is now kept on the host; tag every outgoing release at deploy time.
 - ~~**A restore drill against production data**~~ ✅ **DONE 2026-09-09, twice** — [RESTORE-DRILL-LOG](deployment/RESTORE-DRILL-LOG.md). ⚠️ The runbook's `exec postgres bash /usr/local/bin/naigx-restore-drill` **never existed in any container**; the drill is piped into `naigx-backup`. Corrected in both the log and `deploy/README.md`.
 - ~~**Off-host backup storage**~~ ✅ **VERIFIED 2026-09-09 — and the previous edition was STALE.** The remote is not empty and the upload leg does run: a host-only `naigx-offsite-sync` (script + systemd hourly timer, `RandomizedDelaySec=300`) encrypts each dump with `backup.key` (`openssl aes-256-cbc -pbkdf2 -iter 200000`), uploads to `gdrive:naigx-backups`, verifies by read-back, prunes both sides at 7 days, and alerts via an `ntfy` URL file on every failure path; the journal shows every hourly run since 2026-09-08 succeeding. The 2026-09-09 dumps were pulled **back** from the remote, decrypted, SHA-256-matched to staging and restore-drilled. ⚠️ **The concrete remaining step is not an upload step.** It is that the script and its two units are **not in this repository** (`STATUS.md` → Open); nothing was changed on the host beyond one manual `systemctl start` of the existing unit.
-- **~$8 of provider spend, or an explicit decline** — the other way `M-20` closes (D-58 §4). A decision, not a task. Now also reachable free, via production traffic.
+- ~~**~$8 of provider spend, or an explicit decline**~~ ✅ spent and measured (§7b). **▶ Now: deploy D-66 in replay mode and measure the brief live** — needs the owner's deploy authorisation (a rebuild plus publishing the **sixth** artifact schema, a production write) and then a D-58 sample within the remaining budget. Until then M-20 stays open.
 - **M-17 manual WCAG walk** — needs a person with a screen reader. Unowned.
 - **M-08 rubric review** — needs a human reviewer. Unowned, carried from Sprint 2.
 
@@ -118,7 +118,10 @@ These are standing instructions given explicitly. **They override default thorou
 
 | `docs/39` **D-64** | **What a pass reference attests, and which composition a run reproduces.** Accepted (Option C). Adds the `composition_mismatch` refusal — it made activation **harder** — and fixes the legacy-composition defect that stranded `ew-001`. ⚠️ §10 is a dated, OPEN deviation |
 
-**Numbering convention: the next standalone record is `docs/40` D-65.** Nothing is currently owed.
+| `docs/40` **D-65** | Sonnet 5 with structured outputs; cancellation at the `FR-094` deadline |
+| `docs/41` **D-66** | **The intent brief** — a deterministic Stage 2 artifact, the route to `NFR-001` as written. Implemented; **not deployed, not measured live** |
+
+**Numbering convention: the next standalone record is `docs/42` D-67.** Nothing is currently owed.
 
 ⚠️ **D-63 without its §7 amendment is actively wrong.** The original decision made the runner re-resolve recordings against authored fragments, which invalidated **10 of 13** committed recordings the moment authored content drifted. The amendment separates **replayability** from **evidential currency**: a recording that carries its own captured composition replays against *that* and is never stale for replay; only the activation gate asks the currency question. Read §7 before touching anything in `src/regression/`.
 
@@ -426,6 +429,44 @@ an early deterministic artifact from Stage 2 (the only route to `NFR-001`
 as written), per-stage model routing (`AI §10.3` already names the
 tier), a hedged-retry policy for the throughput tail, or shorter Stage
 7/9 output through gated fragment changes. None was made here.
+
+### ▶ D-66 — the intent brief, 2026-09-09 (owner-directed: "Ok lets do that")
+
+After §9 of the log showed that no tuning reaches `NFR-001` because nothing
+in the catalogue exists before Stage 6/7, the owner chose the smallest change
+that meets the requirement **as written** rather than redefining it:
+[D-66](41-D-66-Intent-Brief-Early-Artifact.md). **`intent_brief`** is rendered
+deterministically from the Stage 2 intent record the moment Stage 2
+completes, on every reasoning path, with `standing: "understanding_only"` in
+the document itself. No prompt, gate, parser or recording changed.
+
+- **Where it lives:** `contracts.ts` (`ARTIFACT_TYPES` first entry, not in
+  `PATH_ARTIFACT_TYPES`), `stages.ts` (Stage 2 produces it),
+  `stages/derived-artifacts.ts` (`planIntentBrief`, `renderIntentBrief`),
+  `pipeline.ts` (planned + emitted right after `persistIntent`, on Stage 2's
+  own trace via `onStageTrace`; every later return prepends it),
+  `analysis-result-sink.ts` (plan-entry ids **merge** across the two plan
+  writes), `schemas/intent_brief.schema.json` (the **sixth** schema),
+  `export/artifact-markdown.ts` and the presenter registry
+  (`frontend/src/components/IntentBrief.tsx`).
+- **Review packet:** C-3 (artifact selection) deliberately **ignores** the
+  brief — an unconditional artifact is not a selection decision — so
+  `business_requirement`/unsupported recordings stay NOT ASSESSABLE.
+- **Verified:** full suite 978/0, build, boundary checks 8/0, all 15
+  recordings replay and **reproduce** `d4abcd42626452df`; one submission per
+  path through the public API of a local replay instance — brief first and
+  `generated` on all four, plan rows merged, artifact row → plan entry →
+  published schema, exactly one Stage 2 trace. D-66 §7 has the table.
+- ⚠️ **NOT deployed, NOT measured live.** The deploy needs the owner's
+  authorisation (rebuild + `schemas publish` for the sixth schema — a
+  production write — + rollback tag, per the runbook). A local live check was
+  prepared and not run (tool permission denied); **nothing was spent**. The
+  measurement is a D-58 sample of first-artifact time; the expectation from
+  the recorded Stage 2 timings is ~7.6 s p50 / 11.4 s p95 on Sonnet 5.
+  `NFR-002` is unchanged by this.
+- **Read the number honestly when it lands:** `M-16`'s
+  `time_to_first_artifact` will fall because the *catalogue* changed, not
+  because reasoning got faster.
 
 ### The replay-mode increment (2026-09-08) — still true, now the floor
 

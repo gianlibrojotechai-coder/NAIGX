@@ -34,6 +34,7 @@ import type { ReactNode } from "react";
 
 import {
   asAssessmentFeedback,
+  asIntentBrief,
   asMermaidDiagram,
   asPortfolioSuggestions,
   asRiskAssessment,
@@ -50,6 +51,7 @@ import {
   verdictMeaning,
 } from "../format";
 import { AssessmentFeedbackView } from "./AssessmentFeedback";
+import { IntentBriefView } from "./IntentBrief";
 import { ClassificationCorrection } from "./ClassificationCorrection";
 import {
   CopyArtifactButton,
@@ -234,6 +236,15 @@ const ARTIFACT_PRESENTERS: Readonly<Record<string, ArtifactPresenter>> = {
       return suggestions === null ? null : (
         <PortfolioSuggestionsView suggestions={suggestions} />
       );
+    },
+  },
+  intent_brief: {
+    title: "Intent brief",
+    subtitle:
+      "What the input asks for, as understood — available before reasoning, and not a conclusion",
+    render: (content) => {
+      const brief = asIntentBrief(content);
+      return brief === null ? null : <IntentBriefView brief={brief} />;
     },
   },
   workflow_recommendation: {

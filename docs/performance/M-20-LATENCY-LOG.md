@@ -503,3 +503,43 @@ server-error calls carried no usage (recorded $0, and expected to be
 unbilled, but that cannot be verified from the key); one cancelled call
 **explicitly unknown, carried at $0.0951** — the largest Stage 7 call ever
 recorded. Budgeted total for the evaluation: **$0.5495**.
+
+## 10. D-66 — the early artifact, built; not yet measured — 2026-09-09
+
+§9.4's first architectural row was taken, on the owner's instruction:
+[D-66](../41-D-66-Intent-Brief-Early-Artifact.md) adds `intent_brief`, a
+deterministic artifact rendered from the Stage 2 intent record when Stage 2
+completes, on every reasoning path. It changes **no requirement, prompt,
+gate, parser or recording**; the 15 canonical recordings replay unchanged and
+reproduce `d4abcd42626452df`.
+
+**What it changes for this log.** `M-16`'s `time_to_first_artifact` is
+defined on the first `ARTIFACT` row, so from the first live run on a D-66
+build the `NFR-001` series measures the brief. That is the intended reading
+of the requirement as written, and it is also why a fall in that series must
+not be read as a reasoning speed-up: Stages 3–9 are exactly as they were in
+§8 and §9, and `NFR-002` is untouched.
+
+**Expected, from the traces already held (not a measurement):** the brief
+lands at Stage 2's cumulative completion plus milliseconds — §9.2 gives
+**~7.6 s p50 / ~11.4 s p95** on Sonnet 5 and ~11.6 / 14.3 s on Sonnet 4.5.
+Both are inside the 15 / 40 s budget *if* the live sample bears them out.
+
+**Not done here, deliberately:**
+
+- No live sample was taken. The deployed build does not yet carry D-66 (a
+  deploy needs the owner's authorisation and publishes a sixth artifact
+  schema, a production write). A local live check on the built `dist/` was
+  prepared and not run — the tool permission for a live-mode process was
+  denied — and **nothing was spent**; the remaining task budget is unchanged
+  from §9.5.
+- No replay timing is reported. The replay verification (D-66 §7) showed the
+  brief as the first generated artifact ~0.15 s after submission, which is
+  this system's overhead with an adapter that answers instantly — the exact
+  number STATUS item 49 forbids publishing beside `NFR-001`, and it is not.
+
+**What closes `NFR-001` on this build:** a D-58 sample (30 runs, one at a
+time, 180 s default, nothing excluded) on the deployed D-66 build, reported
+here as §11 with Sonnet 5 kept separate from §7's Sonnet 4.5 as before. On
+the recorded Stage 2 timings it should pass; the sample is what says so.
+`M-20` stays open until then, and `NFR-002` stays NOT MET regardless.

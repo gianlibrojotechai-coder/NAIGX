@@ -167,10 +167,13 @@ const stageOutput = (
  * for something that was never captured.
  */
 const proportionality = (recording: CaseRecording): CriterionAssessability => {
+  // D-66: the intent brief is rendered on every reasoning path without a
+  // selection decision, so its stage is not evidence of artifact selection.
+  // Only stages that decide what to produce count as C-3 evidence.
   const artifactStages = new Set(
-    STAGES.filter((s) => s.producesArtifactTypes.length > 0).map(
-      (s) => s.stageKey,
-    ),
+    STAGES.filter((s) =>
+      s.producesArtifactTypes.some((t) => t !== "intent_brief"),
+    ).map((s) => s.stageKey),
   );
   const produced = recording.stages.filter((s) =>
     artifactStages.has(s.stageKey),

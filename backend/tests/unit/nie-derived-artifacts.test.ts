@@ -24,6 +24,8 @@ import type {
 import { validateArtifact } from "../../src/nie/artifact-validation.js";
 import {
   planDerivedArtifacts,
+  planIntentBrief,
+  renderIntentBrief,
   renderAssessmentFeedback,
   renderMermaidDiagram,
   renderRiskAssessment,
@@ -251,4 +253,84 @@ test("rendering is deterministic — the same reasoning renders identically", ()
     renderMermaidDiagram(architecture),
     renderMermaidDiagram(architecture),
   );
+});
+
+// --- D-66: the intent brief ------------------------------------------------
+
+test("intent brief: a projection of the intent record that validates against its published schema", () => {
+  const brief = renderIntentBrief({
+    primaryObjective: {
+      content: "Stop keying supplier invoices by hand",
+      provenance: "stated",
+    },
+    secondaryObjectives: [
+      {
+        content: "Recover early-payment discounts",
+        provenance: "inferred",
+      },
+    ],
+    inferredScope: "Accounts payable, from receipt to approval",
+  });
+
+  // Validates as an artifact (FR-039) — a rendering bug is a schema failure.
+  validateArtifact("intent_brief", brief);
+
+  // Every field is the intent record's own value with its own provenance.
+  assert.deepEqual(brief["objective"], {
+    content: "Stop keying supplier invoices by hand",
+    provenance: "stated",
+  });
+  assert.deepEqual(brief["secondary_objectives"], [
+    { content: "Recover early-payment discounts", provenance: "inferred" },
+  ]);
+  assert.equal(
+    brief["inferred_scope"],
+    "Accounts payable, from receipt to approval",
+  );
+  // The document says what it is, in storage as on screen.
+  assert.equal(brief["standing"], "understanding_only");
+});
+
+test("intent brief: an input with one aim renders with no secondary objectives, and still validates", () => {
+  const brief = renderIntentBrief({
+    primaryObjective: { content: "One aim", provenance: "inferred" },
+    secondaryObjectives: [],
+    inferredScope: "One team",
+  });
+  validateArtifact("intent_brief", brief);
+  assert.deepEqual(brief["secondary_objectives"], []);
+});
+
+test("intent brief: the schema refuses a document that claims a different standing", () => {
+  const brief = {
+    ...renderIntentBrief({
+      primaryObjective: { content: "x", provenance: "stated" },
+      secondaryObjectives: [],
+      inferredScope: "y",
+    }),
+    standing: "conclusion",
+  };
+  assert.throws(() => validateArtifact("intent_brief", brief), /standing/);
+});
+
+test("intent brief: planned once, with a reason, and not by the path planners", () => {
+  const plan = planIntentBrief();
+  assert.equal(plan.length, 1);
+  assert.equal(plan[0]?.artifactType, "intent_brief");
+  assert.equal(plan[0]?.planned, true);
+  assert.ok((plan[0]?.inclusionReason ?? "").length > 0);
+  // The path planners must not plan it again at Stage 8.
+  for (const path of [
+    "existing_workflow",
+    "technical_assessment",
+    "job_description",
+    "business_requirement",
+  ] as const) {
+    assert.ok(
+      !planDerivedArtifacts(path, "r").some(
+        (e) => e.artifactType === "intent_brief",
+      ),
+      path,
+    );
+  }
 });

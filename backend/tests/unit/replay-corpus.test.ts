@@ -157,6 +157,12 @@ test("3. ONE adapter built from the merged corpus serves a submission through th
   // portfolio artifact quietly landed `failed` with "No recorded response for
   // request key …" — the recording held the answer and the builder never
   // filed it. A halt check alone cannot see that; the artifact outcome can.
+  // D-66: the intent brief is the first artifact of every reasoning path,
+  // rendered at Stage 2 — present and generated on a replayed run too, since
+  // it needs no provider output of its own.
+  assert.equal(result.artifactPlan?.[0]?.artifactType, "intent_brief");
+  assert.equal(result.artifactPlan?.[0]?.outcome, "generated");
+
   const portfolio = result.artifactPlan?.find(
     (entry) => entry.artifactType === "portfolio_suggestions",
   );

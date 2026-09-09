@@ -558,9 +558,15 @@ test("Stage 8 records an omission reason for every generator it lacks", async ()
   const { result } = await harness();
   const plan = result.artifactPlan ?? [];
 
+  // D-66: the intent brief leads every plan; the path's own set follows.
   assert.deepEqual(
     plan.map((e) => e.artifactType),
-    ["skill_gap_analysis", "portfolio_suggestions", "interview_guidance"],
+    [
+      "intent_brief",
+      "skill_gap_analysis",
+      "portfolio_suggestions",
+      "interview_guidance",
+    ],
   );
   for (const entry of plan) {
     if (entry.planned) {
@@ -1063,16 +1069,27 @@ test("the run narrates itself in the order API §7.4 specifies", async () => {
   const { events } = await harness();
   const types = events.map((e) => e.type);
 
+  // D-66: the intent brief is planned and lands as soon as Stage 2 closes —
+  // before `understanding` is announced — so the client has an artifact in
+  // hand while the reasoning stages are still running (NFR-001).
   assert.deepEqual(
     types,
     [
       "classification",
+      "plan",
+      "artifact",
       "understanding",
       "reasoning_complete",
       "plan",
       "artifact",
     ],
     "each stage announces itself as it finishes (FR-041)",
+  );
+  const first = events.find((e) => e.type === "artifact");
+  assert.equal(
+    first?.type === "artifact" ? first.artifactType : undefined,
+    "intent_brief",
+    "the first artifact to land is the brief",
   );
 
   // `API §7.4`: the client must know what to expect before results arrive, so
@@ -1096,8 +1113,11 @@ test("a failed artifact is announced, not dropped", async () => {
 
   assert.ok(failure, "the failure reaches the stream");
   assert.ok(
-    !events.some((e) => e.type === "artifact"),
-    "and no artifact event claims success",
+    !events.some(
+      (e) =>
+        e.type === "artifact" && e.artifactType === "portfolio_suggestions",
+    ),
+    "and no artifact event claims success for the failed artifact",
   );
 });
 

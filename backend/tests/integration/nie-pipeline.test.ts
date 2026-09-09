@@ -544,12 +544,17 @@ test("the stage inventory is twelve stages, eight implemented", () => {
     "architecture_analysis",
     "stage 6 is Architecture Analysis, per AI Appendix A",
   );
-  // Stage 9 is the only stage that produces an artifact type (`AI` App. A).
+  // Stage 9 produces the path artifacts (`AI` App. A); Stage 2 produces the
+  // intent brief, rendered from its own record with no selection (D-66).
   assert.deepEqual(
     STAGES.filter((s) => s.producesArtifactTypes.length > 0).map(
       (s) => s.stageNumber,
     ),
-    [9],
+    [2, 9],
+  );
+  assert.deepEqual(
+    STAGES.find((s) => s.stageNumber === 2)?.producesArtifactTypes,
+    ["intent_brief"],
   );
 });
 

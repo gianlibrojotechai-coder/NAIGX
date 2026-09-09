@@ -369,7 +369,9 @@ const recordingSink = () => {
     },
     persistArtifactPlan: (_id, given) => {
       calls.push("plan");
-      plan = given;
+      // D-66: the plan is written twice — the brief at Stage 2, the path set
+      // at Stage 8 — and the real sink merges the writes, so this one does too.
+      plan = [...plan, ...given];
       return Promise.resolve();
     },
     persistArtifact: (_id, artifact) => {
@@ -492,20 +494,25 @@ test("components are persisted before the findings that reference them", async (
 test("the workflow path produces its two AI §9.1 artifacts with no provider call", async () => {
   const { recorded, events } = await harness(WORKFLOW);
 
+  // D-66: the intent brief precedes the path's own set on every path.
   assert.deepEqual(
     recorded.plan().map((entry) => entry.artifactType),
-    ["workflow_recommendation", "risk_assessment"],
+    ["intent_brief", "workflow_recommendation", "risk_assessment"],
   );
   assert.deepEqual(
     recorded.artifacts.map((a) => a.artifactType),
-    ["workflow_recommendation", "risk_assessment"],
+    ["intent_brief", "workflow_recommendation", "risk_assessment"],
   );
   // Rendered, not sampled: there is no second attempt to make.
   assert.ok(recorded.artifacts.every((a) => a.generationAttemptCount === 1));
   assert.ok(recorded.artifacts.every((a) => a.validationStatus === "valid"));
 
   const announced = events.filter((e) => e.type === "artifact");
-  assert.equal(announced.length, 2, "FR-041 — the browser sees both");
+  assert.equal(
+    announced.length,
+    3,
+    "FR-041 — the browser sees the brief and both path artifacts",
+  );
 });
 
 test("a review citing a step it never stated fails the stage after one retry", async () => {
@@ -557,7 +564,7 @@ test("the assessment path produces its two AI §9.1 artifacts", async () => {
 
   assert.deepEqual(
     recorded.artifacts.map((a) => a.artifactType),
-    ["assessment_feedback", "mermaid_diagram"],
+    ["intent_brief", "assessment_feedback", "mermaid_diagram"],
   );
   assert.ok(recorded.artifacts.every((a) => a.validationStatus === "valid"));
   assert.ok(

@@ -32,8 +32,52 @@ import {
   type ArtifactPlanEntry,
   type ArtifactType,
   type ClassificationType,
+  type IntentResult,
   type WorkflowReviewResult,
 } from "../contracts.js";
+
+/**
+ * The intent brief's plan entry — one, planned, on every reasoning path
+ * ([D-66](../../../../docs/41-D-66-Intent-Brief-Early-Artifact.md)).
+ *
+ * Written at Stage 2, not Stage 8: `DB §4.4`'s "written at Stage 8" is
+ * amended by D-66 to "written when the artifact's source stage completes",
+ * which for every other artifact is still Stage 8. There is no judgement in
+ * planning it — every input that reaches Stage 2 has an intent record — so
+ * the entry records inclusion, like the derived artifacts below.
+ */
+export const planIntentBrief = (): readonly ArtifactPlanEntry[] => [
+  {
+    artifactType: "intent_brief",
+    planned: true,
+    depthLevel: "standard",
+    inclusionReason:
+      "Rendered from the Stage 2 intent record the moment it exists, so the reader has a true statement of the problem while reasoning continues (D-66, NFR-001).",
+  },
+];
+
+/**
+ * Intent Brief — the intent record, as an artifact.
+ *
+ * A projection, not a paraphrase: every field is the intent record's own
+ * value with its own provenance, and `standing` is fixed here so the document
+ * itself says it is understanding, not conclusion. The renderer cannot claim
+ * more than Stage 2 established.
+ */
+export const renderIntentBrief = (
+  intent: IntentResult,
+): Record<string, unknown> => ({
+  objective: {
+    content: intent.primaryObjective.content,
+    provenance: intent.primaryObjective.provenance,
+  },
+  secondary_objectives: intent.secondaryObjectives.map((objective) => ({
+    content: objective.content,
+    provenance: objective.provenance,
+  })),
+  inferred_scope: intent.inferredScope,
+  standing: "understanding_only",
+});
 
 /**
  * Plans the artifacts of a path whose set is fixed rather than conditional.

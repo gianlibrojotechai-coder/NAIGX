@@ -374,7 +374,12 @@ export function createStageResultSink(prisma: PrismaClient): StageResultSink {
           ids.set(entry.artifactType, row.planEntryId);
         }
       });
-      planEntryIds.set(analysisId, ids);
+      // Merged, not replaced: since D-66 the plan is written in two parts —
+      // the intent brief at Stage 2, the path's set at Stage 8 — and the
+      // first part's ids must survive the second.
+      const merged = new Map(planEntryIds.get(analysisId) ?? []);
+      for (const [type, id] of ids) merged.set(type, id);
+      planEntryIds.set(analysisId, merged);
     },
 
     /**

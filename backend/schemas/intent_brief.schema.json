@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://naigx/schemas/intent_brief.schema.json",
+  "title": "Intent Brief",
+  "description": "The first artifact of every reasoning path, rendered deterministically from the Stage 2 intent record the moment Stage 2 completes (docs/41 D-66). It exists so a reader has something true to read while the slow stages run (NFR-001, FR-041), and it says what it is: what the input asks for, as understood — NOT a conclusion, a design, or a recommendation. Nothing in it is reasoned; every statement carries the provenance Stage 2 gave it (FR-042/FR-043).\n\nRendered, not generated (docs/15 D-40): no provider call, no second content model, cannot disagree with the intent record it is a projection of. Published to ARTIFACT_SCHEMA per DB §4.4 and validated like any artifact (FR-039) — a rendering bug is a schema failure.\n\nTOLERANCE. additionalProperties is left open, matching every other published artifact schema and the parsers they pair with (AI §9.3).",
+  "type": "object",
+  "required": ["objective", "secondary_objectives", "inferred_scope", "standing"],
+  "properties": {
+    "objective": {
+      "$ref": "#/$defs/objective",
+      "description": "Stage 2's primary objective, with its provenance."
+    },
+    "secondary_objectives": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/objective" },
+      "description": "May be empty: an input with one aim has one aim."
+    },
+    "inferred_scope": {
+      "$ref": "#/$defs/nonEmptyString",
+      "description": "The boundary Stage 2 drew around the problem."
+    },
+    "standing": {
+      "const": "understanding_only",
+      "description": "Fixed by the renderer, never read from a model: this artifact states how the input was understood before any reasoning, and a reader must be able to tell that from the document itself."
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "objective": {
+      "type": "object",
+      "required": ["content", "provenance"],
+      "properties": {
+        "content": { "$ref": "#/$defs/nonEmptyString" },
+        "provenance": {
+          "enum": ["stated", "inferred"],
+          "description": "FR-042: stated is in the input; inferred was derived from it. Stage 2 admits no unknown objective — an input with no discernible aim halts there."
+        }
+      }
+    }
+  }
+}
