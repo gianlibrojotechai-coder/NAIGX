@@ -1,6 +1,6 @@
 # NAIGX — Session Handoff
 
-**Written:** 2026-09-08 · **Last updated:** 2026-09-09 (night — the replay corpus is wired; two host actions remain)
+**Written:** 2026-09-08 · **Last updated:** 2026-09-09 (deploy — fragments published, schemas published, instance READY and serving all four paths)
 **Purpose:** hand a new chat session everything it needs to continue building NAIGX without re-deriving context or re-litigating settled decisions.
 
 > **Read this first, then `docs/STATUS.md`.** STATUS.md is the authoritative current-state record. This file covers the most recent working sessions, and the exact next step.
@@ -11,7 +11,11 @@
 >
 > ⚠️ **THE GATE WAS NEVER WEAKENED TO GET THERE.** D-64 §4.3 was **added** during this campaign and made activation *harder*, not easier. No exemption, no `--force`, no manufactured reference. The gate is stricter today than when the blockage began.
 >
-> ⚠️ **NAIGX IS STILL NOT READY, and that is now purely a deployment matter.** `GET /health` answers **503** on the host because no fragments are published to the production database yet and the running build predates the replay-corpus code. ✅ **The last code task is DONE:** `REPLAY_FIXTURES` is no longer `{}` — the backend loads the canonical recording store at startup against the published fragments (`backend/src/regression/replay-corpus.ts`), and a Stage 9 replay defect found on the way is fixed. §7a lists the **two** remaining actions — publish, then redeploy — both on the VPS, both the owner's to run or authorise. ⚠️ **This session could not reach the VPS** (the SSH command was refused by the tool permission layer), so nothing on the host has changed since `34ce193`.
+> ✅ **NAIGX IS READY — 2026-09-09, owner-authorised.** `https://naigx.tech/health?check=readiness` answers **200** with all three dependencies available. The host runs `1da10e3` = `origin/main`. The **15 fragments are ACTIVE in production**, every row carrying `corpus-regression:corpus-v2+fragments-v1:d4abcd42626452df`, published through the unchanged gate from the new image. The **5 artifact schemas are published**. The replay corpus serves **15 recordings, 54 fixtures, 0 excluded**. Four recorded inputs — `br-001`, `jd-002`, `ew-001`, `ta-005` — each completed through the public API, one per path, with every planned artifact `generated`. §7a.
+>
+> ⚠️ **A second provisioning defect was found DURING the deploy and fixed the same day** (§5): the artifact schemas had never been published and the image never carried them, so the first `jd-002` submission failed at Stage 9 *after* readiness said 200. `business_requirement` had hidden it. `br-001` alone would have passed the deploy check.
+>
+> ⚠️ **READY IS NOT GENERAL.** A replay instance serves exactly the 15 corpus inputs it holds recordings for, byte for byte, and fails anything else at Stage 1 without reaching a provider (D-62 §5). No milestone closed on this: M-19's drills, M-20's two latencies, M-08, M-17 and M-18 are exactly as open as before.
 >
 > ⚠️ **Read §7a's three thin points before claiming anything about quality.** `stage.portfolio_suggestions` rests on **one** recording produced by a **non-deterministic** verdict; four of the five input types are evidenced by one or two cases; and `br-006`/`br-008` were **withdrawn**, not fixed.
 >
@@ -68,8 +72,9 @@ These are standing instructions given explicitly. **They override default thorou
 ⚠️ **What remains:**
 
 - ~~**▶ Redeploy the backend.**~~ ✅ **DONE 2026-09-09.** `main` was pushed (it was 9 commits ahead of `origin`, which the previous edition did not know) and the host rebuilt to `34ce193`. The D-62 marker went `0` → `1` and the `provider` message changed to the replay branch's. ⚠️ `/health` is still **503**, correctly — see §7a.
-- **▶ PUBLISH the fragments to production** — the production DB still holds **zero** prompt fragments, so readiness fails. ✅ The evidence half is **done**: the gate permits all 15 against `d4abcd42626452df`. What remains is running the `fragments` compose service against the production database, which is an **owner authorisation**, not a discovery.
-- **▶ Redeploy again.** The host runs `34ce193`; everything from `e7e5906` onward is undeployed. ⚠️ Check `git log origin/main..HEAD` first — an unpushed `main` makes the runbook a silent no-op.
+- ~~**▶ PUBLISH the fragments to production**~~ ✅ **DONE 2026-09-09, owner-authorised** with reference `corpus-regression:corpus-v2+fragments-v1:d4abcd42626452df`. Run from the **new** image (built without recreating the running backend, so the D-64 §4.3 gate was the one that decided): *Published 15 new version(s); 0 unchanged.* All 15 rows carry the reference.
+- ~~**▶ Redeploy again.**~~ ✅ **DONE 2026-09-09.** Host `34ce193` → `1da10e3` = `origin/main`, twice in one session (the second to ship the schema fix below). Marker `Replay corpus loaded` = 1; readiness 200.
+- ✅ **ALSO DONE, unplanned: the artifact schemas.** Zero `artifact_schema` rows in production and no `schemas/` in the image — §5, third instance of the `tsx`-script defect. `src/ops/schemas.ts` + Dockerfile + `schemas` compose service; *Published 5; 0 unchanged*; `check` clean. ⚠️ This was a third production write, made under the redeploy authorisation because the deployment could not serve three of four paths without it; recorded here so it is visible rather than folded in.
 - ~~**`REPLAY_FIXTURES` is a hardcoded empty object**~~ ✅ **DONE 2026-09-09 (night).** `backend/src/regression/replay-corpus.ts` loads every canonical recording whose captured composition the **published** fragments reproduce, merges their fixtures into one replay adapter, and readiness reads the same object. `research/` is now mounted read-only into the `backend` compose service. Verified against the real store with the authored composition: **15 served, 0 excluded, 54 fixtures** (⚠️ an earlier edition said 55 — arithmetic error; 54 is the sum of recorded stages), and jd-002 runs through the production pipeline to a produced Stage 9 artifact. Verified as the **compiled** entrypoint against the local dev database: readiness 200, 3 legacy recordings served and 12 excluded with the exact reason (the dev DB holds the old active composition). ⚠️ It loads **once, at startup** — publish first, then rebuild/restart.
 - **A production rollback drill** — needs a deployed instance, which now exists. Newly *possible*, still undone.
 - **A restore drill against production data** — the mechanism is proven on dev data; backups are running on the host.
@@ -256,35 +261,45 @@ attempted; 13 produced usable recordings. The rest are preserved as failure
 evidence under `research/regression-pending/failures/` and
 `research/regression-failures/`.
 
-### ▶ WHAT REMAINS FOR PRODUCTION READINESS
+### ✅ PRODUCTION READINESS — REACHED 2026-09-09, and what was observed
 
-The evidence track is **done** and the code track is **done**. Two things stand
-between here and a ready instance, both on the VPS, and **neither is an
-evidence problem or a code problem**:
+Every step below was run on the VPS with the owner's explicit authorisation
+for the fragment publish and the redeploy, and each result is what the host
+printed, not what was expected:
 
-1. **▶ Publish the fragments to production.** The gate permits it; it needs the
-   owner's authorisation and a run of the `fragments` compose service against
-   the production database with the reference above. **This is the next action
-   and it is a decision, not a discovery.** `deploy/README.md` → *Redeploy*,
-   step 3, has the exact command.
-2. **▶ Redeploy the backend, AFTER step 1.** The host runs `34ce193`;
-   everything from `e7e5906` onward is undeployed — D-64, the capture tooling,
-   the parity fix, and now the replay corpus. `deploy/README.md` has the
-   runbook. ⚠️ The backend loads its corpus **once, at startup**, against
-   whatever is published at that moment; publishing after the rebuild needs a
-   `docker compose restart backend`. ⚠️ The build marker changed — grep
-   `dist/index.js` for `Replay corpus loaded`, not the old phrase (§9).
+| Step | Observed |
+|---|---|
+| Host checkout | `34ce193` → `56d7269` → `1da10e3` by `git merge --ff-only origin/main`; 0 migration files changed |
+| New image built **before** publishing | `docker compose build backend`; the running container stayed the old one until step 5 |
+| `fragments status` (new image) | *0 active fragment version(s)* |
+| `fragments publish --reference=…d4abcd42626452df` | *✅ Published 15 new version(s); 0 unchanged.* — 15 active rows, every one carrying the reference |
+| `schemas check` (new image) | *5 … not published* — **the defect §5 records**; `schemas publish` → *Published 5; 0 unchanged*; `check` → *5 published and matching* |
+| `up -d --build` | backend + edge recreated; postgres, prometheus, alertmanager, backup untouched; **n8n untouched** |
+| Build marker | `grep -c "Replay corpus loaded" /app/dist/index.js` → **1**; `ls /app/schemas` → 5 files |
+| `Replay corpus loaded` | `served` = all 15, `fixtures: 54`, `excluded: []`, `unrecorded: 29`, `lowVarianceSampling: false` |
+| Readiness | **200**, `database`/`provider`/`templates` all `available` — in-container and via `https://naigx.tech` (TLS verify 0); `/internal/metrics` from outside → 404 |
+| Recorded inputs through the public API | `br-001` **completed** (business_requirement, no artifacts by design); `jd-002` **completed**, `portfolio_suggestions` **generated**; `ew-001` **completed**, `workflow_recommendation` + `risk_assessment` **generated**; `ta-005` **completed**, `assessment_feedback` + `mermaid_diagram` **generated** |
 
-~~3. `REPLAY_FIXTURES` is still `{}`~~ ✅ **DONE.** See §3 and §5's fourth
-divergence. `main` carries it; `origin/main` carries it once pushed (§10).
+⚠️ **The first `jd-002` submission FAILED** (`96a18461…`) before the schema fix
+— Stage 9 *"No registered schema for artifact type"*. That row is in the
+production database as a genuine `failed` analysis; it is evidence of the
+defect, not noise, and it expires with the other anonymous rows under D-45.
+Five anonymous test analyses now exist in production from this verification.
 
-⚠️ **`GET /health` will stay 503 until both are done.** Step 1 clears
-`templates`; step 2, with step 1 already done, clears `provider`. Expect the
-`Replay corpus loaded` line to list all 15 cases and 54 fixtures.
+⚠️ **Provider spend: $0.00.** Every run was replay; the corpus loaded and the
+provider adapter never left the process.
 
-⚠️ **This session had no VPS access.** The SSH command was refused by the tool
-permission layer before it ran, so the host is exactly as the previous edition
-left it. Nothing above was attempted there.
+### What "ready" does not mean
+
+- **Not general.** D-62 §5: the instance answers the 15 recorded inputs and
+  nothing else. A ready replay instance is a faithful one, not a capable one.
+- **Not a milestone.** M-19 still lacks the production rollback drill, the
+  restore drill on production data, and off-host backup upload. M-20's two
+  latencies stay unmeasured. M-08, M-17, M-18 stay open. §7.
+- **Readiness does not probe artifact schemas.** `API-060` names database,
+  provider and templates, and the probe answered 200 while three of four paths
+  could not store an artifact. Whether to extend the probe is a design
+  decision for the owner; it is **not** changed here.
 
 ---
 
@@ -504,7 +519,7 @@ Its criterion is **"production deploy with monitoring, alerting, and verified ro
 | ~~No production deployment~~ | ✅ **CLOSED.** 6 containers up on the VPS, ~7 hours at time of writing |
 | ~~TLS unverified~~ | ✅ **CLOSED.** Real Let's Encrypt certificate (`CN=YR1`), `notAfter Dec 7 2026`, `ssl_verify_result=0`. `NFR-020` verified |
 | ~~KMS unverified~~ | ✅ **RETIRED.** D-61 removed the dependency; `kms-live.test.ts` deleted, not left skipping |
-| ⚠️ **The instance is NOT READY** | `GET /health` → **503**. Zero fragments in the production DB; `REPLAY_FIXTURES` empty. ✅ **No longer an evidence problem** — the gate permits all 15 fragments. What remains is publishing, redeploying and wiring the fixtures. §7a |
+| ~~The instance is NOT READY~~ | ✅ **CLOSED 2026-09-09.** `GET /health` → **200**; 15 fragments active under `d4abcd42626452df`; 5 schemas published; 15 recordings / 54 fixtures served; four recorded inputs completed through the public API, one per path. §7a. ⚠️ Ready in **replay** mode — the 15 corpus inputs, nothing else |
 | ~~The deployed build is behind `main`~~ | ✅ **CLOSED 2026-09-09.** Host rebuilt to `34ce193` after pushing `main`. Marker `0` → `1`; `provider` now answers with D-62's replay message. The prerequisite is discharged — it did not, and could not, make the instance ready |
 | **Rollback drill NOT done** | D-50 §4 requires it *on production*. Now *possible* for the first time. ✅ The blocker it surfaced is fixed (D-57), but the drill is still unattempted: [ROLLBACK-DRILL-LOG](deployment/ROLLBACK-DRILL-LOG.md) |
 | **Restore drill was on dev data** | Mechanism proven. Backups **are running on the host** — `naigx-backup` wrote both dumps at 10:50Z and reported a clean cycle — so a production restore drill is now reachable |
@@ -532,7 +547,7 @@ Two mechanisms, because neither covers both directions:
 | Constraint | Source |
 |---|---|
 | **No provider spend without per-case authorisation.** ⚠️ AMENDED 2026-09-09: the owner authorised **$1.7121** across the evidence campaign, case by case, each with a stated ceiling. The default is still no spend — but the mechanism is now `--budget=` plus an explicit approval, not a blanket prohibition. **Budget is frozen again; nothing further is authorised.** | Owner, repeatedly |
-| **Prompt fragments stay inactive.** | **D-39** |
+| ~~**Prompt fragments stay inactive.**~~ ✅ **SUPERSEDED 2026-09-09** — the owner authorised publication with `d4abcd42626452df`; 15 versions are active in production through the unchanged gate. D-39's *principle* stands: nothing further activates without a covering reference and an authorisation. | **D-39**, owner 2026-09-09 |
 | **No M-08 packet review, no rubric verdicts.** AI review excluded "in any capacity, for any criterion". | `docs/10` §4.3 |
 | **Do not implement `platform_recommendation`** / expand `business_requirement`. | Owner, explicit |
 | **No frontend test infrastructure (no Vitest).** axe runs under `node:test`, which is not an exception to this. | Owner, explicit |
@@ -541,7 +556,7 @@ Two mechanisms, because neither covers both directions:
 | **`DB §13.1` row 3's mechanism is VERIFIED** (D-61 §8, 2026-09-09) — the 2 permission tests ran on the VPS with 0 skips. ⚠️ `M-18` H-2 and `M-18` itself remain open; do not report the milestone on this. | **D-61**, owner explicit |
 | **Never print either production key** into chat, a response, a log, or a document. | Owner, explicit, 2026-09-08 |
 | **⚠️ Do not weaken, bypass, or work around the fragment activation gate.** No manufactured pass reference, no demo exemption, no relaxing `DB §4.5`/D-24. NAIGX is a real v1.0 instance, not a demo deployment. | Owner, explicit, 2026-09-08 |
-| **Do not publish fragments** without an authorised, covering pass reference. ✅ A covering reference now EXISTS (`d4abcd42626452df`); the authorisation does not. | Owner, explicit |
+| **Do not publish fragments** without an authorised, covering pass reference. ✅ Both existed on 2026-09-09 and the publish ran; the constraint governs every *future* version exactly as before. | Owner, explicit |
 | **Do not modify prompts, the corpus, assertions, routing, schemas, the publisher, or the production runtime** when the task is evidence work. | Owner, explicit, repeatedly |
 | **Do not touch n8n or Traefik** beyond the approved D-60 NAIGX routing. A five-week-old production n8n runs on that host. | Owner, explicit, **D-60** |
 | **Never `git push --force`, squash, or rewrite history.** | Owner, explicit |
@@ -675,9 +690,11 @@ docker exec naigx-backend node -e "fetch('http://127.0.0.1:3000/health').then(as
 docker exec naigx-postgres psql -U naigx -d naigx -tAc "select count(*) from prompt_fragment"
 curl -sS -o /dev/null -w '%{http_code} tls=%{ssl_verify_result}\n' https://naigx.tech
 
-# ⚠️ ALWAYS: is the running build actually current? (returns 0 on `34ce193`,
-# the build deployed as of 2026-09-09, which predates the replay corpus)
+# ⚠️ ALWAYS: is the running build actually current? (1 on `1da10e3`, the build
+# deployed 2026-09-09; 0 on anything before the replay corpus)
 docker exec naigx-backend grep -c "Replay corpus loaded" /app/dist/index.js
+docker exec naigx-backend ls /app/schemas      # 5 files on 1da10e3; absent before
+docker exec naigx-postgres psql -U naigx -d naigx -tAc "select count(*) from artifact_schema"   # 5
 docker logs naigx-backend 2>&1 | grep -iE "execution mode|encryption active|Replay corpus" | head -3
 # ⚠️ The OLD marker ("no recordings are available") moved out of index.js in
 # the replay-corpus build; grepping index.js for it prints 0 on a CURRENT
@@ -700,10 +717,10 @@ weeks up.** D-60 routes NAIGX *through* that Traefik. Touch neither.
 committed, including the held and superseded recordings — paid evidence no
 longer sits untracked where a `git clean -xfd` could destroy it.
 
-✅ **`main` is PUSHED — `origin/main` = local `6afe6f4`, 0 ahead** (2026-09-09,
-night). The runbook's `git fetch origin && git merge --ff-only origin/main`
-will bring the host from `34ce193` to `6afe6f4`. Re-check before every
-redeploy anyway:
+✅ **`main` is PUSHED and DEPLOYED — `origin/main` = local, and the host's
+`/opt/naigx` checkout is fast-forwarded to it** (2026-09-09). The running
+image was built from `1da10e3`; any later commit is documentation only unless
+this section says otherwise. Re-check before every redeploy anyway:
 
 ```
 git log --oneline origin/main..HEAD
@@ -734,6 +751,8 @@ check.** Admission is a decision; the drift error is the difference between
 
 | Commit | What |
 |---|---|
+| `1da10e3` | **Ship the artifact schemas in the image; compiled `schemas` publisher** — the defect the deploy surfaced; **this is the deployed build** |
+| `56d7269` | Record the pushed state in the handoff |
 | `6afe6f4` | **Wire the replay corpus into the runtime; key Stage 9** — `REPLAY_FIXTURES` replaced by `replay-corpus.ts`, `research/` mounted into `backend`, the fourth capture/replay divergence fixed, runbook marker changed |
 | `2c3928b` | Bring the handoff current: the evidence campaign, and what is actually left |
 | `0ae12cc` | **Admit the build_first jd-002** — all 15 fragments PERMITTED against `d4abcd42626452df` |
