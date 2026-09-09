@@ -755,7 +755,7 @@ check.** Admission is a decision; the drift error is the difference between
 
 | Commit | What |
 |---|---|
-| *(next)* | **The M-19 drills** — rollback and restore logs filled in from production, runbook path corrected, off-host mechanism recorded, two open issues added to `STATUS.md`. Documentation only; the deployed build is unchanged |
+| `bb1034a` | **The M-19 drills** — rollback and restore logs filled in from production, runbook path corrected, off-host mechanism recorded, two open issues added to `STATUS.md`. Documentation only; the deployed build is unchanged |
 | `64651a0` | Record the deploy in the handoff |
 | `1da10e3` | **Ship the artifact schemas in the image; compiled `schemas` publisher** — the defect the deploy surfaced; **this is the deployed build** |
 | `56d7269` | Record the pushed state in the handoff |
