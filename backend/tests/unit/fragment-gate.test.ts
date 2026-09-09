@@ -114,7 +114,7 @@ test("every fragment the composer requires exists", () => {
   // `portfolio_suggestions` rather than a shared `artifact_generation`. Stage 6
   // does the same for the same reason (`docs/15` D-40): `workflow_review` and
   // `architecture_analysis` are two jobs with two prompts, never one.
-  assert.equal(required.length, 16, "4 foundation + 8 stage + 4 type modifier");
+  assert.equal(required.length, 17, "4 foundation + 9 stage + 4 type modifier");
 });
 
 test("fragment classes map onto the DB §4.5 vocabulary", () => {

@@ -1,0 +1,547 @@
+{
+  "suite": "corpus-regression",
+  "reference": "corpus-regression:corpus-v2+fragments-v1:6d77a360c6175f97",
+  "mode": "recorded",
+  "suiteVersion": "corpus-v2",
+  "fragmentsManifestVersion": "fragments-v1",
+  "fragmentsCompositions": [
+    "15de6e84026aaa84994c76ba92c2e8cab9addaf6cf424ec486fd98b03db4d127",
+    "f06c2fd33e16631b071f9e8682d7c8b3db64ace8b167300c276641aba81d797e"
+  ],
+  "selectionScope": "targeted",
+  "coverage": {
+    "fragmentKey": "stage.architecture_analysis",
+    "fragmentVersionId": "authored:6459fb4a5c7a",
+    "fragmentVersion": "authored",
+    "suiteVersion": "corpus-v2",
+    "corpusSize": 44,
+    "determinedCases": 15,
+    "unrecordedCaseIds": [
+      "br-006",
+      "br-008",
+      "ew-002",
+      "ew-003",
+      "ew-004",
+      "ew-005",
+      "ew-006",
+      "ew-007",
+      "ew-008",
+      "ew-009",
+      "ew-010",
+      "jd-001",
+      "jd-003",
+      "jd-004",
+      "jd-005",
+      "jd-006",
+      "jd-007",
+      "jd-009",
+      "jd-010",
+      "ta-001",
+      "ta-002",
+      "ta-003",
+      "ta-004",
+      "ta-006",
+      "ta-007",
+      "ta-008",
+      "ta-009",
+      "ta-010",
+      "ta-011"
+    ],
+    "coveredCaseIds": [
+      "br-001",
+      "br-002",
+      "br-003",
+      "br-004",
+      "br-007",
+      "br-009",
+      "br-010",
+      "br-011",
+      "ta-005"
+    ],
+    "uncoveredCaseIds": [
+      "br-005",
+      "ew-001",
+      "jd-002",
+      "jd-008",
+      "un-001",
+      "un-002"
+    ],
+    "coversEntireCorpus": false,
+    "cases": [
+      {
+        "caseId": "br-001",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "architecture_analysis",
+          "platform_recommendation"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.architecture_analysis",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "stage.platform_recommendation",
+          "type.business_requirement"
+        ],
+        "exercisesFragment": true
+      },
+      {
+        "caseId": "br-002",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "architecture_analysis",
+          "platform_recommendation"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.architecture_analysis",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "stage.platform_recommendation",
+          "type.business_requirement"
+        ],
+        "exercisesFragment": true
+      },
+      {
+        "caseId": "br-003",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "architecture_analysis",
+          "platform_recommendation"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.architecture_analysis",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "stage.platform_recommendation",
+          "type.business_requirement"
+        ],
+        "exercisesFragment": true
+      },
+      {
+        "caseId": "br-004",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "architecture_analysis",
+          "platform_recommendation"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.architecture_analysis",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "stage.platform_recommendation",
+          "type.business_requirement"
+        ],
+        "exercisesFragment": true
+      },
+      {
+        "caseId": "br-005",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "type.business_requirement"
+        ],
+        "exercisesFragment": false
+      },
+      {
+        "caseId": "br-007",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "architecture_analysis",
+          "platform_recommendation"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.architecture_analysis",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "stage.platform_recommendation",
+          "type.business_requirement"
+        ],
+        "exercisesFragment": true
+      },
+      {
+        "caseId": "br-009",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "architecture_analysis",
+          "platform_recommendation"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.architecture_analysis",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "stage.platform_recommendation",
+          "type.business_requirement"
+        ],
+        "exercisesFragment": true
+      },
+      {
+        "caseId": "br-010",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "architecture_analysis",
+          "platform_recommendation"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.architecture_analysis",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "stage.platform_recommendation",
+          "type.business_requirement"
+        ],
+        "exercisesFragment": true
+      },
+      {
+        "caseId": "br-011",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "architecture_analysis",
+          "platform_recommendation"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.architecture_analysis",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "stage.platform_recommendation",
+          "type.business_requirement"
+        ],
+        "exercisesFragment": true
+      },
+      {
+        "caseId": "ew-001",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "workflow_review"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "stage.workflow_review",
+          "type.workflow"
+        ],
+        "exercisesFragment": false
+      },
+      {
+        "caseId": "jd-002",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "recommendation_generation",
+          "portfolio_suggestions",
+          "interview_guidance"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "stage.interview_guidance",
+          "stage.portfolio_suggestions",
+          "stage.recommendation_generation",
+          "type.job_description"
+        ],
+        "exercisesFragment": false
+      },
+      {
+        "caseId": "jd-008",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "recommendation_generation",
+          "interview_guidance"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "stage.interview_guidance",
+          "stage.recommendation_generation",
+          "type.job_description"
+        ],
+        "exercisesFragment": false
+      },
+      {
+        "caseId": "ta-005",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification",
+          "intent_detection",
+          "context_extraction",
+          "architecture_analysis"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.architecture_analysis",
+          "stage.classification",
+          "stage.context_extraction",
+          "stage.intent",
+          "type.assessment"
+        ],
+        "exercisesFragment": true
+      },
+      {
+        "caseId": "un-001",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.classification"
+        ],
+        "exercisesFragment": false
+      },
+      {
+        "caseId": "un-002",
+        "corpusVersion": "corpus-v1",
+        "stageKeys": [
+          "input_classification"
+        ],
+        "fragmentKeys": [
+          "foundation.neutrality_constraints",
+          "foundation.provenance_rules",
+          "foundation.refusal_and_uncertainty",
+          "foundation.system_frame",
+          "stage.classification"
+        ],
+        "exercisesFragment": false
+      }
+    ]
+  },
+  "runId": "6d77a360c6175f97",
+  "completedAt": "2026-09-09T18:58:24.104Z",
+  "cases": [
+    {
+      "caseId": "br-001",
+      "recordingHash": "24e9c4792ec203a1157ad078391912a94f0f3219a8ada2ab1f9ce6387d6a8cd3",
+      "capturedAt": "2026-09-09T18:45:00.223Z",
+      "fragmentsCompositionHash": "15de6e84026aaa84994c76ba92c2e8cab9addaf6cf424ec486fd98b03db4d127",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "run_completeness",
+        "artifact_generation",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "br-002",
+      "recordingHash": "f716969ebfae537804f4391e2eb6d341c5d8175555975b62deed942822929817",
+      "capturedAt": "2026-09-09T18:46:41.991Z",
+      "fragmentsCompositionHash": "15de6e84026aaa84994c76ba92c2e8cab9addaf6cf424ec486fd98b03db4d127",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "conflict_detection",
+        "run_completeness",
+        "artifact_generation",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "br-003",
+      "recordingHash": "d1ce2562796d4469c866f7d393d2648b5c0d2810aca05629b2333d4bd5a3928b",
+      "capturedAt": "2026-09-09T18:47:43.182Z",
+      "fragmentsCompositionHash": "15de6e84026aaa84994c76ba92c2e8cab9addaf6cf424ec486fd98b03db4d127",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "run_completeness",
+        "artifact_generation",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "br-004",
+      "recordingHash": "47978998adc61864edbe5b4f64708ad928b3cb27ca51d1aa6f89c851f28cb117",
+      "capturedAt": "2026-09-09T18:48:40.913Z",
+      "fragmentsCompositionHash": "15de6e84026aaa84994c76ba92c2e8cab9addaf6cf424ec486fd98b03db4d127",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "run_completeness",
+        "artifact_generation",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "br-007",
+      "recordingHash": "6a56907e8c325be2d3b3932e5a7ab2d804aabdbc9b2ef5d8e29f81c72904e1b5",
+      "capturedAt": "2026-09-09T18:51:47.666Z",
+      "fragmentsCompositionHash": "15de6e84026aaa84994c76ba92c2e8cab9addaf6cf424ec486fd98b03db4d127",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "run_completeness",
+        "artifact_generation",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "br-009",
+      "recordingHash": "09b0f72c19211b248a8dfa92caa9ce8260d885e0845570b72d1bc54ee58481bc",
+      "capturedAt": "2026-09-09T18:53:43.330Z",
+      "fragmentsCompositionHash": "15de6e84026aaa84994c76ba92c2e8cab9addaf6cf424ec486fd98b03db4d127",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "run_completeness",
+        "artifact_generation",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "br-010",
+      "recordingHash": "c16ed84175f53d6ae8f0ad5cae42306dd716501b70e3a4b8524ed73a6f737c27",
+      "capturedAt": "2026-09-09T18:55:12.504Z",
+      "fragmentsCompositionHash": "15de6e84026aaa84994c76ba92c2e8cab9addaf6cf424ec486fd98b03db4d127",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "run_completeness",
+        "artifact_generation",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "br-011",
+      "recordingHash": "dddee90a59778e4afc240164737c7dc41b9e9a74083d382cc119ddf8ba90f061",
+      "capturedAt": "2026-09-09T18:57:02.131Z",
+      "fragmentsCompositionHash": "15de6e84026aaa84994c76ba92c2e8cab9addaf6cf424ec486fd98b03db4d127",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "run_completeness",
+        "artifact_generation",
+        "reference_integrity"
+      ]
+    },
+    {
+      "caseId": "ta-005",
+      "recordingHash": "fbddbed9e8e9340ee1e31fe6acaa5f7e14b7adff96102e431b69f01aed668162",
+      "capturedAt": "2026-09-09T18:57:45.966Z",
+      "fragmentsCompositionHash": "f06c2fd33e16631b071f9e8682d7c8b3db64ace8b167300c276641aba81d797e",
+      "fragmentResolution": "authored",
+      "assertionsEvaluated": [
+        "classification",
+        "classification_confidence_bound",
+        "run_completeness",
+        "artifact_generation",
+        "reference_integrity"
+      ]
+    }
+  ],
+  "assertionsDeferred": [
+    "artifact_set",
+    "confidence_band",
+    "do_not_automate_conclusion"
+  ],
+  "fragmentResolution": "authored",
+  "attests": "Recorded mode: the pipeline, parser and deterministic corpus expectations hold against previously captured provider responses. This is NOT evidence that the current prompt produces these responses — that requires a capture or live run against the fragments in force (docs/12 D-24). Fragment resolution: AUTHORED — composed from the authored fragment versions on disk, which MAY DIFFER from the versions active in any database. This is evidence about a candidate composition, not about what production is serving (docs/38 D-63 §4)."
+}

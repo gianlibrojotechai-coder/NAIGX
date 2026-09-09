@@ -159,6 +159,8 @@ export interface PipelineResult {
   readonly portfolioSuggestions?: PortfolioSuggestions;
   /** D-76 — present when the interview guidance generated. */
   readonly interviewGuidance?: InterviewGuidance;
+  /** D-78 — present when the platform recommendation generated. */
+  readonly platformRecommendation?: PlatformRecommendation;
   /**
    * Stage 6W, existing-workflow path only (`FR-021`, `docs/15` D-40).
    *
@@ -265,6 +267,27 @@ export interface RejectedApproach {
   readonly rejectionReason: string;
 }
 
+/**
+ * How Stage 6 disposed of one unknown context element (D-78, `docs/13` D-38).
+ *
+ * An architecture that cites an unknown as if it were known is a design built
+ * on an assumption nobody stated. Every `unknown` element carries exactly one
+ * entry: what the design did about it, and the statement that makes it
+ * checkable.
+ */
+export const UNKNOWN_DISPOSITIONS = [
+  "assumed",
+  "excluded",
+  "deferred",
+] as const;
+export type UnknownDispositionKind = (typeof UNKNOWN_DISPOSITIONS)[number];
+
+export interface UnknownDisposition {
+  readonly contextIndex: number;
+  readonly disposition: UnknownDispositionKind;
+  readonly statement: string;
+}
+
 export interface ArchitectureResult {
   readonly summary: string;
   readonly dataFlowDescription: string;
@@ -281,6 +304,8 @@ export interface ArchitectureResult {
   readonly tradeOffs?: readonly AcceptedTradeOff[];
   /** Present on the `technical_assessment` path. `FR-023` requires ≥1. */
   readonly rejectedApproaches?: readonly RejectedApproach[];
+  /** D-78: one entry per `unknown` context element; empty when there is none. */
+  readonly unknownDispositions: readonly UnknownDisposition[];
 }
 
 // --- Stage 6W, existing-workflow path (`FR-021`, `docs/15` D-40) ----------
@@ -557,6 +582,36 @@ export interface InterviewGuidance {
   readonly framing: string;
 }
 
+// --- Stage 9, platform recommendation (D-78, FR-034) ------------------------
+
+export interface PlatformCriterion {
+  readonly criterion: string;
+  /** The context element it rests on, or null when it rests on a component. */
+  readonly contextIndex: number | null;
+  /** The architecture component it rests on, or null. At least one of the two. */
+  readonly component: string | null;
+}
+
+export interface PlatformRecommendation {
+  readonly criteriaApplied: readonly PlatformCriterion[];
+  /** Null is a permitted outcome: no platform — do not automate (`FR-034`). */
+  readonly recommendedPlatform: string | null;
+  readonly alsoRequired: readonly {
+    readonly platform: string;
+    readonly role: string;
+  }[];
+  readonly rationale: string;
+  /** At least one (`FR-034`). */
+  readonly alternativesRejected: readonly {
+    readonly platform: string;
+    readonly rejectionReason: string;
+  }[];
+  /** One per architecture component, by name. */
+  readonly fit: readonly { readonly component: string; readonly how: string }[];
+  /** `FR-035`: uncertainty about a platform's current capability is disclosed. */
+  readonly knowledgeCurrencyNote: string;
+}
+
 // --- Stage 8 / Stage 9, job-description path (`docs/12` D-29) -------------
 
 /**
@@ -600,6 +655,9 @@ export const ARTIFACT_TYPES = [
   // D-77: rendered from the Stage 2 intent record and the Stage 3 context set —
   // the problem as understood, before any solution artifact.
   "business_analysis",
+  // D-78: the requirement path's `FR-034` artifact, generated at Stage 9 from
+  // the Stage 6 architecture and the context set.
+  "platform_recommendation",
 ] as const;
 export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
 
@@ -628,6 +686,7 @@ export const PATH_ARTIFACT_TYPES: Readonly<
   business_requirement: [
     "business_analysis",
     "architecture_recommendation",
+    "platform_recommendation",
     "mermaid_diagram",
   ],
   existing_workflow: ["workflow_recommendation", "risk_assessment"],
@@ -656,6 +715,7 @@ export const IMPLEMENTED_ARTIFACT_TYPES = [
   "mermaid_diagram",
   "architecture_recommendation",
   "business_analysis",
+  "platform_recommendation",
 ] as const;
 
 /**
@@ -677,6 +737,9 @@ export const GENERATED_ARTIFACT_TYPES = [
   "portfolio_suggestions",
   // D-76: the second Stage 9 generator, retried the same way.
   "interview_guidance",
+  // D-78: the requirement path's generator, retried from the stored
+  // architecture and context.
+  "platform_recommendation",
 ] as const;
 export type GeneratedArtifactType = (typeof GENERATED_ARTIFACT_TYPES)[number];
 

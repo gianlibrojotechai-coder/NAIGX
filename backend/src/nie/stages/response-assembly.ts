@@ -120,7 +120,8 @@ export function assembleResponse(result: PipelineResult): AssemblyReport {
   if (
     (types.has("assessment_feedback") ||
       types.has("mermaid_diagram") ||
-      types.has("architecture_recommendation")) &&
+      types.has("architecture_recommendation") ||
+      types.has("platform_recommendation")) &&
     result.architecture === undefined
   ) {
     problems.push(

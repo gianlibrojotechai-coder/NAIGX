@@ -37,6 +37,7 @@ import {
 } from "../../src/provider/adapters/replay.js";
 import type { CapabilityRequest } from "../../src/provider/capability.js";
 import {
+  architectureHandoffView,
   contextHandoffView,
   createPipeline,
   stageHandoff,
@@ -44,6 +45,7 @@ import {
 import { parseClassification } from "../../src/nie/stages/classification.js";
 import { parseIntent } from "../../src/nie/stages/intent.js";
 import { parseContext } from "../../src/nie/stages/context-extraction.js";
+import { parseArchitecture } from "../../src/nie/stages/architecture-analysis.js";
 import { StageError } from "../../src/nie/contracts.js";
 import { composePrompt } from "../../src/nie/prompt.js";
 import type { FragmentResolver } from "../../src/nie/ports.js";
@@ -316,6 +318,50 @@ const primedAdapter = async (
     "business_requirement",
   );
 
+  // D-78: the requirement path's Stage 9 generator, keyed on the parsed
+  // architecture the way the pipeline keys it.
+  try {
+    const architecture = parseArchitecture(merged.architecture, context);
+    await add(
+      "platform_recommendation",
+      stageHandoff({
+        context: contextHandoffView(context),
+        architecture: architectureHandoffView(architecture),
+      }),
+      JSON.stringify({
+        criteria_applied: [
+          {
+            criterion:
+              "Invoices arrive by email, so capture starts from the mailbox",
+            context_index: 0,
+            component: null,
+          },
+        ],
+        recommended_platform: "n8n",
+        also_required: [],
+        rationale:
+          "A workflow platform with a mailbox trigger and a Xero node covers the design.",
+        alternatives_rejected: [
+          {
+            platform: "Custom code",
+            rejection_reason:
+              "Nothing in the context names a developer to own it.",
+          },
+        ],
+        fit: architecture.components.map((c) => ({
+          component: c.name,
+          how: "Covered by a dedicated node",
+        })),
+        knowledge_currency_note:
+          "Platform capabilities and pricing change; verify before committing.",
+      }),
+      "business_requirement",
+    );
+  } catch {
+    // An architecture fixture that does not parse describes a run that stops
+    // at Stage 6; there is no Stage 9 call to key.
+  }
+
   return createReplayProvider({ fixtures, lowVarianceSampling: true });
 };
 
@@ -474,7 +520,8 @@ test(
       });
       assert.equal(
         usages.length,
-        5 + 6 + 6 + 6,
+        // D-78: the requirement path's Stage 9 platform generator composes six too.
+        5 + 6 + 6 + 6 + 6,
         "stage 1 has no type modifier yet",
       );
       const stage1 = usages.filter((u) => u.stage === "input_classification");
@@ -652,7 +699,8 @@ test("a trace-store outage does not fail the analysis", { skip }, async () => {
     const usages = await primary.fragmentUsage.count({
       where: { analysisId: seed.analysisId },
     });
-    assert.equal(usages, 23);
+    // D-78: five composing stages of six fragments, less the type modifier at Stage 1.
+    assert.equal(usages, 29);
   } finally {
     await brokenTracePool.end().catch(() => undefined);
     await seed.cleanup();
@@ -768,7 +816,8 @@ test(
       // one-to-one assertion would now require it to have invented a call;
       // Stages 10 and 12 (D-72) are deterministic for the same reason, and
       // Stage 9 on this path renders rather than generates (D-73).
-      const DETERMINISTIC = new Set([5, 9, 10, 12]);
+      // D-78: Stage 9 on this path is the platform generator, a provider call.
+      const DETERMINISTIC = new Set([5, 10, 12]);
       const providerTraces = stageTraces.filter(
         (t) => !DETERMINISTIC.has(t.stageNumber),
       );

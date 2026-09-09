@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://naigx/schemas/platform_recommendation.schema.json",
+  "title": "Platform Recommendation",
+  "description": "D-78: the requirement path's FR-034 artifact (AI §9.1 'Platform Comparison — recommendation with criteria and rejected alternatives; criteria + ≥1 rejected alternative mandatory'). Generated at Stage 9 from the Stage 6 architecture and the context set. The criteria are listed first and each is traced to a context element or a component; the recommendation may be null ('no platform — do not automate' is a permitted outcome, FR-034); at least one alternative is rejected with a reason; every architecture component has a fit line; and the knowledge-currency note is required (FR-035: uncertainty about a platform's current capability is disclosed rather than asserted). PV §3.3: no field holds a commercial relationship, ranking weight or partner status. Repository-authored per docs/12 D-1, published to ARTIFACT_SCHEMA.",
+  "type": "object",
+  "required": ["criteria_applied", "recommended_platform", "also_required", "rationale", "alternatives_rejected", "fit", "knowledge_currency_note"],
+  "properties": {
+    "criteria_applied": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["criterion", "context_index", "component"],
+        "properties": {
+          "criterion": { "$ref": "#/$defs/nonEmptyString" },
+          "context_index": { "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 0 }] },
+          "component": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/nonEmptyString" }] }
+        }
+      }
+    },
+    "recommended_platform": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/nonEmptyString" }] },
+    "also_required": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["platform", "role"],
+        "properties": {
+          "platform": { "$ref": "#/$defs/nonEmptyString" },
+          "role": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "rationale": { "$ref": "#/$defs/nonEmptyString" },
+    "alternatives_rejected": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["platform", "rejection_reason"],
+        "properties": {
+          "platform": { "$ref": "#/$defs/nonEmptyString" },
+          "rejection_reason": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "fit": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["component", "how"],
+        "properties": {
+          "component": { "$ref": "#/$defs/nonEmptyString" },
+          "how": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "knowledge_currency_note": { "$ref": "#/$defs/nonEmptyString" }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1, "pattern": "\\S" }
+  }
+}

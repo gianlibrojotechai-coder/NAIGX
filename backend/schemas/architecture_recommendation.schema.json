@@ -4,29 +4,68 @@
   "title": "Architecture Recommendation",
   "description": "D-73: the FR-030 artifact for the business_requirement path (AI §9.1 'Architecture Recommendation'), rendered deterministically from the Stage 6 architecture — the same source the reasoning hierarchy shows, projected into an artifact so the path hands the reader something to keep, export and cite. Every component carries its inputs, outputs, responsibility and failure handling; integrations are named where Stage 6 named them. Trade-offs and rejected approaches are carried when Stage 6 produced them; on this path FR-023's minimum of one rejected alternative does not apply, so both lists may be empty and the renderer says so rather than inventing one. Repository-authored per docs/12 D-1, published to ARTIFACT_SCHEMA.",
   "type": "object",
-  "required": ["standing", "summary", "data_flow", "components", "trade_offs", "rejected_approaches"],
+  "required": [
+    "standing",
+    "summary",
+    "data_flow",
+    "components",
+    "trade_offs",
+    "rejected_approaches"
+  ],
   "properties": {
     "standing": {
       "const": "recommendation",
       "description": "What this document is: a recommended architecture, not an assessment of a submitted one (that is assessment_feedback) and not a build plan."
     },
-    "summary": { "$ref": "#/$defs/nonEmptyString" },
-    "data_flow": { "$ref": "#/$defs/nonEmptyString" },
+    "summary": {
+      "$ref": "#/$defs/nonEmptyString"
+    },
+    "data_flow": {
+      "$ref": "#/$defs/nonEmptyString"
+    },
     "components": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["ordinal", "name", "responsibility", "inputs", "outputs", "failure_handling"],
+        "required": [
+          "ordinal",
+          "name",
+          "responsibility",
+          "inputs",
+          "outputs",
+          "failure_handling"
+        ],
         "properties": {
-          "ordinal": { "type": "integer", "minimum": 0 },
-          "name": { "$ref": "#/$defs/nonEmptyString" },
-          "responsibility": { "$ref": "#/$defs/nonEmptyString" },
-          "inputs": { "$ref": "#/$defs/nonEmptyString" },
-          "outputs": { "$ref": "#/$defs/nonEmptyString" },
-          "failure_handling": { "$ref": "#/$defs/nonEmptyString" },
-          "external_system": { "$ref": "#/$defs/nonEmptyString" },
-          "integration_direction": { "enum": ["inbound", "outbound", "bidirectional"] }
+          "ordinal": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "name": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "responsibility": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "inputs": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "outputs": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "failure_handling": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "external_system": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "integration_direction": {
+            "enum": [
+              "inbound",
+              "outbound",
+              "bidirectional"
+            ]
+          }
         }
       }
     },
@@ -34,10 +73,17 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["choice", "accepted"],
+        "required": [
+          "choice",
+          "accepted"
+        ],
         "properties": {
-          "choice": { "$ref": "#/$defs/nonEmptyString" },
-          "accepted": { "$ref": "#/$defs/nonEmptyString" }
+          "choice": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "accepted": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
         }
       }
     },
@@ -45,15 +91,57 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["approach", "rejection_reason"],
+        "required": [
+          "approach",
+          "rejection_reason"
+        ],
         "properties": {
-          "approach": { "$ref": "#/$defs/nonEmptyString" },
-          "rejection_reason": { "$ref": "#/$defs/nonEmptyString" }
+          "approach": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "rejection_reason": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    },
+    "unknown_dispositions": {
+      "type": "array",
+      "description": "D-78: how Stage 6 disposed of each unknown context element — one entry per unknown, by index, with the statement that makes it checkable (docs/13 D-38). Absent on artifacts produced before D-78.",
+      "items": {
+        "type": "object",
+        "required": [
+          "context_index",
+          "disposition",
+          "statement"
+        ],
+        "properties": {
+          "context_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "disposition": {
+            "enum": [
+              "assumed",
+              "excluded",
+              "deferred"
+            ]
+          },
+          "statement": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "content": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
         }
       }
     }
   },
   "$defs": {
-    "nonEmptyString": { "type": "string", "minLength": 1, "pattern": "\\S" }
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    }
   }
 }

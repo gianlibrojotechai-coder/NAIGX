@@ -179,9 +179,25 @@ export const renderRiskAssessment = (
  * to submit verbatim." So the rejected approaches and accepted costs are
  * first-class fields rather than prose the reader has to mine.
  */
+/** D-78: the dispositions as an artifact carries them, with the element's content when the context is to hand. */
+const dispositionsOf = (
+  architecture: ArchitectureResult,
+  context?: ContextResult,
+): readonly Record<string, unknown>[] =>
+  (architecture.unknownDispositions ?? []).map((d) => ({
+    context_index: d.contextIndex,
+    disposition: d.disposition,
+    statement: d.statement,
+    ...(context?.elements[d.contextIndex] !== undefined
+      ? { content: context.elements[d.contextIndex]?.content }
+      : {}),
+  }));
+
 export const renderAssessmentFeedback = (
   architecture: ArchitectureResult,
+  context?: ContextResult,
 ): Record<string, unknown> => ({
+  unknown_dispositions: dispositionsOf(architecture, context),
   approach: {
     summary: architecture.summary,
     data_flow: architecture.dataFlowDescription,
@@ -378,8 +394,10 @@ export const renderSkillGapAnalysis = (
  */
 export const renderArchitectureRecommendation = (
   architecture: ArchitectureResult,
+  context?: ContextResult,
 ): Record<string, unknown> => ({
   standing: "recommendation",
+  unknown_dispositions: dispositionsOf(architecture, context),
   summary: architecture.summary,
   data_flow: architecture.dataFlowDescription,
   components: architecture.components.map((component) => ({

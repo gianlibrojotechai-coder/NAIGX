@@ -82,6 +82,7 @@ const classification = (
 });
 
 const architecture: ArchitectureResult = {
+  unknownDispositions: [],
   summary: "Automated capture",
   dataFlowDescription: "Mailbox to ledger",
   components: [

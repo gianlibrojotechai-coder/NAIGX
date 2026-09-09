@@ -38,6 +38,7 @@ import {
   type ArtifactPlanEntry,
   type GeneratedArtifactType,
   type InterviewGuidance,
+  type PlatformRecommendation,
   type ArtifactType,
   type RecommendationForArtifacts,
   type WorkflowReviewResult,
@@ -46,6 +47,7 @@ import { composePrompt, type ComposedPrompt } from "./prompt.js";
 import type { CapabilityProfile } from "./capability-profile.js";
 import { parseRecommendation } from "./stages/recommendation-generation.js";
 import { parseInterviewGuidance } from "./stages/interview-guidance.js";
+import { parsePlatformRecommendation } from "./stages/platform-recommendation.js";
 import {
   eligibleGaps,
   isPlanned,
@@ -240,6 +242,11 @@ export function stageProviderInputs(
      * so until a deployment tried to serve the recording.
      */
     readonly recommendation?: string;
+    /**
+     * Stage 6's raw output, so the requirement path's Stage 9 generator can be
+     * keyed (D-78) — the same shape as `recommendation` for the job path.
+     */
+    readonly architecture?: string;
   },
 ): ReadonlyMap<string, string> {
   const inputs = new Map<string, string>();
@@ -308,6 +315,30 @@ export function stageProviderInputs(
         context: contextHandoffView(context),
       }),
     );
+    // D-78: the requirement path's Stage 9 generator is keyed on the parsed
+    // architecture. Mirrored the same way as Stage 9 on the job path.
+    if (
+      classification.determinedType === "business_requirement" &&
+      outputs.architecture !== undefined
+    ) {
+      try {
+        const architecture = parseArchitecture(
+          outputs.architecture,
+          context,
+          false,
+        );
+        inputs.set(
+          "platform_recommendation",
+          stageHandoff({
+            context: contextHandoffView(context),
+            architecture: architectureHandoffView(architecture),
+          }),
+        );
+      } catch {
+        // An architecture fixture that does not parse describes a run that
+        // stops at Stage 6; there is no Stage 9 call to key.
+      }
+    }
   }
 
   // Stage 6's other generator. The same handoff as architecture analysis —
@@ -480,6 +511,38 @@ export type RegenerationDecision = boolean | { readonly addendum: string };
  * also carries the requirement *name*, because a gap id alone tells the
  * generator nothing about what to build.
  */
+/**
+ * The architecture as the platform generator is shown it (D-78): the design
+ * with its components, integrations and unknown dispositions, so the
+ * generator recommends for this architecture and cites its component names
+ * and context indices rather than reconstructing them.
+ */
+export const architectureHandoffView = (
+  architecture: ArchitectureResult,
+): Record<string, unknown> => ({
+  summary: architecture.summary,
+  data_flow_description: architecture.dataFlowDescription,
+  components: architecture.components.map((c) => ({
+    name: c.name,
+    responsibility: c.responsibility,
+    inputs: c.inputs,
+    outputs: c.outputs,
+    failure_handling: c.failureHandling,
+    ...(c.externalSystem !== undefined
+      ? { external_system: c.externalSystem }
+      : {}),
+    ...(c.integrationDirection !== undefined
+      ? { integration_direction: c.integrationDirection }
+      : {}),
+    grounded_in_context_indices: c.groundedInContextIndices,
+  })),
+  unknown_disposition: (architecture.unknownDispositions ?? []).map((d) => ({
+    context_index: d.contextIndex,
+    disposition: d.disposition,
+    statement: d.statement,
+  })),
+});
+
 /**
  * The recommendation as the interview-guidance generator is shown it (D-76):
  * every requirement with its id, the matches with the capability ids the
@@ -876,6 +939,128 @@ export function createPipeline(deps: PipelineDependencies) {
     // Reasoning must be reproducible where the provider allows it (`AIP-7`).
     preferLowVariance: true,
   });
+
+  /**
+   * The requirement path's Stage 9 generator (D-78): the platform
+   * recommendation, from the architecture and the context set. The same
+   * shape as the two job-path generators, in one place so the requirement
+   * branch and `API-032` retry call the same code.
+   */
+  const generatePlatformRecommendation = async (
+    input: PipelineInput,
+    classifiedAs: ClassificationType,
+    architecture: ArchitectureResult,
+    context: ContextResult,
+    options: { readonly retry?: boolean } = {},
+  ): Promise<{
+    readonly outcome: ArtifactOutcome;
+    readonly wire: unknown;
+    readonly recommendation: PlatformRecommendation | undefined;
+    readonly attempts: number;
+    readonly traceId: string | null;
+    readonly failureReason: string;
+  }> => {
+    let wire: unknown;
+    let attempts = 1;
+    let traceId: string | null = null;
+    let recommendation: PlatformRecommendation | undefined;
+    let outcome: ArtifactOutcome = "generated";
+    let failureReason = "";
+    try {
+      recommendation = await runStage(input, {
+        stageNumber: 9,
+        stageKey: "platform_recommendation",
+        classifiedAs,
+        onStageTrace: (id) => {
+          traceId = id;
+        },
+        structuredInput: {
+          architecture,
+          ...(options.retry === true ? { retry: true } : {}),
+        },
+        buildRequest: (prompt) =>
+          request(
+            prompt,
+            "platform_recommendation",
+            stageHandoff({
+              context: contextHandoffView(context),
+              architecture: architectureHandoffView(architecture),
+            }),
+          ),
+        parse: (text) => {
+          const parsed = parseStructured(9, "platform_recommendation", text);
+          wire = parsed;
+          validateArtifact("platform_recommendation", parsed);
+          return parsePlatformRecommendation(text, architecture, context);
+        },
+        regenerateOnce: (error) => {
+          if (!(error instanceof ArtifactSchemaError)) return false;
+          attempts += 1;
+          return { addendum: correctionFor(error) };
+        },
+      });
+      const deep = await deepValidate(
+        input,
+        traceId,
+        "platform_recommendation",
+        wire,
+      );
+      if (deep !== null) {
+        recommendation = undefined;
+        throw new ResponseValidationError(deep);
+      }
+    } catch (error) {
+      outcome = "failed";
+      failureReason =
+        error instanceof ResponseValidationError
+          ? error.message
+          : error instanceof ArtifactSchemaError
+            ? "Generated but did not satisfy its output schema."
+            : "Generation did not produce a usable document.";
+    }
+    return { outcome, wire, recommendation, attempts, traceId, failureReason };
+  };
+
+  const settlePlatformRecommendation = async (
+    input: PipelineInput,
+    generated: Awaited<ReturnType<typeof generatePlatformRecommendation>>,
+  ): Promise<void> => {
+    emit(
+      input.analysisId,
+      generated.outcome === "generated" &&
+        generated.recommendation !== undefined
+        ? {
+            type: "artifact",
+            artifactType: "platform_recommendation",
+            content: generated.wire,
+          }
+        : {
+            type: "artifact_failed",
+            artifactType: "platform_recommendation",
+            reason: generated.failureReason,
+            retryAvailable: isRetryableArtifactType("platform_recommendation"),
+          },
+    );
+    if (generated.wire !== undefined) {
+      await deps.resultSink?.persistArtifact?.(input.analysisId, {
+        artifactType: "platform_recommendation",
+        content: generated.wire,
+        depthLevel: "standard",
+        generationAttemptCount: generated.attempts,
+        validationStatus:
+          generated.outcome === "generated" ? "valid" : "failed",
+      });
+    }
+    await recordValidation({
+      stageTraceId: generated.traceId,
+      artifactType: "platform_recommendation",
+      passed: generated.outcome === "generated",
+      ...(generated.outcome === "generated"
+        ? {}
+        : { failureDetail: generated.failureReason }),
+      regenerationTriggered: generated.attempts > 1,
+    });
+  };
 
   /**
    * Stage 9's second generator (D-76): the interview guidance, from the
@@ -1772,6 +1957,8 @@ export function createPipeline(deps: PipelineDependencies) {
         summary: review.summary,
         dataFlowDescription: review.dataFlowDescription,
         components: review.structure,
+        // D-78: a review transcribes; it disposes of nothing, and says so.
+        unknownDispositions: [],
       };
       await deps.resultSink?.persistArchitecture(input.analysisId, observed);
       await deps.resultSink?.persistWorkflowFindings?.(
@@ -1869,14 +2056,56 @@ export function createPipeline(deps: PipelineDependencies) {
       assessmentPlan,
     );
 
-    const rendered = await emitDerivedArtifacts(input, assessmentPlan, {
-      assessment_feedback: () => renderAssessmentFeedback(architecture),
+    const renderers = {
+      assessment_feedback: () =>
+        renderAssessmentFeedback(architecture, context),
       // D-77: the problem as understood — Stages 2 and 3, nothing later.
       business_analysis: () => renderBusinessAnalysis(intent, context),
       architecture_recommendation: () =>
-        renderArchitectureRecommendation(architecture),
+        renderArchitectureRecommendation(architecture, context),
       mermaid_diagram: () => renderMermaidDiagram(architecture),
-    });
+    };
+
+    // D-78 — the requirement path's generator runs first; the rendered
+    // artifacts attach to its Stage 9 trace, as the job path's do (`AP-8`).
+    if (
+      classification.determinedType === "business_requirement" &&
+      isPlanned(assessmentPlan, "platform_recommendation")
+    ) {
+      const platform = await generatePlatformRecommendation(
+        input,
+        classification.determinedType,
+        architecture,
+        context,
+      );
+      await settlePlatformRecommendation(input, platform);
+      const rendered = await emitDerivedArtifacts(
+        input,
+        withOutcome(
+          assessmentPlan,
+          "platform_recommendation",
+          platform.outcome,
+        ),
+        renderers,
+        platform.traceId === null ? {} : { traceId: platform.traceId },
+      );
+      return {
+        classification,
+        intent,
+        context,
+        architecture,
+        artifactPlan: rendered,
+        ...(platform.recommendation !== undefined
+          ? { platformRecommendation: platform.recommendation }
+          : {}),
+      };
+    }
+
+    const rendered = await emitDerivedArtifacts(
+      input,
+      assessmentPlan,
+      renderers,
+    );
 
     return {
       classification,
@@ -1915,7 +2144,31 @@ export function createPipeline(deps: PipelineDependencies) {
     readonly recommendation: RecommendationForArtifacts;
     /** D-76: which generator to run again. Defaults to the portfolio. */
     readonly artifactType?: GeneratedArtifactType;
+    /** D-78: the stored architecture and context, for the platform generator. */
+    readonly architecture?: ArchitectureResult;
+    readonly context?: ContextResult;
   }): Promise<RegeneratedArtifact> => {
+    if (input.artifactType === "platform_recommendation") {
+      if (input.architecture === undefined || input.context === undefined) {
+        throw new Error(
+          `Analysis ${input.analysisId} has no stored architecture and context to regenerate platform_recommendation from`,
+        );
+      }
+      const generated = await generatePlatformRecommendation(
+        { analysisId: input.analysisId, text: "" },
+        input.classifiedAs,
+        input.architecture,
+        input.context,
+        { retry: true },
+      );
+      return {
+        artifactType: "platform_recommendation",
+        content: generated.wire,
+        validationStatus:
+          generated.outcome === "generated" ? "valid" : "failed",
+        generationAttemptCount: generated.attempts,
+      };
+    }
     if (input.artifactType === "interview_guidance") {
       const generated = await generateInterviewGuidance(
         { analysisId: input.analysisId, text: "" },

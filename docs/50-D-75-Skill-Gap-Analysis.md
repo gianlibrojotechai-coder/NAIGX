@@ -33,4 +33,4 @@ The gap analysis is attributed to the same Stage 9 trace as the portfolio and an
 | Job path end to end: both verdicts, event order, stage lists | ✅ `tests/integration/nie-jd-path.test.ts` |
 | Full suite, lint, format, typecheck, build; `schemas:check` 9 published and matching | ⏳ |
 | Fifteen recordings replay | ⏳ |
-| Production | ⏳ |
+| Production | ✅ deployed 2026-09-10 as `083024d10dc2` at `f1e5c16` (ninth schema); verified live in the D-76 run — the page listed "Skill gap analysis — every requirement classified, and the order to close the gaps" among the five artifacts of `1889cdd8-…` |

@@ -39,13 +39,33 @@ describes how data moves through the components end to end.
 Design for what the context supports. Where an unknown element makes part of the
 design uncertain, prefer the simpler structure and let the unknown stand.
 
-Respond with a single JSON object containing exactly these three top-level
-keys — `summary`, `data_flow_description` and `components` — and no others,
-except where the section below adds two for one specific path:
+DISPOSE OF EVERY UNKNOWN. The context set marks some elements
+`provenance: "unknown"` — things the input does not settle. A design that
+cites an unknown as if it were known is a design built on an assumption
+nobody stated. So `unknown_disposition` lists **every** unknown element
+exactly once, by its `index`, and says what the design did about it:
+
+- `assumed` — the design proceeds on a stated assumption. `statement` says
+  what was assumed, so the reader can check it.
+- `excluded` — the design leaves that part out until it is known.
+  `statement` says what is left out and what it would take to include it.
+- `deferred` — the design accommodates either answer, and the decision is
+  deferred to the reader. `statement` says where the design would differ.
+
+List only unknown elements here — never a stated or inferred one. An empty
+list is correct only when the context set contains no unknown element.
+
+Respond with a single JSON object containing exactly these four top-level
+keys — `summary`, `data_flow_description`, `components` and
+`unknown_disposition` — and no others, except where the section below adds
+two for one specific path:
 
 {
   "summary": "...",
   "data_flow_description": "...",
+  "unknown_disposition": [
+    { "context_index": 4, "disposition": "assumed | excluded | deferred", "statement": "..." }
+  ],
   "components": [
     {
       "name": "...",

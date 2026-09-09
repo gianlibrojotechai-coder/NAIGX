@@ -59,6 +59,7 @@ const context: ContextResult = {
 } as ContextResult;
 
 const architecture: ArchitectureResult = {
+  unknownDispositions: [],
   summary: "Queue-backed ingestion",
   dataFlowDescription: "Mail → queue → writer",
   components: [

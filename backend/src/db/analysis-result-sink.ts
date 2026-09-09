@@ -136,10 +136,13 @@ export function createStageResultSink(prisma: PrismaClient): StageResultSink {
 
         // One at a time, in order: the returned ids are what Stage 6's
         // grounding indices resolve to.
-        for (const element of context.elements) {
+        for (const [index, element] of context.elements.entries()) {
           const row = await tx.contextElement.create({
             data: {
               analysisId,
+              // D-78: the index Stage 6 grounds in and Stage 9 cites,
+              // persisted so a later read rebuilds the same set.
+              ordinal: index,
               content: element.content,
               category: element.category,
               provenance: element.provenance,
@@ -454,6 +457,12 @@ export function createStageResultSink(prisma: PrismaClient): StageResultSink {
             analysisId,
             summary: architecture.summary,
             dataFlowDescription: architecture.dataFlowDescription,
+            // D-78: one entry per unknown context element, by index.
+            unknownDispositions: architecture.unknownDispositions.map((d) => ({
+              context_index: d.contextIndex,
+              disposition: d.disposition,
+              statement: d.statement,
+            })),
           },
           select: { architectureId: true },
         });

@@ -400,6 +400,9 @@ model ContextElement {
   specificityScore Float             @map("specificity_score")
   /// Feeds CF-3.
   conflictsWithId  String?           @map("conflicts_with_id") @db.Uuid
+  /// D-78: the element's index in its Stage 3 set — the number Stage 6 grounds
+  /// in and Stage 9 cites. 0 on rows stored before the column existed.
+  ordinal          Int               @default(0)
 
   analysis      Analysis           @relation(fields: [analysisId], references: [analysisId], onDelete: Cascade)
   conflictsWith ContextElement?    @relation("ContextElementConflict", fields: [conflictsWithId], references: [contextElementId])
@@ -407,6 +410,7 @@ model ContextElement {
   references    ContextReference[]
 
   @@index([analysisId, provenance])
+  @@index([analysisId, ordinal])
   @@index([conflictsWithId])
   @@map("context_element")
 }
@@ -422,6 +426,9 @@ model ArchitectureModel {
   analysisId          String   @unique @map("analysis_id") @db.Uuid
   summary             String
   dataFlowDescription String   @map("data_flow_description")
+  /// D-78: how Stage 6 disposed of each unknown context element — one entry per
+  /// unknown, by context index (docs/13 D-38 remediation).
+  unknownDispositions Json     @default("[]") @map("unknown_dispositions")
   createdAt           DateTime @default(now()) @map("created_at")
 
   analysis   Analysis                @relation(fields: [analysisId], references: [analysisId], onDelete: Cascade)

@@ -43,6 +43,8 @@ export const STAGE_FRAGMENT_KEYS: Readonly<Record<string, string>> = {
   portfolio_suggestions: "stage.portfolio_suggestions",
   // D-76: the second generator, with its own fragment.
   interview_guidance: "stage.interview_guidance",
+  // D-78: the requirement path's generator, with its own fragment.
+  platform_recommendation: "stage.platform_recommendation",
 };
 
 /** Type modifier per classified path (`AI §6.1` TYPE group). */

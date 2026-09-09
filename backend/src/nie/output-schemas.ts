@@ -54,6 +54,7 @@ import {
   REQUIREMENT_KINDS,
   REQUIREMENT_NECESSITY,
   SUFFICIENCY_LEVELS,
+  UNKNOWN_DISPOSITIONS,
 } from "./contracts.js";
 
 export type OutputSchema = Readonly<Record<string, unknown>>;
@@ -153,6 +154,14 @@ const architectureAnalysis = object({
   summary: string,
   data_flow_description: string,
   components: array(component),
+  // D-78: one entry per unknown context element; the parser enforces coverage.
+  unknown_disposition: array(
+    object({
+      context_index: integer,
+      disposition: enumOf(UNKNOWN_DISPOSITIONS),
+      statement: string,
+    }),
+  ),
   // Required by the assessment path (`FR-023`); the parser enforces that.
   trade_offs: array(object({ choice: string, accepted: string })),
   rejected_approaches: array(
@@ -303,6 +312,29 @@ const interviewGuidance = object({
 });
 
 /**
+ * Derived from `schemas/platform_recommendation.schema.json` (D-78). Nullable
+ * fields are required-but-nullable as everywhere here; `minItems: 1` on the
+ * three lists the published schema requires non-empty.
+ */
+const platformRecommendation = object({
+  criteria_applied: nonEmptyArray(
+    object({
+      criterion: string,
+      context_index: nullable(integer),
+      component: nullable(string),
+    }),
+  ),
+  recommended_platform: nullable(string),
+  also_required: array(object({ platform: string, role: string })),
+  rationale: string,
+  alternatives_rejected: nonEmptyArray(
+    object({ platform: string, rejection_reason: string }),
+  ),
+  fit: nonEmptyArray(object({ component: string, how: string })),
+  knowledge_currency_note: string,
+});
+
+/**
  * Keyed by the `task` the pipeline puts on each `CapabilityRequest` — the
  * stage key, or the generator key for Stage 9 (`docs/12` D-29).
  */
@@ -315,4 +347,5 @@ export const STAGE_OUTPUT_SCHEMAS: Readonly<Record<string, OutputSchema>> = {
   recommendation_generation: recommendationGeneration,
   portfolio_suggestions: portfolioSuggestions,
   interview_guidance: interviewGuidance,
+  platform_recommendation: platformRecommendation,
 };

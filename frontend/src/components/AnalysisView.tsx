@@ -40,6 +40,7 @@ import {
   asIntentBrief,
   asInterviewGuidance,
   asMermaidDiagram,
+  asPlatformRecommendation,
   asPortfolioSuggestions,
   asRiskAssessment,
   asSkillGapAnalysis,
@@ -66,6 +67,7 @@ import { ClassificationCorrection } from "./ClassificationCorrection";
 import { DecisionSummary } from "./DecisionSummary";
 import { CopyArtifactButton, ExportAnalysisButton } from "./ExportControls";
 import { MermaidDiagramView } from "./MermaidDiagram";
+import { PlatformRecommendationView } from "./PlatformRecommendation";
 import { PortfolioSuggestionsView } from "./PortfolioSuggestions";
 import { RiskAssessmentView } from "./RiskAssessment";
 import { SkillGapAnalysisView } from "./SkillGapAnalysis";
@@ -335,6 +337,17 @@ const ARTIFACT_PRESENTERS: Readonly<Record<string, ArtifactPresenter>> = {
       const recommendation = asArchitectureRecommendation(content);
       return recommendation === null ? null : (
         <ArchitectureRecommendationView recommendation={recommendation} />
+      );
+    },
+  },
+  platform_recommendation: {
+    title: "Platform recommendation",
+    subtitle:
+      "The platform, the criteria that chose it, and the alternatives rejected",
+    render: (content) => {
+      const recommendation = asPlatformRecommendation(content);
+      return recommendation === null ? null : (
+        <PlatformRecommendationView recommendation={recommendation} />
       );
     },
   },

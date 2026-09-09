@@ -23,6 +23,7 @@ import type {
   ProviderAdapter,
 } from "../../src/provider/capability.js";
 import {
+  architectureHandoffView,
   contextHandoffView,
   createPipeline,
   stageHandoff,
@@ -31,6 +32,7 @@ import {
 import { parseClassification } from "../../src/nie/stages/classification.js";
 import { parseIntent } from "../../src/nie/stages/intent.js";
 import { parseContext } from "../../src/nie/stages/context-extraction.js";
+import { parseArchitecture } from "../../src/nie/stages/architecture-analysis.js";
 import { StageError } from "../../src/nie/contracts.js";
 import { STAGES } from "../../src/nie/stages.js";
 import {
@@ -85,6 +87,15 @@ const INTENT_OUTPUT = JSON.stringify({
 const ARCHITECTURE_OUTPUT = JSON.stringify({
   summary: "Automated invoice capture and approval routing",
   data_flow_description: "Email \u2192 ingestion \u2192 approval \u2192 Xero",
+  // D-78: the context's one unknown (index 1, approval headcount) is disposed of.
+  unknown_disposition: [
+    {
+      context_index: 1,
+      disposition: "deferred",
+      statement:
+        "Routing is parameterised per approver; the headcount is set when known",
+    },
+  ],
   components: [
     {
       name: "Invoice Ingestion",
@@ -224,8 +235,57 @@ const primedAdapter = async (
     "business_requirement",
   );
 
+  // D-78: the requirement path's Stage 9 generator is keyed on the parsed
+  // architecture, the way the pipeline keys it.
+  try {
+    const architecture = parseArchitecture(
+      outputs.architecture ?? ARCHITECTURE_OUTPUT,
+      context,
+    );
+    await add(
+      "platform_recommendation",
+      stageHandoff({
+        context: contextHandoffView(context),
+        architecture: architectureHandoffView(architecture),
+      }),
+      PLATFORM_OUTPUT,
+      "business_requirement",
+    );
+  } catch {
+    // An architecture fixture that does not parse describes a run that stops
+    // at Stage 6; there is no Stage 9 call to key.
+  }
+
   return createReplayProvider({ fixtures, lowVarianceSampling: true });
 };
+
+/** D-78: the requirement path's Stage 9 answer, grounded in the fixture above. */
+const PLATFORM_OUTPUT = JSON.stringify({
+  criteria_applied: [
+    {
+      criterion: "Invoices arrive by email, so capture starts from the mailbox",
+      context_index: 0,
+      component: null,
+    },
+  ],
+  recommended_platform: "n8n",
+  also_required: [],
+  rationale: "A workflow platform with a mailbox trigger covers the design.",
+  alternatives_rejected: [
+    {
+      platform: "Custom code",
+      rejection_reason: "Nothing in the context names a developer to own it.",
+    },
+  ],
+  fit: [
+    {
+      component: "Invoice Ingestion",
+      how: "IMAP trigger with attachment extraction",
+    },
+  ],
+  knowledge_currency_note:
+    "Platform capabilities and pricing change; verify before committing.",
+});
 
 const harness = async (outputs?: Parameters<typeof primedAdapter>[0]) => {
   const traces: StageTraceRecord[] = [];
@@ -298,9 +358,9 @@ test("runs stages 1-3 in order and produces typed handoffs", async () => {
       "context_extraction",
       "reasoning_planning",
       "architecture_analysis",
-      // Stage 9's key is its one generator (`stages.ts`); on this path it
-      // renders the requirement's artifacts (D-73).
-      "portfolio_suggestions",
+      // D-78: Stage 9 on this path is the platform generator, keyed by its
+      // generator like the job path's; the rendered artifacts attach to it.
+      "platform_recommendation",
       "response_validation",
       "response_assembly",
     ],
@@ -499,7 +559,9 @@ test("cost accounting flows through the shared provider path per stage", async (
   const { pipeline, invocations } = await harness();
   await pipeline.run({ analysisId: ANALYSIS_ID, text: INPUT });
 
-  assert.equal(invocations.length, 4, "one provider call per stage");
+  // Stages 1, 2, 3, 6 and, since D-78, the requirement path's Stage 9
+  // platform generator.
+  assert.equal(invocations.length, 5, "one provider call per provider stage");
   for (const invocation of invocations) {
     assert.equal(invocation.outcome, "success");
     // 20 × $3/M + 30 × $15/M = 0.00006 + 0.00045
@@ -923,6 +985,8 @@ test("the fixture builder and the pipeline agree on what is sent", async () => {
     classification: CLASSIFICATION_OUTPUT,
     intent: INTENT_OUTPUT,
     context: CONTEXT_OUTPUT,
+    // D-78: Stage 9 on this path keys on the parsed architecture.
+    architecture: ARCHITECTURE_OUTPUT,
   });
 
   for (const [stageKey, request] of byStage) {

@@ -227,9 +227,9 @@ test(
       // `docs/12` D-35): it is traced like any other stage but reaches no
       // provider, so it contributes a trace and no invocation.
       // D-72: Stages 10 (response validation) and 12 (response assembly) are
-      // deterministic too — traced, never a provider call. D-73: so is Stage 9
-      // on this path, which renders from the Stage 6 architecture.
-      const DETERMINISTIC = new Set([5, 9, 10, 12]);
+      // deterministic too — traced, never a provider call.
+      // D-78: Stage 9 on this path is the platform generator, a provider call.
+      const DETERMINISTIC = new Set([5, 10, 12]);
       const providerStages = implemented.filter((n) => !DETERMINISTIC.has(n));
       assert.equal(report.provider.invocations.length, providerStages.length);
       for (const invocation of report.provider.invocations) {

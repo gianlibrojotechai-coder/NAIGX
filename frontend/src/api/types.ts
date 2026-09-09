@@ -421,6 +421,8 @@ export interface AssessmentFeedback {
     readonly data_flow: string;
     readonly components: readonly AssessmentComponent[];
   };
+  /** D-78; absent on artifacts stored before it. */
+  readonly unknown_dispositions?: readonly UnknownDisposition[];
   readonly trade_offs: readonly {
     readonly choice: string;
     readonly accepted: string;
@@ -486,6 +488,59 @@ export const asMermaidDiagram = (content: unknown): MermaidDiagram | null => {
   }
   if (typeof candidate.node_count !== "number") return null;
   return candidate as MermaidDiagram;
+};
+
+/** D-78: how Stage 6 disposed of an unknown context element. */
+export interface UnknownDisposition {
+  readonly context_index: number;
+  readonly disposition: "assumed" | "excluded" | "deferred";
+  readonly statement: string;
+  /** The unknown's content, when the renderer had the context to hand. */
+  readonly content?: string;
+}
+
+/** `backend/schemas/platform_recommendation.schema.json` (D-78). */
+export interface PlatformRecommendation {
+  readonly criteria_applied: readonly {
+    readonly criterion: string;
+    readonly context_index: number | null;
+    readonly component: string | null;
+  }[];
+  readonly recommended_platform: string | null;
+  readonly also_required: readonly {
+    readonly platform: string;
+    readonly role: string;
+  }[];
+  readonly rationale: string;
+  readonly alternatives_rejected: readonly {
+    readonly platform: string;
+    readonly rejection_reason: string;
+  }[];
+  readonly fit: readonly { readonly component: string; readonly how: string }[];
+  readonly knowledge_currency_note: string;
+}
+
+export const asPlatformRecommendation = (
+  content: unknown,
+): PlatformRecommendation | null => {
+  if (content === null || typeof content !== "object") return null;
+  const candidate = content as Partial<PlatformRecommendation>;
+  if (
+    !Array.isArray(candidate.criteria_applied) ||
+    candidate.criteria_applied.length === 0
+  )
+    return null;
+  if (
+    candidate.recommended_platform !== null &&
+    typeof candidate.recommended_platform !== "string"
+  )
+    return null;
+  if (!Array.isArray(candidate.also_required)) return null;
+  if (typeof candidate.rationale !== "string") return null;
+  if (!Array.isArray(candidate.alternatives_rejected)) return null;
+  if (!Array.isArray(candidate.fit)) return null;
+  if (typeof candidate.knowledge_currency_note !== "string") return null;
+  return candidate as PlatformRecommendation;
 };
 
 /** `backend/schemas/business_analysis.schema.json` (D-77). */
@@ -655,6 +710,8 @@ export interface ArchitectureRecommendation {
   readonly summary: string;
   readonly data_flow: string;
   readonly components: readonly RecommendedComponent[];
+  /** D-78; absent on artifacts stored before it. */
+  readonly unknown_dispositions?: readonly UnknownDisposition[];
   readonly trade_offs: readonly {
     readonly choice: string;
     readonly accepted: string;

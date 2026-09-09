@@ -162,6 +162,15 @@ export const DEFAULT_BUSINESS_REQUIREMENT_RECORDING: RecordingSet = [
         "Automated invoice capture with rule-based approval routing and an approval status view",
       data_flow_description:
         "Mailbox → capture → extraction → routing → approval → ledger sync",
+      // D-78: the sample context's one unknown (index 2) is disposed of.
+      unknown_disposition: [
+        {
+          context_index: 2,
+          disposition: "deferred",
+          statement:
+            "Routing rules are parameterised per department, so the number of approvers can be set once it is known",
+        },
+      ],
       components: [
         {
           name: "Invoice Capture",
@@ -190,6 +199,54 @@ export const DEFAULT_BUSINESS_REQUIREMENT_RECORDING: RecordingSet = [
     inputTokens: 780,
     outputTokens: 430,
     latencyMs: 2100,
+  },
+  // D-78: the requirement path's Stage 9 generator, grounded in the sample
+  // architecture's two components and the context's first element.
+  {
+    stageKey: "platform_recommendation",
+    classifiedAs: "business_requirement",
+    output: JSON.stringify({
+      criteria_applied: [
+        {
+          criterion:
+            "Invoices already arrive by email, so capture must start from the mailbox",
+          context_index: 0,
+          component: null,
+        },
+        {
+          criterion:
+            "Routing must hold unrouted invoices rather than default an approver",
+          context_index: null,
+          component: "Approval Router",
+        },
+      ],
+      recommended_platform: "n8n",
+      also_required: [],
+      rationale:
+        "A self-hostable workflow platform with a mailbox trigger and conditional routing covers both components without custom code.",
+      alternatives_rejected: [
+        {
+          platform: "Custom code",
+          rejection_reason:
+            "Nothing in the context names a developer to own it; the routing rules are the kind a workflow platform expresses directly.",
+        },
+      ],
+      fit: [
+        {
+          component: "Invoice Capture",
+          how: "IMAP trigger with attachment extraction",
+        },
+        {
+          component: "Approval Router",
+          how: "Switch node on department and amount, with a hold branch",
+        },
+      ],
+      knowledge_currency_note:
+        "Platform capabilities and pricing change; verify the mailbox trigger and node operations against current documentation before committing.",
+    }),
+    inputTokens: 640,
+    outputTokens: 310,
+    latencyMs: 1800,
   },
 ];
 
@@ -246,6 +303,10 @@ export async function buildReplayFixtures(
     // above: an input the pipeline had at capture and the builder did not.
     ...(outputFor("recommendation_generation") !== undefined
       ? { recommendation: outputFor("recommendation_generation") as string }
+      : {}),
+    // D-78: the requirement path's Stage 9 keys on the parsed architecture.
+    ...(outputFor("architecture_analysis") !== undefined
+      ? { architecture: outputFor("architecture_analysis") as string }
       : {}),
   });
 

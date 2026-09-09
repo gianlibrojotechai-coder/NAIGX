@@ -27,12 +27,15 @@ import {
   type ArchitectureResult,
   type ContextResult,
   type RejectedApproach,
+  type UnknownDisposition,
+  UNKNOWN_DISPOSITIONS,
 } from "../contracts.js";
 import {
   asRecord,
   optionalString,
   parseStructured,
   requireArray,
+  requireMember,
   requireString,
 } from "../parse.js";
 
@@ -178,6 +181,10 @@ export function parseArchitecture(
     }
   }
 
+  // D-78 (`docs/13` D-38): every unknown element is disposed of exactly once.
+  // A traceability error, so the one informed regeneration names the indices.
+  const unknownDispositions = parseUnknownDispositions(record, context);
+
   // `FR-023` — a design nobody can question is a design nobody can defend.
   // Parsed on every path, because a requirement analysis may volunteer them,
   // and *required* only where the specification requires them.
@@ -201,9 +208,77 @@ export function parseArchitecture(
     summary,
     dataFlowDescription,
     components,
+    unknownDispositions,
     ...(tradeOffs.length > 0 ? { tradeOffs } : {}),
     ...(rejectedApproaches.length > 0 ? { rejectedApproaches } : {}),
   };
+}
+
+/**
+ * D-78 — the disposition of every unknown context element.
+ *
+ * An absent key reads as an empty list, so a context set with no unknown
+ * element needs no entry; a context set with one needs exactly one entry per
+ * unknown, and the check below is what `docs/13` D-38 measured the absence
+ * of: a design citing an unknown with no field saying what it did about it.
+ */
+function parseUnknownDispositions(
+  record: Record<string, unknown>,
+  context: ContextResult,
+): readonly UnknownDisposition[] {
+  const raw = record["unknown_disposition"] ?? [];
+  if (!Array.isArray(raw)) {
+    return fail("unknown_disposition must be an array when present");
+  }
+  const unknownIndices = new Set(
+    context.elements.flatMap((element, index) =>
+      element.provenance === "unknown" ? [index] : [],
+    ),
+  );
+  const seen = new Set<number>();
+  const entries = raw.map((value, index): UnknownDisposition => {
+    const label = `unknown_disposition[${String(index)}]`;
+    const entry = asRecord(CTX, value, label);
+    const contextIndex = entry["context_index"];
+    if (
+      typeof contextIndex !== "number" ||
+      !Number.isInteger(contextIndex) ||
+      contextIndex < 0 ||
+      contextIndex >= context.elements.length
+    ) {
+      throw new ArchitectureTraceabilityError(
+        `${label}: context_index must be the "index" of a context element (0-${String(context.elements.length - 1)})`,
+      );
+    }
+    if (!unknownIndices.has(contextIndex)) {
+      throw new ArchitectureTraceabilityError(
+        `${label}: context element ${String(contextIndex)} is not an unknown — list only elements whose provenance is "unknown"`,
+      );
+    }
+    if (seen.has(contextIndex)) {
+      throw new ArchitectureTraceabilityError(
+        `${label}: context element ${String(contextIndex)} is disposed of twice`,
+      );
+    }
+    seen.add(contextIndex);
+    return {
+      contextIndex,
+      disposition: requireMember(
+        CTX,
+        entry,
+        "disposition",
+        UNKNOWN_DISPOSITIONS,
+      ),
+      statement: requireString(CTX, entry, "statement"),
+    };
+  });
+  const undisposed = [...unknownIndices].filter((i) => !seen.has(i));
+  if (undisposed.length > 0) {
+    throw new ArchitectureTraceabilityError(
+      `unknown_disposition leaves unknown context element(s) ${undisposed.map(String).join(", ")} undisposed — every unknown must be assumed, excluded or deferred, with a statement (D-38)`,
+    );
+  }
+  return entries;
 }
 
 /**

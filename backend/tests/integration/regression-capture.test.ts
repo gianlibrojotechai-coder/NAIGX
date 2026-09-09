@@ -161,7 +161,9 @@ test("capture runs the production pipeline and writes a valid recording", async 
       captured: 1,
       skipped: 0,
       failed: 0,
-      providerCalls: 4,
+      // Stages 1, 2, 3, 6 and, since D-78, the requirement path's Stage 9
+      // platform generator.
+      providerCalls: 5,
     });
 
     const store = createRecordingStore(root);
@@ -190,6 +192,8 @@ test("capture runs the production pipeline and writes a valid recording", async 
         "intent_detection",
         "context_extraction",
         "architecture_analysis",
+        // D-78: the requirement path's Stage 9 generator.
+        "platform_recommendation",
       ],
     );
     assert.equal(recording.stages[0]?.classifiedAs, undefined);
@@ -468,7 +472,11 @@ test("capture takes the selection it is given, case by case", async () => {
     const report = await captureCases(options(root, cases));
 
     assert.equal(report.totals.captured, 3);
-    assert.equal(report.totals.providerCalls, 12, "four stages per case");
+    assert.equal(
+      report.totals.providerCalls,
+      15,
+      "five stages per case (D-78)",
+    );
     assert.deepEqual(createRecordingStore(root).list("corpus-v1"), [
       "cc-010",
       "cc-011",
@@ -486,7 +494,7 @@ test("captureCase reports the calls it made and the adapter that answered", asyn
     options(tempRoot(), [target]),
   );
 
-  assert.equal(providerCalls, 4);
+  assert.equal(providerCalls, 5);
   assert.equal(recording.provider.adapter, DRY_RUN_ADAPTER_ID);
   assert.equal(
     recording.stages.every((s) => s.inputTokens === 0),
@@ -747,9 +755,7 @@ test("a capture whose generated artifact failed its parser is quarantined, never
       }),
     );
 
-    const outcome = report.cases.find(
-      (o) => o.caseId === "jd-bad-portfolio",
-    );
+    const outcome = report.cases.find((o) => o.caseId === "jd-bad-portfolio");
     assert.equal(outcome?.status, "failed");
     assert.match(
       outcome?.detail ?? "",

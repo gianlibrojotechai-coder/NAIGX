@@ -15,6 +15,7 @@
 
 import type { AssessmentComponent, AssessmentFeedback } from "../api/types";
 import { Unavailable } from "./ui";
+import { UnknownDispositions } from "./UnknownDispositions";
 
 function Component({ component }: { component: AssessmentComponent }) {
   return (
@@ -34,7 +35,11 @@ export function AssessmentFeedbackView({
 }: {
   feedback: AssessmentFeedback;
 }) {
-  const { approach, trade_offs: tradeOffs, rejected_approaches: rejected } = feedback;
+  const {
+    approach,
+    trade_offs: tradeOffs,
+    rejected_approaches: rejected,
+  } = feedback;
 
   return (
     <div className="space-y-6">
@@ -56,6 +61,8 @@ export function AssessmentFeedbackView({
           ))}
         </ul>
       </section>
+
+      <UnknownDispositions dispositions={feedback.unknown_dispositions} />
 
       <section className="space-y-2">
         <h3 className="text-sm font-semibold text-slate-900">
@@ -95,8 +102,8 @@ export function AssessmentFeedbackView({
           Alternatives rejected
         </h3>
         <p className="text-xs text-slate-600">
-          The question you will be asked is "why not X?". These are the
-          prepared answers.
+          The question you will be asked is "why not X?". These are the prepared
+          answers.
         </p>
         {rejected.length === 0 ? (
           <Unavailable>

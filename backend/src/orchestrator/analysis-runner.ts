@@ -31,6 +31,7 @@ import { createStageTraceSink } from "../db/stage-trace-sink.js";
 import { createValidationEventSink } from "../db/validation-event-sink.js";
 import { createStageResultSink } from "../db/analysis-result-sink.js";
 import { readRecommendation } from "../db/recommendation-reader.js";
+import { readArchitectureForRetry } from "../db/architecture-reader.js";
 import { createProviderInvocationRecorder } from "../db/provider-invocation-recorder.js";
 import { createProviderInvoker } from "../provider/invoke.js";
 import type { ProviderAdapter } from "../provider/capability.js";
@@ -186,15 +187,6 @@ export async function createAnalysisRunner(
     mode: deps.mode,
 
     async retryArtifact(analysisId, artifactType) {
-      // Read back what Stage 7 stored. `API-032` reuses reasoning rather than
-      // recomputing it, so this is the only input the regeneration gets.
-      const recommendation = await readRecommendation(deps.prisma, analysisId);
-      if (recommendation === null) {
-        throw new Error(
-          `Analysis ${analysisId} has no stored recommendation to regenerate ${artifactType} from`,
-        );
-      }
-
       const classification = await deps.prisma.classification.findFirst({
         where: { analysisId },
         select: { determinedType: true },
@@ -203,15 +195,64 @@ export async function createAnalysisRunner(
         throw new Error(`Analysis ${analysisId} has no stored classification`);
       }
 
-      const regenerated = await pipeline.regenerateArtifact({
-        analysisId,
-        classifiedAs: classification.determinedType,
-        recommendation,
-        // D-76: two generators; the route already refused any other type.
-        ...(artifactType === "interview_guidance"
-          ? { artifactType: "interview_guidance" as const }
-          : {}),
-      });
+      // D-78: the requirement path's generator regenerates from the stored
+      // architecture and context set, not from a recommendation it never had.
+      const regenerated =
+        artifactType === "platform_recommendation"
+          ? await (async () => {
+              const stored = await readArchitectureForRetry(
+                deps.prisma,
+                analysisId,
+              );
+              if (stored === null) {
+                throw new Error(
+                  `Analysis ${analysisId} has no stored architecture to regenerate platform_recommendation from`,
+                );
+              }
+              return pipeline.regenerateArtifact({
+                analysisId,
+                classifiedAs: classification.determinedType,
+                recommendation: {
+                  requiredCapabilities: [],
+                  matched: [],
+                  gaps: [],
+                  verdict: {
+                    decision: "apply_now",
+                    rationale: "",
+                    decisiveGaps: [],
+                    criteriaApplied: "",
+                    alternatives: [],
+                  },
+                },
+                artifactType: "platform_recommendation" as const,
+                architecture: stored.architecture,
+                context: stored.context,
+              });
+            })()
+          : await (async () => {
+              // Read back what Stage 7 stored. `API-032` reuses reasoning
+              // rather than recomputing it, so this is the only input the
+              // regeneration gets.
+              const recommendation = await readRecommendation(
+                deps.prisma,
+                analysisId,
+              );
+              if (recommendation === null) {
+                throw new Error(
+                  `Analysis ${analysisId} has no stored recommendation to regenerate ${artifactType} from`,
+                );
+              }
+              return pipeline.regenerateArtifact({
+                analysisId,
+                classifiedAs: classification.determinedType,
+                recommendation,
+                // D-76: two generators; the route already refused any other
+                // type.
+                ...(artifactType === "interview_guidance"
+                  ? { artifactType: "interview_guidance" as const }
+                  : {}),
+              });
+            })();
 
       // `DB §4.4` stores the outcome either way — a second failure is a
       // labelled failure, not a silent no-op. Nothing is written when the

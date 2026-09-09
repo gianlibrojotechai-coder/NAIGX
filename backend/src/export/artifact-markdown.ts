@@ -387,6 +387,8 @@ const renderAssessmentFeedback = (document: unknown): ArtifactRender => {
   // not to submit verbatim". Trade-offs and rejected approaches are what make
   // it defensible under questioning, so they are headed sections rather than
   // prose a reader has to mine.
+  lines.push(...dispositionLines(document));
+
   const tradeOffs = list(document.trade_offs).filter(isRecord);
   if (tradeOffs.length > 0) {
     lines.push("#### What this approach accepts", "");
@@ -409,6 +411,98 @@ const renderAssessmentFeedback = (document: unknown): ArtifactRender => {
     lines.push("");
   }
 
+  return { lines, rendered: true };
+};
+
+// --- unknown dispositions (D-78), shared by the two architecture artifacts ---
+
+const dispositionLines = (document: Record<string, unknown>): string[] => {
+  const raw = document.unknown_dispositions;
+  if (raw === undefined) return [];
+  const entries = list(raw).filter(isRecord);
+  const lines = ["#### How the unknowns were handled", ""];
+  if (entries.length === 0) {
+    lines.push(
+      "*The context set had no unknown element for the design to dispose of.*",
+      "",
+    );
+    return lines;
+  }
+  for (const entry of entries) {
+    const content = str(entry.content);
+    lines.push(
+      `- **${(str(entry.disposition) ?? "?").replace(/_/g, " ")}** — ${content ?? `unknown #${String(int(entry.context_index) ?? "?")}`}: ${str(entry.statement) ?? ""}`,
+    );
+  }
+  lines.push("");
+  return lines;
+};
+
+// --- platform_recommendation -------------------------------------------------
+
+/**
+ * The platform recommendation (D-78, `FR-034`): criteria first, then the
+ * recommendation (or "no platform"), the rejected alternatives with reasons,
+ * the fit per component, and the knowledge-currency note last and always.
+ */
+const renderPlatformRecommendation = (document: unknown): ArtifactRender => {
+  if (!isRecord(document)) return unrenderable("platform_recommendation");
+  const criteria = list(document.criteria_applied).filter(isRecord);
+  const rejected = list(document.alternatives_rejected).filter(isRecord);
+  const rationale = str(document.rationale);
+  const note = str(document.knowledge_currency_note);
+  if (
+    criteria.length === 0 ||
+    rejected.length === 0 ||
+    rationale === null ||
+    note === null
+  ) {
+    return unrenderable("platform_recommendation");
+  }
+  const platform = str(document.recommended_platform);
+  const lines: string[] = ["#### The criteria applied", ""];
+  criteria.forEach((c, index) => {
+    const idx = int(c.context_index);
+    const comp = str(c.component);
+    const trace = [
+      idx === null ? null : `context #${String(idx)}`,
+      comp === null ? null : `component "${comp}"`,
+    ]
+      .filter((t): t is string => t !== null)
+      .join(", ");
+    lines.push(`${String(index + 1)}. ${str(c.criterion) ?? ""} *(${trace})*`);
+  });
+  lines.push("", "#### The recommendation", "");
+  lines.push(
+    `**${platform === null ? "No platform — do not automate this" : platform}.** ${rationale}`,
+    "",
+  );
+  const also = list(document.also_required).filter(isRecord);
+  if (also.length > 0) {
+    lines.push(
+      `Alongside: ${also.map((a) => `${str(a.platform) ?? "?"} (${str(a.role) ?? ""})`).join("; ")}`,
+      "",
+    );
+  }
+  lines.push("#### Rejected, and why", "");
+  for (const r of rejected) {
+    lines.push(
+      `- **${str(r.platform) ?? "?"}** — ${str(r.rejection_reason) ?? ""}`,
+    );
+  }
+  lines.push(
+    "",
+    "#### How each component is covered",
+    "",
+    "| Component | How |",
+    "|---|---|",
+  );
+  for (const f of list(document.fit).filter(isRecord)) {
+    lines.push(
+      `| ${inlineCell(str(f.component) ?? "—")} | ${inlineCell(str(f.how) ?? "—")} |`,
+    );
+  }
+  lines.push("", `*Verify before committing. ${note}*`, "");
   return { lines, rendered: true };
 };
 
@@ -652,6 +746,8 @@ const renderArchitectureRecommendation = (
   }
   lines.push("");
 
+  lines.push(...dispositionLines(document));
+
   const tradeOffs = list(document.trade_offs).filter(isRecord);
   lines.push("#### What this approach accepts", "");
   if (tradeOffs.length === 0) {
@@ -731,6 +827,7 @@ export const ARTIFACT_TITLES: Readonly<Record<string, string>> = {
   assessment_feedback: "Assessment Feedback",
   business_analysis: "Business Analysis",
   architecture_recommendation: "Architecture Recommendation",
+  platform_recommendation: "Platform Recommendation",
   mermaid_diagram: "Architecture Diagram",
 };
 
@@ -821,6 +918,7 @@ const RENDERERS: Readonly<
   assessment_feedback: renderAssessmentFeedback,
   business_analysis: renderBusinessAnalysis,
   architecture_recommendation: renderArchitectureRecommendation,
+  platform_recommendation: renderPlatformRecommendation,
   mermaid_diagram: renderMermaidDiagram,
 };
 

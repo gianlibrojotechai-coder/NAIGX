@@ -58,6 +58,7 @@ const context: ContextResult = {
 };
 
 const architecture: ArchitectureResult = {
+  unknownDispositions: [],
   summary: "A two-hop Zapier workflow",
   dataFlowDescription: "Form → Zapier → Sheet",
   components: [

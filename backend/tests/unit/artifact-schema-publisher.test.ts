@@ -76,7 +76,7 @@ test("an unpublished schema is published at the declared version", async () => {
 
   assert.equal(result.outcome, "published");
   assert.equal(result.version, ARTIFACT_SCHEMA_VERSION);
-  assert.equal(result.version, "2", "explicitly assigned, not derived");
+  assert.equal(result.version, "3", "explicitly assigned, not derived");
   assert.equal(store.rows.length, 1);
   assert.deepEqual(
     store.rows[0]?.definition,

@@ -23,6 +23,7 @@ import type {
   ArchitectureRecommendation,
   RecommendedComponent,
 } from "../api/types";
+import { UnknownDispositions } from "./UnknownDispositions";
 
 const DIRECTION_COPY: Record<string, string> = {
   inbound: "receives from",
@@ -117,6 +118,8 @@ export function ArchitectureRecommendationView({
           ))}
         </ul>
       </section>
+
+      <UnknownDispositions dispositions={recommendation.unknown_dispositions} />
 
       <section className="space-y-2">
         <h3 className="text-sm font-semibold text-slate-900">

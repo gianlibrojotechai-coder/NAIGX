@@ -380,6 +380,35 @@ export function checkInternalConsistency(
       }
       break;
     }
+    case "platform_recommendation": {
+      const components = new Set(
+        (ctx.architecture?.components ?? []).map((c) => c.name),
+      );
+      const elementCount = ctx.context?.elements.length ?? 0;
+      for (const f of asArray(doc["fit"])) {
+        const name = String(asRecord(f)?.["component"] ?? "");
+        if (!components.has(name))
+          problems.push(
+            `fit names component "${name}", which the architecture does not have`,
+          );
+      }
+      for (const c of asArray(doc["criteria_applied"])) {
+        const rec2 = asRecord(c);
+        const idx = rec2?.["context_index"];
+        if (typeof idx === "number" && (idx < 0 || idx >= elementCount))
+          problems.push(
+            `criterion cites context element ${String(idx)}, out of range`,
+          );
+        const comp = rec2?.["component"];
+        if (typeof comp === "string" && !components.has(comp))
+          problems.push(
+            `criterion cites component "${comp}", which the architecture does not have`,
+          );
+      }
+      if (asArray(doc["alternatives_rejected"]).length === 0)
+        problems.push("no rejected alternative (FR-034)");
+      break;
+    }
     case "business_analysis": {
       const elements = ctx.context?.elements ?? [];
       const counts = asRecord(doc["counts"]);
@@ -488,6 +517,14 @@ export function checkInternalConsistency(
       break;
     }
     case "assessment_feedback": {
+      {
+        const rendered = asArray(doc["unknown_dispositions"]).length;
+        const expected = ctx.architecture?.unknownDispositions.length ?? 0;
+        if (doc["unknown_dispositions"] !== undefined && rendered !== expected)
+          problems.push(
+            `${String(rendered)} unknown dispositions rendered, ${String(expected)} reasoned`,
+          );
+      }
       const tradeOffs = asArray(doc["trade_offs"]).length;
       const rejected = asArray(doc["rejected_approaches"]).length;
       const expectedT = ctx.architecture?.tradeOffs?.length ?? 0;

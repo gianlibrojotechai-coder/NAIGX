@@ -149,6 +149,36 @@ const STAGE_OUTPUTS = {
       },
     ],
   }),
+  // D-78: the requirement path's Stage 9 generator, grounded in the one
+  // component above and the context's first element.
+  platform: JSON.stringify({
+    criteria_applied: [
+      {
+        criterion:
+          "Invoices arrive as attachments, so capture starts from the mailbox",
+        context_index: 0,
+        component: null,
+      },
+    ],
+    recommended_platform: "n8n",
+    also_required: [],
+    rationale:
+      "A workflow platform with a mailbox trigger covers the one component.",
+    alternatives_rejected: [
+      {
+        platform: "Custom code",
+        rejection_reason: "Nothing in the context names a developer to own it.",
+      },
+    ],
+    fit: [
+      {
+        component: "Invoice Capture",
+        how: "IMAP trigger with attachment extraction",
+      },
+    ],
+    knowledge_currency_note:
+      "Platform capabilities and pricing change; verify before committing.",
+  }),
 };
 
 const ALL_STAGES = [
@@ -156,6 +186,7 @@ const ALL_STAGES = [
   { key: "intent_detection", of: "intent" },
   { key: "context_extraction", of: "context" },
   { key: "architecture_analysis", of: "architecture" },
+  { key: "platform_recommendation", of: "platform" },
 ] as const;
 
 /**

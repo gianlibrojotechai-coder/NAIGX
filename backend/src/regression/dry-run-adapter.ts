@@ -288,6 +288,23 @@ export function createDryRunAdapter(
           grounded_in_context_indices: [0],
         },
       ],
+      // D-78: the dry-run context has no unknown element to dispose of.
+      unknown_disposition: [],
+      // `FR-023`: the assessment path requires both; the requirement path
+      // parses them leniently, so the same answer serves every architecture
+      // case (the parser rejects a present-but-invalid list, never an extra one).
+      trade_offs: [
+        {
+          choice: "Dry-run placeholder choice",
+          accepted: "Dry-run placeholder cost",
+        },
+      ],
+      rejected_approaches: [
+        {
+          approach: "Dry-run placeholder alternative",
+          rejection_reason: "Dry-run placeholder reason",
+        },
+      ],
     }),
     recommendation_generation: recommendation,
     // The dry-run Stage 7 answer makes req-2 the single decisive technical
@@ -296,6 +313,38 @@ export function createDryRunAdapter(
       recommendation === undefined ? undefined : portfolioFrom(["req-2"]),
     // D-76: the second generator, answered whenever Stage 7 was.
     interview_guidance: interviewFrom(recommendation),
+    // D-78: the requirement path's generator, grounded in the dry-run
+    // architecture's one component and the context's one element.
+    platform_recommendation:
+      type === "business_requirement"
+        ? JSON.stringify({
+            criteria_applied: [
+              {
+                criterion: "Dry-run placeholder criterion",
+                context_index: 0,
+                component: null,
+              },
+            ],
+            recommended_platform: "dry-run platform",
+            also_required: [],
+            rationale:
+              "Dry-run placeholder rationale; there is no reasoning here",
+            alternatives_rejected: [
+              {
+                platform: "dry-run alternative",
+                rejection_reason: "Dry-run placeholder rejection",
+              },
+            ],
+            fit: [
+              {
+                component: "Dry Run Component",
+                how: "Dry-run placeholder coverage",
+              },
+            ],
+            knowledge_currency_note:
+              "Dry-run placeholder: platform capabilities change; verify against current documentation.",
+          })
+        : undefined,
   };
 
   return {

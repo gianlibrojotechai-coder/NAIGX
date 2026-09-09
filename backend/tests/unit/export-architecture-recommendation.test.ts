@@ -19,6 +19,7 @@ import { renderArchitectureRecommendation } from "../../src/nie/stages/derived-a
 import type { ArchitectureResult } from "../../src/nie/contracts.js";
 
 const architecture: ArchitectureResult = {
+  unknownDispositions: [],
   summary:
     "Capture invoices from the mailbox, route approvals by amount, post to Xero.",
   dataFlowDescription:
