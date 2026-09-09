@@ -793,6 +793,7 @@ check.** Admission is a decision; the drift error is the difference between
 
 | Commit | What |
 |---|---|
+| `d9ff63a` | **M-20 measured live, NOT MET** — NFR-001/002 sample, evidence files, credit-exhaustion blocker, NFR-021 absent on the VPS |
 | `11ae3c1` | **M-19 closed** — test alert delivered and read back; `deploy/offsite/` preserves the sync script and units with recovery steps; STATUS, handoff, runbook updated |
 | `2362461` | Name the drills commit |
 | `bb1034a` | **The M-19 drills** — rollback and restore logs filled in from production, runbook path corrected, off-host mechanism recorded, two open issues added to `STATUS.md`. Documentation only; the deployed build is unchanged |
