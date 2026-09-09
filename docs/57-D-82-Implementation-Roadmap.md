@@ -33,7 +33,7 @@ The cost of the path rises by one Opus call per live analysis (the D-80 campaign
 
 ## 4. The gate, walked
 
-The D-82 campaign was started and stopped mid-`br-001` (≤ $0.22, upper bound; nothing written) once it was clear D-83 and D-84 would each recapture the same nine cases: one campaign serves all three — see [D-84 §4](59-D-84-Integration-Requirements.md). The D-82 targeted run is recorded there.
+The D-82 campaign was started, then ordered stopped mid-`br-001` once it was clear D-83 and D-84 would each recapture the same nine cases — **but the stop did not reach the capture process**, which ran to completion in the background: 7 captured, 2 failed, **$1.7759 billed** for recordings that were superseded before admission (they lack the D-83/D-84 stages). Found when its held folder turned up in a commit; removed, and the spend recorded. ⚠️ A background task reported as stopped may leave its child process running: check the log, not the task status. One campaign then served all three records — see [D-84 §4](59-D-84-Integration-Requirements.md). The D-82 targeted run is recorded there.
 
 ## 5. Verification
 

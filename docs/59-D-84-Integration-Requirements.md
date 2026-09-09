@@ -25,7 +25,7 @@ With D-82 and D-83 the requirement path runs six generators at Stage 9 concurren
 
 **Cost, recorded.** A live requirement analysis now makes ten provider calls, six of them at Stage 9. Concurrency keeps the wall time at the slowest generator, but the money is additive: at Opus 5 high effort the D-79 live run priced a generator at about $0.24–0.26, so a requirement analysis is now roughly $1.9–2.1 against a $6.00 day cap — about three analyses a day. The caps are the owner's configuration and are not changed here.
 
-**One campaign for three records.** The D-82 campaign was started and stopped mid-`br-001` (≤ $0.22, upper bound, nothing written) once it was clear D-83 and D-84 would each need the same nine cases recaptured: bundling the three saved two campaigns (about $4). The recapture covers all three fragments; the targeted runs are per fragment.
+**One campaign for three records.** The D-82 campaign was ordered stopped mid-`br-001` once it was clear D-83 and D-84 would each need the same nine cases recaptured — but the stop did not reach the capture process, which ran on to **7 captured, 2 failed, $1.7759**, all superseded before admission (D-82 §4). Bundling the three still saved one campaign. The recapture covers all three fragments; the targeted runs are per fragment.
 
 ## 3. What is not changed
 
@@ -45,7 +45,7 @@ With D-82 and D-83 the requirement path runs six generators at Stage 9 concurren
 6. Admitted; the nine prior recordings superseded with their reasons. Targeted runs: `--fragment=stage.implementation_roadmap` → `53943a31449b7c49`; `--fragment=stage.edge_case_analysis` → `abe111f65fcbc226`; `--fragment=stage.integration_requirements` → `3ac9000d238acbd1` (eight cases each). Fifteen cases → 15 passed → **`corpus-regression:corpus-v2+fragments-v1:89613348d27b3d4f`**.
 7. `fragments:publish --reference=…89613348d27b3d4f` locally (3 new versions; 22 active); the same from the new image in production (§5).
 
-Campaign total for the three records: **$3.5092** ($0.6480 + $1.3765 + $1.2432 + $0.2415), plus the stopped D-82 start carried at ≤ $0.22. Every requirement case now carries ten artifacts.
+Campaign total for the three records: **$3.5092** ($0.6480 + $1.3765 + $1.2432 + $0.2415), plus the D-82 campaign that ran on after its stop, **$1.7759** — $5.2851 for the three records in all. Every requirement case now carries ten artifacts.
 
 ## 5. Verification
 
