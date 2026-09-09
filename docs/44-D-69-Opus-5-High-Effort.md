@@ -47,5 +47,5 @@ changes; the replay rollback (D-67) is unaffected.
 
 | Check | Result |
 |---|---|
-| Container reports `PROVIDER_MODEL=claude-opus-5`, effort `high`, deadline 420 000; boot line shows caps 3.00 / 30.00 and reserve 1.00; readiness 200; key still absent from env | ⏳ |
-| One billed job-description run through the public API: completed, cost and time recorded, reconciled against the ledger | ⏳ (estimate ≤ $1.00) |
+| Container reports `PROVIDER_MODEL=claude-opus-5`, effort `high`, deadline 420 000; boot line shows caps 3.00 / 30.00 and reserve 1.00; readiness 200; key still absent from env | ✅ 2026-09-09, image `e4abf7c20984` unchanged (D-68 not deployed by this switch) |
+| One billed job-description run through the public API: completed, cost and time recorded, reconciled against the ledger | ✅ jd-002 via a temporary allowlisted account (removed afterwards, sign-in → 403): **completed in 217 s**, brief at 25 s, build_first with `portfolio_suggestions` generated, not degraded, not timed out. Stages 1/2/3/7/9: 3.0 / 21.5 / 40.9 / 67.6 / 84.0 s; output tokens 51 / 1,505 / 4,042 / 5,865 / 6,140; **$0.5927** total (5 calls, all with usage). ⚠️ 217 s is past the old 180 s deadline — the 420 s deadline was necessary, not precautionary. Cost is 4.0× the Sonnet 5 run of the same case ($0.1474); time 2.1× |
