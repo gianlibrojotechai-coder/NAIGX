@@ -97,7 +97,8 @@ export function JobDescriptionForm({
           onSubmit(content);
         }
       }}
-      className="border border-slate-200 rounded-lg bg-white p-5"
+      className="rise glow-focus border border-slate-200 rounded-lg bg-white p-5"
+      style={{ ["--i" as string]: 3 }}
     >
       {/* `FR-006` — offered, never silently applied. Hidden once the user has
           started typing: replacing what they are working on would be the same
@@ -179,9 +180,9 @@ export function JobDescriptionForm({
         <button
           type="submit"
           disabled={!submittable}
-          className="px-5 py-2.5 rounded-md bg-slate-900 text-white font-medium hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-900 disabled:bg-slate-300 disabled:cursor-not-allowed"
+          className="px-5 py-2.5 rounded-md bg-accent-400 text-slate-50 font-mono text-sm font-semibold uppercase tracking-[0.12em] hover:bg-accent-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-accent-300 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed"
         >
-          {busy ? "Submitting…" : "Decide"}
+          {busy ? "Submitting…" : "Decide ↗"}
         </button>
       </div>
     </form>

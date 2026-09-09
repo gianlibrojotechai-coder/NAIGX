@@ -26,7 +26,9 @@ import { useEffect, useState } from "react";
 
 import { AnalysisView } from "./components/AnalysisView";
 import { RefusalView } from "./components/RefusalView";
+import { AmbientBackground } from "./components/AmbientBackground";
 import { AuthPanel } from "./components/AuthPanel";
+import { Hero } from "./components/Hero";
 import { HistoryView } from "./components/HistoryView";
 import { isOffline } from "./api/analyses";
 import { setSessionEndedHandler, signOut, type AccountUser } from "./api/auth";
@@ -80,6 +82,7 @@ function App() {
         Skip to main content
       </a>
 
+      <AmbientBackground />
       <header className="border-b border-slate-200 bg-white">
         <div className="max-w-4xl mx-auto px-6 py-5 flex flex-wrap items-center gap-x-3 gap-y-1">
           <h1 className="text-xl font-bold tracking-tight">
@@ -157,17 +160,7 @@ function App() {
 
         {showForm && (
           <>
-            <div className="pt-4 pb-2">
-              <h2 className="text-3xl font-semibold tracking-tight text-slate-900">
-                Paste it. Get a decision.
-              </h2>
-              <p className="mt-2 max-w-2xl text-slate-600">
-                A job posting, a business problem, an existing workflow, or a
-                technical brief. NAIGX works out which it is, reasons it
-                through, and shows you the conclusion first — with everything it
-                rests on one click below.
-              </p>
-            </div>
+            <Hero />
             <JobDescriptionForm
               onSubmit={(content) => {
                 void submit(content);

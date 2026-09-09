@@ -65,6 +65,33 @@ visible, and the axe run over the input, sign-in and policy surfaces is
 **9 of 9 clean** on the new build. The manual walk (`M-17`) is still
 unwalked; D-49 §2 stands.
 
+## 3b. Motion, and the reference direction (second pass, same day)
+
+The owner asked for "moving parts" and showed a reference: near-black
+ground, one large headline with a single italic accent word in cyan,
+annotation chips drifting around it, a floating status card, a mono-caps
+call to action — "but do not copy the exact brands". The direction was
+taken and the content is NAIGX's own: the chips are the reasoning stages
+(Reader · Stage 1, Analyst · Stage 3, Judge · Stage 7, Builder · Stage 9)
+and the floating card is the recorded jd-002 verdict, every word of it a
+stored field. The palette moved from indigo on navy to cyan on near-black;
+the accent word is set in Instrument Serif italic (self-hosted).
+
+| Moving part | What it is | What it never claims |
+|---|---|---|
+| Ambient ground | Three blurred discs on a half-resolution canvas, paused when the tab is hidden | — |
+| `rise` | Content arrives with a staggered fade-and-lift; fully at rest within ~1 s | — |
+| Selection frame | Draws itself around the accent word | — |
+| Drifting chips | Slow independent orbits | They are `aria-hidden` decoration |
+| Processing rail | The five stages, each lit **only** when the server reported it; a travelling light on the segment after the last lit stage | A percentage or a remaining time — no total is known |
+| Badge pulse, card lift | One pulse on the verdict badge; cards lift toward the pointer | — |
+
+Everything above is disabled under `prefers-reduced-motion: reduce`
+(WCAG 2.3.3). The axe test now measures the page **at rest** — it waits for
+every finite animation to finish — because a contrast read mid-fade is a
+measurement of the transition, not the page; that is what its first run
+after the motion landed reported, and it is 9/0 again at rest.
+
 ## 4. What is not changed
 
 - No reasoning, prompt, schema, gate, recording or requirement. The 15
@@ -95,4 +122,5 @@ unwalked; D-49 §2 stands.
 | Backend suite (Postgres suites required), lint, format, build, export tests | ✅ 1005/0; 64 export tests unchanged |
 | Axe WCAG 2.1 A/AA over input, sign-in and policy surfaces on the new build | ✅ 9/0 |
 | Rendered against a local replay stack (jd-002): landing, processing, decision summary with build and proof cards, full reasoning fold, sign-in | ✅ screenshots reviewed; two copy defects found and fixed before publication |
-| Production deploy | ⏳ awaiting the owner's look at the screenshots |
+| Motion pass: hero relaid as a two-column grid after the one allowed look showed the card colliding with the headline; frames re-recorded; preview republished with a flipbook of the two moving moments | ✅ |
+| Production deploy | ⏳ awaiting the owner's go on the motion preview |

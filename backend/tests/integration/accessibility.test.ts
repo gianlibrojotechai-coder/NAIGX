@@ -128,8 +128,26 @@ const openApp = async (browser: Browser, url: string): Promise<Page> => {
   return page;
 };
 
-const analyse = async (page: Page) =>
-  new AxeBuilder({ page }).withTags(TAGS).analyze();
+/**
+ * Measures the page AT REST. D-68 fades content in on load (`rise`), and a
+ * contrast measured mid-fade is a measurement of the transition, not of the
+ * page; axe found exactly that (label, helper text and a chip at partial
+ * opacity). So every finite animation is awaited first. The infinite ones —
+ * the ambient ground and the drifting chips — never finish and are excluded;
+ * they move position and opacity of decorative, `aria-hidden` elements only.
+ */
+const analyse = async (page: Page) => {
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .filter((animation) => {
+        const timing = animation.effect?.getTiming();
+        return timing !== undefined && timing.iterations !== Infinity;
+      })
+      .every((animation) => animation.playState === "finished"),
+  );
+  return new AxeBuilder({ page }).withTags(TAGS).analyze();
+};
 
 /** A violation, rendered so a failure message says what to fix. */
 const describe = (results: Awaited<ReturnType<typeof analyse>>): string =>

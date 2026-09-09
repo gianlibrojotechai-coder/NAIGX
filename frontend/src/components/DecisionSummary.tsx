@@ -77,7 +77,10 @@ const howFor = (type: string): { title: string; how: string } =>
 
 function BuildCard({ project }: { project: PortfolioProject }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-5">
+    <div
+      className="rise lift rounded-lg border border-slate-200 bg-white p-5"
+      style={{ ["--i" as string]: 2 }}
+    >
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         What to build
       </p>
@@ -121,7 +124,11 @@ function BuildCard({ project }: { project: PortfolioProject }) {
           </p>
           <ol className="mt-1.5 space-y-1.5 text-sm text-slate-800">
             {project.workflow.map((step, index) => (
-              <li key={`${String(index)}-${step}`} className="flex gap-2.5">
+              <li
+                key={`${String(index)}-${step}`}
+                className="rise flex gap-2.5"
+                style={{ ["--i" as string]: 4 + index }}
+              >
                 <span
                   aria-hidden="true"
                   className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-slate-900 text-white text-[11px] font-semibold grid place-items-center"
@@ -141,7 +148,10 @@ function BuildCard({ project }: { project: PortfolioProject }) {
 function ProofCard({ project }: { project: PortfolioProject }) {
   const evidence = project.evidence_to_produce ?? [];
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-5">
+    <div
+      className="rise lift rounded-lg border border-slate-200 bg-white p-5"
+      style={{ ["--i" as string]: 3 }}
+    >
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         How to prove it
       </p>
@@ -221,7 +231,10 @@ export function DecisionSummary({ analysis }: { analysis: Analysis }) {
 
   return (
     <section aria-labelledby="decision-heading" className="space-y-4">
-      <div className="rounded-lg border border-slate-200 bg-white p-6">
+      <div
+        className="rise rounded-lg border border-slate-200 bg-white p-6"
+        style={{ ["--i" as string]: 0 }}
+      >
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           The decision
         </p>
@@ -232,11 +245,13 @@ export function DecisionSummary({ analysis }: { analysis: Analysis }) {
           >
             {verdictLabel(verdict.decision)}
           </h2>
-          <Badge tone={build ? "warning" : "success"}>
-            {build
-              ? "Build evidence before applying"
-              : "Your evidence is enough"}
-          </Badge>
+          <span className="pulse-once rounded">
+            <Badge tone={build ? "warning" : "success"}>
+              {build
+                ? "Build evidence before applying"
+                : "Your evidence is enough"}
+            </Badge>
+          </span>
         </div>
         <p className="mt-3 text-slate-700">
           {firstSentence(verdict.rationale)}
