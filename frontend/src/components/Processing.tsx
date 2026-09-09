@@ -18,7 +18,7 @@ import type { AnalysisStatus } from "../api/types";
 
 const STATUS_COPY: Record<AnalysisStatus, string> = {
   queued: "Queued — accepted and stored, waiting to start.",
-  running: "Reasoning over the posting.",
+  running: "Reasoning over your input.",
   completed: "Complete. Retrieving the stored analysis…",
   failed: "The run failed.",
   timed_out: "The run timed out.",

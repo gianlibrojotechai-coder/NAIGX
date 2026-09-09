@@ -124,7 +124,9 @@ These are standing instructions given explicitly. **They override default thorou
 | `docs/41` **D-66** | **The intent brief** — a deterministic Stage 2 artifact, the route to `NFR-001` as written. Deployed and measured: `NFR-001` MET |
 | `docs/42` **D-67** | **The owner-only live release** — two finish lines; access allowlist, anonymous disabled, spend caps, key from a file. Built, tested, rehearsed locally; **production switch awaits approval** |
 
-**Numbering convention: the next standalone record is `docs/43` D-68.** Nothing is currently owed.
+| `docs/43` **D-68** | **Decision first, then the reasoning** — the summary cards (verdict, what to build, how to prove it), the folded reasoning, the dark theme as tokens, the export summary page and font fix. Built, gate-green, axe 9/0; **deploy awaits the owner's look** |
+
+**Numbering convention: the next standalone record is `docs/44` D-69.** Nothing is currently owed.
 
 ⚠️ **D-63 without its §7 amendment is actively wrong.** The original decision made the runner re-resolve recordings against authored fragments, which invalidated **10 of 13** committed recordings the moment authored content drifted. The amendment separates **replayability** from **evidential currency**: a recording that carries its own captured composition replays against *that* and is never stale for replay; only the activation gate asks the currency question. Read §7 before touching anything in `src/regression/`.
 

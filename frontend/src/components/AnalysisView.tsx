@@ -30,6 +30,7 @@
  * which is the difference `FR-091` exists to preserve.
  */
 
+import { useId, useState } from "react";
 import type { ReactNode } from "react";
 
 import {
@@ -53,10 +54,8 @@ import {
 import { AssessmentFeedbackView } from "./AssessmentFeedback";
 import { IntentBriefView } from "./IntentBrief";
 import { ClassificationCorrection } from "./ClassificationCorrection";
-import {
-  CopyArtifactButton,
-  ExportAnalysisButton,
-} from "./ExportControls";
+import { DecisionSummary } from "./DecisionSummary";
+import { CopyArtifactButton, ExportAnalysisButton } from "./ExportControls";
 import { MermaidDiagramView } from "./MermaidDiagram";
 import { PortfolioSuggestionsView } from "./PortfolioSuggestions";
 import { RiskAssessmentView } from "./RiskAssessment";
@@ -307,7 +306,9 @@ function ArtifactSection({
   analysisId: string;
 }) {
   const rendered =
-    entry.validation_status === "valid" ? presenter.render(entry.content) : null;
+    entry.validation_status === "valid"
+      ? presenter.render(entry.content)
+      : null;
 
   return (
     <Section
@@ -353,9 +354,9 @@ function ArtifactSection({
         </Unavailable>
       ) : rendered === null ? (
         <Unavailable>
-          The stored artifact could not be read as {presenter.title.toLowerCase()}
-          . It is retained server-side; nothing is shown here rather than a
-          partial document presented as whole.
+          The stored artifact could not be read as{" "}
+          {presenter.title.toLowerCase()}. It is retained server-side; nothing
+          is shown here rather than a partial document presented as whole.
         </Unavailable>
       ) : (
         rendered
@@ -409,6 +410,12 @@ export function AnalysisView({
     (entry) => entry.outcome !== "generated",
   );
 
+  // D-68 — the decision first; the full reasoning folded when a verdict exists
+  // to summarise. Folded, not removed: every section below still renders on
+  // demand, and the export carries all of it regardless.
+  const [showReasoning, setShowReasoning] = useState(analysis.verdict === null);
+  const reasoningId = useId();
+
   return (
     <div className="space-y-4">
       {/* Run-level honesty first: a degraded or failed run is context for
@@ -435,6 +442,8 @@ export function AnalysisView({
         </div>
       )}
 
+      <DecisionSummary analysis={analysis} />
+
       {/* The legend sits outside every collapsible section on purpose.
           `FR-043` requires the treatment to be explained "without requiring a
           tutorial", and a legend folded inside a closed section explains
@@ -448,350 +457,372 @@ export function AnalysisView({
         <ExportAnalysisButton analysisId={analysis.analysis_id} />
       </div>
 
-      {/* 1 · the job as understood — leads, per FR-040 */}
-      <Section
-        step={1}
-        title="The job as understood"
-        subtitle="What NAIGX took the posting to be asking for"
-      >
-        {analysis.intent === null ? (
-          <Unavailable>
-            No intent record was stored. Stage 2 did not complete for this
-            analysis.
-          </Unavailable>
-        ) : (
-          <dl className="space-y-4">
-            <Field label="Primary objective">
-              {analysis.intent.primary_objective}
-            </Field>
-            {analysis.intent.inferred_scope !== null && (
-              <Field label="Scope">{analysis.intent.inferred_scope}</Field>
-            )}
-          </dl>
-        )}
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            setShowReasoning((value) => !value);
+          }}
+          aria-expanded={showReasoning}
+          aria-controls={reasoningId}
+          className="px-4 py-2 rounded-md border border-slate-300 bg-white text-sm font-medium text-slate-800 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-900"
+        >
+          {showReasoning
+            ? "Hide the full reasoning"
+            : "Show the full reasoning"}
+        </button>
+        <p className="text-sm text-slate-600">
+          Requirements, evidence, provenance and unknowns — everything the
+          decision rests on.
+        </p>
+      </div>
 
-        {analysis.derived_title !== null && (
-          <p className="mt-4 text-sm text-slate-600">
-            Stored as:{" "}
-            <span className="font-medium">{analysis.derived_title}</span>
-          </p>
-        )}
-      </Section>
-
-      {/* 2 · classification */}
-      <Section
-        step={2}
-        title="Classification"
-        subtitle="What kind of input this was determined to be"
-        defaultOpen={false}
-        accent={
-          analysis.classification?.was_low_confidence === true ? (
-            <Badge tone="warning">Low confidence</Badge>
-          ) : undefined
-        }
-      >
-        {analysis.classification === null ? (
-          <Unavailable>No classification was stored.</Unavailable>
-        ) : (
-          <dl className="grid gap-4 sm:grid-cols-2">
-            <Field label="Determined type">
-              {humanise(analysis.classification.determined_type)}
-            </Field>
-            <Field label="Classifier confidence">
-              {analysis.classification.confidence.toFixed(2)}
-              {analysis.classification.was_low_confidence && (
-                <span className="block text-amber-800 mt-1">
-                  Recorded as low confidence — the reasoning that follows rests
-                  on a type the system was not sure of.
-                </span>
+      <div id={reasoningId} className={showReasoning ? "space-y-4" : "hidden"}>
+        {/* 1 · the job as understood — leads, per FR-040 */}
+        <Section
+          step={1}
+          title="The job as understood"
+          subtitle="What NAIGX took the posting to be asking for"
+        >
+          {analysis.intent === null ? (
+            <Unavailable>
+              No intent record was stored. Stage 2 did not complete for this
+              analysis.
+            </Unavailable>
+          ) : (
+            <dl className="space-y-4">
+              <Field label="Primary objective">
+                {analysis.intent.primary_objective}
+              </Field>
+              {analysis.intent.inferred_scope !== null && (
+                <Field label="Scope">{analysis.intent.inferred_scope}</Field>
               )}
-            </Field>
-            {analysis.classification.user_override_type !== null && (
-              <Field label="Overridden to">
-                {humanise(analysis.classification.user_override_type)}
-              </Field>
-            )}
-            {analysis.sufficiency_level !== null && (
-              <Field label="Input sufficiency">
-                {humanise(analysis.sufficiency_level)}
-              </Field>
-            )}
-          </dl>
-        )}
+            </dl>
+          )}
 
-        {/* `FR-014` — "a control allows reclassification to any supported
+          {analysis.derived_title !== null && (
+            <p className="mt-4 text-sm text-slate-600">
+              Stored as:{" "}
+              <span className="font-medium">{analysis.derived_title}</span>
+            </p>
+          )}
+        </Section>
+
+        {/* 2 · classification */}
+        <Section
+          step={2}
+          title="Classification"
+          subtitle="What kind of input this was determined to be"
+          defaultOpen={false}
+          accent={
+            analysis.classification?.was_low_confidence === true ? (
+              <Badge tone="warning">Low confidence</Badge>
+            ) : undefined
+          }
+        >
+          {analysis.classification === null ? (
+            <Unavailable>No classification was stored.</Unavailable>
+          ) : (
+            <dl className="grid gap-4 sm:grid-cols-2">
+              <Field label="Determined type">
+                {humanise(analysis.classification.determined_type)}
+              </Field>
+              <Field label="Classifier confidence">
+                {analysis.classification.confidence.toFixed(2)}
+                {analysis.classification.was_low_confidence && (
+                  <span className="block text-amber-800 mt-1">
+                    Recorded as low confidence — the reasoning that follows
+                    rests on a type the system was not sure of.
+                  </span>
+                )}
+              </Field>
+              {analysis.classification.user_override_type !== null && (
+                <Field label="Overridden to">
+                  {humanise(analysis.classification.user_override_type)}
+                </Field>
+              )}
+              {analysis.sufficiency_level !== null && (
+                <Field label="Input sufficiency">
+                  {humanise(analysis.sufficiency_level)}
+                </Field>
+              )}
+            </dl>
+          )}
+
+          {/* `FR-014` — "a control allows reclassification to any supported
             type". It re-submits rather than editing; `API §7.5` creates a new
             analysis and keeps this one. */}
-        {analysis.classification !== null &&
-          onCorrectClassification !== undefined && (
-            <ClassificationCorrection
-              determinedType={analysis.classification.determined_type}
-              wasLowConfidence={analysis.classification.was_low_confidence}
-              onCorrect={onCorrectClassification}
-              busy={correcting}
-            />
-          )}
-      </Section>
+          {analysis.classification !== null &&
+            onCorrectClassification !== undefined && (
+              <ClassificationCorrection
+                determinedType={analysis.classification.determined_type}
+                wasLowConfidence={analysis.classification.was_low_confidence}
+                onCorrect={onCorrectClassification}
+                busy={correcting}
+              />
+            )}
+        </Section>
 
-      {/* 3 · verdict */}
-      <Section
-        step={3}
-        title="Verdict"
-        subtitle="Apply now, or build evidence first"
-        accent={
-          analysis.verdict !== null ? (
-            <Badge
-              tone={
-                analysis.verdict.decision === "apply_now"
-                  ? "success"
-                  : "warning"
-              }
-            >
-              {verdictLabel(analysis.verdict.decision)}
-            </Badge>
-          ) : undefined
-        }
-      >
-        {analysis.verdict === null ? (
-          <Unavailable>
-            No verdict was stored. Stage 7 did not complete for this analysis.
-          </Unavailable>
-        ) : (
-          <div className="space-y-4">
-            <div>
-              <p className="text-2xl font-semibold text-slate-900">
+        {/* 3 · verdict */}
+        <Section
+          step={3}
+          title="Verdict"
+          subtitle="Apply now, or build evidence first"
+          accent={
+            analysis.verdict !== null ? (
+              <Badge
+                tone={
+                  analysis.verdict.decision === "apply_now"
+                    ? "success"
+                    : "warning"
+                }
+              >
                 {verdictLabel(analysis.verdict.decision)}
-              </p>
-              {verdictMeaning(analysis.verdict.decision) !== null && (
-                <p className="text-sm text-slate-600 mt-1">
-                  {verdictMeaning(analysis.verdict.decision)}
+              </Badge>
+            ) : undefined
+          }
+        >
+          {analysis.verdict === null ? (
+            <Unavailable>
+              No verdict was stored. Stage 7 did not complete for this analysis.
+            </Unavailable>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <p className="text-2xl font-semibold text-slate-900">
+                  {verdictLabel(analysis.verdict.decision)}
                 </p>
-              )}
-            </div>
+                {verdictMeaning(analysis.verdict.decision) !== null && (
+                  <p className="text-sm text-slate-600 mt-1">
+                    {verdictMeaning(analysis.verdict.decision)}
+                  </p>
+                )}
+              </div>
 
-            {/* FR-042 — the rationale travels with the conclusion. */}
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Rationale
-              </h3>
-              <p className="mt-1 text-slate-800">
-                {analysis.verdict.rationale}
-              </p>
-            </div>
-
-            {/* `FR-034` — the standard, beside the conclusion it produced. The
-                rationale says what was decided; this says what it was measured
-                against, which is what lets a reader dispute the standard. */}
-            {analysis.verdict.criteria_applied !== null && (
+              {/* FR-042 — the rationale travels with the conclusion. */}
               <div>
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Criteria applied
+                  Rationale
                 </h3>
                 <p className="mt-1 text-slate-800">
-                  {analysis.verdict.criteria_applied}
+                  {analysis.verdict.rationale}
                 </p>
               </div>
-            )}
 
-            {analysis.verdict.alternatives.length > 0 && (
-              <div>
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Alternatives considered
-                </h3>
-                <ul className="mt-1 space-y-2">
-                  {analysis.verdict.alternatives.map((alternative, index) => (
-                    <li
-                      key={`${alternative.alternative}-${String(index)}`}
-                      className="text-sm text-slate-800"
-                    >
-                      <span className="font-medium">
-                        {alternative.alternative}
-                      </span>
-                      {" — "}
-                      <span className="text-slate-600">
-                        {alternative.rejection_reason}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+              {/* `FR-034` — the standard, beside the conclusion it produced. The
+                rationale says what was decided; this says what it was measured
+                against, which is what lets a reader dispute the standard. */}
+              {analysis.verdict.criteria_applied !== null && (
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Criteria applied
+                  </h3>
+                  <p className="mt-1 text-slate-800">
+                    {analysis.verdict.criteria_applied}
+                  </p>
+                </div>
+              )}
 
-            {/* FR-045. Null is the honest answer while Stage 11 is deferred. */}
-            {analysis.verdict.confidence_band === null ? (
-              <Unavailable>
-                Confidence is not available. NAIGX does not yet compute a
-                confidence band, and showing one here would be inventing the
-                measurement. Weigh this verdict on its rationale and on the
-                unknowns below.
-              </Unavailable>
-            ) : (
-              <Field label="Confidence">
-                {humanise(analysis.verdict.confidence_band)}
-              </Field>
-            )}
-          </div>
-        )}
-      </Section>
+              {analysis.verdict.alternatives.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Alternatives considered
+                  </h3>
+                  <ul className="mt-1 space-y-2">
+                    {analysis.verdict.alternatives.map((alternative, index) => (
+                      <li
+                        key={`${alternative.alternative}-${String(index)}`}
+                        className="text-sm text-slate-800"
+                      >
+                        <span className="font-medium">
+                          {alternative.alternative}
+                        </span>
+                        {" — "}
+                        <span className="text-slate-600">
+                          {alternative.rejection_reason}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
-      {/* 4 · requirements */}
-      <Section
-        step={4}
-        title="Requirements"
-        subtitle={`What the posting asks for, and what is evidenced${analysis.decisive_gaps.length > 0 ? ` · ${String(analysis.decisive_gaps.length)} decisive gap${analysis.decisive_gaps.length === 1 ? "" : "s"}` : ""}`}
-        accent={
-          analysis.decisive_gaps.length > 0 ? (
-            <Badge tone="danger">
-              {analysis.decisive_gaps.length} decisive
-            </Badge>
-          ) : undefined
-        }
-      >
-        {analysis.requirements.length === 0 ? (
-          <Unavailable>
-            No requirements were extracted for this analysis.
-          </Unavailable>
-        ) : (
-          <>
-            {analysis.decisive_gaps.length > 0 && (
-              <p className="text-sm text-rose-900 bg-rose-50 border border-rose-300 rounded-md p-3 mb-4">
-                <span className="font-medium">
-                  Decisive gaps drive the verdict:{" "}
-                </span>
-                {analysis.decisive_gaps.join(", ")}. These are the ones worth
-                closing first.
-              </p>
-            )}
-            <ul className="space-y-3">
-              {analysis.requirements.map((requirement) => (
-                <RequirementCard
-                  key={requirement.id}
-                  requirement={requirement}
-                />
-              ))}
-            </ul>
-          </>
-        )}
-      </Section>
+              {/* FR-045. Null is the honest answer while Stage 11 is deferred. */}
+              {analysis.verdict.confidence_band === null ? (
+                <Unavailable>
+                  Confidence is not available. NAIGX does not yet compute a
+                  confidence band, and showing one here would be inventing the
+                  measurement. Weigh this verdict on its rationale and on the
+                  unknowns below.
+                </Unavailable>
+              ) : (
+                <Field label="Confidence">
+                  {humanise(analysis.verdict.confidence_band)}
+                </Field>
+              )}
+            </div>
+          )}
+        </Section>
 
-      {/* 5… · what this path produced. Nothing renders when the path has no
+        {/* 4 · requirements */}
+        <Section
+          step={4}
+          title="Requirements"
+          subtitle={`What the posting asks for, and what is evidenced${analysis.decisive_gaps.length > 0 ? ` · ${String(analysis.decisive_gaps.length)} decisive gap${analysis.decisive_gaps.length === 1 ? "" : "s"}` : ""}`}
+          accent={
+            analysis.decisive_gaps.length > 0 ? (
+              <Badge tone="danger">
+                {analysis.decisive_gaps.length} decisive
+              </Badge>
+            ) : undefined
+          }
+        >
+          {analysis.requirements.length === 0 ? (
+            <Unavailable>
+              No requirements were extracted for this analysis.
+            </Unavailable>
+          ) : (
+            <>
+              {analysis.decisive_gaps.length > 0 && (
+                <p className="text-sm text-rose-900 bg-rose-50 border border-rose-300 rounded-md p-3 mb-4">
+                  <span className="font-medium">
+                    Decisive gaps drive the verdict:{" "}
+                  </span>
+                  {analysis.decisive_gaps.join(", ")}. These are the ones worth
+                  closing first.
+                </p>
+              )}
+              <ul className="space-y-3">
+                {analysis.requirements.map((requirement) => (
+                  <RequirementCard
+                    key={requirement.id}
+                    requirement={requirement}
+                  />
+                ))}
+              </ul>
+            </>
+          )}
+        </Section>
+
+        {/* 5… · what this path produced. Nothing renders when the path has no
           artifact types — `business_requirement` is currently one such path,
           and an empty block is the honest rendering of that. */}
-      {presentable.map(({ entry, presenter }, index) => (
-        <ArtifactSection
-          key={entry.artifact_type}
-          entry={entry}
-          presenter={presenter}
-          step={5 + index}
-          analysisId={analysis.analysis_id}
-        />
-      ))}
+        {presentable.map(({ entry, presenter }, index) => (
+          <ArtifactSection
+            key={entry.artifact_type}
+            entry={entry}
+            presenter={presenter}
+            step={5 + index}
+            analysisId={analysis.analysis_id}
+          />
+        ))}
 
-      {/* unknowns — FR-044, listed prominently rather than footnoted */}
-      <Section
-        step={5 + presentable.length}
-        title="Unknowns"
-        subtitle="What the posting does not say, and what would resolve it"
-        accent={
-          analysis.unknowns.length > 0 ? (
-            <Badge tone="warning">{analysis.unknowns.length}</Badge>
-          ) : undefined
-        }
-      >
-        {analysis.unknowns.length === 0 ? (
-          <p className="text-sm text-slate-600">
-            Nothing was recorded as unknown for this analysis.
-          </p>
-        ) : (
-          <ul className="space-y-3">
-            {analysis.unknowns.map((unknown, index) => (
-              <li
-                key={`${unknown.content}-${String(index)}`}
-                className="border border-amber-300 bg-amber-50/60 rounded-md p-3"
-              >
-                <p className="text-slate-900">{unknown.content}</p>
-                {unknown.resolution_hint === null ? (
-                  <p className="text-sm text-slate-600 mt-1 italic">
-                    No resolution hint was recorded.
-                  </p>
-                ) : (
-                  <p className="text-sm text-slate-700 mt-1">
-                    <span className="font-medium">To resolve: </span>
-                    {unknown.resolution_hint}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
+        {/* unknowns — FR-044, listed prominently rather than footnoted */}
+        <Section
+          step={5 + presentable.length}
+          title="Unknowns"
+          subtitle="What the posting does not say, and what would resolve it"
+          accent={
+            analysis.unknowns.length > 0 ? (
+              <Badge tone="warning">{analysis.unknowns.length}</Badge>
+            ) : undefined
+          }
+        >
+          {analysis.unknowns.length === 0 ? (
+            <p className="text-sm text-slate-600">
+              Nothing was recorded as unknown for this analysis.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {analysis.unknowns.map((unknown, index) => (
+                <li
+                  key={`${unknown.content}-${String(index)}`}
+                  className="border border-amber-300 bg-amber-50/60 rounded-md p-3"
+                >
+                  <p className="text-slate-900">{unknown.content}</p>
+                  {unknown.resolution_hint === null ? (
+                    <p className="text-sm text-slate-600 mt-1 italic">
+                      No resolution hint was recorded.
+                    </p>
+                  ) : (
+                    <p className="text-sm text-slate-700 mt-1">
+                      <span className="font-medium">To resolve: </span>
+                      {unknown.resolution_hint}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
 
-      {/* provenance — FR-043 */}
-      <Section
-        step={6 + presentable.length}
-        title="Provenance"
-        subtitle={`What was stated versus inferred · ${String(statedCount)} stated, ${String(inferredCount)} inferred`}
-        defaultOpen={false}
-      >
-        {analysis.context.length === 0 ? (
-          <Unavailable>No context elements were stored.</Unavailable>
-        ) : (
-          <ul className="space-y-2">
-            {analysis.context.map((element, index) => (
-              <li
-                key={`${element.content}-${String(index)}`}
-                className="border border-slate-200 rounded-md p-3"
-              >
-                <div className="flex flex-wrap items-start gap-2">
-                  <p className="text-sm text-slate-900 flex-1 min-w-0">
-                    {element.content}
-                  </p>
-                  <ProvenanceBadge provenance={element.provenance} />
-                  <Badge>{humanise(element.category)}</Badge>
-                </div>
-                {element.inference_basis !== null && (
-                  <p className="text-xs text-slate-600 mt-1.5">
-                    Inferred from: {element.inference_basis}
-                  </p>
-                )}
-                {element.resolution_hint !== null && (
-                  <p className="text-xs text-slate-600 mt-1.5">
-                    To resolve: {element.resolution_hint}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
+        {/* provenance — FR-043 */}
+        <Section
+          step={6 + presentable.length}
+          title="Provenance"
+          subtitle={`What was stated versus inferred · ${String(statedCount)} stated, ${String(inferredCount)} inferred`}
+          defaultOpen={false}
+        >
+          {analysis.context.length === 0 ? (
+            <Unavailable>No context elements were stored.</Unavailable>
+          ) : (
+            <ul className="space-y-2">
+              {analysis.context.map((element, index) => (
+                <li
+                  key={`${element.content}-${String(index)}`}
+                  className="border border-slate-200 rounded-md p-3"
+                >
+                  <div className="flex flex-wrap items-start gap-2">
+                    <p className="text-sm text-slate-900 flex-1 min-w-0">
+                      {element.content}
+                    </p>
+                    <ProvenanceBadge provenance={element.provenance} />
+                    <Badge>{humanise(element.category)}</Badge>
+                  </div>
+                  {element.inference_basis !== null && (
+                    <p className="text-xs text-slate-600 mt-1.5">
+                      Inferred from: {element.inference_basis}
+                    </p>
+                  )}
+                  {element.resolution_hint !== null && (
+                    <p className="text-xs text-slate-600 mt-1.5">
+                      To resolve: {element.resolution_hint}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
 
-      {/* artifact status — FR-091. Always last, and always present: it is the
+        {/* artifact status — FR-091. Always last, and always present: it is the
           one section that accounts for every planned artifact, including the
           ones no view above knows how to draw. */}
-      <Section
-        step={7 + presentable.length}
-        title="Artifact status"
-        subtitle="What was planned, produced, omitted or failed"
-        defaultOpen={artifactsNeedAttention}
-        accent={
-          artifactsNeedAttention ? (
-            <Badge tone="warning">Not all generated</Badge>
-          ) : undefined
-        }
-      >
-        {analysis.artifacts.length === 0 ? (
-          <Unavailable>
-            No artifact plan was stored. Stage 8 did not complete for this
-            analysis.
-          </Unavailable>
-        ) : (
-          <ul className="space-y-2">
-            {analysis.artifacts.map((entry) => (
-              <ArtifactStatusRow key={entry.artifact_type} entry={entry} />
-            ))}
-          </ul>
-        )}
-      </Section>
+        <Section
+          step={7 + presentable.length}
+          title="Artifact status"
+          subtitle="What was planned, produced, omitted or failed"
+          defaultOpen={artifactsNeedAttention}
+          accent={
+            artifactsNeedAttention ? (
+              <Badge tone="warning">Not all generated</Badge>
+            ) : undefined
+          }
+        >
+          {analysis.artifacts.length === 0 ? (
+            <Unavailable>
+              No artifact plan was stored. Stage 8 did not complete for this
+              analysis.
+            </Unavailable>
+          ) : (
+            <ul className="space-y-2">
+              {analysis.artifacts.map((entry) => (
+                <ArtifactStatusRow key={entry.artifact_type} entry={entry} />
+              ))}
+            </ul>
+          )}
+        </Section>
+      </div>
 
       {/* Run metadata, last: useful, never the point. */}
       <footer className="text-xs text-slate-500 px-1 flex flex-wrap gap-x-4 gap-y-1">

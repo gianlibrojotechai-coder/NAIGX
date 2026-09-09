@@ -556,6 +556,88 @@ function refusalDocument(
   return lines;
 }
 
+/**
+ * D-68 — the decision first, on the first page.
+ *
+ * The owner's reading of the first real export: a person wants the verdict,
+ * then what to build (name, apps), then how to prove it — before the paper
+ * trail. Everything here is a field of the analysis restated; nothing is
+ * added, and the numbered sections that follow are unchanged.
+ */
+function summarySection(analysis: AnalysisView): string[] {
+  const verdict = analysis.verdict;
+  if (verdict === null) return [];
+  const out: string[] = ["## Summary", ""];
+  out.push(
+    `**${verdictLabel(verdict.decision)}.** ${firstSentence(verdict.rationale)}`,
+  );
+  if (analysis.decisive_gaps.length > 0) {
+    out.push(
+      "",
+      `Decisive gap${analysis.decisive_gaps.length === 1 ? "" : "s"}: ${analysis.decisive_gaps.map((g) => "\`" + g + "\`").join(", ")}.`,
+    );
+  }
+  const portfolio = analysis.artifacts.find(
+    (entry) =>
+      entry.artifact_type === "portfolio_suggestions" &&
+      entry.outcome === "generated",
+  );
+  const content = portfolio?.content;
+  const projects =
+    isPlainRecord(content) && Array.isArray(content["projects"])
+      ? (content["projects"] as unknown[])
+      : [];
+  const project = projects[0];
+  if (verdict.decision === "build_first" && isPlainRecord(project)) {
+    out.push("", `**What to build.** ${String(project["name"] ?? "")}`);
+    if (typeof project["what_to_build"] === "string") {
+      out.push("", project["what_to_build"]);
+    }
+    if (
+      Array.isArray(project["platforms"]) &&
+      project["platforms"].length > 0
+    ) {
+      out.push(
+        "",
+        `**Apps and tools:** ${(project["platforms"] as unknown[]).map(String).join(", ")}`,
+      );
+    }
+    if (
+      Array.isArray(project["evidence_to_produce"]) &&
+      project["evidence_to_produce"].length > 0
+    ) {
+      out.push("", "**How to prove it.**", "");
+      for (const item of project["evidence_to_produce"] as unknown[]) {
+        if (!isPlainRecord(item)) continue;
+        out.push(
+          `- **${String(item["type"] ?? "evidence")}** — ${String(item["what_it_shows"] ?? "")}`,
+        );
+      }
+    }
+  } else if (verdict.decision === "apply_now") {
+    out.push(
+      "",
+      "**What to do.** Apply with the evidence you already have; the requirements section shows which work covers each requirement.",
+    );
+  }
+  out.push(
+    "",
+    "*The sections that follow are the reasoning this rests on.*",
+    "",
+    "---",
+    "",
+  );
+  return out;
+}
+
+const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const firstSentence = (text: string): string => {
+  const match = /^(.+?[.!?])(\s|$)/.exec(text.trim());
+  return match?.[1] ?? text.trim();
+};
+
 export function renderAnalysisMarkdown(
   analysis: AnalysisView,
   options: MarkdownExportOptions,
@@ -614,6 +696,8 @@ export function renderAnalysisMarkdown(
   lines.push("---", "");
 
   // Sections 1-4 are the reasoning and do not depend on the path.
+  lines.push(...summarySection(analysis));
+
   let step = 1;
   lines.push(...intentSection(analysis, step++));
   lines.push(...classificationSection(analysis, step++));

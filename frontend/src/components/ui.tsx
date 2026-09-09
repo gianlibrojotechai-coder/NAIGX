@@ -127,7 +127,7 @@ export function ProvenanceLegend() {
     <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
       <span className="font-medium">How to read provenance:</span>
       <span className="inline-flex items-center gap-1.5">
-        <ProvenanceBadge provenance="stated" /> written in the job description
+        <ProvenanceBadge provenance="stated" /> written in the input
       </span>
       <span className="inline-flex items-center gap-1.5">
         <ProvenanceBadge provenance="inferred" /> derived, not written

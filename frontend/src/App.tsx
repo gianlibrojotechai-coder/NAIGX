@@ -29,11 +29,7 @@ import { RefusalView } from "./components/RefusalView";
 import { AuthPanel } from "./components/AuthPanel";
 import { HistoryView } from "./components/HistoryView";
 import { isOffline } from "./api/analyses";
-import {
-  setSessionEndedHandler,
-  signOut,
-  type AccountUser,
-} from "./api/auth";
+import { setSessionEndedHandler, signOut, type AccountUser } from "./api/auth";
 import { useAnalysis } from "./useAnalysis";
 
 function App() {
@@ -86,11 +82,13 @@ function App() {
 
       <header className="border-b border-slate-200 bg-white">
         <div className="max-w-4xl mx-auto px-6 py-5 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">
-            NAIGX
+          <h1 className="text-xl font-bold tracking-tight">
+            <span className="bg-gradient-to-r from-accent-300 via-accent-400 to-sky-700 bg-clip-text text-transparent">
+              NAIGX
+            </span>
           </h1>
           <p className="text-sm text-slate-600">
-            Should you apply to this role, or build evidence first?
+            A decision, then the reasoning behind it.
           </p>
           {/* `FR-004`/`UX-001` — reachable, never a gate. An analysis runs
               with no account, and this sits beside that rather than before it. */}
@@ -159,6 +157,17 @@ function App() {
 
         {showForm && (
           <>
+            <div className="pt-4 pb-2">
+              <h2 className="text-3xl font-semibold tracking-tight text-slate-900">
+                Paste it. Get a decision.
+              </h2>
+              <p className="mt-2 max-w-2xl text-slate-600">
+                A job posting, a business problem, an existing workflow, or a
+                technical brief. NAIGX works out which it is, reasons it
+                through, and shows you the conclusion first — with everything it
+                rests on one click below.
+              </p>
+            </div>
             <JobDescriptionForm
               onSubmit={(content) => {
                 void submit(content);
@@ -249,9 +258,11 @@ function App() {
 
         {/* `API §9.3` — a refusal is a determination, not a failure, and gets
             its own presentation rather than an empty result or an error box. */}
-        {!showHistory && state.phase === "refused" && state.refusal !== null && (
-          <RefusalView refusal={state.refusal} onStartOver={reset} />
-        )}
+        {!showHistory &&
+          state.phase === "refused" &&
+          state.refusal !== null && (
+            <RefusalView refusal={state.refusal} onStartOver={reset} />
+          )}
 
         {!showHistory && state.phase === "done" && state.analysis !== null && (
           <>
@@ -261,7 +272,7 @@ function App() {
                 onClick={reset}
                 className="px-4 py-2 rounded-md bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-900"
               >
-                Analyse another posting
+                New analysis
               </button>
             </div>
             <AnalysisView

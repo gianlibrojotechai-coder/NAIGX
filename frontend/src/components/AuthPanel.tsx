@@ -128,8 +128,8 @@ export function AuthPanel({
       </div>
 
       <p className="mt-1 text-sm text-slate-600">
-        An account is needed to keep history and to export. It is never needed
-        to run an analysis.
+        This instance runs analyses for its owner&apos;s account only. Sign in
+        to analyse, keep history and export.
       </p>
 
       {/* `FR-004` — the claim, stated before it happens. */}

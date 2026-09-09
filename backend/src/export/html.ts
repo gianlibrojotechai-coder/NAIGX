@@ -34,7 +34,7 @@ import { marked } from "marked";
 const STYLES = `
   :root { color-scheme: light; }
   body {
-    font-family: "Segoe UI", -apple-system, system-ui, "Helvetica Neue", Arial, sans-serif;
+    font-family: "Liberation Sans", "Segoe UI", -apple-system, system-ui, "Helvetica Neue", Arial, sans-serif;
     font-size: 10.5pt;
     line-height: 1.5;
     color: #17202a;
@@ -57,7 +57,7 @@ const STYLES = `
   ul, ol { margin: 0 0 7pt; padding-left: 18pt; }
   li { margin-bottom: 3pt; }
   code {
-    font-family: "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+    font-family: "Liberation Mono", "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
     font-size: 9pt;
     background: #f2f4f6;
     padding: 1pt 3pt;
@@ -110,7 +110,7 @@ const STYLES = `
      Markdown export; showing it here too is better than an empty space that
      looks like a diagram nobody drew. */
   pre.mermaid-failed {
-    font-family: "Cascadia Mono", Consolas, monospace;
+    font-family: "Liberation Mono", "Cascadia Mono", Consolas, monospace;
     font-size: 8.5pt;
     background: #f2f4f6;
     border: 1px solid #d5dbe1;

@@ -18,12 +18,7 @@
 
 import { useEffect, useId, useState } from "react";
 
-import {
-  clearDraft,
-  loadDraft,
-  saveDraft,
-  type Draft,
-} from "../draftStorage";
+import { clearDraft, loadDraft, saveDraft, type Draft } from "../draftStorage";
 
 /** `backend/src/routes/analyses.ts` — kept identical deliberately. */
 export const CONTENT_MIN = 50;
@@ -114,8 +109,8 @@ export function JobDescriptionForm({
           </p>
           <p className="mt-0.5 text-sm text-slate-600">
             {recovered.content.length.toLocaleString()} characters
-            {savedAtLabel !== null && `, saved ${savedAtLabel}`}. It was kept
-            in this browser only.
+            {savedAtLabel !== null && `, saved ${savedAtLabel}`}. It was kept in
+            this browser only.
           </p>
           <div className="mt-2.5 flex gap-2">
             <button
@@ -145,11 +140,11 @@ export function JobDescriptionForm({
         htmlFor={textareaId}
         className="block font-semibold text-slate-900"
       >
-        Job description
+        Your input
       </label>
       <p className="text-sm text-slate-500 mt-1 mb-3">
-        Paste the posting whole — requirements, responsibilities and context.
-        NAIGX determines what it is; you do not need to tell it.
+        Paste the whole thing — requirements, context, constraints. NAIGX
+        determines what kind of input it is; you do not need to tell it.
       </p>
 
       <textarea
@@ -166,8 +161,8 @@ export function JobDescriptionForm({
         spellCheck={false}
         aria-describedby={showProblem ? messageId : undefined}
         aria-invalid={showProblem}
-        placeholder="Paste the full job description here…"
-        className="w-full rounded-md border border-slate-300 p-3 font-mono text-sm leading-relaxed text-slate-900 resize-y focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-slate-900 disabled:bg-slate-50 disabled:text-slate-500"
+        placeholder="Paste a job posting, a business problem, a workflow description, or a design brief…"
+        className="w-full rounded-md border border-slate-300 bg-slate-100 p-3 text-sm leading-relaxed text-slate-900 resize-y focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-slate-900 disabled:bg-slate-50 disabled:text-slate-500"
       />
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -186,7 +181,7 @@ export function JobDescriptionForm({
           disabled={!submittable}
           className="px-5 py-2.5 rounded-md bg-slate-900 text-white font-medium hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-900 disabled:bg-slate-300 disabled:cursor-not-allowed"
         >
-          {busy ? "Submitting…" : "Analyse"}
+          {busy ? "Submitting…" : "Decide"}
         </button>
       </div>
     </form>
