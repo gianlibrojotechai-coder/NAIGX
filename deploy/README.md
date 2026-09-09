@@ -504,3 +504,71 @@ Recorded because each passed a plausible-looking check first.
   `CMD` take that path. Fixed with `importFileExtension = "js"` on both
   generators. **Phase 1 verified PDF rendering and the migration paths in this
   image, but never ran its actual entrypoint.**
+
+---
+
+## The owner-only live switch (D-67)
+
+Replay is what `docker-compose.prod.yml` deploys, always. A metered instance
+exists only while `docker-compose.live.yml` is named on the command line, and
+it refuses to start unless every control below is configured
+([D-67](../docs/42-D-67-Owner-Only-Live-Release.md)). Nothing here changes
+the replay deploy above.
+
+**What the switch turns on, and what bounds it**
+
+| Control | Where | Effect |
+|---|---|---|
+| Provider key from a mounted file | `NAIGX_PROVIDER_KEY_FILE` (host path) → `/run/secrets/naigx/provider.key` | Key material never in `deploy/.env`, the compose files, `docker inspect` or an image |
+| Owner-only access | `NAIGX_ACCESS_ALLOWLIST` | Registration and sign-in refused (403) for any other address; sessions of other accounts resolve to no principal |
+| No anonymous paid calls | `NAIGX_ANONYMOUS_ANALYSIS=disabled` | Unauthenticated `POST /analyses` → 401, before anything is written |
+| Spend caps | `NAIGX_SPEND_CAP_USD_PER_DAY`, `..._PER_MONTH` | Checked before every analysis from `provider_invocation.estimated_cost`, with a 0.30 reserve charged up front; refusal is 429 naming the window; an unreadable trace store refuses too |
+| Submission limit | built in (D-47) | 10 analyses per account-hour, now enforced |
+| Deadline, bounded retries | built in | 180 s `FR-094` deadline with cancellation (D-65); at most 3 attempts per call |
+
+**Preconditions (owner, once)**
+
+```bash
+# 1. The key file — outside the repo, root-only, key only, no newline needed.
+umask 077 && mkdir -p /etc/naigx && printf '%s' '<the key>' > /etc/naigx/provider.key
+chmod 600 /etc/naigx/provider.key && ls -l /etc/naigx/provider.key
+
+# 2. deploy/.env — the live block (values, never the key):
+#    NAIGX_PROVIDER_KEY_FILE=/etc/naigx/provider.key
+#    NAIGX_ACCESS_ALLOWLIST=<owner email>
+#    NAIGX_ANONYMOUS_ANALYSIS=disabled
+#    NAIGX_SPEND_CAP_USD_PER_DAY=<decimal>   NAIGX_SPEND_CAP_USD_PER_MONTH=<decimal>
+#    NAIGX_PROVIDER_INPUT_USD_PER_MTOK=2.00  NAIGX_PROVIDER_OUTPUT_USD_PER_MTOK=10.00
+
+# 3. Prove the overlay resolves BEFORE touching the running instance.
+docker compose -f docker-compose.prod.yml -f docker-compose.live.yml --env-file deploy/.env config \
+  | grep -E "NAIGX_EXECUTION_MODE|ANTHROPIC_API_KEY_FILE|NAIGX_ACCESS_ALLOWLIST|NAIGX_ANONYMOUS|SPEND_CAP|provider.key"
+#    Every line present; the key itself appears NOWHERE in this output.
+```
+
+**Switch (one command), verify, and how to switch back**
+
+```bash
+C=(docker compose -f docker-compose.prod.yml -f docker-compose.live.yml --env-file deploy/.env)
+docker tag naigx-backend:latest naigx-backend:rollback-$(git rev-parse --short HEAD)   # if not already tagged
+"${C[@]}" up -d backend            # recreates ONLY the backend with the live env
+
+# Startup states the controls beside the mode — every field below must read as set:
+docker logs naigx-backend 2>&1 | grep -E "Analysis execution mode" | tail -1
+#   "mode":"live","metered":true,"spendCaps":{...},"anonymousAnalysis":"disabled","accessAllowlist":"1 account(s)"
+docker exec naigx-backend node -e "fetch('http://127.0.0.1:3000/health?check=readiness').then(async r=>{console.log(r.status, await r.text())})"
+docker exec naigx-backend sh -c 'env | grep -c ANTHROPIC_API_KEY='     # → 0: the key is not in the environment
+
+# Free checks from a client (no provider call is made by any of these):
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://$D/analyses -H 'content-type: application/json' -d '{"content":"…"}'   # 401
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://$D/users -H 'content-type: application/json' -d '{"email":"x@y.z","password":"twelve-characters-long"}'  # 403
+
+# Back to replay — the same command without the overlay:
+docker compose -f docker-compose.prod.yml --env-file deploy/.env up -d backend
+```
+
+⚠️ A live instance has NO recorded corpus and answers every submission with a
+real, billed call. The replay corpus is loaded only in replay mode (D-62). The
+first owner submission after the switch is the end-to-end verification and it
+costs money: expect $0.06–0.27 per analysis at Sonnet 5 rates (latency log
+§11).

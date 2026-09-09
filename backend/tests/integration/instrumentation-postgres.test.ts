@@ -71,6 +71,7 @@ const config: AppConfig = {
   databaseUrl: process.env["DATABASE_URL"] ?? "postgresql://unused",
   traceDatabaseUrl: "postgresql://unused-trace",
   provider: {},
+  spend: { reserveUsdPerAnalysis: "0.30" },
   port: 0,
   host: "127.0.0.1",
   trustProxy: false,

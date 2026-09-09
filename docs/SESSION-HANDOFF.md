@@ -38,6 +38,8 @@ Gian's **personal AI/automation intelligence system**. It analyses job descripti
 
 ## 2. How the owner wants you to work
 
+> ▶ **DIRECTION, 2026-09-09: "NAIGX is exclusively for my personal use. Use this as the current direction."** Two finish lines, kept separate ([D-67](42-D-67-Owner-Only-Live-Release.md) §1): (1) an owner-only live release the owner can use for real work; (2) v1.0 as specified. Neither waives the other. The Stage 3 retry proposal (log §11.6) is **not to be implemented** for now; the measured performance results stay as recorded. Additional API spend to finish and verify the owner-only release is authorised, with cost stated before a larger batch and a ceiling asked for before any capture campaign; no recurring purchases or new paid infrastructure.
+
 These are standing instructions given explicitly. **They override default thoroughness instincts.**
 
 - **"I'm vibe coding and learning the engineering concepts while building."** Keep explanations focused on: what we're building, why it exists, what's changing, what he needs to understand.
@@ -119,9 +121,10 @@ These are standing instructions given explicitly. **They override default thorou
 | `docs/39` **D-64** | **What a pass reference attests, and which composition a run reproduces.** Accepted (Option C). Adds the `composition_mismatch` refusal — it made activation **harder** — and fixes the legacy-composition defect that stranded `ew-001`. ⚠️ §10 is a dated, OPEN deviation |
 
 | `docs/40` **D-65** | Sonnet 5 with structured outputs; cancellation at the `FR-094` deadline |
-| `docs/41` **D-66** | **The intent brief** — a deterministic Stage 2 artifact, the route to `NFR-001` as written. Implemented; **not deployed, not measured live** |
+| `docs/41` **D-66** | **The intent brief** — a deterministic Stage 2 artifact, the route to `NFR-001` as written. Deployed and measured: `NFR-001` MET |
+| `docs/42` **D-67** | **The owner-only live release** — two finish lines; access allowlist, anonymous disabled, spend caps, key from a file. Built, tested, rehearsed locally; **production switch awaits approval** |
 
-**Numbering convention: the next standalone record is `docs/42` D-67.** Nothing is currently owed.
+**Numbering convention: the next standalone record is `docs/43` D-68.** Nothing is currently owed.
 
 ⚠️ **D-63 without its §7 amendment is actively wrong.** The original decision made the runner re-resolve recordings against authored fragments, which invalidated **10 of 13** committed recordings the moment authored content drifted. The amendment separates **replayability** from **evidential currency**: a recording that carries its own captured composition replays against *that* and is never stale for replay; only the activation gate asks the currency question. Read §7 before touching anything in `src/regression/`.
 
@@ -484,6 +487,36 @@ the document itself. No prompt, gate, parser or recording changed.
   `time_to_first_artifact` will fall because the *catalogue* changed, not
   because reasoning got faster.
 
+### ▶ D-67 — the owner-only live release, 2026-09-09 (owner-directed)
+
+[D-67](42-D-67-Owner-Only-Live-Release.md). **What was built** (backend,
+all gates green — suite 1004/0 with the Postgres suites required, lint,
+format, build, boundary checks 8/0):
+
+- `ANTHROPIC_API_KEY_FILE` (config; both sources refused) and
+  `docker-compose.live.yml`, the **only** place live mode is switched on,
+  mounting `NAIGX_PROVIDER_KEY_FILE` read-only into the backend (D-61 pattern).
+- `NAIGX_ACCESS_ALLOWLIST` — 403 at register/sign-in before any lookup;
+  foreign sessions resolve to `none` in `resolvePrincipal` (so the
+  verification accounts my scripts created in production are dead on the
+  switch). `NAIGX_ANONYMOUS_ANALYSIS=disabled` — 401 before anything is
+  written; **required explicitly** in live mode.
+- `NAIGX_SPEND_CAP_USD_PER_DAY/_MONTH` — `createSpendGuard` before admission,
+  ledger = `provider_invocation.estimated_cost`, 0.30 reserve up front,
+  UTC windows, decimal arithmetic, fail-closed; **required** in live mode.
+  The D-47 submission limit is now actually enforced on `POST /analyses`.
+- Rehearsed locally end to end (D-67 §8): three startup refusals, 403 / 201 /
+  200 / 401 / 429 as designed against the real ledger, then one paid
+  owner analysis: completed in 47 s, $0.0688.
+
+**What awaits the owner:** approval of D-67 §6 (the exact values; proposed
+caps 3.00/day, 30.00/month; the owner's account email for the allowlist),
+the key file placed on the host, then the switch per the runbook section
+*The owner-only live switch* and four billed verifications (~$0.40–0.80).
+Rollback is the same `up -d backend` without the overlay. ⚠️ **Production is
+still replay with no provider credentials.** ⚠️ Frontend: the sign-up toggle
+is still shown; the API refuses it with 403. Not hidden yet — cosmetic.
+
 ### The replay-mode increment (2026-09-08) — still true, now the floor
 
 **M-20 is complete as an increment and open as a milestone.** Both halves are
@@ -727,7 +760,7 @@ Two mechanisms, because neither covers both directions:
 
 | Constraint | Source |
 |---|---|
-| **No provider spend without authorisation.** ⚠️ AMENDED 2026-09-09 (evening): the owner replaced per-case approval with a **US$10 cap for the Sprint 5 continuation**, "only when necessary", free verification preferred where it measures the same thing, no subscriptions or recurring infrastructure. **Spent under it: $8.6230 recorded, budgeted at $8.7571** — $1.2370 on the retired account (the Sonnet 4.5 M-20 sample, 65 invocations; ⚠️ corrected from $1.1319 after reconciling the trace store) and $7.3860 recorded on the new account (D-65 verification $0.5914; cancellation check $0.0186; the Sonnet 5 M-20 sample $3.1895; the per-task effort evaluation $0.4544; **the D-66 M-20 sample $3.1321**, 129 calls, every one with usage, reconciled exactly), plus **two cancelled calls the trace cannot price** — carried at their upper bounds, $0.039 and $0.0951 — and five server-error calls recorded at $0 (no usage; expected unbilled, unverifiable from the key). **Remaining: $1.2429** at the upper bound (the earlier $4.9245 → $4.3750 step was the §9.5 evaluation's $0.5495; $4.3750 − $3.1321 = $1.2429). ⚠️ Provider-side usage could not be reconciled: a regular API key exposes no usage or cost endpoint, and no Admin API key exists for the organisation. ⚠️ The retired account is exhausted and **must not be used again** (owner, 2026-09-09); the new account's $100 balance is the account's, not the task's. Earlier campaign spend: $1.7121, case by case. Project cumulative: **$10.34 recorded** ($1.7121 campaign + $8.6230 under the cap; ⚠️ the earlier "$4.42" figure was stale). | Owner, 2026-09-09 |
+| **No provider spend without authorisation.** ⚠️ AMENDED 2026-09-09 (evening): the owner replaced per-case approval with a **US$10 cap for the Sprint 5 continuation**, "only when necessary", free verification preferred where it measures the same thing, no subscriptions or recurring infrastructure. **Spent under it: $8.6918 recorded, budgeted at $8.8259** — $1.2370 on the retired account (the Sonnet 4.5 M-20 sample, 65 invocations; ⚠️ corrected from $1.1319 after reconciling the trace store) and $7.3860 recorded on the new account (D-65 verification $0.5914; cancellation check $0.0186; the Sonnet 5 M-20 sample $3.1895; the per-task effort evaluation $0.4544; **the D-66 M-20 sample $3.1321**, 129 calls, every one with usage, reconciled exactly; the D-67 rehearsal's one owner analysis $0.0688), plus **two cancelled calls the trace cannot price** — carried at their upper bounds, $0.039 and $0.0951 — and five server-error calls recorded at $0 (no usage; expected unbilled, unverifiable from the key). **Remaining: $1.1741** at the upper bound ($4.3750 − $3.1321 − $0.0688). ⚠️ The owner stated 2026-09-09 that this figure is **not a hard stop**: spend needed to complete and verify the owner-only release is authorised, cost stated before a larger batch, a ceiling asked for before a capture campaign. ⚠️ Provider-side usage could not be reconciled: a regular API key exposes no usage or cost endpoint, and no Admin API key exists for the organisation. ⚠️ The retired account is exhausted and **must not be used again** (owner, 2026-09-09); the new account's $100 balance is the account's, not the task's. Earlier campaign spend: $1.7121, case by case. Project cumulative: **$10.41 recorded** ($1.7121 campaign + $8.6230 under the cap; ⚠️ the earlier "$4.42" figure was stale). | Owner, 2026-09-09 |
 | ~~**Prompt fragments stay inactive.**~~ ✅ **SUPERSEDED 2026-09-09** — the owner authorised publication with `d4abcd42626452df`; 15 versions are active in production through the unchanged gate. D-39's *principle* stands: nothing further activates without a covering reference and an authorisation. | **D-39**, owner 2026-09-09 |
 | **No M-08 packet review, no rubric verdicts.** AI review excluded "in any capacity, for any criterion". | `docs/10` §4.3 |
 | **Do not implement `platform_recommendation`** / expand `business_requirement`. | Owner, explicit |

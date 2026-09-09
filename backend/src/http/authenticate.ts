@@ -44,6 +44,8 @@ declare module "fastify" {
 export interface AuthenticateOptions {
   readonly lookup: PrincipalLookup;
   readonly now?: () => Date;
+  /** D-67 §2. Absent means every account this instance holds is served. */
+  readonly isAccountAllowed?: (email: string) => boolean;
 }
 
 export function registerAuthentication(
@@ -65,6 +67,9 @@ export function registerAuthentication(
       {
         anonymousTokenExpiresAt,
         now: options.now ?? (() => new Date()),
+        ...(options.isAccountAllowed !== undefined
+          ? { isAccountAllowed: options.isAccountAllowed }
+          : {}),
       },
     );
   });

@@ -394,3 +394,75 @@ test("an authenticated user may not read someone's unclaimed analysis", () => {
 test("no principal may access an unowned analysis", () => {
   assert.equal(mayAccessAnalysis(ANONYMOUS, unowned), false);
 });
+
+// --- D-67 §2: owner-only access ----------------------------------------------
+
+const sessionWithEmail = (
+  tokenHash: string,
+  email: string | undefined,
+): PrincipalLookup => ({
+  session: {
+    findFirst: ({ where, select }) =>
+      Promise.resolve(
+        where.tokenHash === tokenHash
+          ? {
+              sessionId: SESSION_ID,
+              userId: USER_ID,
+              // Only when asked for, as Prisma would.
+              ...(select.user !== undefined && email !== undefined
+                ? { user: { email } }
+                : {}),
+            }
+          : null,
+      ),
+  },
+  analysis: { findFirst: () => Promise.resolve(null) },
+});
+
+test("D-67 — a session for an allowlisted account resolves; any other account resolves to none", async () => {
+  const token = generateToken();
+  const allowed = (email: string) => email === "owner@example.test";
+
+  const owner = await resolvePrincipal(
+    `Bearer ${token}`,
+    sessionWithEmail(hashToken(token), "Owner@Example.test".toLowerCase()),
+    { ...options, isAccountAllowed: allowed },
+  );
+  assert.equal(owner.kind, "user");
+
+  const other = await resolvePrincipal(
+    `Bearer ${token}`,
+    sessionWithEmail(hashToken(token), "someone@else.test"),
+    { ...options, isAccountAllowed: allowed },
+  );
+  assert.deepEqual(other, ANONYMOUS);
+
+  // Fail closed: a row that carries no email is not allowed, not unknown.
+  const noEmail = await resolvePrincipal(
+    `Bearer ${token}`,
+    sessionWithEmail(hashToken(token), undefined),
+    { ...options, isAccountAllowed: allowed },
+  );
+  assert.deepEqual(noEmail, ANONYMOUS);
+});
+
+test("D-67 — without an allowlist the session select is unchanged and every account resolves", async () => {
+  const token = generateToken();
+  let selected: unknown;
+  const lookupSpy: PrincipalLookup = {
+    session: {
+      findFirst: ({ select }) => {
+        selected = select;
+        return Promise.resolve({ sessionId: SESSION_ID, userId: USER_ID });
+      },
+    },
+    analysis: { findFirst: () => Promise.resolve(null) },
+  };
+  const principal = await resolvePrincipal(
+    `Bearer ${token}`,
+    lookupSpy,
+    options,
+  );
+  assert.equal(principal.kind, "user");
+  assert.deepEqual(selected, { sessionId: true, userId: true });
+});

@@ -40,6 +40,8 @@ import {
   isMetered,
   resolveExecutionMode,
 } from "./orchestrator/execution-mode.js";
+import { createSpendGuard } from "./orchestrator/spend-guard.js";
+import { createTraceSpendReader } from "./db/spend-reader.js";
 import { createTracePurgeOutbox } from "./db/trace-purge-outbox.js";
 import { createAuditSink } from "./db/audit-sink.js";
 import { sweepExpiredAnonymousAnalyses } from "./db/anonymous-expiry.js";
@@ -162,6 +164,26 @@ function liveProvider(config: AppConfig): SelectedProvider {
       "Live execution requires PROVIDER_INPUT_USD_PER_MTOK and " +
         "PROVIDER_OUTPUT_USD_PER_MTOK (USD per million tokens). Cost accounting " +
         "is required per call (SA §3.5, NFR-083) and no rate may be assumed.",
+    );
+  }
+  // D-67 §3: a metered instance is bounded in dollars, not only in requests.
+  if (
+    config.spend.capUsdPerDay === undefined ||
+    config.spend.capUsdPerMonth === undefined
+  ) {
+    throw new Error(
+      "Live execution requires NAIGX_SPEND_CAP_USD_PER_DAY and " +
+        "NAIGX_SPEND_CAP_USD_PER_MONTH (decimal USD). A live instance with no " +
+        "spend cap has no bound on what it can bill (D-67 §3).",
+    );
+  }
+  // D-67 §2: whether an anonymous caller may start a paid call is decided
+  // explicitly on a live instance, never by the FR-004 default.
+  if (config.anonymousAnalysis === undefined) {
+    throw new Error(
+      "Live execution requires NAIGX_ANONYMOUS_ANALYSIS to be set explicitly " +
+        "(enabled or disabled). An anonymous submission on a metered instance " +
+        "is a paid call nobody signed in for (D-67 §2).",
     );
   }
 
@@ -375,12 +397,30 @@ const main = async (): Promise<void> => {
     },
   });
 
+  // D-67 §3 — the spend guard exists exactly when calls are metered.
+  const spendGuard =
+    replayCorpus === undefined
+      ? createSpendGuard({
+          caps: {
+            ...(config.spend.capUsdPerDay !== undefined
+              ? { perDayUsd: config.spend.capUsdPerDay }
+              : {}),
+            ...(config.spend.capUsdPerMonth !== undefined
+              ? { perMonthUsd: config.spend.capUsdPerMonth }
+              : {}),
+          },
+          reserveUsd: config.spend.reserveUsdPerAnalysis,
+          reader: createTraceSpendReader(traceDatabase.prisma),
+        })
+      : undefined;
+
   const app = await buildApp({
     config,
     database,
     cipher,
     checkProvider,
     checkTemplates,
+    ...(spendGuard !== undefined ? { spendGuard } : {}),
     // `DB §4.1`. Omitted rather than passed as `undefined` so `buildApp`'s own
     // development default applies outside production; `loadConfig` refuses to
     // start a production process that has not set it.
@@ -412,7 +452,19 @@ const main = async (): Promise<void> => {
   // between a free instance and a metered one, and it should never have to be
   // inferred from which variables happen to be set.
   app.log.info(
-    { mode: runner.mode, metered: isMetered(runner.mode) },
+    {
+      mode: runner.mode,
+      metered: isMetered(runner.mode),
+      // D-67: the controls in force, stated beside the mode they bound.
+      spendCaps: spendGuard?.caps ?? null,
+      spendReserveUsd:
+        spendGuard === undefined ? null : config.spend.reserveUsdPerAnalysis,
+      anonymousAnalysis: config.anonymousAnalysis ?? "enabled",
+      accessAllowlist:
+        config.accessAllowlist === undefined
+          ? "open"
+          : `${String(config.accessAllowlist.length)} account(s)`,
+    },
     "Analysis execution mode",
   );
 

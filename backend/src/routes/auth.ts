@@ -46,6 +46,12 @@ export interface AuthRouteOptions {
   readonly rateLimiter: RateLimiter;
   readonly audit: AuditWriter;
   readonly now?: () => Date;
+  /**
+   * D-67 §2 — when present, registration and sign-in are refused for any
+   * other address with 403. Checked before any lookup, so the refusal reveals
+   * membership of the allowlist and nothing about which accounts exist.
+   */
+  readonly accessAllowlist?: readonly string[];
 }
 
 interface CredentialsBody {
@@ -115,7 +121,14 @@ function validateAnonymousToken(raw: unknown): string | undefined {
 
 export const authRoutes: FastifyPluginAsync<AuthRouteOptions> = (
   app,
-  { prisma, sessions, rateLimiter, audit, now = () => new Date() },
+  {
+    prisma,
+    sessions,
+    rateLimiter,
+    audit,
+    now = () => new Date(),
+    accessAllowlist,
+  },
 ) => {
   /** `429` with the `Retry-After` `API §10.4` requires. */
   const enforceLimit = (
@@ -185,12 +198,26 @@ export const authRoutes: FastifyPluginAsync<AuthRouteOptions> = (
     return candidate.analysisId;
   };
 
+  // D-67 §2. The allowlist is lowercased at load; emails are compared the
+  // same way. `undefined` means the instance is open, as `API-004` specifies.
+  const requireAllowed = (email: string): void => {
+    if (accessAllowlist === undefined) return;
+    if (!accessAllowlist.includes(email.toLowerCase())) {
+      throw new AppError(
+        "forbidden",
+        "This instance is restricted to its owner's account.",
+        { action: "Use the account this instance was configured for." },
+      );
+    }
+  };
+
   // --- API-004 — register ---------------------------------------------------
   app.post("/users", async (request, reply) => {
     const body = (request.body ?? {}) as CredentialsBody;
     enforceLimit("authAttemptIp", request.ip);
 
     const { email, password } = validateCredentials(body);
+    requireAllowed(email);
     const anonymousToken = validateAnonymousToken(body.anonymous_token);
 
     if (password.length < PASSWORD_MIN || password.length > PASSWORD_MAX) {
@@ -278,6 +305,7 @@ export const authRoutes: FastifyPluginAsync<AuthRouteOptions> = (
     enforceLimit("authAttemptIp", request.ip);
 
     const { email, password } = validateCredentials(body);
+    requireAllowed(email);
     const anonymousToken = validateAnonymousToken(body.anonymous_token);
 
     // Per account as well as per IP (`API §11.2` — credential stuffing). Keyed

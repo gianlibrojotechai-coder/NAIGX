@@ -241,3 +241,107 @@ test("requires an IP hash salt in production and not outside it", () => {
     undefined,
   );
 });
+
+// --- D-67: owner-only live release ------------------------------------------
+
+test("D-67 — the provider key can come from a mounted file, and never from both sources", () => {
+  const readFile = (path: string): string => {
+    assert.equal(path, "/run/secrets/naigx/provider.key");
+    return "sk-test-from-file\n";
+  };
+  const config = loadConfig(
+    { ...valid, ANTHROPIC_API_KEY_FILE: "/run/secrets/naigx/provider.key" },
+    { readFile },
+  );
+  assert.equal(config.provider.apiKey, "sk-test-from-file");
+
+  assert.throws(
+    () =>
+      loadConfig(
+        {
+          ...valid,
+          ANTHROPIC_API_KEY: "sk-env",
+          ANTHROPIC_API_KEY_FILE: "/run/secrets/naigx/provider.key",
+        },
+        { readFile },
+      ),
+    (error: Error) => error.message.includes("both set"),
+  );
+  // An empty or unreadable file is a refusal that names the path, never the key.
+  assert.throws(
+    () =>
+      loadConfig(
+        { ...valid, ANTHROPIC_API_KEY_FILE: "/nope" },
+        { readFile: () => "   " },
+      ),
+    (error: Error) =>
+      error.message.includes("empty file") && !error.message.includes("sk-"),
+  );
+  assert.throws(
+    () =>
+      loadConfig(
+        { ...valid, ANTHROPIC_API_KEY_FILE: "/nope" },
+        {
+          readFile: () => {
+            throw new Error("ENOENT");
+          },
+        },
+      ),
+    (error: Error) => error.message.includes("could not be read"),
+  );
+});
+
+test("D-67 — the access allowlist is parsed, lowercased, de-duplicated and validated", () => {
+  const config = loadConfig({
+    ...valid,
+    NAIGX_ACCESS_ALLOWLIST:
+      " Owner@Example.test , owner@example.test,second@example.test ",
+  });
+  assert.deepEqual(config.accessAllowlist, [
+    "owner@example.test",
+    "second@example.test",
+  ]);
+  assert.equal(loadConfig(valid).accessAllowlist, undefined);
+  assert.throws(
+    () => loadConfig({ ...valid, NAIGX_ACCESS_ALLOWLIST: "not-an-email" }),
+    (error: Error) => error.message.includes("NAIGX_ACCESS_ALLOWLIST"),
+  );
+});
+
+test("D-67 — the anonymous policy is exact, and absent means the FR-004 default", () => {
+  assert.equal(loadConfig(valid).anonymousAnalysis, undefined);
+  assert.equal(
+    loadConfig({ ...valid, NAIGX_ANONYMOUS_ANALYSIS: "Disabled" })
+      .anonymousAnalysis,
+    "disabled",
+  );
+  assert.throws(
+    () => loadConfig({ ...valid, NAIGX_ANONYMOUS_ANALYSIS: "off" }),
+    (error: Error) => error.message.includes("NAIGX_ANONYMOUS_ANALYSIS"),
+  );
+});
+
+test("D-67 — spend caps are decimal USD strings, with the evidence-derived default reserve", () => {
+  const config = loadConfig({
+    ...valid,
+    NAIGX_SPEND_CAP_USD_PER_DAY: "2.00",
+    NAIGX_SPEND_CAP_USD_PER_MONTH: "20",
+  });
+  assert.deepEqual(config.spend, {
+    capUsdPerDay: "2.00",
+    capUsdPerMonth: "20",
+    reserveUsdPerAnalysis: "0.30",
+  });
+  assert.equal(
+    loadConfig({ ...valid, NAIGX_SPEND_RESERVE_USD_PER_ANALYSIS: "0.5" }).spend
+      .reserveUsdPerAnalysis,
+    "0.5",
+  );
+  assert.throws(
+    () => loadConfig({ ...valid, NAIGX_SPEND_CAP_USD_PER_DAY: "$5" }),
+    (error: Error) => error.message.includes("NAIGX_SPEND_CAP_USD_PER_DAY"),
+  );
+  assert.throws(() =>
+    loadConfig({ ...valid, NAIGX_SPEND_CAP_USD_PER_MONTH: "-1" }),
+  );
+});

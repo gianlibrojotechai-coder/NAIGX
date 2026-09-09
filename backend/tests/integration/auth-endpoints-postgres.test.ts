@@ -66,6 +66,7 @@ const config: AppConfig = {
   databaseUrl: process.env["DATABASE_URL"] ?? "postgresql://unused",
   traceDatabaseUrl: "postgresql://unused-trace",
   provider: {},
+  spend: { reserveUsdPerAnalysis: "0.30" },
   port: 0,
   host: "127.0.0.1",
   trustProxy: false,
@@ -731,6 +732,75 @@ test(
       }
     } finally {
       await h.cleanup();
+    }
+  },
+);
+
+// --- D-67 §2: owner-only access ----------------------------------------------
+
+test(
+  "D-67 — with an allowlist, only the listed address can register or sign in; others get 403 before any lookup",
+  { skip },
+  async () => {
+    const owner = `owner-${randomUUID()}@example.test`;
+    const pool = new pg.Pool({
+      connectionString: process.env["DATABASE_URL"],
+    });
+    const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
+    const app = await buildApp({
+      config: { ...config, accessAllowlist: [owner] },
+      database: {
+        prisma,
+        disconnect: () => pool.end(),
+      } as unknown as Database,
+      rateLimiter: createRateLimiter(),
+    });
+    let ownerId: string | undefined;
+    try {
+      const stranger = await app.inject({
+        method: "POST",
+        url: "/users",
+        payload: {
+          email: `x-${randomUUID()}@example.test`,
+          password: PASSWORD,
+        },
+      });
+      assert.equal(stranger.statusCode, 403);
+      assert.equal(JSON.parse(stranger.body).error.code, "forbidden");
+
+      const registered = await app.inject({
+        method: "POST",
+        url: "/users",
+        // Case-insensitive: the allowlist is lowercased at load.
+        payload: { email: owner.toUpperCase(), password: PASSWORD },
+      });
+      assert.equal(registered.statusCode, 201, registered.body);
+      const data = JSON.parse(registered.body).data;
+      ownerId = data.user.user_id as string;
+
+      // The owner's session resolves on a protected route; a stranger's
+      // sign-in attempt is refused before credentials are even checked.
+      const me = await app.inject({
+        method: "GET",
+        url: "/users/me",
+        headers: { authorization: `Bearer ${String(data.access_token)}` },
+      });
+      assert.equal(me.statusCode, 200, me.body);
+
+      const strangerLogin = await app.inject({
+        method: "POST",
+        url: "/auth/sessions",
+        payload: { email: "nobody@example.test", password: PASSWORD },
+      });
+      assert.equal(strangerLogin.statusCode, 403);
+    } finally {
+      if (ownerId !== undefined) {
+        await prisma.user
+          .delete({ where: { userId: ownerId } })
+          .catch(() => undefined);
+      }
+      await app.close();
+      await pool.end();
     }
   },
 );

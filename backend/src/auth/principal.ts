@@ -76,8 +76,16 @@ export interface PrincipalLookup {
         revokedAt: null;
         expiresAt: { gt: Date };
       };
-      select: { sessionId: true; userId: true };
-    }): Promise<{ sessionId: string; userId: string } | null>;
+      select: {
+        sessionId: true;
+        userId: true;
+        user?: { select: { email: true } };
+      };
+    }): Promise<{
+      sessionId: string;
+      userId: string;
+      user?: { email: string };
+    } | null>;
   };
   readonly analysis: {
     findFirst(args: {
@@ -94,6 +102,14 @@ export interface ResolveOptions {
   /** When an anonymous token issued at a given time stops being valid. */
   readonly anonymousTokenExpiresAt: (issuedAt: Date) => Date;
   readonly now: () => Date;
+  /**
+   * D-67 §2 — owner-only access. When present, a session whose account email
+   * this predicate refuses resolves to `none`, exactly as an unknown token
+   * does: the credential verifies against nothing this instance serves. The
+   * check is here, at the single point every route's principal comes from,
+   * so a session issued before the allowlist was set is caught too.
+   */
+  readonly isAccountAllowed?: (email: string) => boolean;
 }
 
 /**
@@ -122,11 +138,23 @@ export async function resolvePrincipal(
   // An access token. Expiry and revocation are in the query rather than
   // checked afterwards: a revoked session must be unfindable, not found and
   // then discarded, so no later edit can accidentally use the row.
+  const restricted = options.isAccountAllowed !== undefined;
   const session = await lookup.session.findFirst({
     where: { tokenHash, revokedAt: null, expiresAt: { gt: now } },
-    select: { sessionId: true, userId: true },
+    select: {
+      sessionId: true,
+      userId: true,
+      ...(restricted ? { user: { select: { email: true } } } : {}),
+    },
   });
   if (session !== null) {
+    if (options.isAccountAllowed !== undefined) {
+      // Fail closed: no email on the row is "not allowed", not "unknown".
+      const email = session.user?.email;
+      if (email === undefined || !options.isAccountAllowed(email)) {
+        return ANONYMOUS;
+      }
+    }
     return {
       kind: "user",
       userId: session.userId,

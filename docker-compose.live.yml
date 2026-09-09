@@ -1,0 +1,54 @@
+# ---------------------------------------------------------------------------
+# THE LIVE SWITCH — an overlay, never a default (D-67).
+#
+#   docker compose -f docker-compose.prod.yml -f docker-compose.live.yml \
+#     --env-file deploy/.env up -d backend
+#
+# `docker-compose.prod.yml` alone is a REPLAY instance that bills nothing.
+# This file is the ONLY place a metered mode is switched on, and it is applied
+# by naming it on the command line — a deploy that forgets it gets replay, not
+# a surprise bill. Everything here is validated at startup by `config/env.ts`
+# and `index.ts`: live without a key file, model, rates, BOTH spend caps and an
+# EXPLICIT anonymous policy refuses to start (D-67 §2–§4).
+#
+# ⚠️ THE PROVIDER KEY IS A MOUNTED FILE, NOT AN ENVIRONMENT VARIABLE. Env vars
+# are visible in `docker inspect` and /proc/<pid>/environ; a read-only bind
+# mount of a host file outside the repository is not (the D-61 pattern the
+# root key already uses). `NAIGX_PROVIDER_KEY_FILE` in deploy/.env is the host
+# PATH; the key material never enters deploy/.env, this file, or an image.
+#
+# Rollback to replay: `docker compose -f docker-compose.prod.yml --env-file
+# deploy/.env up -d backend` — the same command without this overlay.
+# ---------------------------------------------------------------------------
+services:
+  backend:
+    environment:
+      # The literal `live`, and nothing else, selects the metered mode.
+      NAIGX_EXECUTION_MODE: live
+
+      # D-67 §4 — read once at startup from the mounted file below.
+      ANTHROPIC_API_KEY_FILE: /run/secrets/naigx/provider.key
+
+      # D-65. Rates are the published figures for this model at deploy time;
+      # re-verify against the pricing page before changing the model.
+      PROVIDER_MODEL: ${NAIGX_PROVIDER_MODEL:-claude-sonnet-5}
+      PROVIDER_INPUT_USD_PER_MTOK: ${NAIGX_PROVIDER_INPUT_USD_PER_MTOK:?required for a live instance (SA §3.5, NFR-083)}
+      PROVIDER_OUTPUT_USD_PER_MTOK: ${NAIGX_PROVIDER_OUTPUT_USD_PER_MTOK:?required for a live instance (SA §3.5, NFR-083)}
+      PROVIDER_EFFORT: ${NAIGX_PROVIDER_EFFORT:-medium}
+
+      # D-67 §2 — owner-only. The allowlist is the owner's account email(s);
+      # anonymous submission is refused. Both are REQUIRED here on purpose:
+      # `${VAR:?}` makes the deploy fail loudly rather than start open.
+      NAIGX_ACCESS_ALLOWLIST: ${NAIGX_ACCESS_ALLOWLIST:?required — the owner account email(s) (D-67 §2)}
+      NAIGX_ANONYMOUS_ANALYSIS: ${NAIGX_ANONYMOUS_ANALYSIS:?required — set "disabled" for an owner-only instance (D-67 §2)}
+
+      # D-67 §3 — spend caps, decimal USD, UTC calendar windows. The reserve is
+      # charged before each analysis is admitted (default 0.30, the worst
+      # recorded per-analysis cost).
+      NAIGX_SPEND_CAP_USD_PER_DAY: ${NAIGX_SPEND_CAP_USD_PER_DAY:?required — decimal USD (D-67 §3)}
+      NAIGX_SPEND_CAP_USD_PER_MONTH: ${NAIGX_SPEND_CAP_USD_PER_MONTH:?required — decimal USD (D-67 §3)}
+      NAIGX_SPEND_RESERVE_USD_PER_ANALYSIS: ${NAIGX_SPEND_RESERVE_USD_PER_ANALYSIS:-0.30}
+
+    volumes:
+      # Read-only, host path outside the repository, this service only.
+      - ${NAIGX_PROVIDER_KEY_FILE:?required — host path to a file holding ONLY the provider API key (D-67 §4)}:/run/secrets/naigx/provider.key:ro

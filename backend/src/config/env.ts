@@ -8,6 +8,8 @@
  * No other module reads `process.env`.
  */
 
+import { readFileSync } from "node:fs";
+
 const DEFAULT_PORT = 3000;
 const DEFAULT_CORS_ORIGIN = "http://localhost:5173";
 const DEFAULT_LOG_LEVEL: LogLevel = "info";
@@ -119,6 +121,33 @@ export interface AppConfig {
   readonly corsOrigin: string;
   readonly logLevel: LogLevel;
   /**
+   * Owner-only access ([D-67](../../../docs/42-D-67-Owner-Only-Live-Release.md) §2).
+   *
+   * `NAIGX_ACCESS_ALLOWLIST` — comma-separated account emails. When set, only
+   * these addresses may register or sign in, and a session belonging to any
+   * other account resolves to no principal at all. Absent means open
+   * registration, which is the specified v1.0 behaviour (`API-004`).
+   */
+  readonly accessAllowlist?: readonly string[];
+  /**
+   * `NAIGX_ANONYMOUS_ANALYSIS` — `enabled` (the `FR-004` default) or
+   * `disabled`. Disabled refuses an unauthenticated `API-020` submission
+   * with 401 rather than minting an anonymous credential. ⚠️ A live instance
+   * must set this EXPLICITLY (D-67 §2): an anonymous submission on a metered
+   * instance is a paid call nobody signed in for.
+   */
+  readonly anonymousAnalysis?: "enabled" | "disabled";
+  /**
+   * Spend caps for metered reasoning (D-67 §3). Decimal USD strings. Both are
+   * REQUIRED when the execution mode is `live`; the reserve defaults to
+   * `0.30`, the worst per-analysis cost the latency log has recorded.
+   */
+  readonly spend: {
+    readonly capUsdPerDay?: string;
+    readonly capUsdPerMonth?: string;
+    readonly reserveUsdPerAnalysis: string;
+  };
+  /**
    * Real-provider settings. All optional: the product runs, and the whole test
    * suite passes, with none of them set — the stub and replay adapters need no
    * credential (`docs/12` D-11).
@@ -137,6 +166,12 @@ export interface AppConfig {
    */
   readonly operatorToken?: string;
   readonly provider: {
+    /**
+     * From `ANTHROPIC_API_KEY`, or read once from the file named by
+     * `ANTHROPIC_API_KEY_FILE` (D-67 §4 — the D-61 pattern: a mounted file
+     * is invisible to `docker inspect` and `/proc/<pid>/environ`, an env var
+     * is not). Setting both is refused.
+     */
     readonly apiKey?: string;
     readonly model?: string;
     /** USD per million tokens, as decimal strings (`docs/12` D-4, D-10). */
@@ -208,8 +243,97 @@ const isLogLevel = (value: string): value is LogLevel =>
  *
  * @throws Error listing every invalid or missing variable.
  */
-export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
+export interface LoadConfigOptions {
+  /** Injected so a test can supply a key file without touching disk. */
+  readonly readFile?: (path: string) => string;
+}
+
+const DEFAULT_SPEND_RESERVE_USD = "0.30";
+const USD_PATTERN = /^\d{1,12}(\.\d{1,8})?$/;
+/** Deliberately loose: an allowlist entry is an account email, compared lowercased. */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function loadConfig(
+  env: NodeJS.ProcessEnv = process.env,
+  options: LoadConfigOptions = {},
+): AppConfig {
   const problems: string[] = [];
+  const readFile =
+    options.readFile ?? ((path: string) => readFileSync(path, "utf8"));
+
+  // --- D-67: access, anonymous policy, spend caps, key file -----------------
+  let accessAllowlist: readonly string[] | undefined;
+  const rawAllowlist = env["NAIGX_ACCESS_ALLOWLIST"]?.trim();
+  if (rawAllowlist !== undefined && rawAllowlist !== "") {
+    const entries = rawAllowlist
+      .split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter((e) => e !== "");
+    const invalid = entries.filter((e) => !EMAIL_PATTERN.test(e));
+    if (entries.length === 0 || invalid.length > 0) {
+      problems.push(
+        `NAIGX_ACCESS_ALLOWLIST must be a comma-separated list of account emails (invalid: ${JSON.stringify(invalid)})`,
+      );
+    } else {
+      accessAllowlist = [...new Set(entries)];
+    }
+  }
+
+  let anonymousAnalysis: "enabled" | "disabled" | undefined;
+  const rawAnonymous = env["NAIGX_ANONYMOUS_ANALYSIS"]?.trim().toLowerCase();
+  if (rawAnonymous !== undefined && rawAnonymous !== "") {
+    if (rawAnonymous === "enabled" || rawAnonymous === "disabled") {
+      anonymousAnalysis = rawAnonymous;
+    } else {
+      problems.push(
+        `NAIGX_ANONYMOUS_ANALYSIS must be "enabled" or "disabled" (received ${JSON.stringify(rawAnonymous)})`,
+      );
+    }
+  }
+
+  const usd = (name: string): string | undefined => {
+    const raw = env[name]?.trim();
+    if (raw === undefined || raw === "") return undefined;
+    if (!USD_PATTERN.test(raw)) {
+      problems.push(
+        `${name} must be a decimal USD amount such as 5.00 (received ${JSON.stringify(raw)})`,
+      );
+      return undefined;
+    }
+    return raw;
+  };
+  const capUsdPerDay = usd("NAIGX_SPEND_CAP_USD_PER_DAY");
+  const capUsdPerMonth = usd("NAIGX_SPEND_CAP_USD_PER_MONTH");
+  const reserveUsdPerAnalysis =
+    usd("NAIGX_SPEND_RESERVE_USD_PER_ANALYSIS") ?? DEFAULT_SPEND_RESERVE_USD;
+
+  let apiKey: string | undefined;
+  const rawApiKey = env["ANTHROPIC_API_KEY"]?.trim();
+  const rawApiKeyFile = env["ANTHROPIC_API_KEY_FILE"]?.trim();
+  if (rawApiKey !== undefined && rawApiKey !== "") apiKey = rawApiKey;
+  if (rawApiKeyFile !== undefined && rawApiKeyFile !== "") {
+    if (apiKey !== undefined) {
+      problems.push(
+        "ANTHROPIC_API_KEY and ANTHROPIC_API_KEY_FILE are both set — set exactly one, so the source of the credential is unambiguous",
+      );
+    } else {
+      try {
+        const contents = readFile(rawApiKeyFile).trim();
+        if (contents === "") {
+          problems.push(
+            `ANTHROPIC_API_KEY_FILE names an empty file (${rawApiKeyFile})`,
+          );
+        } else {
+          apiKey = contents;
+        }
+      } catch {
+        // The path may be echoed; the failure reason must not carry key material.
+        problems.push(
+          `ANTHROPIC_API_KEY_FILE could not be read (${rawApiKeyFile}) — check that the file is mounted and readable by this process`,
+        );
+      }
+    }
+  }
 
   const rawDatabaseUrl = env["DATABASE_URL"]?.trim();
   if (rawDatabaseUrl === undefined || rawDatabaseUrl === "") {
@@ -359,12 +483,17 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     ...(optional("NAIGX_OPERATOR_TOKEN") !== undefined
       ? { operatorToken: optional("NAIGX_OPERATOR_TOKEN") as string }
       : {}),
+    ...(accessAllowlist !== undefined ? { accessAllowlist } : {}),
+    ...(anonymousAnalysis !== undefined ? { anonymousAnalysis } : {}),
+    spend: {
+      ...(capUsdPerDay !== undefined ? { capUsdPerDay } : {}),
+      ...(capUsdPerMonth !== undefined ? { capUsdPerMonth } : {}),
+      reserveUsdPerAnalysis,
+    },
     provider: {
       // Read here and nowhere else — adapters receive values, never the
-      // environment.
-      ...(optional("ANTHROPIC_API_KEY") !== undefined
-        ? { apiKey: optional("ANTHROPIC_API_KEY") as string }
-        : {}),
+      // environment. The value may have come from a mounted file (D-67 §4).
+      ...(apiKey !== undefined ? { apiKey } : {}),
       ...(optional("PROVIDER_MODEL") !== undefined
         ? { model: optional("PROVIDER_MODEL") as string }
         : {}),

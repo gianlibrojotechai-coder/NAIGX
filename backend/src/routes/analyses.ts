@@ -42,6 +42,8 @@ import type { AnalysisEventLog } from "../events/analysis-event-log.js";
 import { readAnalysis } from "../db/analysis-reader.js";
 import { generateToken, hashToken } from "../auth/tokens.js";
 import { mayAccessAnalysis, type Principal } from "../auth/principal.js";
+import type { RateLimiter } from "../auth/rate-limit.js";
+import type { SpendGuard } from "../orchestrator/spend-guard.js";
 import {
   AppError,
   insufficientContextError,
@@ -64,6 +66,19 @@ export const CONTENT_MAX = 50_000;
 
 export interface AnalysisRouteOptions {
   readonly prisma: PrismaClient;
+  /**
+   * D-67 §2 — `disabled` refuses an unauthenticated submission with 401
+   * instead of issuing an anonymous credential. Default `enabled` (`FR-004`).
+   */
+  readonly anonymousAnalysis?: "enabled" | "disabled";
+  /**
+   * D-47's `analysisCreateUser` / `analysisCreateAnonymous` classes, enforced
+   * here at last (they were declared and never consulted before D-67).
+   */
+  readonly rateLimiter?: RateLimiter;
+  /** D-67 §3 — consulted before any row is written; absent on a replay instance. */
+  readonly spendGuard?: SpendGuard;
+  readonly now?: () => Date;
   /**
    * Seals `raw_content` on write
    * ([D-53](../../../docs/28-D-53-Encryption-Layers.md) §2).
@@ -274,12 +289,96 @@ function requireAccess(
 
 export const analysisRoutes: FastifyPluginAsync<AnalysisRouteOptions> = (
   app,
-  { prisma, cipher, hashContent, startExecution, eventLog, retryArtifact },
+  {
+    prisma,
+    cipher,
+    hashContent,
+    startExecution,
+    eventLog,
+    retryArtifact,
+    anonymousAnalysis = "enabled",
+    rateLimiter,
+    spendGuard,
+    now = () => new Date(),
+  },
 ) => {
   // --- API-020 — create ---------------------------------------------------
   app.post("/analyses", async (request, reply) => {
     const body = (request.body ?? {}) as CreateBody;
     const { content, sourceType } = validateCreate(body);
+
+    // D-67 §2 — an owner-only instance takes no anonymous submission. Checked
+    // before anything is written or counted, and answered as `API §3.3` answers
+    // every protected endpoint: 401 with the corrective step.
+    if (anonymousAnalysis === "disabled" && request.principal.kind !== "user") {
+      throw new AppError(
+        "unauthenticated",
+        "This instance accepts submissions from signed-in accounts only.",
+        { action: "Sign in and submit again." },
+      );
+    }
+
+    // D-47 — the submission classes. Per account for a signed-in caller; per
+    // IP, and stricter, for an anonymous one (`API §7.8`).
+    if (rateLimiter !== undefined) {
+      const decision =
+        request.principal.kind === "user"
+          ? rateLimiter.check(
+              "analysisCreateUser",
+              request.principal.userId,
+              now(),
+            )
+          : rateLimiter.check("analysisCreateAnonymous", request.ip, now());
+      if (!decision.allowed) {
+        throw new AppError(
+          "rate_limited",
+          "Too many analyses started in this window. The limit bounds provider cost per account (R-13).",
+          {
+            action: `Wait ${String(decision.retryAfterSeconds)} seconds and submit again.`,
+            details: { retry_after_seconds: decision.retryAfterSeconds },
+          },
+        );
+      }
+    }
+
+    // D-67 §3 — the spend cap, asked before a row exists. A refusal names the
+    // window and when it resets, and never the amounts spent by others.
+    if (spendGuard !== undefined) {
+      const decision = await spendGuard.admit();
+      if (!decision.admitted) {
+        const retryAfterSeconds = Math.max(
+          1,
+          Math.ceil((decision.resetsAt.getTime() - now().getTime()) / 1000),
+        );
+        request.log.warn(
+          {
+            reason: decision.reason,
+            window: decision.window,
+            capUsd: decision.capUsd,
+            spentUsd: decision.spentUsd,
+            reserveUsd: decision.reserveUsd,
+          },
+          "analysis refused by the spend guard",
+        );
+        throw new AppError(
+          "rate_limited",
+          decision.reason === "cap_reached"
+            ? `The ${decision.window === "day" ? "daily" : "monthly"} provider spend cap for this instance has been reached.`
+            : "Provider spend cannot be verified right now, so no new analysis is started.",
+          {
+            action:
+              decision.reason === "cap_reached"
+                ? `Wait for the ${decision.window} window to reset, or raise the cap in the instance configuration.`
+                : "Try again shortly; if it persists, check the trace store.",
+            details: {
+              retry_after_seconds: retryAfterSeconds,
+              spend_window: decision.window,
+              spend_cap_usd: decision.capUsd,
+            },
+          },
+        );
+      }
+    }
 
     // `FR-004` — THE TOKEN IS NOW ACTUALLY ISSUED.
     //

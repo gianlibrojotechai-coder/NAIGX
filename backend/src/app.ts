@@ -32,6 +32,7 @@ import type { AnalysisEventLog } from "./events/analysis-event-log.js";
 import { authRoutes } from "./routes/auth.js";
 import { registerAuthentication } from "./http/authenticate.js";
 import { createRateLimiter, type RateLimiter } from "./auth/rate-limit.js";
+import type { SpendGuard } from "./orchestrator/spend-guard.js";
 import { createSessionService } from "./auth/sessions.js";
 import { createAuditSink } from "./db/audit-sink.js";
 import { historyRoutes } from "./routes/history.js";
@@ -96,6 +97,12 @@ export interface AppDependencies {
   /** Shared so a test can inspect or reset it. */
   readonly rateLimiter?: RateLimiter;
   /**
+   * D-67 §3 — the spend cap, consulted by `API-020` before a row is written.
+   * Supplied by the composition root on a live instance; absent on replay,
+   * where no call is metered.
+   */
+  readonly spendGuard?: SpendGuard;
+  /**
    * Seals and opens the three encrypted fields
    * ([D-53](../../docs/28-D-53-Encryption-Layers.md) §2).
    *
@@ -135,6 +142,7 @@ export async function buildApp({
   ipSecret = "naigx-dev-ip-secret",
   now = () => new Date(),
   rateLimiter = createRateLimiter(),
+  spendGuard,
   cipher = createPassThroughCipher(),
   tracePurge,
   tracePrisma,
@@ -162,9 +170,20 @@ export async function buildApp({
   // Authentication resolves a principal for every request and rejects none —
   // `API §3.3` requires analysis creation and retrieval to work with no
   // account, so authorization is each route's decision.
+  // D-67 §2: an allowlisted instance serves only its listed accounts, and the
+  // check lives where every route's principal comes from.
+  const allowed =
+    config.accessAllowlist !== undefined
+      ? new Set(config.accessAllowlist)
+      : undefined;
   registerAuthentication(app, {
     lookup: database.prisma,
     now,
+    ...(allowed !== undefined
+      ? {
+          isAccountAllowed: (email: string) => allowed.has(email.toLowerCase()),
+        }
+      : {}),
   });
 
   await app.register(cors, {
@@ -186,6 +205,12 @@ export async function buildApp({
     prisma: database.prisma,
     cipher,
     hashContent,
+    rateLimiter,
+    now,
+    ...(config.anonymousAnalysis !== undefined
+      ? { anonymousAnalysis: config.anonymousAnalysis }
+      : {}),
+    ...(spendGuard !== undefined ? { spendGuard } : {}),
     ...(startExecution !== undefined ? { startExecution } : {}),
     ...(eventLog !== undefined ? { eventLog } : {}),
     ...(retryArtifact !== undefined ? { retryArtifact } : {}),
@@ -202,6 +227,9 @@ export async function buildApp({
 
   await app.register(authRoutes, {
     prisma: database.prisma,
+    ...(config.accessAllowlist !== undefined
+      ? { accessAllowlist: config.accessAllowlist }
+      : {}),
     sessions: createSessionService({
       store: database.prisma,
       audit,
