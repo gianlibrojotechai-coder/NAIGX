@@ -245,6 +245,17 @@ C=(docker compose -f docker-compose.prod.yml --env-file deploy/.env)
 "${C[@]}" run --rm encrypt backfill
 "${C[@]}" run --rm encrypt status   # must report zero plaintext rows
 
+# 4b. ⚠️ THE ARTIFACT SCHEMAS (FR-039). Without them every artifact-bearing
+#     path fails at Stage 9 while the stages before it succeed, and readiness
+#     does not notice. Found on the deployed instance 2026-09-09: this step
+#     was missing from this list. Idempotent; refuses to overwrite a version
+#     whose stored content differs.
+"${C[@]}" run --rm schemas publish
+"${C[@]}" run --rm schemas check     # → 5 artifact schema(s) published and matching
+
+# 4c. The prompt fragments — gated on a pass reference (DB §4.5, D-24).
+#     See "Redeploy" step 3 for the command and the current reference.
+
 # 5. The rest — app, edge, monitoring, alerting, backups.
 "${C[@]}" up -d --build
 
@@ -312,8 +323,15 @@ docker exec naigx-postgres psql -U naigx -d naigx -tAc \
   "select count(*) from prompt_fragment_version where activated_at is not null and deprecated_at is null"
 #    → 15
 
+# 3b. THE ARTIFACT SCHEMAS, if `check` reports any unpublished (FR-039).
+#     Runs from the NEW image, so build it first without recreating the
+#     running backend. Publish is idempotent and never overwrites a version
+#     whose content differs.
+"${C[@]}" build backend
+"${C[@]}" run --rm schemas check || "${C[@]}" run --rm schemas publish
+
 # 4. Rebuild and restart. `up -d --build` recreates only what changed.
-#    The one-shot services (migrate, encrypt, fragments, naigx) are
+#    The one-shot services (migrate, encrypt, schemas, fragments, naigx) are
 #    profile-gated and are NOT started by this — verified with `config`.
 #    ⚠️ ORDER MATTERS: the backend loads its replay corpus ONCE, at startup,
 #    against the fragments published at that moment. Publish (step 3) BEFORE
@@ -333,7 +351,9 @@ reproduce (`backend/src/regression/replay-corpus.ts`). The startup line
 `Replay corpus loaded` lists `served`, `fixtures`, and every `excluded` case
 with its reason. With the 15 fragments published from `fragments-v1` and the
 15-recording store mounted, expect `served` to list all 15 cases and
-`fixtures: 55`, and `GET /health?check=readiness` to answer **200**.
+`fixtures: 54` (one per recorded stage: eight 4-stage `br-*` cases, br-005 at
+3, ew-001 at 4, jd-002 at 5, jd-008 at 4, ta-005 at 4, and the two `un-*`
+cases at 1), and `GET /health?check=readiness` to answer **200**.
 
 | | Before (`34ce193` build) | After publish + rebuild |
 |---|---|---|

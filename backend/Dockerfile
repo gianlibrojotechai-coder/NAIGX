@@ -82,6 +82,16 @@ COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/prisma ./prisma
 COPY --from=build --chown=node:node /app/prisma.config.ts /app/prisma.trace.config.ts ./
 
+# ⚠️ THE ARTIFACT SCHEMAS (`FR-039`, AD-08). `artifact-validation.ts` reads
+# `schemas/<type>.schema.json` two levels up from `dist/nie/` — `/app/schemas`
+# here — and `dist/ops/schemas.js` publishes the same files. Until 2026-09-09
+# this directory was never copied: the image built, the tests passed (they run
+# from the checkout), and the first job-description submission to the deployed
+# instance failed Stage 9 with "No registered schema for artifact type". Every
+# artifact-bearing path was affected; `business_requirement` hid it by
+# producing none.
+COPY --chown=node:node schemas ./schemas
+
 # `node` is a non-root user the base image already provides, uid 1000.
 USER node
 

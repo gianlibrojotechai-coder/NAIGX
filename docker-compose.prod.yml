@@ -169,6 +169,36 @@ services:
     networks: [naigx]
 
   # -------------------------------------------------------------------------
+  # Artifact schema publisher — one-shot, `DB §4.4` / `FR-039`.
+  #
+  #   docker compose ... run --rm schemas publish   # publish the authored set
+  #   docker compose ... run --rm schemas check     # verify, writes nothing
+  #
+  # ⚠️ REQUIRED BEFORE ANY ARTIFACT CAN BE STORED. `requirePublishedSchemaId`
+  # refuses rather than publishing on demand, so a database that has never
+  # been given the schemas fails every artifact-bearing path at Stage 9 while
+  # the four stages before it succeed. Found on the deployed instance
+  # 2026-09-09; the first-deploy runbook now includes this step.
+  #
+  # The schemas are baked into the image (`backend/Dockerfile`) — they are
+  # application content with nothing sealed, unlike prompts/ and research/.
+  # -------------------------------------------------------------------------
+  schemas:
+    build:
+      context: ./backend
+    image: naigx-backend:latest
+    profiles: ["schemas"]
+    restart: "no"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-naigx}
+    entrypoint: ["/usr/bin/tini", "--", "node", "dist/ops/schemas.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [naigx]
+
+  # -------------------------------------------------------------------------
   # Application tier.
   # -------------------------------------------------------------------------
   backend:
