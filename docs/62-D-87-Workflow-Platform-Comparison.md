@@ -44,4 +44,4 @@ Campaign total: **$0.3186**.
 | The workflow path plans five artifacts and generates the comparison beside the score; the browser sees five artifact events; the planner's workflow list; the fragment gate counts 23; the request schema registry has the new task | ✅ `tests/integration/nie-m11-paths.test.ts`, `tests/unit/nie-derived-artifacts.test.ts`, `tests/unit/fragment-gate.test.ts`, `tests/unit/output-schemas.test.ts` — pins updated deliberately |
 | Full suite, lint, format, typecheck, build; `fragments:check` 23, `schemas:check` 17, `recordings:check` 15 | ✅ 2026-09-10 — 1118 tests, 1114 pass, 0 fail, 4 skipped |
 | Captures, admission, references, replay | ✅ §3 — 15 of 15 reproduce `a249714e093716f7` |
-| Production | ⏳ |
+| Production | ✅ **Deployed, 2026-09-10:** image `95ef9a3ad826` at `858d42e` (rollback tag `rollback-dfb9693`, the D-86 image), migrations a no-op, `stage.platform_comparison` activated under `a249714e093716f7` (23 active), live mode unchanged; health 200. ⏳ **Live verification owed:** one billed workflow analysis after the day cap resets at 00:00 UTC, beside the requirement run owed for D-80–D-86 |
