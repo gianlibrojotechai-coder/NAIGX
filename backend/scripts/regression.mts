@@ -339,6 +339,9 @@ if (command === "capture") {
         ...(config.provider.effort !== undefined
           ? { effort: config.provider.effort }
           : {}),
+        ...(config.provider.effortByTask !== undefined
+          ? { effortByTask: config.provider.effortByTask }
+          : {}),
       });
       adapterFor = () => anthropic;
       adapterId = "anthropic";

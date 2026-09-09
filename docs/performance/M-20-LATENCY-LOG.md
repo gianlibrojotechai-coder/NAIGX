@@ -376,5 +376,130 @@ Stage 6/7 completes, so `NFR-001` cannot be met by a faster model. Sonnet
 5's variance is narrower (Stage 3 21–95 s across the whole sample) and
 nothing hit the deadline, but the p50s sit in the same place.
 
-**`M-20` stays NOT PASSED on both models.** What closes it remains the
-owner's decision on `NFR-001`'s definition and `NFR-002`'s target.
+**`M-20` stays NOT PASSED on both models**, with its requirements as
+written. §9 is where the time goes, and what could move it.
+
+---
+
+## 9. Where the time goes — from the traces, no new spend
+
+Every provider call in both samples carries its latency and its token
+counts (`provider_invocation`), and every analysis its stage timings
+(`stage_trace`). Aggregated 2026-09-09.
+
+### 9.1 The system's own overhead is nil
+
+| Sample | Wall clock p50 | Summed provider-call latency p50 | Everything else, p50 / max |
+|---|---|---|---|
+| Sonnet 5 (n=30) | 84.3 s | 84.1 s | **0.16 s / 0.36 s** |
+| Sonnet 4.5 (n=11) | 74.2 s | 74.1 s | 0.18 s / 0.43 s |
+
+Persistence, composition, validation, sealing, event delivery: 0.2% of
+the wall clock. §4's floor is confirmed on live data. **Nothing this
+codebase does between calls is worth optimising for `NFR-001`/`NFR-002`.**
+
+### 9.2 Per stage, Sonnet 5 (`effort: medium`, structured outputs)
+
+| Stage | n | p50 | p95 | Output tokens p50 | Output tok/s p50 (min–max) | Share of call time |
+|---|---|---|---|---|---|---|
+| `context_extraction` (3) | 30 | **20.2 s** | **93.9 s** | 2,394 | 119 (24–134) | **38.6%** |
+| `recommendation_generation` (7, JD only) | 9 | **44.2 s** | 59.9 s | **4,252** | 93 (87–106) | 16.8% |
+| `architecture_analysis` (6) | 15 | 22.8 s | 27.9 s | 1,981 | 90 (84–100) | 13.3% |
+| `portfolio_suggestions` (9, JD only) | 11 | 26.5 s | 42.2 s | 2,395 | 88 (59–97) | 13.3% |
+| `workflow_review` (6, EW only) | 6 | 31.2 s | 51.9 s | 3,049 | 98 (96–100) | 8.2% |
+| `intent_detection` (2) | 30 | 5.4 s | 8.0 s | 396 | 73 | 7.0% |
+| `input_classification` (1) | 30 | 2.2 s | 3.4 s | 50 | 23 | 2.8% |
+
+Sonnet 4.5 has the same ordering (Stage 3 32.4%, Stage 9 20.2%) at
+lower, steadier throughput (40–75 tok/s, no tail).
+
+### 9.3 Three findings
+
+1. **Latency is output-token volume divided by provider throughput,
+   stage by stage, in series.** Input size barely matters (a 10.8k-token
+   Stage 7 prompt and a 3k-token Stage 1 prompt differ by a second). Output
+   tokens *include thinking*; the API does not split them, so how much of
+   Stage 3's 2,394 is reasoning is not knowable from the record.
+2. **The p95 tail is provider throughput, not the prompt.** Stage 3 across
+   the Sonnet 5 sample: 24 calls at 91–134 tok/s finished in 11–27 s; **6
+   calls at 24–39 tok/s took 53–98 s on the same token counts** (e.g. 93 s
+   for 3,111 tokens beside 23 s for 2,987). One in five Stage 3 calls ran
+   at a quarter speed. No change to this system's requests alters that.
+3. **The job-description path is five serial calls** whose p50s sum to
+   ~99 s (2.2 + 5.4 + 20.2 + 44.2 + 26.5), so `NFR-002`'s 60 s p50 is out
+   of reach for that path at these stage sizes regardless of tail
+   behaviour; `business_requirement` (four calls, ~51 s) is the only path
+   near it. And **no artifact exists before Stage 6/7 completes**: the
+   earliest any current artifact can appear is after Stages 1+2+3+6 ≈ 51 s
+   p50, so `NFR-001`'s 15 s p50 is unreachable by the pipeline's shape
+   with any model.
+
+### 9.4 What could move it — smallest first
+
+**Within the current contracts** (no requirement, prompt, schema or
+activation-gate change; declared configuration only):
+
+| Lever | Targets | Expected | Status |
+|---|---|---|---|
+| **Per-task `effort`** — `low` for the extraction stages (1–3), `medium` where reasoning happens (6/7/9) | Stage 3's 39% share, Stages 1–2 | Fewer thinking tokens per call, so fewer output tokens at the same throughput; does **not** touch the throughput tail | **Built** (`PROVIDER_EFFORT_BY_TASK`, adapter `effortByTask`); default unchanged; a concrete change, evaluated in §9.5 |
+| Prompt caching of the composed system prompt (`cache_control`) | Input tokens, ~3–11k per call | Cost (10× cheaper cached input) far more than latency (input processing is ~1 s); transport-level, request shape unchanged | Not built; a cost lever, listed for completeness |
+| `max_tokens` | — | None on latency | — |
+
+**Requiring a decision** (architecture, requirements or policy — each a
+D-record, none made here):
+
+| Change | Targets | What it would take |
+|---|---|---|
+| **An early deterministic artifact** rendered from Stage 2's intent record (~8 s p50, ~11 s p95 cumulative) | `NFR-001` as written | A new `ARTIFACT_TYPE`, schema, presenter and plan entry: `AI §9.1`, `DB §4.4`, `FR-040`. The only route to a ≤15 s p50 "first artifact" that keeps the requirement's meaning |
+| **Model routing per stage** — a faster-tier model for Stages 1–3 | Stage 3 p50 and the tail | `AI §10.3` already names `costLatencyTier` routing; `FR-024` reproducibility and `AI-004` attribution per stage; a two-model analysis needs its own record |
+| **Hedged retry** — abort a call running far below expected throughput and retry | The p95 tail | A retry-policy change (`AI §10.4`); the aborted call is still billed; would need a throughput floor derived from this data |
+| **Shorter Stage 7/9 output** via the fragments | Stage 7's 4,252 tokens | A prompt change: authored, captured, gated, activated — the D-63/D-64 route, with spend |
+| Parallelising Stages 2 and 3 | ~5 s p50 | `AI §3.2` hands Stage 3 the intent record; removing that is a contract change for a small gain |
+
+⚠️ Not available: a paid fast lane — Priority Tier is not offered on
+Sonnet 5 (migration guide).
+
+### 9.5 The one in-contract change, evaluated — and NOT adopted
+
+Six runs (the rotation's first six: jd-002, br-001, ew-001, ta-005,
+jd-008, br-002), `PROVIDER_EFFORT_BY_TASK="input_classification=low,
+intent_detection=low,context_extraction=low"`, everything else as §8:
+180 s default, one at a time, the deployed build. Evidence:
+`evidence/m20-sonnet5-effort-eval-2026-09-09.jsonl` and `.log`.
+
+| Stage at `low` | This evaluation | §8 baseline at `medium` | Verdict |
+|---|---|---|---|
+| `context_extraction` | 17.4 / 18.4 / 24.8 s on normal-throughput calls (115–130 tok/s), **72.3 / 93.8 s** on two slow ones (25–31 tok/s); 1,799–3,003 output tokens | p50 20.2 s, 2,394 tokens, same bimodal throughput | **No gain.** Output tokens did not fall: the response *is* the JSON context set, not thinking |
+| `intent_detection` | p50 5.6 s, 389 tokens | 5.4 s, 396 tokens | identical |
+| `input_classification` | p50 2.1 s, 53 tokens | 2.2 s, 50 tokens | identical |
+
+**The lever is exhausted.** Effort steers thinking; on these stages the
+output is the contract's payload and thinking is not a material share of
+it. The per-task override stays in the code as declared, validated
+configuration (default: unset, so behaviour is unchanged) and is **not
+recommended**. This closes the in-contract list in §9.4: what remains is
+architectural.
+
+**Two runs failed inside the window, neither from effort:**
+
+- `ta-005`: Stage 2 (`low`) received three consecutive *"Provider reported
+  a temporary internal error"* responses (22.6 s, 22.7 s, 13.9 s) — server
+  errors — and the analysis **failed closed** after the bounded retry
+  (`AI §10.4`, three attempts with backoff). Correct behaviour.
+- `jd-002`: Stage 7 (`medium`, unchanged) got a server error after 99.5 s
+  in flight and another after 23.0 s; the third attempt was in flight
+  when the 180 s deadline fired and was **cancelled at 30.7 s** — the D-65
+  §7.2 fix working: no fourth call, nothing written after `timed_out`.
+
+A provider incident is part of `NFR-002`'s reality, not an exclusion:
+both runs are in the record. Note the interplay it shows — bounded
+retries with backoff can spend most of the deadline on a stage that is
+failing upstream, which is the right trade (a retry that succeeds saves
+the analysis) but means a server incident converts directly into
+timeouts.
+
+**Spend for this evaluation:** 27 calls; **$0.4544 recorded**; five
+server-error calls carried no usage (recorded $0, and expected to be
+unbilled, but that cannot be verified from the key); one cancelled call
+**explicitly unknown, carried at $0.0951** — the largest Stage 7 call ever
+recorded. Budgeted total for the evaluation: **$0.5495**.

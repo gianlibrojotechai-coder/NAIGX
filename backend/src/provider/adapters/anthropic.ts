@@ -112,6 +112,13 @@ export interface AnthropicAdapterOptions {
   readonly outputSchemas?: Readonly<Record<string, OutputSchema>>;
   /** `output_config.effort`. Omitted means the provider's default (`high`). */
   readonly effort?: EffortLevel;
+  /**
+   * Per-task override of `effort`, keyed like `outputSchemas`. The smallest
+   * in-contract latency lever the 2026-09-09 traces point at: extraction
+   * stages need less thinking than reasoning stages, and thinking tokens are
+   * output tokens. Neither the request shape nor any contract changes.
+   */
+  readonly effortByTask?: Readonly<Record<string, EffortLevel>>;
 }
 
 /**
@@ -295,9 +302,10 @@ export function createAnthropicProvider(
           `structured_output_unavailable: no output schema is registered for task "${request.task}"`,
         );
       }
+      const effort = options.effortByTask?.[request.task] ?? options.effort;
       const outputConfig: NonNullable<AnthropicMessageParams["output_config"]> =
         {
-          ...(options.effort !== undefined ? { effort: options.effort } : {}),
+          ...(effort !== undefined ? { effort } : {}),
           ...(schema !== undefined
             ? { format: { type: "json_schema" as const, schema } }
             : {}),

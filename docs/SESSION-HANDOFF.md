@@ -1,6 +1,6 @@
 # NAIGX — Session Handoff
 
-**Written:** 2026-09-08 · **Last updated:** 2026-09-09 (D-65 deployed to production in replay mode; FR-094 cancellation fixed; M-20 re-measured on Sonnet 5, full sample, NOT MET on both models)
+**Written:** 2026-09-08 · **Last updated:** 2026-09-09 (minItems deployed; M-20 latency decomposed from traces — the in-contract lever evaluated and not adopted; what remains is a decision, latency log §9)
 **Purpose:** hand a new chat session everything it needs to continue building NAIGX without re-deriving context or re-litigating settled decisions.
 
 > **Read this first, then `docs/STATUS.md`.** STATUS.md is the authoritative current-state record. This file covers the most recent working sessions, and the exact next step.
@@ -406,11 +406,26 @@ readiness **200** in-container and at `https://naigx.tech` (TLS verify 0),
 through the public API — jd-002 through Stage 9 with its artifact
 generated, ew-001 and ta-005 with both artifacts, br-001 with none by
 design.** n8n and Traefik untouched. Production still sets no provider
-variable. ⚠️ One refinement landed on `main` **after** that image was
-built: `minItems: 1` on the portfolio request schema's list fields (the
-one degraded run in the Sonnet 5 sample was an empty `platforms` list).
-It is source-only, affects live mode only, and is **not** in
-`a59c966a36cb`; the next replay-mode rebuild picks it up harmlessly.
+variable. ✅ **Redeployed again the same day** (owner-authorised, replay
+mode) for the `minItems: 1` refinement, verified against the published
+schema by test: outgoing image tagged `rollback-a12ce54`, new image
+**`9b4f0cb4866c`** (marker: `minItems` in `dist/nie/output-schemas.js`),
+readiness 200, all four recorded paths completed through the public
+API. Host rollback tags now: `rollback-a12ce54`, `rollback-1da10e3`,
+`rollback-target`. The later `effortByTask` change is on `main`, default
+unset, not adopted, not needed in the image.
+
+▶ **Where M-20's time goes, and what could move it — from the traces,
+latency log §9.** System overhead is 0.16 s of an 84 s analysis; Stage 3
+is 39% of call time and its p95 is a **provider throughput tail** (one
+in five calls at a quarter speed on the same token counts); the JD path
+is five serial calls whose p50s sum to ~99 s; no artifact exists before
+Stage 6/7. The one in-contract lever (per-task effort) was built and
+**evaluated: no gain, not adopted** (§9.5). What remains is a decision:
+an early deterministic artifact from Stage 2 (the only route to `NFR-001`
+as written), per-stage model routing (`AI §10.3` already names the
+tier), a hedged-retry policy for the throughput tail, or shorter Stage
+7/9 output through gated fragment changes. None was made here.
 
 ### The replay-mode increment (2026-09-08) — still true, now the floor
 
@@ -655,7 +670,7 @@ Two mechanisms, because neither covers both directions:
 
 | Constraint | Source |
 |---|---|
-| **No provider spend without authorisation.** ⚠️ AMENDED 2026-09-09 (evening): the owner replaced per-case approval with a **US$10 cap for the Sprint 5 continuation**, "only when necessary", free verification preferred where it measures the same thing, no subscriptions or recurring infrastructure. **Spent under it: $5.0365 recorded, budgeted at $5.0755** — $1.2370 on the retired account (the Sonnet 4.5 M-20 sample, 65 invocations; ⚠️ corrected from $1.1319 after reconciling the trace store: two Stage 9 calls landed after the timed-out run's deadline) and $3.7995 recorded on the new account (D-65 verification 24 calls $0.5914; cancellation check 3 calls $0.0186; the Sonnet 5 M-20 sample 131 calls $3.1895 — harness and trace store identical), plus **up to $0.039 the trace cannot see** for the one deliberately aborted call (an aborted response carries no usage; not free, explicitly unknown). **Remaining: $4.9245** at the upper bound. ⚠️ Provider-side usage could not be reconciled: a regular API key exposes no usage or cost endpoint, and no Admin API key exists for the organisation. ⚠️ The retired account is exhausted and **must not be used again** (owner, 2026-09-09); the new account's $100 balance is the account's, not the task's. Earlier campaign spend: $1.7121, case by case. Project cumulative: **$4.42** across all live work recorded in `STATUS.md` and the campaign. | Owner, 2026-09-09 |
+| **No provider spend without authorisation.** ⚠️ AMENDED 2026-09-09 (evening): the owner replaced per-case approval with a **US$10 cap for the Sprint 5 continuation**, "only when necessary", free verification preferred where it measures the same thing, no subscriptions or recurring infrastructure. **Spent under it: $5.4909 recorded, budgeted at $5.6250** — $1.2370 on the retired account (the Sonnet 4.5 M-20 sample, 65 invocations; ⚠️ corrected from $1.1319 after reconciling the trace store) and $4.2539 recorded on the new account (D-65 verification $0.5914; cancellation check $0.0186; the Sonnet 5 M-20 sample $3.1895; the per-task effort evaluation $0.4544), plus **two cancelled calls the trace cannot price** — carried at their upper bounds, $0.039 and $0.0951 — and five server-error calls recorded at $0 (no usage; expected unbilled, unverifiable from the key). **Remaining: $4.3750** at the upper bound. ⚠️ Provider-side usage could not be reconciled: a regular API key exposes no usage or cost endpoint, and no Admin API key exists for the organisation. ⚠️ The retired account is exhausted and **must not be used again** (owner, 2026-09-09); the new account's $100 balance is the account's, not the task's. Earlier campaign spend: $1.7121, case by case. Project cumulative: **$4.42** across all live work recorded in `STATUS.md` and the campaign. | Owner, 2026-09-09 |
 | ~~**Prompt fragments stay inactive.**~~ ✅ **SUPERSEDED 2026-09-09** — the owner authorised publication with `d4abcd42626452df`; 15 versions are active in production through the unchanged gate. D-39's *principle* stands: nothing further activates without a covering reference and an authorisation. | **D-39**, owner 2026-09-09 |
 | **No M-08 packet review, no rubric verdicts.** AI review excluded "in any capacity, for any criterion". | `docs/10` §4.3 |
 | **Do not implement `platform_recommendation`** / expand `business_requirement`. | Owner, explicit |

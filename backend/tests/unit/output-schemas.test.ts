@@ -16,6 +16,8 @@
  */
 
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { test } from "node:test";
 
 import { Ajv2020 as Ajv } from "ajv/dist/2020.js";
@@ -234,6 +236,75 @@ test("3. why_not_consolidated: optional in the request schema, and the authorita
     "portfolio_suggestions",
     wire({ ...base, primary_gaps: ["req-1", "req-2"] }),
   );
+});
+
+test("4. minItems: the request schema requires a non-empty list exactly where the PUBLISHED schema does, and nowhere else", () => {
+  // The authoritative contract is the published file. Its `nonEmptyStringList`
+  // and the two explicit `minItems: 1` arrays are the complete set; the
+  // request schema must carry the same set — no more (it would be stricter
+  // than the validator, which AI §9.3 forbids) and no less (the one degraded
+  // run in the Sonnet 5 sample was an empty `platforms` list).
+  const published = JSON.parse(
+    fs.readFileSync(
+      path.resolve(
+        path.dirname(new URL(import.meta.url).pathname.slice(1)),
+        "../../schemas/portfolio_suggestions.schema.json",
+      ),
+      "utf8",
+    ),
+  ) as {
+    properties: Record<string, Record<string, unknown>>;
+    $defs: Record<string, Record<string, unknown>>;
+  };
+  const nonEmptyRefs = new Set(["#/$defs/nonEmptyStringList"]);
+  const publishedNonEmpty = new Set<string>();
+  const scan = (
+    props: Record<string, Record<string, unknown>>,
+    prefix: string,
+  ): void => {
+    for (const [name, def] of Object.entries(props)) {
+      const ref = def["$ref"];
+      const allOf = def["allOf"] as { $ref?: string }[] | undefined;
+      const viaAllOf = allOf?.some((a) => nonEmptyRefs.has(a.$ref ?? ""));
+      if (
+        (typeof ref === "string" && nonEmptyRefs.has(ref)) ||
+        viaAllOf === true ||
+        (def["type"] === "array" && def["minItems"] === 1)
+      ) {
+        publishedNonEmpty.add(`${prefix}${name}`);
+      }
+    }
+  };
+  scan(published.properties, "");
+  scan(
+    (published.$defs["project"]?.["properties"] ?? {}) as Record<
+      string,
+      Record<string, unknown>
+    >,
+    "projects.",
+  );
+
+  const request = STAGE_OUTPUT_SCHEMAS["portfolio_suggestions"] as {
+    properties: Record<string, Record<string, unknown>>;
+  };
+  const requestNonEmpty = new Set<string>();
+  const items = (request.properties["projects"]?.["items"] ?? {}) as {
+    properties: Record<string, Record<string, unknown>>;
+  };
+  for (const [name, def] of Object.entries(request.properties)) {
+    if (def["minItems"] === 1) requestNonEmpty.add(name);
+  }
+  for (const [name, def] of Object.entries(items.properties)) {
+    if (def["minItems"] === 1) requestNonEmpty.add(`projects.${name}`);
+  }
+
+  assert.deepEqual([...requestNonEmpty].sort(), [...publishedNonEmpty].sort());
+  assert.ok(requestNonEmpty.has("projects.platforms"), "the observed failure");
+  // Dialect: constrained decoding supports minItems 0 and 1 only.
+  walk(STAGE_OUTPUT_SCHEMAS, "", (node) => {
+    if ("minItems" in node)
+      assert.ok([0, 1].includes(node["minItems"] as number));
+  });
 });
 
 /**

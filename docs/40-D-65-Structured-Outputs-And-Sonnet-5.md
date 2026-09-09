@@ -284,11 +284,28 @@ was marked `timed_out`, so the harness's figure for it was low by one call.
 | **New account, this record** | **27** | **$0.6100 recorded; ≤ $0.6490 with the aborted call's upper bound** |
 | Retired account, earlier this continuation — ⚠️ corrected: the harness read the timed-out run before its two post-deadline Stage 9 calls landed ($0.1051 more than reported) | 65 | $1.2370 |
 | Sonnet 5 `M-20` sample (latency log §8): 30 runs, 0 timed out, 0 aborted | 131 | $3.1895 (harness = trace store) |
-| **Continuation total** | **223** | **$5.0365 recorded; budgeted at the upper bound $5.0755** of the US$10 cap — **$4.9245 remaining** |
+| Per-task effort evaluation (latency log §9.5): 6 runs, 5 unbilled server-error calls, 1 cancelled call at its $0.0951 upper bound | 27 | $0.4544 recorded; $0.5495 budgeted |
+| **Continuation total** | **250** | **$5.4909 recorded; budgeted at the upper bound $5.6250** of the US$10 cap — **$4.3750 remaining** |
 
 ⚠️ Provider-side usage was not reconciled: a regular API key exposes no
 usage or cost endpoint (those are Admin API surfaces, which need an admin
 key the organisation does not have). The trace store is the record.
+
+### 7.5 Two later refinements, one deployed
+
+- **`minItems: 1`** on the portfolio request schema's list fields, after
+  the §8 sample's one degraded run (an empty `platforms` list). Verified
+  against the authoritative published schema by a test that derives the
+  set of non-empty lists from `schemas/portfolio_suggestions.schema.json`
+  and asserts the request schema carries exactly that set and no other
+  (`tests/unit/output-schemas.test.ts` §4). Deployed in replay mode
+  through the runbook: outgoing image tagged `rollback-a12ce54`, new
+  image `9b4f0cb4866c`, readiness 200, all four recorded paths completed
+  through the public API.
+- **`effortByTask`** / `PROVIDER_EFFORT_BY_TASK` — built as the smallest
+  in-contract latency lever, evaluated (latency log §9.5), **no gain, not
+  adopted**; default unset, behaviour unchanged; on `main`, not needed in
+  the deployed image.
 
 ### 7.4 Deployed — 2026-09-09, replay mode only
 

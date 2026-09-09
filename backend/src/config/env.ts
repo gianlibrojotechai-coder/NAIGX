@@ -148,6 +148,14 @@ export interface AppConfig {
      * the 2026-09-08 pilot recorded. Validated against the documented levels.
      */
     readonly effort?: "low" | "medium" | "high" | "xhigh" | "max";
+    /**
+     * `PROVIDER_EFFORT_BY_TASK` — `task=level,task=level`, overriding
+     * `effort` per stage. The in-contract latency lever the 2026-09-09
+     * traces point at (latency log §9). Validated like `effort`.
+     */
+    readonly effortByTask?: Readonly<
+      Record<string, "low" | "medium" | "high" | "xhigh" | "max">
+    >;
   };
 }
 
@@ -166,6 +174,30 @@ const parseEffort = (value: string): (typeof EFFORT_LEVELS)[number] => {
     );
   }
   return level as (typeof EFFORT_LEVELS)[number];
+};
+
+/** `task=level,task=level`; every level validated, blank entries ignored. */
+const parseEffortByTask = (
+  value: string,
+): Readonly<Record<string, (typeof EFFORT_LEVELS)[number]>> => {
+  const out: Record<string, (typeof EFFORT_LEVELS)[number]> = {};
+  for (const entry of value.split(",")) {
+    const trimmed = entry.trim();
+    if (trimmed === "") continue;
+    const [task, level, ...rest] = trimmed.split("=");
+    if (
+      task === undefined ||
+      level === undefined ||
+      rest.length > 0 ||
+      task.trim() === ""
+    ) {
+      throw new Error(
+        `PROVIDER_EFFORT_BY_TASK entries must be task=level (received ${JSON.stringify(trimmed)})`,
+      );
+    }
+    out[task.trim()] = parseEffort(level);
+  }
+  return out;
 };
 
 const isLogLevel = (value: string): value is LogLevel =>
@@ -352,6 +384,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
         : {}),
       ...(optional("PROVIDER_EFFORT") !== undefined
         ? { effort: parseEffort(optional("PROVIDER_EFFORT") as string) }
+        : {}),
+      ...(optional("PROVIDER_EFFORT_BY_TASK") !== undefined
+        ? {
+            effortByTask: parseEffortByTask(
+              optional("PROVIDER_EFFORT_BY_TASK") as string,
+            ),
+          }
         : {}),
     },
     databaseUrl: rawDatabaseUrl as string,

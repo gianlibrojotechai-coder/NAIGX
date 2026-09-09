@@ -120,6 +120,22 @@ test("4. a schema registry sends output_config.format for the task, and declares
   );
 });
 
+test("4b. effortByTask overrides effort for the named task only, and the request is otherwise unchanged", async () => {
+  const { sent, client } = capture();
+  const adapter = createAnthropicProvider({
+    model: "claude-sonnet-5",
+    client,
+    effort: "medium",
+    effortByTask: { context_extraction: "low" },
+  });
+  await adapter.invoke(request); // task: context_extraction
+  await adapter.invoke({ ...request, task: "recommendation_generation" });
+
+  assert.deepEqual(sent[0]?.output_config, { effort: "low" });
+  assert.deepEqual(sent[1]?.output_config, { effort: "medium" });
+  assert.deepEqual(sent[0]?.messages, sent[1]?.messages);
+});
+
 test("5. a task the registry does not name is a recorded degradation, never a guessed schema", async () => {
   const { sent, client } = capture();
   const adapter = createAnthropicProvider({

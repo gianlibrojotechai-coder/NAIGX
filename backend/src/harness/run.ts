@@ -241,6 +241,9 @@ export async function runHarness(
         ...(config.provider.effort !== undefined
           ? { effort: config.provider.effort }
           : {}),
+        ...(config.provider.effortByTask !== undefined
+          ? { effortByTask: config.provider.effortByTask }
+          : {}),
       });
       rate = realProviderRate(config);
       note =
