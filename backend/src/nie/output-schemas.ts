@@ -444,6 +444,8 @@ export const STAGE_OUTPUT_SCHEMAS: Readonly<Record<string, OutputSchema>> = {
   portfolio_suggestions: portfolioSuggestions,
   interview_guidance: interviewGuidance,
   platform_recommendation: platformRecommendation,
+  // D-87: the same shape, generated on the workflow path.
+  platform_comparison: platformRecommendation,
   risk_assessment: riskAssessment,
   complexity_assessment: complexityAssessment,
   implementation_roadmap: implementationRoadmap,

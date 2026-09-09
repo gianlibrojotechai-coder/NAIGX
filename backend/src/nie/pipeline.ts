@@ -387,18 +387,18 @@ export function stageProviderInputs(
     if (outputs.review !== undefined) {
       try {
         const review = parseWorkflowReview(outputs.review, context);
-        inputs.set(
-          "complexity_assessment",
-          stageHandoff({
-            context: contextHandoffView(context),
-            architecture: architectureHandoffView({
-              summary: review.summary,
-              dataFlowDescription: review.dataFlowDescription,
-              components: review.structure,
-              unknownDispositions: [],
-            }),
+        const observedHandoff = stageHandoff({
+          context: contextHandoffView(context),
+          architecture: architectureHandoffView({
+            summary: review.summary,
+            dataFlowDescription: review.dataFlowDescription,
+            components: review.structure,
+            unknownDispositions: [],
           }),
-        );
+        });
+        inputs.set("complexity_assessment", observedHandoff);
+        // D-87: the platform comparison is keyed on the same handoff.
+        inputs.set("platform_comparison", observedHandoff);
       } catch {
         // A review fixture that does not parse describes a run that stops at
         // Stage 6; there is no Stage 9 call to key.
@@ -1010,7 +1010,15 @@ export function createPipeline(deps: PipelineDependencies) {
     classifiedAs: ClassificationType,
     architecture: ArchitectureResult,
     context: ContextResult,
-    options: { readonly retry?: boolean } = {},
+    options: {
+      readonly retry?: boolean;
+      /**
+       * D-87: the workflow path runs this generator as the Platform
+       * Comparison — its own Stage 9 key and fragment, framed for an observed
+       * workflow — against the same schema and parser.
+       */
+      readonly stageKey?: "platform_recommendation" | "platform_comparison";
+    } = {},
   ): Promise<{
     readonly outcome: ArtifactOutcome;
     readonly wire: unknown;
@@ -1026,9 +1034,10 @@ export function createPipeline(deps: PipelineDependencies) {
     let outcome: ArtifactOutcome = "generated";
     let failureReason = "";
     try {
+      const stageKey = options.stageKey ?? "platform_recommendation";
       recommendation = await runStage(input, {
         stageNumber: 9,
-        stageKey: "platform_recommendation",
+        stageKey,
         classifiedAs,
         onStageTrace: (id) => {
           traceId = id;
@@ -1040,7 +1049,7 @@ export function createPipeline(deps: PipelineDependencies) {
         buildRequest: (prompt) =>
           request(
             prompt,
-            "platform_recommendation",
+            stageKey,
             stageHandoff({
               context: contextHandoffView(context),
               architecture: architectureHandoffView(architecture),
@@ -2690,6 +2699,9 @@ export function createPipeline(deps: PipelineDependencies) {
         // D-78: a review transcribes; it disposes of nothing, and says so.
         unknownDispositions: [],
       };
+      // D-87: Stage 10 checks the platform comparison's fit lines against
+      // the architecture in its context — on this path, the observed one.
+      extendContext(input, { architecture: observed });
       await deps.resultSink?.persistArchitecture(input.analysisId, observed);
       await deps.resultSink?.persistWorkflowFindings?.(
         input.analysisId,
@@ -2707,23 +2719,44 @@ export function createPipeline(deps: PipelineDependencies) {
         workflowPlan,
       );
 
-      // D-80 — the complexity assessment against the observed structure;
-      // the rendered artifacts attach to its Stage 9 trace.
-      const complexity = await generateComplexity(
-        input,
-        classification.determinedType,
-        observed,
-        context,
-      );
+      // D-87 — the platform comparison (keep, move or stop) and, D-80, the
+      // complexity assessment, both against the observed structure and
+      // concurrent (D-80 §2); the rendered artifacts attach to the last
+      // Stage 9 trace to finish.
+      const [platform, complexity] = await Promise.all([
+        generatePlatformRecommendation(
+          input,
+          classification.determinedType,
+          observed,
+          context,
+          { stageKey: "platform_comparison" },
+        ),
+        generateComplexity(
+          input,
+          classification.determinedType,
+          observed,
+          context,
+        ),
+      ]);
+      await settlePlatformRecommendation(input, platform);
       await settleComplexity(input, classification.determinedType, complexity);
+      const lastWorkflowTrace = complexity.traceId ?? platform.traceId;
       const rendered = await emitDerivedArtifacts(
         input,
-        withOutcome(workflowPlan, "complexity_score", complexity.outcome),
+        withOutcome(
+          withOutcome(
+            workflowPlan,
+            "platform_recommendation",
+            platform.outcome,
+          ),
+          "complexity_score",
+          complexity.outcome,
+        ),
         {
           workflow_recommendation: () => renderWorkflowRecommendation(review),
           risk_assessment: () => renderRiskAssessment(review),
         },
-        complexity.traceId === null ? {} : { traceId: complexity.traceId },
+        lastWorkflowTrace === null ? {} : { traceId: lastWorkflowTrace },
       );
 
       return {
@@ -2733,6 +2766,9 @@ export function createPipeline(deps: PipelineDependencies) {
         architecture: observed,
         workflowReview: review,
         artifactPlan: withBrief(rendered),
+        ...(platform.recommendation !== undefined
+          ? { platformRecommendation: platform.recommendation }
+          : {}),
         ...(complexity.assessment !== undefined
           ? { complexityAssessment: complexity.assessment }
           : {}),
@@ -3064,7 +3100,13 @@ export function createPipeline(deps: PipelineDependencies) {
               input.classifiedAs,
               input.architecture,
               input.context,
-              { retry: true },
+              {
+                retry: true,
+                // D-87: on the workflow path the type is the comparison.
+                ...(input.classifiedAs === "existing_workflow"
+                  ? { stageKey: "platform_comparison" as const }
+                  : {}),
+              },
             )
           : input.artifactType === "risk_assessment"
             ? await generateRiskRegister(

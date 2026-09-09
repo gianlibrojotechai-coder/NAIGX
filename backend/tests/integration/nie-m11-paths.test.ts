@@ -340,17 +340,52 @@ const primedAdapter = async (
   if (scenario.type === "existing_workflow") {
     try {
       const review = parseWorkflowReview(stageOutput, context);
+      const observedHandoff = stageHandoff({
+        context: contextHandoffView(context),
+        architecture: architectureHandoffView({
+          summary: review.summary,
+          dataFlowDescription: review.dataFlowDescription,
+          components: review.structure,
+          unknownDispositions: [],
+        }),
+      });
+      // D-87: the platform comparison, keyed on the same handoff — keep the
+      // workflow where it runs, with a fit line per step.
+      await add(
+        "platform_comparison",
+        observedHandoff,
+        JSON.stringify({
+          criteria_applied: [
+            {
+              criterion:
+                "The workflow already runs on Zapier and the team operates it there",
+              context_index: 0,
+              component: null,
+            },
+          ],
+          recommended_platform: "Zapier",
+          also_required: [],
+          rationale:
+            "Staying keeps the operating knowledge the team has; nothing in the context justifies a move.",
+          alternatives_rejected: [
+            {
+              platform: "Make",
+              rejection_reason:
+                "A move would re-implement two working steps for no stated gain.",
+            },
+          ],
+          fit: [
+            { component: "Form Watcher", how: "The existing form trigger" },
+            { component: "Sheet Appender", how: "The existing Sheets action" },
+          ],
+          knowledge_currency_note:
+            "Platform capabilities and pricing change; verify before committing.",
+        }),
+        scenario.type,
+      );
       await add(
         "complexity_assessment",
-        stageHandoff({
-          context: contextHandoffView(context),
-          architecture: architectureHandoffView({
-            summary: review.summary,
-            dataFlowDescription: review.dataFlowDescription,
-            components: review.structure,
-            unknownDispositions: [],
-          }),
-        }),
+        observedHandoff,
         JSON.stringify({
           factors: [
             "workflow",
@@ -540,6 +575,8 @@ test("the workflow path produces its two rendered AI §9.1 artifacts and, since 
       "intent_brief",
       "workflow_recommendation",
       "risk_assessment",
+      // D-87: the platform comparison, generated.
+      "platform_recommendation",
       "complexity_score",
     ],
   );
@@ -547,20 +584,22 @@ test("the workflow path produces its two rendered AI §9.1 artifacts and, since 
     recorded.artifacts.map((a) => a.artifactType),
     [
       "intent_brief",
+      // D-87/D-80: the two generators settle before the rendered artifacts.
+      "platform_recommendation",
       "complexity_score",
       "workflow_recommendation",
       "risk_assessment",
     ],
   );
-  // Rendered, not sampled: there is no second attempt to make.
+  // Rendered or generated first time: there is no second attempt to make.
   assert.ok(recorded.artifacts.every((a) => a.generationAttemptCount === 1));
   assert.ok(recorded.artifacts.every((a) => a.validationStatus === "valid"));
 
   const announced = events.filter((e) => e.type === "artifact");
   assert.equal(
     announced.length,
-    4,
-    "FR-041 — the browser sees the brief, the score and both path artifacts",
+    5,
+    "FR-041 — the browser sees the brief, the comparison, the score and both path artifacts",
   );
 });
 

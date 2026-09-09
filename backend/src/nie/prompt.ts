@@ -56,6 +56,9 @@ export const STAGE_FRAGMENT_KEYS: Readonly<Record<string, string>> = {
   edge_case_analysis: "stage.edge_case_analysis",
   // D-84: its integration requirements.
   integration_requirements: "stage.integration_requirements",
+  // D-87: the workflow path's platform comparison — the platform generator
+  // under a fragment framed for an observed workflow (keep, move or stop).
+  platform_comparison: "stage.platform_comparison",
 };
 
 /** Type modifier per classified path (`AI §6.1` TYPE group). */

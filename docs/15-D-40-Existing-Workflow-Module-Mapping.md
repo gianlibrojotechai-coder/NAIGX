@@ -82,7 +82,7 @@ Consequences worth stating:
 |---|---|
 | RM-1, RM-2 | Already satisfied by Stages 1–3, which run on every path |
 | RM-3 Gap Analysis, RM-7 Risk Identification | **Implemented** as the workflow review and its risk findings |
-| RM-6 Platform Selection | **Routed**; its *Platform Comparison* artifact is deferred to M-07 |
+| RM-6 Platform Selection | **Routed**; its *Platform Comparison* artifact was deferred to M-07 and **built 2026-09-10 by [D-87](62-D-87-Workflow-Platform-Comparison.md)** |
 | RM-4 | **Excluded by this record** |
 | RM-8 | **Blocked** by D-33/D-35/D-36 |
 | Edge Cases | **Excluded** by `MVP §5.3` |

@@ -119,7 +119,12 @@ test("the workflow path plans its whole AI §9.1 set", () => {
 
   assert.deepEqual(
     plan.map((entry) => entry.artifactType),
-    ["workflow_recommendation", "risk_assessment", "complexity_score"],
+    [
+      "workflow_recommendation",
+      "risk_assessment",
+      "platform_recommendation",
+      "complexity_score",
+    ],
   );
   assert.ok(plan.every((entry) => entry.planned));
   assert.equal(plan[0]?.inclusionReason, "because");

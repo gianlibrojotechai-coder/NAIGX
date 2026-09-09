@@ -113,6 +113,7 @@ test("1. every stage schema is in the constrained-decoding dialect", () => {
     "integration_requirements",
     "intent_detection",
     "interview_guidance",
+    "platform_comparison",
     "platform_recommendation",
     "portfolio_suggestions",
     "recommendation_generation",

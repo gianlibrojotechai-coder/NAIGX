@@ -922,6 +922,10 @@ export const PATH_ARTIFACT_TYPES: Readonly<
   existing_workflow: [
     "workflow_recommendation",
     "risk_assessment",
+    // D-87: the `AI §9.1` Platform Comparison — keep, move or stop — generated
+    // against the observed structure under its own fragment, the same
+    // artifact type and schema as the requirement path's recommendation.
+    "platform_recommendation",
     // D-80: scored against the observed structure.
     "complexity_score",
   ],

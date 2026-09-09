@@ -13,9 +13,9 @@ import type { ConfidenceModel } from "./contracts.js";
 
 export const CONFIDENCE_MODEL_V1: ConfidenceModel = {
   version: "confidence-v1",
-  clarityWeight: 0.45,
-  highThreshold: 0.846,
-  mediumThreshold: 0.807,
+  clarityWeight: 0.4,
+  highThreshold: 0.827,
+  mediumThreshold: 0.803,
   fittedAgainst:
     "41 corpus cases with measured Stage 3 features (3 more decided by rule), 2026-09-09",
 };

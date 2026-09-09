@@ -146,13 +146,13 @@
     "caseId": "ew-001",
     "band": "medium",
     "source": "canonical",
-    "cf2": 0.8666666666666667,
-    "cf4": 0.823076923076923,
-    "stated": 13,
+    "cf2": 0.8571428571428571,
+    "cf4": 0.8541666666666669,
+    "stated": 12,
     "inferred": 2,
     "unknown": 4,
     "conflicts": 0,
-    "sufficiency": "sufficient",
+    "sufficiency": "thin",
     "haltedAtStage1": false
   },
   {
