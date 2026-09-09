@@ -1,6 +1,6 @@
 # NAIGX — Session Handoff
 
-**Written:** 2026-09-08 · **Last updated:** 2026-09-09 (evening — the evidence campaign is complete)
+**Written:** 2026-09-08 · **Last updated:** 2026-09-09 (night — the replay corpus is wired; two host actions remain)
 **Purpose:** hand a new chat session everything it needs to continue building NAIGX without re-deriving context or re-litigating settled decisions.
 
 > **Read this first, then `docs/STATUS.md`.** STATUS.md is the authoritative current-state record. This file covers the most recent working sessions, and the exact next step.
@@ -11,7 +11,7 @@
 >
 > ⚠️ **THE GATE WAS NEVER WEAKENED TO GET THERE.** D-64 §4.3 was **added** during this campaign and made activation *harder*, not easier. No exemption, no `--force`, no manufactured reference. The gate is stricter today than when the blockage began.
 >
-> ⚠️ **NAIGX IS STILL NOT READY, and that is now purely a deployment matter.** `GET /health` answers **503**: no fragments are published to the production database yet, and `REPLAY_FIXTURES` is still `{}`. Both gates are working correctly. §7a lists the three remaining actions — publish, redeploy, wire the fixtures — **none of which is an evidence problem any more.**
+> ⚠️ **NAIGX IS STILL NOT READY, and that is now purely a deployment matter.** `GET /health` answers **503** on the host because no fragments are published to the production database yet and the running build predates the replay-corpus code. ✅ **The last code task is DONE:** `REPLAY_FIXTURES` is no longer `{}` — the backend loads the canonical recording store at startup against the published fragments (`backend/src/regression/replay-corpus.ts`), and a Stage 9 replay defect found on the way is fixed. §7a lists the **two** remaining actions — publish, then redeploy — both on the VPS, both the owner's to run or authorise. ⚠️ **This session could not reach the VPS** (the SSH command was refused by the tool permission layer), so nothing on the host has changed since `34ce193`.
 >
 > ⚠️ **Read §7a's three thin points before claiming anything about quality.** `stage.portfolio_suggestions` rests on **one** recording produced by a **non-deterministic** verdict; four of the five input types are evidenced by one or two cases; and `br-006`/`br-008` were **withdrawn**, not fixed.
 >
@@ -70,7 +70,7 @@ These are standing instructions given explicitly. **They override default thorou
 - ~~**▶ Redeploy the backend.**~~ ✅ **DONE 2026-09-09.** `main` was pushed (it was 9 commits ahead of `origin`, which the previous edition did not know) and the host rebuilt to `34ce193`. The D-62 marker went `0` → `1` and the `provider` message changed to the replay branch's. ⚠️ `/health` is still **503**, correctly — see §7a.
 - **▶ PUBLISH the fragments to production** — the production DB still holds **zero** prompt fragments, so readiness fails. ✅ The evidence half is **done**: the gate permits all 15 against `d4abcd42626452df`. What remains is running the `fragments` compose service against the production database, which is an **owner authorisation**, not a discovery.
 - **▶ Redeploy again.** The host runs `34ce193`; everything from `e7e5906` onward is undeployed. ⚠️ Check `git log origin/main..HEAD` first — an unpushed `main` makes the runbook a silent no-op.
-- **`REPLAY_FIXTURES` is a hardcoded empty object** at `backend/src/index.ts:79`. Readiness in replay mode cannot pass until something real loads into it (D-62). It is strictly *downstream* of fragment publication — it composes against published fragments — and additionally needs `research/` mounted into the `backend` compose service, which only the `fragments` service does today (`docker-compose.prod.yml:160-161`). **Startable for the first time once publication happens.**
+- ~~**`REPLAY_FIXTURES` is a hardcoded empty object**~~ ✅ **DONE 2026-09-09 (night).** `backend/src/regression/replay-corpus.ts` loads every canonical recording whose captured composition the **published** fragments reproduce, merges their fixtures into one replay adapter, and readiness reads the same object. `research/` is now mounted read-only into the `backend` compose service. Verified against the real store with the authored composition: **15 served, 0 excluded, 55 fixtures**, and jd-002 runs through the production pipeline to a produced Stage 9 artifact. Verified as the **compiled** entrypoint against the local dev database: readiness 200, 3 legacy recordings served and 12 excluded with the exact reason (the dev DB holds the old active composition). ⚠️ It loads **once, at startup** — publish first, then rebuild/restart.
 - **A production rollback drill** — needs a deployed instance, which now exists. Newly *possible*, still undone.
 - **A restore drill against production data** — the mechanism is proven on dev data; backups are running on the host.
 - **Off-host backup storage** — `rclone` is installed with a `gdrive:` remote configured, but the remote is **empty** and the automated cycle does not upload. Encryption-before-upload exists; the upload leg does not run.
@@ -150,6 +150,7 @@ These are the defects that *passed every test* before being caught. They are the
 - **Two POSIX permission tests skip on Windows and are the ones that matter in production.** `key-file-provider.test.ts`'s *"FAILS CLOSED when the key file is group-readable / world-readable"* guard D-61's whole security argument, and `process.platform !== "win32"` skips both on the dev machine. They are 2 of the suite's 4 skips. ⚠️ **Run them on the VPS**, or the key file's permission enforcement is asserted by nothing.
 
 - **⚠️ CAPTURE AND REPLAY DIVERGING IS THIS PROJECT'S MOST EXPENSIVE BUG SHAPE — it has now happened THREE times.** `stageProviderInputs` mis-routing `workflow_review`; the `--case=` asymmetry; and the Stage 7 capability profile, which `capture.ts` passed to the pipeline and `runner.ts` did not. **Every instance surfaced as a message blaming the evidence** — *"No recorded response for request key …"*, *"No capability profile supplied"* — against recordings that were perfectly fine. Fixing the profile in `runRegression` alone exposed a second half in `createRecordedProvider`, because the fixture builder keys Stage 7 **only when a profile is present**. ⚠️ **When a replay failure points at a recording, first ask what capture had that replay does not.**
+- **⚠️ FOURTH INSTANCE, 2026-09-09 (night): Stage 9 was never keyed.** `stageProviderInputs` described a run up to Stage 7 and stopped, so `createRecordedProvider` filed no `portfolio_suggestions` fixture. jd-002 — the one recording that reaches Stage 9, and the sole evidence `stage.portfolio_suggestions` rests on — replayed its first four stages and then landed the artifact `failed` with *"No recorded response for request key …"*, against a recording that held the answer. **The 15-case regression run passed anyway**, because `artifact_set` is a deferred assertion and `run_completeness` only checks the terminal stage was reached. It was found only because the deployment loader's test counted fixtures against recorded stages: 53 ≠ 54. Fixed by threading Stage 7's output through `stageProviderInputs` (parsed with the pipeline's own parser, planned with its own Stage 8) and asserting the artifact outcome in `tests/unit/replay-corpus.test.ts`. ⚠️ **"Reached the terminal stage" and "served every recorded answer" are different claims.** A count of fixtures against recorded stages is the cheap check that tells them apart.
 - **A capture that succeeds can still prove nothing.** `jd-008` passed every assertion and produced **0 matched entries**, so the locator rule it was captured to test was never exercised — a *vacuous* pass. ⚠️ **Check that the run actually exercised the thing under test**, not merely that it went green.
 - **A failed capture is billed, and a batch overruns silently.** A nine-case batch exceeded its authorisation by 6.5%: `br-006` failed after 3 paid calls and `br-008` took a 5-call path where 4 were budgeted. Cost was measured *after* the batch, which is a receipt rather than a ceiling. `--budget=` now refuses to **start** a case once the ceiling is reached, and every outcome carries `costUsd` **including failures**.
 - **Re-capturing a case that already has a recording had only two outcomes, and both were wrong:** skipped, or `--force`, which **destroys the recording being tested**. `--out=` writes a paid capture outside the store so admission stays a separate decision.
@@ -256,26 +257,33 @@ evidence under `research/regression-pending/failures/` and
 
 ### ▶ WHAT REMAINS FOR PRODUCTION READINESS
 
-The evidence track is **done**. Three things stand between here and a ready
-instance, and **none of them is an evidence problem**:
+The evidence track is **done** and the code track is **done**. Two things stand
+between here and a ready instance, both on the VPS, and **neither is an
+evidence problem or a code problem**:
 
 1. **▶ Publish the fragments to production.** The gate permits it; it needs the
    owner's authorisation and a run of the `fragments` compose service against
    the production database with the reference above. **This is the next action
-   and it is a decision, not a discovery.**
-2. **▶ Redeploy the backend.** The host runs `34ce193`; everything from
-   `e7e5906` onward is undeployed — D-64, the capture tooling, the parity fix.
-   `deploy/README.md` has the runbook. ⚠️ **Push first** — check
-   `git log origin/main..HEAD` before assuming the runbook will fetch anything.
-3. **▶ `REPLAY_FIXTURES` is still `{}`** at
-   [`backend/src/index.ts:79`](../backend/src/index.ts#L79). Now genuinely
-   startable for the first time: it needed published fragments to compose
-   against, and after step 1 it will have them. It also needs `research/`
-   mounted into the `backend` compose service — the `fragments` service already
-   does this (`docker-compose.prod.yml:160-161`); `backend` does not.
+   and it is a decision, not a discovery.** `deploy/README.md` → *Redeploy*,
+   step 3, has the exact command.
+2. **▶ Redeploy the backend, AFTER step 1.** The host runs `34ce193`;
+   everything from `e7e5906` onward is undeployed — D-64, the capture tooling,
+   the parity fix, and now the replay corpus. `deploy/README.md` has the
+   runbook. ⚠️ The backend loads its corpus **once, at startup**, against
+   whatever is published at that moment; publishing after the rebuild needs a
+   `docker compose restart backend`. ⚠️ The build marker changed — grep
+   `dist/index.js` for `Replay corpus loaded`, not the old phrase (§9).
 
-⚠️ **`GET /health` will stay 503 until all three are done.** Step 1 clears
-`templates`; step 3 clears `provider`. Neither alone is enough.
+~~3. `REPLAY_FIXTURES` is still `{}`~~ ✅ **DONE.** See §3 and §5's fourth
+divergence. `main` carries it; `origin/main` carries it once pushed (§10).
+
+⚠️ **`GET /health` will stay 503 until both are done.** Step 1 clears
+`templates`; step 2, with step 1 already done, clears `provider`. Expect the
+`Replay corpus loaded` line to list all 15 cases and 55 fixtures.
+
+⚠️ **This session had no VPS access.** The SSH command was refused by the tool
+permission layer before it ran, so the host is exactly as the previous edition
+left it. Nothing above was attempted there.
 
 ---
 
@@ -562,7 +570,7 @@ couple of minutes.
 
 ```bash
 # backend (from backend/)
-npm test              # 953 tests, 949 pass, 0 fail, 4 skipped
+npm test              # 959 tests, 955 pass, 0 fail, 4 skipped
 npm run typecheck
 npm run lint
 npm run format:check
@@ -666,10 +674,13 @@ docker exec naigx-backend node -e "fetch('http://127.0.0.1:3000/health').then(as
 docker exec naigx-postgres psql -U naigx -d naigx -tAc "select count(*) from prompt_fragment"
 curl -sS -o /dev/null -w '%{http_code} tls=%{ssl_verify_result}\n' https://naigx.tech
 
-# ⚠️ ALWAYS: is the running build actually current? (returns 0 on the build
-# deployed as of 2026-09-09, which predates D-62)
-docker exec naigx-backend grep -c "no recordings are available" /app/dist/index.js
-docker logs naigx-backend 2>&1 | grep -iE "execution mode|encryption active" | head -2
+# ⚠️ ALWAYS: is the running build actually current? (returns 0 on `34ce193`,
+# the build deployed as of 2026-09-09, which predates the replay corpus)
+docker exec naigx-backend grep -c "Replay corpus loaded" /app/dist/index.js
+docker logs naigx-backend 2>&1 | grep -iE "execution mode|encryption active|Replay corpus" | head -3
+# ⚠️ The OLD marker ("no recordings are available") moved out of index.js in
+# the replay-corpus build; grepping index.js for it prints 0 on a CURRENT
+# build and would send you to rebuild something that is already current.
 ```
 
 ✅ **D-61's key file works in production** — the instance logs
@@ -798,3 +809,5 @@ check.** Admission is a decision; the drift error is the difference between
 | `backend/tests/unit/corpus-selection.test.ts` | The `--case=` selection rule, and a header explaining what the asymmetry cost |
 | `docs/performance/M-20-LATENCY-LOG.md` | The M-20 measurements — **`NFR-003`/`004`/`005` pass, `NFR-001`/`002` unmeasured** |
 | `backend/src/ops/bench.ts` | M-20 latency measurement; its header states what it cannot measure, and every HTTP measurement declares its expected status |
+| `backend/src/regression/replay-corpus.ts` | **What a replay deployment serves** (D-62): the canonical store, loaded against the published fragments, one recording at a time, with every exclusion reasoned. `assertReplayServable` is the readiness probe's answer |
+| `backend/tests/unit/replay-corpus.test.ts` | Proves it against the REAL store and authored composition — 15 served, one merged adapter runs jd-002 through the production pipeline to a produced Stage 9 artifact; drift and unpublished states exclude with the right reasons |

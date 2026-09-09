@@ -282,8 +282,13 @@ cd /opt/naigx    # wherever the checkout lives
 
 C=(docker compose -f docker-compose.prod.yml --env-file deploy/.env)
 
-# 0. WHICH BUILD IS RUNNING? 0 = predates D-62 and must be rebuilt.
-docker exec naigx-backend grep -c "no recordings are available" /app/dist/index.js
+# 0. WHICH BUILD IS RUNNING? The marker is a string only the newest code has.
+#    "Replay corpus loaded" is the startup log line the replay-corpus build
+#    emits; 0 means the running image predates it and must be rebuilt.
+#    (⚠️ The older marker, "no recordings are available", MOVED out of
+#    index.js into dist/regression/replay-corpus.js in that build — grepping
+#    index.js for it now prints 0 on a CURRENT build. Do not use it.)
+docker exec naigx-backend grep -c "Replay corpus loaded" /app/dist/index.js
 
 # 1. Fetch. ⚠️ Read what you are about to deploy, including migrations.
 git fetch origin && git log --oneline HEAD..origin/main
@@ -291,34 +296,65 @@ git diff --name-only HEAD origin/main -- backend/prisma/migrations
 git merge --ff-only origin/main
 
 # 2. Migrations, explicitly, and ONLY if step 1 showed some. Never on boot.
-#    ⚠️ Nothing between ca2bb8b~1 and 289e1e1 touches migrations — verified.
+#    ⚠️ Nothing between ca2bb8b~1 and the replay-corpus commit touches
+#    migrations — verified.
 "${C[@]}" run --rm migrate
 
-# 3. Rebuild and restart. `up -d --build` recreates only what changed.
+# 3. PUBLISH THE FRAGMENTS, if the production database holds none yet.
+#    The gate is unchanged: the reference must name a passing run that
+#    exercised every fragment being activated. As of 2026-09-09 that is
+#    corpus-regression:corpus-v2+fragments-v1:d4abcd42626452df (15/15).
+#    `status` first — it prints what is active and costs nothing.
+"${C[@]}" run --rm fragments status
+"${C[@]}" run --rm fragments publish -- \
+  --reference=corpus-regression:corpus-v2+fragments-v1:d4abcd42626452df
+docker exec naigx-postgres psql -U naigx -d naigx -tAc \
+  "select count(*) from prompt_fragment_version where activated_at is not null and deprecated_at is null"
+#    → 15
+
+# 4. Rebuild and restart. `up -d --build` recreates only what changed.
 #    The one-shot services (migrate, encrypt, fragments, naigx) are
 #    profile-gated and are NOT started by this — verified with `config`.
+#    ⚠️ ORDER MATTERS: the backend loads its replay corpus ONCE, at startup,
+#    against the fragments published at that moment. Publish (step 3) BEFORE
+#    this step; if you publish afterwards, `docker compose restart backend`.
 "${C[@]}" up -d --build
 
-# 4. Confirm the NEW build is the one running. Must now print 1.
-docker exec naigx-backend grep -c "no recordings are available" /app/dist/index.js
-docker logs naigx-backend 2>&1 | grep -iE "execution mode|encryption active" | head -2
+# 5. Confirm the NEW build is the one running. Must now print 1.
+docker exec naigx-backend grep -c "Replay corpus loaded" /app/dist/index.js
+docker logs naigx-backend 2>&1 | grep -iE "execution mode|encryption active|Replay corpus" | head -3
+docker exec naigx-backend node -e "fetch('http://127.0.0.1:3000/health?check=readiness').then(async r=>{console.log(r.status, await r.text())})"
 ```
 
-**What a correct redeploy looks like as of `289e1e1`.** `GET /health` still
-answers **503** afterwards, and that is the *expected* result, not a failed
-deploy. What must change is the reason:
+**What a correct redeploy looks like as of the replay-corpus build.** The
+backend now mounts `research/` read-only and, in replay mode, loads every
+canonical recording whose captured composition the **published** fragments
+reproduce (`backend/src/regression/replay-corpus.ts`). The startup line
+`Replay corpus loaded` lists `served`, `fixtures`, and every `excluded` case
+with its reason. With the 15 fragments published from `fragments-v1` and the
+15-recording store mounted, expect `served` to list all 15 cases and
+`fixtures: 55`, and `GET /health?check=readiness` to answer **200**.
 
-| | Before (pre-`ca2bb8b` build) | After |
+| | Before (`34ce193` build) | After publish + rebuild |
 |---|---|---|
-| `templates` | `unavailable` — zero fragments published | `unavailable`, unchanged. Still correct |
-| `provider` | `unavailable` — *"No provider is configured"*, the **live** branch's message in replay mode | *"Replay mode is configured but no recordings are available…"* — D-62's real replay answer |
+| `templates` | `unavailable` — zero fragments published | `available` |
+| `provider` | `unavailable` — *"Replay mode is configured but no recordings are available…"* | `available` — 15 recordings served |
+| `GET /health` | **503** | **200** |
 
-⚠️ **If `provider` still says "No provider is configured" after step 4, the
-rebuild did not take.** Do not go looking for a configuration bug.
+⚠️ **If the new build reports `served: []`, read the `excluded` reasons in the
+log before touching anything.** They are specific. *"cannot compose its stages
+here: No active published version…"* means step 3 has not run, or ran after
+the backend started. *"the published composition (…) is not the one it was
+captured against"* means the database holds a different fragment composition
+than the recordings were captured under — the recordings are right; check what
+was published. *"the recorded corpus could not be loaded"* means `research/` is
+not mounted.
 
-Readiness needs both remaining halves — published fragments (which needs a
-covering pass reference; the gate is correct and must not be worked around) and
-a non-empty `REPLAY_FIXTURES`. **Neither is fixed by redeploying.**
+⚠️ **A ready replay instance is not a general-purpose NAIGX** (D-62 §5). It
+serves exactly the 15 corpus inputs it has recordings for, byte-for-byte; any
+other submission fails at Stage 1, visibly, without reaching a provider. That
+is the designed behaviour of replay mode under the no-spend constraint, and a
+green readiness must not be read as more than that.
 
 ### ✅ The two POSIX key-file tests — RUN AND PASSED on the host, 2026-09-09
 

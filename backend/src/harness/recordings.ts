@@ -30,6 +30,7 @@ import type { CapabilityProfile } from "../nie/capability-profile.js";
 import {
   createReplayProvider,
   replayKeyFor,
+  type ReplayFixture,
 } from "../provider/adapters/replay.js";
 import { composePrompt } from "../nie/prompt.js";
 import { stageProviderInputs } from "../nie/pipeline.js";
@@ -193,29 +194,24 @@ export const DEFAULT_BUSINESS_REQUIREMENT_RECORDING: RecordingSet = [
 ];
 
 /**
- * Builds a replay adapter primed against the prompts the **real** composer
- * produces from the **published** fragment versions.
+ * The fixtures one recording files, keyed exactly as the replay adapter will
+ * look them up.
  *
- * Keying this way rather than hard-coding digests means a fragment change
- * invalidates nothing silently: the composed prompt changes, the key changes,
- * and the harness reports a missing recording instead of replaying an answer
- * to a question that is no longer being asked.
+ * Split out of `createRecordedProvider` so a deployment can merge the fixtures
+ * of MANY recordings into one adapter ([D-62](../../docs/37-D-62-Mode-Aware-Readiness.md):
+ * a replay instance serves its whole recorded corpus through a single provider,
+ * whereas the harness and the regression runner build one adapter per case).
+ * The keying is unchanged and lives in exactly one place — a second builder
+ * that keyed even slightly differently would replay nothing and blame the
+ * recording, which is this project's most expensive bug shape.
  */
-export async function createRecordedProvider(
+export async function buildReplayFixtures(
   recordings: RecordingSet,
   resolver: FragmentResolver,
   inputText: string,
-  options: RecordedProviderOptions = {},
-): Promise<ProviderAdapter> {
-  const fixtures: Record<
-    string,
-    {
-      output: string;
-      inputTokens: number;
-      outputTokens: number;
-      latencyMs: number;
-    }
-  > = {};
+  options: Pick<RecordedProviderOptions, "capabilityProfile"> = {},
+): Promise<Readonly<Record<string, ReplayFixture>>> {
+  const fixtures: Record<string, ReplayFixture> = {};
 
   const outputFor = (stageKey: string): string | undefined =>
     recordings.find((r) => r.stageKey === stageKey)?.output;
@@ -245,6 +241,11 @@ export async function createRecordedProvider(
     // needs an input the builder did not receive.
     ...(options.capabilityProfile !== undefined
       ? { capabilityProfile: options.capabilityProfile }
+      : {}),
+    // Stage 9 keys on the parsed Stage 7 result. Same shape as the profile
+    // above: an input the pipeline had at capture and the builder did not.
+    ...(outputFor("recommendation_generation") !== undefined
+      ? { recommendation: outputFor("recommendation_generation") as string }
       : {}),
   });
 
@@ -276,6 +277,30 @@ export async function createRecordedProvider(
       latencyMs: recording.latencyMs,
     };
   }
+
+  return fixtures;
+}
+
+/**
+ * Builds a replay adapter primed against the prompts the **real** composer
+ * produces from the **published** fragment versions.
+ *
+ * Keying this way rather than hard-coding digests means a fragment change
+ * invalidates nothing silently: the composed prompt changes, the key changes,
+ * and the harness reports a missing recording instead of replaying an answer
+ * to a question that is no longer being asked.
+ */
+export async function createRecordedProvider(
+  recordings: RecordingSet,
+  resolver: FragmentResolver,
+  inputText: string,
+  options: RecordedProviderOptions = {},
+): Promise<ProviderAdapter> {
+  const fixtures = await buildReplayFixtures(recordings, resolver, inputText, {
+    ...(options.capabilityProfile !== undefined
+      ? { capabilityProfile: options.capabilityProfile }
+      : {}),
+  });
 
   return createReplayProvider({
     fixtures,

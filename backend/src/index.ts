@@ -23,6 +23,16 @@ import { createReplayProvider } from "./provider/adapters/replay.js";
 import type { ProviderAdapter } from "./provider/capability.js";
 import type { TokenRate } from "./provider/cost.js";
 import { FOUNDATION_FRAGMENT_KEYS } from "./nie/prompt.js";
+import { loadCapabilityProfile } from "./nie/capability-profile.js";
+import type { CapabilityProfile } from "./nie/capability-profile.js";
+import type { FragmentResolver } from "./nie/ports.js";
+import { loadCorpus } from "./regression/corpus.js";
+import { createRecordingStore } from "./regression/recording-store.js";
+import {
+  assertReplayServable,
+  loadReplayCorpus,
+  type ReplayCorpus,
+} from "./regression/replay-corpus.js";
 import { createAnalysisRunner } from "./orchestrator/analysis-runner.js";
 import { createAnalysisEventLog } from "./events/analysis-event-log.js";
 import {
@@ -66,17 +76,58 @@ const NOMINAL_RATE: TokenRate = {
  * The recorded corpus a replay deployment serves from
  * ([D-62](../../docs/37-D-62-Mode-Aware-Readiness.md)).
  *
- * ⚠️ EMPTY TODAY, AND READINESS REPORTS THAT RATHER THAN HIDING IT. No
- * recordings are wired into the runtime yet, so a replay instance can serve no
- * submission and `checkProvider` fails it — which is the honest answer, not a
- * defect to work around.
+ * Loaded from the canonical recording store at startup, against the fragments
+ * THIS instance composes with, so that every fixture answers a prompt the
+ * runtime will actually present — `regression/replay-corpus.ts` states the
+ * rule and excludes what fails it. The result is held in one value that both
+ * the adapter and the readiness probe read, so the probe cannot report a
+ * corpus the adapter does not hold.
  *
- * It is a named constant rather than an inline `{}` so that the readiness
- * probe measures the same thing the adapter was built from. When recordings
- * are wired in, the probe follows automatically and cannot drift out of step
- * with what the adapter actually holds.
+ * ⚠️ NEVER THROWS. A replay instance whose corpus cannot be read is an
+ * instance that is NOT READY, and D-62 wants that said by `GET /health`, not
+ * by a crash loop that hides the reason in a restart counter. The failure is
+ * carried as an empty corpus with the error as its one exclusion, logged at
+ * startup, and surfaced verbatim by the readiness probe.
+ *
+ * Reads `research/` — the corpus, the store and the capability profile — which
+ * the production compose file mounts read-only for exactly this.
  */
-const REPLAY_FIXTURES: Readonly<Record<string, never>> = {};
+async function loadReplayFixtures(
+  resolver: FragmentResolver,
+  onError: (error: unknown) => void,
+): Promise<ReplayCorpus> {
+  try {
+    // `FR-022` — carried, not thrown, exactly as `analysis-runner.ts` treats
+    // it: a missing profile means Stage 7 keys no fixture and a posting halts
+    // there with the reason the pipeline already gives.
+    let capabilityProfile: CapabilityProfile | undefined;
+    try {
+      capabilityProfile = loadCapabilityProfile();
+    } catch (error) {
+      onError(error);
+    }
+    return await loadReplayCorpus({
+      cases: loadCorpus(),
+      store: createRecordingStore(),
+      resolver,
+      ...(capabilityProfile !== undefined ? { capabilityProfile } : {}),
+    });
+  } catch (error) {
+    onError(error);
+    return {
+      fixtures: {},
+      lowVarianceSampling: false,
+      served: [],
+      excluded: [
+        {
+          caseId: "*",
+          reason: `the recorded corpus could not be loaded: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      unrecorded: 0,
+    };
+  }
+}
 
 interface SelectedProvider {
   readonly adapter: ProviderAdapter;
@@ -174,16 +225,37 @@ const main = async (): Promise<void> => {
       config.provider.model !== undefined,
   });
 
-  const { adapter, rate, providerKey, modelKey } =
+  // The corpus is loaded against the SAME resolver the pipeline composes with
+  // (`analysis-runner.ts` builds its own `createFragmentResolver` over the
+  // same store), so a fixture's key is the key a runtime request will carry.
+  // Loaded only in replay mode: a live instance holds no recordings and must
+  // not pretend to.
+  const replayCorpus: ReplayCorpus | undefined =
     mode === "live"
+      ? undefined
+      : await loadReplayFixtures(
+          createFragmentResolver(database.prisma),
+          (error) => {
+            reportError(error);
+          },
+        );
+
+  // `replayCorpus` is defined exactly when the mode is replay, so this is the
+  // mode switch — narrowed on the value rather than re-testing the string.
+  const { adapter, rate, providerKey, modelKey } =
+    replayCorpus === undefined
       ? liveProvider(config)
       : {
-          // A replay adapter with no fixtures answers nothing, which is
-          // correct: replay reproduces recorded runs, it does not analyse
-          // arbitrary input. A submission with no recording fails at Stage 1
-          // and the analysis lands `failed` — visibly, rather than by
-          // reaching a provider nobody authorised.
-          adapter: createReplayProvider({ fixtures: REPLAY_FIXTURES }),
+          // A replay adapter answers only from its fixtures, which is correct:
+          // replay reproduces recorded runs, it does not analyse arbitrary
+          // input. A submission with no recording fails at Stage 1 and the
+          // analysis lands `failed` — visibly, rather than by reaching a
+          // provider nobody authorised (D-62 §5).
+          adapter: createReplayProvider({
+            fixtures: replayCorpus.fixtures,
+            // Declared by the recordings, never assumed (`AI §10.6`).
+            lowVarianceSampling: replayCorpus.lowVarianceSampling,
+          }),
           rate: NOMINAL_RATE,
           providerKey: "replay",
           modelKey: "replay",
@@ -210,7 +282,7 @@ const main = async (): Promise<void> => {
   // Both are configuration probes rather than model calls: readiness is polled
   // continuously and billing a token per poll would be a defect.
   const checkProvider = (): Promise<void> => {
-    if (mode === "live") {
+    if (replayCorpus === undefined) {
       const { apiKey, model } = config.provider;
       if (apiKey === undefined || model === undefined) {
         return Promise.reject(new Error("No provider is configured"));
@@ -219,13 +291,14 @@ const main = async (): Promise<void> => {
       return Promise.resolve();
     }
 
-    const recorded = Object.keys(REPLAY_FIXTURES).length;
-    if (recorded === 0) {
+    // The same object the adapter was built from — see `loadReplayFixtures`.
+    // An instance that loaded nothing, or excluded everything, is not ready,
+    // and the rejection says which.
+    try {
+      assertReplayServable(replayCorpus);
+    } catch (error) {
       return Promise.reject(
-        new Error(
-          "Replay mode is configured but no recordings are available, so no " +
-            "submission can be served. Readiness fails deliberately (D-62).",
-        ),
+        error instanceof Error ? error : new Error(String(error)),
       );
     }
     return Promise.resolve();
@@ -324,6 +397,22 @@ const main = async (): Promise<void> => {
     { mode: runner.mode, metered: isMetered(runner.mode) },
     "Analysis execution mode",
   );
+
+  // What a replay instance can actually serve, stated at startup so a 503 on
+  // readiness can be read against it. `excluded` carries a reason per case;
+  // a corpus that loaded nothing prints exactly why, here, once.
+  if (replayCorpus !== undefined) {
+    app.log.info(
+      {
+        served: replayCorpus.served,
+        fixtures: Object.keys(replayCorpus.fixtures).length,
+        excluded: replayCorpus.excluded,
+        unrecorded: replayCorpus.unrecorded,
+        lowVarianceSampling: replayCorpus.lowVarianceSampling,
+      },
+      "Replay corpus loaded",
+    );
+  }
 
   // Stated at startup for the same reason as the mode: which key service is in
   // force, and under which key version new rows are sealed, should never have

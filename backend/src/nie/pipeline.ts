@@ -206,6 +206,18 @@ export function stageProviderInputs(
      * have been no Stage 7 call to key a fixture against.
      */
     readonly capabilityProfile?: CapabilityProfile;
+    /**
+     * Stage 7's raw output, so Stage 9 can be keyed.
+     *
+     * ⚠️ WITHOUT THIS, STAGE 9 WAS NEVER KEYED — the fourth instance of
+     * capture and replay diverging on one input. A `job_description` recording
+     * that reached Stage 9 replayed its first four stages and then failed
+     * `portfolio_suggestions` with "No recorded response for request key …",
+     * against a recording that held the answer. The regression run still
+     * passed, because `artifact_set` is a deferred assertion, so nothing said
+     * so until a deployment tried to serve the recording.
+     */
+    readonly recommendation?: string;
   },
 ): ReadonlyMap<string, string> {
   const inputs = new Map<string, string>();
@@ -309,6 +321,35 @@ export function stageProviderInputs(
         capability_profile: outputs.capabilityProfile,
       }),
     );
+
+    // Stage 9, mirrored the same way: parsed with the pipeline's own parser,
+    // planned with the pipeline's own deterministic Stage 8, and keyed on the
+    // handoff the generator is actually sent. No Stage 9 call is made for a
+    // recommendation that plans the artifact out, so none is described.
+    if (outputs.recommendation === undefined) return inputs;
+    let recommendation;
+    try {
+      recommendation = parseRecommendation(
+        outputs.recommendation,
+        context,
+        outputs.capabilityProfile,
+      );
+    } catch {
+      return inputs;
+    }
+    if (isPlanned(planArtifacts(recommendation), "portfolio_suggestions")) {
+      inputs.set(
+        "portfolio_suggestions",
+        stageHandoff({
+          eligible_gaps: eligibleGapsView(
+            recommendation,
+            eligibleGaps(recommendation),
+          ),
+          matched_capabilities: recommendation.matched,
+          verdict: recommendation.verdict,
+        }),
+      );
+    }
   }
 
   return inputs;

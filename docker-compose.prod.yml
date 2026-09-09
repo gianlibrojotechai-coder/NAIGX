@@ -259,6 +259,18 @@ services:
     # is key material rather than a path (D-61 §5).
     volumes:
       - ${NAIGX_KEY_FILE:?NAIGX_KEY_FILE is required — see D-61 §5}:/run/secrets/naigx/root.key:ro
+      # The recorded corpus a REPLAY instance serves from (D-62): the golden
+      # corpus, the canonical recording store and the capability profile. The
+      # compiled modules resolve `research/` three levels up from `dist/`, which
+      # in the image is `/` — the same mount the `fragments` service uses.
+      # Read-only: the runtime reads evidence, it never writes it. Without this
+      # mount the instance starts, serves nothing, and readiness says so.
+      #
+      # ⚠️ Not `prompts/`. The runtime composes from the PUBLISHED fragments in
+      # the database, never from disk; a recording is served only when the
+      # published composition reproduces the one it was captured against
+      # (`src/regression/replay-corpus.ts`).
+      - ./research:/research:ro
 
     depends_on:
       postgres:
