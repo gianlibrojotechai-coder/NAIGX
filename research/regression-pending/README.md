@@ -55,3 +55,29 @@ to silence it.
 | File | Captured | Status |
 |---|---|---|
 | `ew-001.json` | 2026-09-08 | Real provider evidence. Corpus assertions **unevaluated**. Untracked, held pending a targeted-run mechanism |
+
+## ⚠️ HELD EVIDENCE IS NOW COMMITTED — and it is still NOT canonical
+
+From 2026-09-09 the recordings in this directory are **version-controlled**.
+That is a durability decision, not an admission decision: `ew-001` sat untracked
+here for a day, and a `git clean -xfd` would have destroyed $0.1072 of paid
+evidence that could not be regenerated for free.
+
+⚠️ **Being committed changes nothing about what this evidence proves.** These
+files remain invisible to `createRecordingStore()`, the manifest gate, coverage
+computation and the activation gate, because those read
+`research/regression-recordings/<corpusVersion>/` and only that. A recording
+here:
+
+- is **not** in the canonical corpus count;
+- is **not** in `research/regression-recordings/corpus-v1/recordings.manifest.json`;
+- **cannot** widen coverage or satisfy any activation reference.
+
+`corpus-v1/recordings.manifest.json` **inside this directory** is the holding
+area's own integrity record, written by the capture store. It is **not** the
+canonical manifest and must never be copied over it.
+
+**Admission is still the separate, deliberate act it always was:** move the file
+into `research/regression-recordings/<corpusVersion>/`, then run
+`npm run regression:recordings:write` against the canonical store, then re-run
+the suite so a fresh reference covers the widened set.
