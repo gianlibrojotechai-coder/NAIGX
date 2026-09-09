@@ -258,10 +258,12 @@ test("a clean run that did not exercise the fragment is refused", async () => {
 });
 
 test("a fragment no recorded case composes cannot be activated", async () => {
-  // `stage.portfolio_suggestions` is only reached on the job-description path,
-  // and no `jd-*` case has a recording. There is no run that could cover it.
+  // ⚠️ SYNTHETIC. `stage.portfolio_suggestions` served here until jd-002’s
+  // build_first run was admitted on 2026-09-09; every authored fragment is now
+  // composed by some recorded case, so the uncovered condition must be
+  // synthesised to stay testable.
   const error = await refusal(
-    gate(committed.reference, ["stage.portfolio_suggestions"]),
+    gate(committed.reference, ["foundation.does_not_exist"]),
   );
 
   assert.equal(error.reason, "fragment_not_covered");
@@ -364,12 +366,12 @@ test("every named fragment must be covered, not merely one of them", async () =>
     const error = await refusal(
       gate(
         reference,
-        ["foundation.system_frame", "stage.portfolio_suggestions"],
+        ["foundation.system_frame", "foundation.does_not_exist"],
         runsRoot,
       ),
     );
     assert.equal(error.reason, "fragment_not_covered");
-    assert.equal(error.fragmentKey, "stage.portfolio_suggestions");
+    assert.equal(error.fragmentKey, "foundation.does_not_exist");
   });
 });
 

@@ -295,14 +295,43 @@ test("no criterion arrives with a pass or fail", () => {
 test("an overall pass is not reachable and the packet says so", () => {
   const { inputs } = packetInputs();
 
-  for (const packet of buildPackets(inputs)) {
-    assert.match(packet.content, /cannot be recorded as a rubric pass/);
-    assert.match(packet.content, /cannot yield a rubric pass/);
+  // ⚠️ SCOPED BY ASSESSABILITY, NOT ASSERTED OVER EVERYTHING. Since the
+  // 2026-09-09 admission the sample holds a recording — `jd-002` — that reaches
+  // Stage 9, so **every** criterion is assessable for it and it can in
+  // principle reach a seven-of-seven pass. Telling that reviewer the packet
+  // "cannot yield a rubric pass" would be false, and `review-packet.ts` says so
+  // in terms. The invariant that holds for every packet is the second one: no
+  // overall verdict is ever pre-filled (`docs/10` §4.3).
+  let fullyAssessable = 0;
+  for (const input of inputs) {
+    const blocked = Object.values(assessabilityOf(input.recording)).filter(
+      (s) => !s.assessable,
+    ).length;
+    const packet = buildPacket(input);
+
+    if (blocked > 0) {
+      assert.match(packet.content, /cannot be recorded as a rubric pass/);
+      assert.match(packet.content, /cannot yield a rubric pass/);
+    } else {
+      fullyAssessable += 1;
+      assert.ok(
+        !packet.content.includes("cannot yield a rubric pass"),
+        `${packet.reviewerId} has every criterion assessable — denying it a ` +
+          "possible pass would be false",
+      );
+    }
+
     assert.ok(
       !packet.content.includes("**Overall:** pass"),
-      "no overall pass is pre-filled",
+      "no overall pass is pre-filled, whatever is assessable",
     );
   }
+
+  assert.equal(
+    fullyAssessable,
+    1,
+    "exactly one recording reaches Stage 9 today — jd-002's build_first run",
+  );
 });
 
 // --- C-3 and C-6 ----------------------------------------------------------

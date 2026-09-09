@@ -119,7 +119,13 @@ test("a type modifier covers only its own path", async () => {
 // --- a fragment no recorded case includes --------------------------------
 
 test("a fragment no case composes covers nothing, and says so", async () => {
-  const coverage = await coverageFor("stage.portfolio_suggestions");
+  // ⚠️ A SYNTHETIC KEY, AND THAT IS THE POINT. Until 2026-09-09 this used
+  // `stage.portfolio_suggestions`, which no recording composed. Admitting
+  // jd-002’s build_first run — the first to reach Stage 9 — covered it, so
+  // EVERY authored fragment is now composed by at least one recorded case.
+  // The zero-coverage condition still has to be tested, so it is synthesised
+  // rather than borrowed from a fragment that no longer has that property.
+  const coverage = await coverageFor("foundation.does_not_exist");
 
   assert.equal(coverage.coveredCaseIds.length, 0);
   assert.equal(coverage.uncoveredCaseIds.length, RECORDED);
