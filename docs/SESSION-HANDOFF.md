@@ -155,7 +155,9 @@ These are standing instructions given explicitly. **They override default thorou
 
 | `docs/62` **D-87** | **The workflow path's platform comparison** — keep, move or stop; the D-78 generator under its own fragment (manifest 23), the same schema, parser and presenter; Stage 10's context gains the observed architecture. `ew-001` recaptured (**$0.3186** across two attempts; the first refused an absence-criterion the fragment now forbids); the confidence model re-fitted on the new sample (still 34 of 44). Reference in force: `a249714e093716f7` (fifteen cases). Built and **deployed 2026-09-10** (image `95ef9a3ad826`, 23 active); live verification owed after 00:00 UTC |
 
-**Numbering convention: the next standalone record is `docs/63` D-88.** Nothing is currently owed.
+| `docs/63` **D-88** | **Stage 4 under `O-4`** — v1.0 takes the disclosure-of-uncertainty option (already how D-78/D-84/D-86 behave); the curated knowledge set is content the owner must supply or approve for neutrality, so Stage 4 stays unbuilt by decision and M-05 stays at 11 of 12. No code, no spend. Recorded 2026-09-10 |
+
+**Numbering convention: the next standalone record is `docs/64` D-89.** Nothing is currently owed.
 
 ⚠️ **D-63 without its §7 amendment is actively wrong.** The original decision made the runner re-resolve recordings against authored fragments, which invalidated **10 of 13** committed recordings the moment authored content drifted. The amendment separates **replayability** from **evidential currency**: a recording that carries its own captured composition replays against *that* and is never stale for replay; only the activation gate asks the currency question. Read §7 before touching anything in `src/regression/`.
 
