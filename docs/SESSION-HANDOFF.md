@@ -513,8 +513,12 @@ format, build, boundary checks 8/0):
 caps 3.00/day, 30.00/month; the owner's account email for the allowlist),
 the key file placed on the host, then the switch per the runbook section
 *The owner-only live switch* and four billed verifications (~$0.40–0.80).
-Rollback is the same `up -d backend` without the overlay. ⚠️ **Production is
-still replay with no provider credentials.** ⚠️ Frontend: the sign-up toggle
+Rollback is the same `up -d backend` without the overlay. ✅ **The D-67 build
+is already what production runs, in REPLAY mode** (redeployed 2026-09-09 per
+the runbook: outgoing image tagged `rollback-edaeb08`, new image
+`de27c39b8888` at `426c4a5`, readiness 200, four paths verified, zero provider
+variables in the container) — so the switch is the overlay alone, no rebuild.
+⚠️ **Production is still replay with no provider credentials.** ⚠️ Frontend: the sign-up toggle
 is still shown; the API refuses it with 403. Not hidden yet — cosmetic.
 
 ### The replay-mode increment (2026-09-08) — still true, now the floor
