@@ -33,6 +33,14 @@ import type { PrismaClient } from "../generated/prisma/client.js";
 export interface AnalysisInputView {
   readonly character_count: number;
   readonly source_type: string;
+  /**
+   * The submitted text, opened from its sealed column — present ONLY when the
+   * caller is the signed-in owner (D-67 §7). `FR-014` / `API §7.5` step 1: a
+   * correction re-submits the same content, and an analysis opened by id from
+   * history had no other way to get it. Never returned to an anonymous
+   * principal; never included in the export or the listing.
+   */
+  readonly content?: string;
 }
 
 export interface ClassificationView {

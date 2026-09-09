@@ -842,6 +842,27 @@ export const analysisRoutes: FastifyPluginAsync<AnalysisRouteOptions> = (
       // The view is the response body. `ownership` is deliberately not spread
       // in: `API-021` carries no owner field, so the reader returns it beside
       // the view rather than inside it.
+      //
+      // D-67 §7 — the owning ACCOUNT also gets the submitted text back, so a
+      // correction (`FR-014`) can re-submit it from an analysis opened by id.
+      // Opened here, at the one route that already proved ownership, and only
+      // for a `user` principal: an anonymous token grants the analysis, not
+      // the standing to have its text handed back.
+      if (request.principal.kind === "user" && stored.view.input !== null) {
+        const row = await prisma.analysisInput.findUnique({
+          where: { analysisId: stored.view.analysis_id },
+          select: { rawContent: true },
+        });
+        if (row !== null) {
+          return sendSuccess(request, reply, {
+            ...stored.view,
+            input: {
+              ...stored.view.input,
+              content: cipher.open(row.rawContent),
+            },
+          });
+        }
+      }
       return sendSuccess(request, reply, stored.view);
     },
   );

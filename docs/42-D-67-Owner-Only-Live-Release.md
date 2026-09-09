@@ -91,7 +91,9 @@ here — `platform_recommendation` stays out per the standing instruction, no
 target is relaxed, and the Stage 3 retry proposal (log §11.6) is **not**
 implemented, as directed.
 
-## 6. The production switch — for the owner's approval, not applied
+## 6. The production switch — APPROVED and APPLIED 2026-09-09 (see §9 for what was verified)
+
+> Approved by the owner 2026-09-09 with the values below (allowlist = the owner's address; caps 3.00 / 30.00; Sonnet 5 at medium effort; anonymous disabled; the new account's key via the mounted file).
 
 Production stays in **replay mode with no provider credentials** until the
 owner approves this exact configuration. The runbook section *The owner-only
@@ -129,7 +131,9 @@ without spending: temporarily set the day cap below the reserve, confirm the
 | `API-020`: anonymous refused 401 with nothing written and the guard not asked; FR-004 default unchanged; D-47 limit refuses the 11th; cap refusal 429 naming window and reset, spent amount not on the wire, no row; unknown-spend refusal | ✅ `tests/contract/analyses-owner-only.test.ts` |
 | Registration/sign-in allowlist against real Postgres: stranger 403 before lookup; owner registers (case-insensitive) and reaches `/users/me` | ✅ `tests/integration/auth-endpoints-postgres.test.ts` |
 | Live startup refuses without caps or an explicit anonymous policy | ✅ `src/index.ts` `liveProvider`; exercised in the local live-switch rehearsal (§8) |
-| Full suite, lint, format, build, boundary checks | see §8 |
+| Full suite, lint, format, build, boundary checks | ✅ 1004/0 (Postgres suites required), lint, format, build, boundary 8/0 — before the switch; 1005/0 after the correction-flow change |
+| **Correction flow** (`FR-014`): `API-021` returns `input.content` to the owning account, opened from the sealed column at the one route that proved ownership; never to an anonymous principal (404); the frontend seeds its correction state from it so an analysis opened from history is correctable | ✅ `tests/contract/analyses-owner-only.test.ts`; frontend build |
+| Owner-only UI wording: the sign-up toggle reads *Create the owner account* and states the restriction; refusals display the API's message | ✅ frontend lint + build (no test runner, M-12 limitation 1) |
 
 ## 8. Local rehearsal of the switch — done 2026-09-09
 
@@ -153,3 +157,67 @@ That last row is the only spend of the rehearsal: **$0.0688**, within the
 stated ≤ $0.30 bound. Cumulative under the owner's continuation cap after it:
 $8.6918 recorded / $8.8259 budgeted; the owner has said the remaining figure
 is not a hard stop.
+
+## 9. Production switch and verification — 2026-09-09
+
+**Provisioning.** The new account's key was streamed from the local env file
+over the SSH channel into `/etc/naigx/keys/provider.key` on the host —
+owner `1000:1000` (the container's `node` user), mode `400`, 108 bytes,
+newline-free, prefix verified — mirroring the root key (D-61). It was never
+printed, never in `deploy/.env` (mode 600, gitignored, 0 key matches), never
+in the resolved compose config (0 matches), never in Git.
+
+**Switch.** `docker-compose.live.yml` applied to the backend only
+(`up -d backend`), image `de27c39b8888` unchanged. Boot line:
+`mode:live metered:true spendCaps:{3.00,30.00} reserve:0.30
+anonymousAnalysis:disabled accessAllowlist:1 account(s)`; no replay corpus
+loaded; readiness 200 in-container and publicly (TLS verify 0). In the
+container the file is `400 node:node`, **readable by the process user, not
+writable**; `ANTHROPIC_API_KEY` absent from the environment; 0 key matches
+in `docker inspect` and in the logs.
+
+**Refusals (free).** Anonymous `POST /analyses` → 401. Stranger `POST /users`
+→ 403. Sign-in of a pre-allowlist verification account → 403.
+
+**Four billed end-to-end checks** through the public API with a temporary
+allowlisted verification account, under a **$1.00** budget gated between
+runs against the production trace ledger (which read $0.0000 before):
+
+| Path | Outcome | First artifact | Full | Calls | Cost |
+|---|---|---|---|---|---|
+| business_requirement (br-001) | completed | 12.6 s | 69.8 s | 4 | $0.0956 |
+| technical_assessment (ta-005) | completed, assessment_feedback + mermaid_diagram generated | 9.1 s | 47.1 s | 4 | $0.0628 |
+| existing_workflow (ew-001) | completed, workflow_recommendation + risk_assessment generated | 8.0 s | 63.0 s | 4 | $0.0956 |
+| job_description (jd-002) | completed, portfolio_suggestions generated | 10.1 s | 104.6 s | 5 | $0.1474 |
+
+**Total $0.4013**, harness and production ledger agreeing exactly. Exports on
+the assessment: Markdown 200 (10,825 bytes, carries *Intent Brief*), PDF 200
+(97,182 bytes, `%PDF-1.4`). The UI serves at `/` (200, app root and bundle).
+
+**Spend cap, without a paid call.** Day cap lowered to 0.10 (below the 0.30
+reserve), backend recreated, a second temporary allowlisted account
+registered and submitted → **429** naming the day window and the reset;
+**0 analysis rows** for that account; one guard refusal in the log. Cap
+restored to 3.00.
+
+**Allowlist narrowed to the owner's address alone**, backend recreated:
+boot line `accessAllowlist:1 account(s)`; the second verification account's
+existing session → **401** on `/users/me`; both verification accounts'
+sign-in → **403**; anonymous → 401; the owner's address reaches registration
+validation (400 on a deliberately short password, no account created). ⚠️ The
+two verification accounts remain as inert rows (`naigx-verify-2026-09-09@`
+and `naigx-verify-b@naigx.test`) with 4 + 0 analyses; they cannot sign in or
+be reached. Deleting them is the owner's call — an SQL delete would cascade
+their analyses; the trace-store cost rows would remain as ledger entries.
+
+**Rollback verified for real.** The overlay-free config resolves with 0 mode
+lines and 0 key mounts. `up -d backend` without the overlay: **replay ready
+in 2 s**, corpus 15/54 served, 0 provider variables. With the overlay again:
+**live ready in 3 s**, controls intact. Public readiness 200 throughout.
+Rollback tags on the host: `rollback-edaeb08`, `rollback-7cb3eb6`,
+`rollback-a12ce54`, `rollback-1da10e3`, `rollback-target`.
+
+**Spend this step:** $0.4013. Under the owner's continuation ledger:
+$9.0931 recorded (the owner has stated the earlier remaining figure is not a
+hard stop). The instance's own caps now bound production: 3.00 / day,
+30.00 / month, checked before every analysis.

@@ -20,12 +20,7 @@
 
 import { useState } from "react";
 
-import {
-  register,
-  signIn,
-  toApiFailure,
-  type AccountUser,
-} from "../api/auth";
+import { register, signIn, toApiFailure, type AccountUser } from "../api/auth";
 import { getAnonymousToken } from "../api/analyses";
 
 type Mode = "signin" | "register";
@@ -38,7 +33,10 @@ export function AuthPanel({
   busy,
 }: {
   user: AccountUser | null;
-  onSignedIn: (user: AccountUser | null, claimedAnalysisId: string | null) => void;
+  onSignedIn: (
+    user: AccountUser | null,
+    claimedAnalysisId: string | null,
+  ) => void;
   onSignOut: () => void;
   onOpenHistory: () => void;
   busy: boolean;
@@ -115,7 +113,7 @@ export function AuthPanel({
     <div className="w-full max-w-sm rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold text-slate-900">
-          {mode === "register" ? "Create an account" : "Sign in"}
+          {mode === "register" ? "Create the owner account" : "Sign in"}
         </h2>
         <button
           type="button"
@@ -179,7 +177,8 @@ export function AuthPanel({
           {mode === "register" && (
             <span className="mt-1 block text-xs text-slate-500">
               At least 12 characters. Length is what makes a password hard to
-              guess.
+              guess. This instance accepts registration for its owner's address
+              only (D-67); any other address is refused.
             </span>
           )}
         </label>
@@ -216,7 +215,7 @@ export function AuthPanel({
       >
         {mode === "register"
           ? "I already have an account"
-          : "I need an account"}
+          : "First time here? Create the owner account"}
       </button>
     </div>
   );

@@ -210,6 +210,8 @@ export interface Analysis {
   readonly input: {
     readonly character_count: number;
     readonly source_type: string;
+    /** Present only for the signed-in owner (D-67 §7): the text to re-submit on a correction. */
+    readonly content?: string;
   } | null;
   readonly classification: Classification | null;
   readonly intent: Intent | null;

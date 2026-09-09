@@ -232,3 +232,77 @@ test("D-67 §3 — an unverifiable ledger refuses too, with a different message"
   assert.match(JSON.parse(response.body).error.message, /cannot be verified/);
   assert.equal(created.length, 0);
 });
+
+// --- D-67 §7: the owner gets the submitted text back; nobody else does -------
+
+test("D-67 §7 — API-021 returns input.content to the owning account, opened from the sealed column", async () => {
+  const sealedMarker = "sealed:the-original-text";
+  const app = await buildApp({
+    config: baseConfig,
+    database: {
+      prisma: {
+        healthCheck: { findFirst: () => Promise.resolve(null) },
+        session: {
+          findFirst: ({ where }: { where: { tokenHash: string } }) =>
+            Promise.resolve(
+              where.tokenHash === hashToken(ACCESS_TOKEN)
+                ? { sessionId: SESSION_ID, userId: USER_ID }
+                : null,
+            ),
+        },
+        analysis: {
+          findFirst: () => Promise.resolve(null),
+          findUnique: () =>
+            Promise.resolve({
+              analysisId: ANALYSIS_ID,
+              userId: USER_ID,
+              status: "completed",
+              createdAt: NOW,
+              completedAt: NOW,
+              derivedTitle: "t",
+              sufficiencyLevel: "sufficient",
+              overallConfidenceBand: null,
+              degradationFlag: false,
+              timeoutFlag: false,
+              input: { characterCount: 17, sourceType: "paste" },
+              intentRecord: null,
+              contextElements: [],
+              recommendations: [],
+              requiredCapabilities: [],
+              artifactPlanEntries: [],
+              classification: null,
+            }),
+        },
+        analysisInput: {
+          findUnique: () => Promise.resolve({ rawContent: sealedMarker }),
+        },
+      },
+      disconnect: () => Promise.resolve(),
+    } as unknown as Database,
+    cipher: {
+      seal: (text: string) => `sealed:${text}`,
+      open: (stored: string) => stored.replace(/^sealed:/, ""),
+    } as never,
+    checkProvider: () => Promise.resolve(),
+    checkTemplates: () => Promise.resolve(),
+    hashContent: () => "deadbeef",
+    now: () => NOW,
+  });
+
+  const owner = await app.inject({
+    method: "GET",
+    url: `/analyses/${ANALYSIS_ID}`,
+    headers: asOwner,
+  });
+  assert.equal(owner.statusCode, 200);
+  const input = JSON.parse(owner.body).data.input;
+  assert.equal(input.content, "the-original-text");
+  assert.equal(input.character_count, 17);
+
+  // No credential: the owned analysis is unreachable (404, never the text).
+  const nobody = await app.inject({
+    method: "GET",
+    url: `/analyses/${ANALYSIS_ID}`,
+  });
+  assert.equal(nobody.statusCode, 404);
+});

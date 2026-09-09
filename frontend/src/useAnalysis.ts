@@ -165,6 +165,11 @@ export function useAnalysis() {
           phase: "done",
           status,
           analysis,
+          // D-67 §7 — the owner gets the submitted text back with the
+          // analysis, so an analysis opened from history is correctable
+          // (`FR-014`) exactly as one submitted in this session is.
+          submittedContent:
+            previous.submittedContent ?? analysis.input?.content ?? null,
           connectionWarning: null,
         }));
       } catch (error) {

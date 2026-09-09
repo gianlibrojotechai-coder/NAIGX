@@ -509,17 +509,23 @@ format, build, boundary checks 8/0):
   200 / 401 / 429 as designed against the real ledger, then one paid
   owner analysis: completed in 47 s, $0.0688.
 
-**What awaits the owner:** approval of D-67 §6 (the exact values; proposed
-caps 3.00/day, 30.00/month; the owner's account email for the allowlist),
-the key file placed on the host, then the switch per the runbook section
-*The owner-only live switch* and four billed verifications (~$0.40–0.80).
+✅ **APPROVED AND SWITCHED 2026-09-09.** Production is **LIVE, owner-only**:
+allowlist = the owner's address only, anonymous disabled, caps 3.00/day and
+30.00/month, Sonnet 5 at medium, the new account's key via the mounted file
+(`/etc/naigx/keys/provider.key`, 400, uid 1000). Four billed checks passed
+($0.4013), exports and UI verified, the cap refused without spend, rollback
+to replay and back proven (2 s / 3 s). D-67 §9 has every observation.
+The temporary verification accounts are inert rows (cannot sign in).
 Rollback is the same `up -d backend` without the overlay. ✅ **The D-67 build
 is already what production runs, in REPLAY mode** (redeployed 2026-09-09 per
 the runbook: outgoing image tagged `rollback-edaeb08`, new image
 `de27c39b8888` at `426c4a5`, readiness 200, four paths verified, zero provider
 variables in the container) — so the switch is the overlay alone, no rebuild.
-⚠️ **Production is still replay with no provider credentials.** ⚠️ Frontend: the sign-up toggle
-is still shown; the API refuses it with 403. Not hidden yet — cosmetic.
+▶ **Production is LIVE (owner-only) since 2026-09-09** — see D-67 §9; the
+replay rollback is the same command without the overlay. The frontend's
+sign-up toggle now reads *Create the owner account* and states the
+restriction; `API-021` returns the owner's submitted text so an analysis
+opened from history is correctable (`FR-014`).
 
 ### The replay-mode increment (2026-09-08) — still true, now the floor
 
@@ -764,7 +770,7 @@ Two mechanisms, because neither covers both directions:
 
 | Constraint | Source |
 |---|---|
-| **No provider spend without authorisation.** ⚠️ AMENDED 2026-09-09 (evening): the owner replaced per-case approval with a **US$10 cap for the Sprint 5 continuation**, "only when necessary", free verification preferred where it measures the same thing, no subscriptions or recurring infrastructure. **Spent under it: $8.6918 recorded, budgeted at $8.8259** — $1.2370 on the retired account (the Sonnet 4.5 M-20 sample, 65 invocations; ⚠️ corrected from $1.1319 after reconciling the trace store) and $7.3860 recorded on the new account (D-65 verification $0.5914; cancellation check $0.0186; the Sonnet 5 M-20 sample $3.1895; the per-task effort evaluation $0.4544; **the D-66 M-20 sample $3.1321**, 129 calls, every one with usage, reconciled exactly; the D-67 rehearsal's one owner analysis $0.0688), plus **two cancelled calls the trace cannot price** — carried at their upper bounds, $0.039 and $0.0951 — and five server-error calls recorded at $0 (no usage; expected unbilled, unverifiable from the key). **Remaining: $1.1741** at the upper bound ($4.3750 − $3.1321 − $0.0688). ⚠️ The owner stated 2026-09-09 that this figure is **not a hard stop**: spend needed to complete and verify the owner-only release is authorised, cost stated before a larger batch, a ceiling asked for before a capture campaign. ⚠️ Provider-side usage could not be reconciled: a regular API key exposes no usage or cost endpoint, and no Admin API key exists for the organisation. ⚠️ The retired account is exhausted and **must not be used again** (owner, 2026-09-09); the new account's $100 balance is the account's, not the task's. Earlier campaign spend: $1.7121, case by case. Project cumulative: **$10.41 recorded** ($1.7121 campaign + $8.6230 under the cap; ⚠️ the earlier "$4.42" figure was stale). | Owner, 2026-09-09 |
+| **No provider spend without authorisation.** ⚠️ AMENDED 2026-09-09 (evening): the owner replaced per-case approval with a **US$10 cap for the Sprint 5 continuation**, "only when necessary", free verification preferred where it measures the same thing, no subscriptions or recurring infrastructure. **Spent under it: $9.0931 recorded, budgeted at $9.2272** — $1.2370 on the retired account (the Sonnet 4.5 M-20 sample, 65 invocations; ⚠️ corrected from $1.1319 after reconciling the trace store) and $7.3860 recorded on the new account (D-65 verification $0.5914; cancellation check $0.0186; the Sonnet 5 M-20 sample $3.1895; the per-task effort evaluation $0.4544; **the D-66 M-20 sample $3.1321**, 129 calls, every one with usage, reconciled exactly; the D-67 rehearsal's one owner analysis $0.0688; the D-67 production verification $0.4013), plus **two cancelled calls the trace cannot price** — carried at their upper bounds, $0.039 and $0.0951 — and five server-error calls recorded at $0 (no usage; expected unbilled, unverifiable from the key). **Remaining: $0.7728** at the upper bound ($4.3750 − $3.1321 − $0.0688 − $0.4013). ⚠️ The owner stated 2026-09-09 that this figure is **not a hard stop**: spend needed to complete and verify the owner-only release is authorised, cost stated before a larger batch, a ceiling asked for before a capture campaign. ⚠️ Provider-side usage could not be reconciled: a regular API key exposes no usage or cost endpoint, and no Admin API key exists for the organisation. ⚠️ The retired account is exhausted and **must not be used again** (owner, 2026-09-09); the new account's $100 balance is the account's, not the task's. Earlier campaign spend: $1.7121, case by case. Project cumulative: **$10.81 recorded** ($1.7121 campaign + $8.6230 under the cap; ⚠️ the earlier "$4.42" figure was stale). | Owner, 2026-09-09 |
 | ~~**Prompt fragments stay inactive.**~~ ✅ **SUPERSEDED 2026-09-09** — the owner authorised publication with `d4abcd42626452df`; 15 versions are active in production through the unchanged gate. D-39's *principle* stands: nothing further activates without a covering reference and an authorisation. | **D-39**, owner 2026-09-09 |
 | **No M-08 packet review, no rubric verdicts.** AI review excluded "in any capacity, for any criterion". | `docs/10` §4.3 |
 | **Do not implement `platform_recommendation`** / expand `business_requirement`. | Owner, explicit |
