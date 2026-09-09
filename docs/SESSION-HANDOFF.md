@@ -521,6 +521,9 @@ is already what production runs, in REPLAY mode** (redeployed 2026-09-09 per
 the runbook: outgoing image tagged `rollback-edaeb08`, new image
 `de27c39b8888` at `426c4a5`, readiness 200, four paths verified, zero provider
 variables in the container) — so the switch is the overlay alone, no rebuild.
+▶ **Now running: image `e4abf7c20984` at `e0b9744` (the correction-flow and
+owner-only UI build), LIVE under the overlay; outgoing image kept as
+`rollback-426c4a5`.** Host checkout = `origin/main`.
 ▶ **Production is LIVE (owner-only) since 2026-09-09** — see D-67 §9; the
 replay rollback is the same command without the overlay. The frontend's
 sign-up toggle now reads *Create the owner account* and states the
