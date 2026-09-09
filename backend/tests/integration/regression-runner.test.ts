@@ -344,6 +344,32 @@ test("a case with a recording runs through the real pipeline and passes", async 
   assert.ok(outcome.evidence?.recordingHash);
 });
 
+test("a recording that lacks a stage the path now runs fails, not passes (docs/51 D-76 §4)", async () => {
+  // D-76 §4 found that a stage ADDED to a path was invisible to the runner:
+  // run_completeness judged against the stages the recording held. Since
+  // D-77 evaluates artifact_generation, a recording with no answer for a
+  // generator stage makes the replay adapter refuse the request, the
+  // generator records a failed artifact, and the case fails. Confirmed live
+  // on 2026-09-10 with the pre-D-80 br-001 recording; pinned here.
+  const target = corpusCase();
+  const report = await run(
+    [target],
+    storeOf(await recordingFor(target, { upTo: ALL_STAGES.length - 1 })),
+  );
+
+  assert.equal(report.totals.failed, 1, "the missing stage must fail the case");
+  const outcome = report.cases[0];
+  assert.ok(outcome);
+  const byId = new Map(outcome.assertions.map((a) => [a.id, a]));
+  assert.equal(byId.get("artifact_generation")?.status, "failed");
+  assert.match(
+    byId.get("artifact_generation")?.detail ?? "",
+    /complexity_score/,
+  );
+  // The run itself completed: a failed generator does not halt the path.
+  assert.equal(byId.get("run_completeness")?.status, "passed");
+});
+
 // --- the suite can go red -------------------------------------------------
 
 test("a wrong classification expectation fails the case", async () => {
