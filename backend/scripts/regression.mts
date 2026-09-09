@@ -546,11 +546,17 @@ if (command === "run") {
 
   try {
     const activeResolver = createFragmentResolver(prisma);
+    // Capture/replay parity: capture composes Stage 7 against the operator
+    // inventory, so replay must too. Without it a job_description recording
+    // halts at Stage 7 and reports the profile it was captured with as missing.
+    const { loadCapabilityProfile: loadProfileForRun } =
+      await import("../src/nie/capability-profile.js");
     const report = await runRegression({
       cases: runCases,
       suiteVersion,
       store,
       resolver: activeResolver,
+      capabilityProfile: loadProfileForRun(),
       // D-64 §4.2. ⚠️ BOTH CANDIDATES, ACTIVE FIRST. A legacy recording has no
       // persisted composition, so which one it was captured under is settled
       // by which one REPRODUCES its recorded hash — not by the absence of a
@@ -773,11 +779,15 @@ if (command === "evaluate") {
     `   ⚠️  no run record, no pass reference, canonical store untouched\n`,
   );
 
+  const { loadCapabilityProfile: loadProfileForEval } =
+    await import("../src/nie/capability-profile.js");
   const report = await runRegression({
     cases: evalCases,
     suiteVersion,
     store: scratchStore,
     resolver: createAuthoredResolver(readAuthoredFragments(PROMPTS_ROOT)),
+    // Same capture/replay parity requirement as `run`.
+    capabilityProfile: loadProfileForEval(),
     // `FR-024`, exactly as `run` asks it.
     repeat: 2,
   });

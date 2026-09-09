@@ -27,6 +27,7 @@ import { randomUUID } from "node:crypto";
 
 import { createPipeline } from "../nie/pipeline.js";
 import type { PipelineResult } from "../nie/contracts.js";
+import type { CapabilityProfile } from "../nie/capability-profile.js";
 import type { FragmentResolver } from "../nie/ports.js";
 import { createRecordedProvider } from "../harness/recordings.js";
 import type { RecordingSet } from "../harness/recordings.js";
@@ -198,6 +199,23 @@ export interface RegressionRunOptions {
   readonly modelVersionId?: string;
   readonly modelKey?: string;
   /**
+   * The operator inventory Stage 7 compares against (`FR-022`).
+   *
+   * ⚠️ CAPTURE/REPLAY PARITY. `capture.ts` passes this into the pipeline, and
+   * until now the runner did not pass it at all — so a `job_description`
+   * recording captured WITH a profile replayed WITHOUT one, Stage 7 halted for
+   * want of the thing to compare against, and the case failed
+   * `run_completeness` with *"No capability profile supplied"* against a
+   * recording made with one. Every job-description recording was affected,
+   * including a flawless one.
+   *
+   * Same shape as the `stageProviderInputs` defect: capture and replay
+   * diverging on a single input, surfacing as a message that points somewhere
+   * else entirely. Absent it stays absent — paths that never reach Stage 7 are
+   * unaffected, and a caller with no profile behaves exactly as before.
+   */
+  readonly capabilityProfile?: CapabilityProfile;
+  /**
    * `FR-024` — "repeated runs on identical input must produce materially
    * consistent output". Replay makes this near-tautological today; it stops
    * being so the moment live mode exists, and asserting it now means the check
@@ -312,8 +330,14 @@ async function runOne(
     recording.stages,
     effectiveResolver,
     corpusCase.inputText,
-    // Declared by the recording, never assumed (`AI §10.6`).
-    { lowVarianceSampling: recording.lowVarianceSampling },
+    {
+      // Declared by the recording, never assumed (`AI §10.6`).
+      lowVarianceSampling: recording.lowVarianceSampling,
+      // Capture/replay parity: Stage 7 is only keyed when a profile is given.
+      ...(options.capabilityProfile !== undefined
+        ? { capabilityProfile: options.capabilityProfile }
+        : {}),
+    },
   );
 
   const pipeline = createPipeline({
@@ -331,6 +355,12 @@ async function runOne(
     fragmentUsageSink: { record: () => Promise.resolve() },
     modelVersionId: options.modelVersionId ?? randomUUID(),
     modelKey: options.modelKey ?? recording.provider.modelKey,
+    // Capture/replay parity — see `RegressionRunOptions.capabilityProfile`.
+    // Spread rather than assigned: under `exactOptionalPropertyTypes` an
+    // explicit `undefined` is not the same as an absent property.
+    ...(options.capabilityProfile !== undefined
+      ? { capabilityProfile: options.capabilityProfile }
+      : {}),
   });
 
   return {

@@ -26,6 +26,7 @@
  */
 
 import type { ProviderAdapter } from "../provider/capability.js";
+import type { CapabilityProfile } from "../nie/capability-profile.js";
 import {
   createReplayProvider,
   replayKeyFor,
@@ -49,6 +50,16 @@ export interface StageRecording {
 export type RecordingSet = readonly StageRecording[];
 
 export interface RecordedProviderOptions {
+  /**
+   * The operator inventory Stage 7 was captured against (`FR-022`).
+   *
+   * ⚠️ REQUIRED TO KEY A JOB-DESCRIPTION FIXTURE AT ALL. `stageProviderInputs`
+   * describes a Stage 7 call only when a profile is present, because the
+   * pipeline only makes one then. Omitting it here silently produces a fixture
+   * set one stage short, and replay fails with a missing-response message that
+   * points at the recording rather than at the omission.
+   */
+  readonly capabilityProfile?: CapabilityProfile;
   /**
    * Whether the responses being replayed were captured under low-variance
    * sampling.
@@ -221,6 +232,19 @@ export async function createRecordedProvider(
       : {}),
     ...(outputFor("context_extraction") !== undefined
       ? { context: outputFor("context_extraction") as string }
+      : {}),
+    // ⚠️ WITHOUT THIS, STAGE 7 IS NEVER KEYED. The recommendation_generation
+    // branch of stageProviderInputs is conditional on a profile being present
+    // — correctly, since the pipeline makes no Stage 7 call without one. But
+    // the fixture builder was never given the profile, so the branch never
+    // fired, no fixture was filed for Stage 7, and a job_description recording
+    // failed replay with "No recorded response for request key ..." — the same
+    // message, and the same root cause, as the workflow_review defect the
+    // comment in stageProviderInputs describes. That fix routed through
+    // planReasoning and still could not reach this branch, because this branch
+    // needs an input the builder did not receive.
+    ...(options.capabilityProfile !== undefined
+      ? { capabilityProfile: options.capabilityProfile }
       : {}),
   });
 
