@@ -250,6 +250,9 @@ export async function computeMetrics(
   if (clients.trace !== undefined) {
     const grouped = await clients.trace.validationEvent.groupBy({
       by: ["passed"],
+      // D-72: Stage 10 records five more classes, one of them advisory. This
+      // metric is `M-10` schema validity (`FR-039`) and counts only that class.
+      where: { validationClass: "schema" },
       _count: { _all: true },
     });
     validationPassed = grouped.find((r) => r.passed)?._count._all ?? 0;

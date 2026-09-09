@@ -56,6 +56,15 @@ import {
   renderN8nWorkflow,
 } from "./stages/n8n-workflow.js";
 import {
+  checkInternalConsistency,
+  ResponseValidationError,
+  validateReasoning,
+  type ReasoningContext,
+  type ValidationClass,
+  type ValidationFinding,
+} from "./stages/response-validation.js";
+import { AssemblyError, assembleResponse } from "./stages/response-assembly.js";
+import {
   classificationEvent,
   insufficientContextEvent,
   planEvent,
@@ -91,6 +100,7 @@ import {
   planDerivedArtifacts,
   planIntentBrief,
   renderIntentBrief,
+  renderArchitectureRecommendation,
   renderAssessmentFeedback,
   renderMermaidDiagram,
   renderRiskAssessment,
@@ -534,6 +544,8 @@ export function createPipeline(deps: PipelineDependencies) {
     passed: boolean;
     failureDetail?: string;
     regenerationTriggered: boolean;
+    /** D-72: the class; `schema` unless a Stage 10 class is named. */
+    validationClass?: ValidationClass;
   }): Promise<void> => {
     const sink = deps.validationSink;
     const stageTraceId = event.stageTraceId;
@@ -543,7 +555,7 @@ export function createPipeline(deps: PipelineDependencies) {
       sink.record({
         stageTraceId,
         artifactType: event.artifactType,
-        validationClass: "schema",
+        validationClass: event.validationClass ?? "schema",
         passed: event.passed,
         ...(event.failureDetail !== undefined
           ? { failureDetail: event.failureDetail }
@@ -559,6 +571,8 @@ export function createPipeline(deps: PipelineDependencies) {
       readonly stageNumber: number;
       readonly structuredInput: unknown;
       readonly structuredOutput: unknown;
+      /** D-72: Stages 10 and 12 can fail; a failed deterministic stage is traced as such. */
+      readonly failureReason?: string;
     },
   ): Promise<string> => {
     const stage = stageByNumber(spec.stageNumber);
@@ -576,13 +590,73 @@ export function createPipeline(deps: PipelineDependencies) {
         structuredOutput: spec.structuredOutput,
         startedAt,
         durationMs: Math.max(0, now().getTime() - startedAt.getTime()),
-        outcome: "success",
-        failureReason: null,
+        outcome: spec.failureReason === undefined ? "success" : "failure",
+        failureReason: spec.failureReason ?? null,
         retryCount: 0,
       }),
     );
 
     return stageTraceId;
+  };
+
+  // --- D-72: Stage 10 bookkeeping ------------------------------------------
+  //
+  // Findings are collected per run and traced at Stage 10 once the run has
+  // produced everything it will. The reasoning context grows as stages
+  // complete; the artifact-level check runs at the moment each artifact is
+  // validated, so a failing artifact is failed there and not after the fact.
+  const runValidation = new Map<
+    string,
+    { context: ReasoningContext; findings: ValidationFinding[] }
+  >();
+  const validationOf = (input: PipelineInput) => {
+    let entry = runValidation.get(input.analysisId);
+    if (entry === undefined) {
+      entry = { context: { inputText: input.text }, findings: [] };
+      runValidation.set(input.analysisId, entry);
+    }
+    return entry;
+  };
+  const extendContext = (
+    input: PipelineInput,
+    patch: Partial<ReasoningContext>,
+  ): void => {
+    const entry = validationOf(input);
+    entry.context = { ...entry.context, ...patch };
+  };
+
+  /**
+   * Stage 10's artifact-level classes, applied where the schema class is:
+   * before the artifact is persisted. Returns the failure detail when an
+   * enforced class fails, so the caller fails the artifact the same way a
+   * schema failure would; advisory findings are only recorded.
+   */
+  const deepValidate = async (
+    input: PipelineInput,
+    stageTraceId: string | null,
+    artifactType: string,
+    content: unknown,
+  ): Promise<string | null> => {
+    const entry = validationOf(input);
+    const consistency = checkInternalConsistency(
+      artifactType,
+      content,
+      entry.context,
+    );
+    entry.findings.push(consistency);
+    await recordValidation({
+      stageTraceId,
+      artifactType,
+      passed: consistency.passed,
+      ...(consistency.detail !== undefined
+        ? { failureDetail: consistency.detail }
+        : {}),
+      regenerationTriggered: false,
+      validationClass: consistency.validationClass,
+    });
+    return consistency.passed
+      ? null
+      : `Did not pass response validation (${consistency.validationClass}).`;
   };
 
   const runStage = async <T>(
@@ -814,6 +888,20 @@ export function createPipeline(deps: PipelineDependencies) {
             ? "Rendered but did not satisfy its output schema."
             : "Rendering did not produce a usable document.";
       }
+      // D-72 — Stage 10's consistency class, at the same point as the schema
+      // class: a rendered artifact that disagrees with its source is failed.
+      if (outcome === "generated") {
+        const deep = await deepValidate(
+          input,
+          renderTraceId,
+          entry.artifactType,
+          content,
+        );
+        if (deep !== null) {
+          outcome = "failed";
+          reason = deep;
+        }
+      }
 
       // `M-10` — recorded whether it passed or failed. A rate computed only
       // from failures would have no denominator.
@@ -860,8 +948,123 @@ export function createPipeline(deps: PipelineDependencies) {
     return updated;
   };
 
-  /** Runs stages 1-3 in the `FR-010` order, halting where the spec halts. */
+  /**
+   * D-72 — every result passes through Stage 10 (the reasoning-level
+   * validation classes, traced) and Stage 12 (assembly), whether it halted
+   * or completed. A Stage 10 enforced failure or a Stage 12 refusal fails the
+   * analysis: "no invalid or unsupported output reaches a user" and "partial
+   * assembly is not permitted" are the specified behaviours.
+   */
   const run = async (input: PipelineInput): Promise<PipelineResult> => {
+    const result = await runStages(input);
+
+    // --- Stage 10 -------------------------------------------------------
+    const entry = validationOf(input);
+    extendContext(input, {
+      ...(result.intent !== undefined ? { intent: result.intent } : {}),
+      ...(result.context !== undefined ? { context: result.context } : {}),
+      ...(result.architecture !== undefined
+        ? { architecture: result.architecture }
+        : {}),
+      ...(result.workflowReview !== undefined
+        ? { workflowReview: result.workflowReview }
+        : {}),
+      ...(result.recommendation !== undefined
+        ? { recommendation: result.recommendation }
+        : {}),
+      ...(result.portfolioSuggestions !== undefined
+        ? { portfolio: result.portfolioSuggestions }
+        : {}),
+    });
+    const reasoningFindings = validateReasoning(entry.context);
+    entry.findings.push(...reasoningFindings);
+    const enforcedFailures = entry.findings.filter(
+      (f) => !f.advisory && !f.passed,
+    );
+    const stage10TraceId = await recordDeterministicStage(input, {
+      stageNumber: 10,
+      structuredInput: {
+        classes: [
+          "schema",
+          "rationale_completeness",
+          "reference_integrity",
+          "provenance_integrity",
+          "unsupported_claim_detection",
+          "internal_consistency",
+        ],
+        artifacts: (result.artifactPlan ?? [])
+          .filter((e) => e.planned)
+          .map((e) => e.artifactType),
+      },
+      structuredOutput: {
+        findings: entry.findings.map((f) => ({
+          class: f.validationClass,
+          subject: f.subject,
+          passed: f.passed,
+          advisory: f.advisory,
+          ...(f.detail !== undefined ? { detail: f.detail } : {}),
+        })),
+      },
+      ...(enforcedFailures.length > 0
+        ? {
+            failureReason: `Stage 10 enforced class(es) failed: ${enforcedFailures.map((f) => f.validationClass).join(", ")}`,
+          }
+        : {}),
+    });
+    for (const f of reasoningFindings) {
+      await recordValidation({
+        stageTraceId: stage10TraceId,
+        artifactType: f.subject,
+        passed: f.passed,
+        ...(f.detail !== undefined ? { failureDetail: f.detail } : {}),
+        regenerationTriggered: false,
+        validationClass: f.validationClass,
+      });
+    }
+    // Reasoning-level enforced failures fail closed. The parsers already
+    // enforce each of these, so reaching here is a defect, not a judgement.
+    const reasoningFailure = reasoningFindings.find(
+      (f) => !f.advisory && !f.passed,
+    );
+    if (reasoningFailure !== undefined) {
+      runValidation.delete(input.analysisId);
+      throw new StageError(
+        10,
+        "response_validation",
+        `Stage 10 ${reasoningFailure.validationClass} failed: ${reasoningFailure.detail ?? ""}`,
+      );
+    }
+
+    // --- Stage 12 -------------------------------------------------------
+    try {
+      const report = assembleResponse(result);
+      await recordDeterministicStage(input, {
+        stageNumber: 12,
+        structuredInput: {
+          planned: (result.artifactPlan ?? []).length,
+          halted: result.haltedAt !== undefined,
+        },
+        structuredOutput: report,
+      });
+    } catch (error) {
+      if (error instanceof AssemblyError) {
+        await recordDeterministicStage(input, {
+          stageNumber: 12,
+          structuredInput: { planned: (result.artifactPlan ?? []).length },
+          structuredOutput: { problems: error.problems },
+          failureReason: error.message,
+        });
+        runValidation.delete(input.analysisId);
+        throw new StageError(12, "response_assembly", error.message);
+      }
+      throw error;
+    }
+    runValidation.delete(input.analysisId);
+    return result;
+  };
+
+  /** Runs stages 1-3 in the `FR-010` order, halting where the spec halts. */
+  const runStages = async (input: PipelineInput): Promise<PipelineResult> => {
     // `FR-014` — a corrected classification replaces Stage 1 rather than
     // competing with it. Recorded as a deterministic stage so the trace shows
     // *why* this analysis has the type it has (`FR-017`: orchestration
@@ -946,6 +1149,7 @@ export function createPipeline(deps: PipelineDependencies) {
         ),
       parse: parseIntent,
     });
+    extendContext(input, { intent });
 
     await deps.resultSink?.persistIntent(input.analysisId, intent);
 
@@ -983,6 +1187,7 @@ export function createPipeline(deps: PipelineDependencies) {
         ),
       parse: (text) => parseContext(text, input.text),
     });
+    extendContext(input, { context });
 
     await deps.resultSink?.persistContext(input.analysisId, context);
     // The problem as understood, which `FR-040` puts first and `FR-041` wants
@@ -1065,6 +1270,7 @@ export function createPipeline(deps: PipelineDependencies) {
           ),
         parse: (text) => parseRecommendation(text, context, profile),
       });
+      extendContext(input, { recommendation });
 
       emit(input.analysisId, reasoningCompleteEvent(null, recommendation));
       await deps.resultSink?.persistRecommendation?.(
@@ -1190,12 +1396,26 @@ export function createPipeline(deps: PipelineDependencies) {
       let failureReason = "";
       try {
         portfolioSuggestions = await generate();
+        // D-72 — Stage 10's consistency class on the generated document, at
+        // the same point the schema class ran: a failure fails the artifact.
+        const deep = await deepValidate(
+          input,
+          portfolioTraceId,
+          "portfolio_suggestions",
+          lastPortfolioWire,
+        );
+        if (deep !== null) {
+          portfolioSuggestions = undefined;
+          throw new ResponseValidationError(deep);
+        }
       } catch (error) {
         outcome = "failed";
         failureReason =
-          error instanceof ArtifactSchemaError
-            ? "Generated but did not satisfy its output schema."
-            : "Generation did not produce a usable document.";
+          error instanceof ResponseValidationError
+            ? error.message
+            : error instanceof ArtifactSchemaError
+              ? "Generated but did not satisfy its output schema."
+              : "Generation did not produce a usable document.";
       }
 
       // `FR-091` — a failed artifact is announced, not dropped. The stream has
@@ -1247,6 +1467,9 @@ export function createPipeline(deps: PipelineDependencies) {
       // implementation plan. Planned here, at Stage 9, when the plan exists
       // (like the brief at Stage 2): a decision either way, so an analysis
       // whose project is not on n8n shows an omission with its reason.
+      if (portfolioSuggestions !== undefined) {
+        extendContext(input, { portfolio: portfolioSuggestions });
+      }
       const n8nPlan = planN8nWorkflow(
         outcome === "generated" ? portfolioSuggestions : undefined,
       );
@@ -1306,6 +1529,7 @@ export function createPipeline(deps: PipelineDependencies) {
         regenerateOnce: (error) =>
           error instanceof WorkflowReviewGroundingError,
       });
+      extendContext(input, { workflowReview: review });
 
       // `docs/15` D-40: the identified structure is *observed*, not designed,
       // and persists through the architecture entities because that is what
@@ -1387,6 +1611,7 @@ export function createPipeline(deps: PipelineDependencies) {
         ),
       regenerateOnce: (error) => error instanceof ArchitectureTraceabilityError,
     });
+    extendContext(input, { architecture });
 
     emit(input.analysisId, reasoningCompleteEvent(architecture.summary));
     await deps.resultSink?.persistArchitecture(input.analysisId, architecture);
@@ -1394,24 +1619,16 @@ export function createPipeline(deps: PipelineDependencies) {
     // `FR-023` — the assessment path turns its architecture into something the
     // user can defend. `AI §9.1` gives it Assessment Feedback and a Mermaid
     // diagram, both derivable from what Stage 6 just produced. The requirement
-    // path's own artifact set is M-07 work and plans nothing here, which
-    // `PATH_ARTIFACT_TYPES` states as an empty list.
+    // path (`FR-020`) gets its Architecture Recommendation and the same
+    // diagram from the same source (D-73); its reasoning artifacts —
+    // platform recommendation and the rest — remain the open decision STATUS
+    // records, and `PATH_ARTIFACT_TYPES` lists only what is rendered.
     const assessmentPlan = planDerivedArtifacts(
       classification.determinedType,
-      `The assessment produced ${String(architecture.components.length)} component(s) with ${String(architecture.rejectedApproaches?.length ?? 0)} rejected approach(es).`,
+      classification.determinedType === "technical_assessment"
+        ? `The assessment produced ${String(architecture.components.length)} component(s) with ${String(architecture.rejectedApproaches?.length ?? 0)} rejected approach(es).`
+        : `The requirement was reasoned to an architecture of ${String(architecture.components.length)} component(s); the recommendation and its diagram are rendered from that architecture (D-73).`,
     );
-
-    if (assessmentPlan.length === 0) {
-      // The requirement path plans no artifact of its own (M-07); the brief
-      // is still the one it produced.
-      return {
-        classification,
-        intent,
-        context,
-        architecture,
-        artifactPlan: withBrief(),
-      };
-    }
 
     emit(input.analysisId, planEvent(assessmentPlan));
     await deps.resultSink?.persistArtifactPlan?.(
@@ -1421,6 +1638,8 @@ export function createPipeline(deps: PipelineDependencies) {
 
     const rendered = await emitDerivedArtifacts(input, assessmentPlan, {
       assessment_feedback: () => renderAssessmentFeedback(architecture),
+      architecture_recommendation: () =>
+        renderArchitectureRecommendation(architecture),
       mermaid_diagram: () => renderMermaidDiagram(architecture),
     });
 

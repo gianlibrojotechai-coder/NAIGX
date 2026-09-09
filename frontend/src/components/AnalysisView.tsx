@@ -34,6 +34,7 @@ import { useId, useState } from "react";
 import type { ReactNode } from "react";
 
 import {
+  asArchitectureRecommendation,
   asAssessmentFeedback,
   asIntentBrief,
   asMermaidDiagram,
@@ -52,6 +53,7 @@ import {
   verdictLabel,
   verdictMeaning,
 } from "../format";
+import { ArchitectureRecommendationView } from "./ArchitectureRecommendation";
 import { AssessmentFeedbackView } from "./AssessmentFeedback";
 import { IntentBriefView } from "./IntentBrief";
 import { N8nWorkflowView } from "./N8nWorkflow";
@@ -286,6 +288,17 @@ const ARTIFACT_PRESENTERS: Readonly<Record<string, ArtifactPresenter>> = {
       const feedback = asAssessmentFeedback(content);
       return feedback === null ? null : (
         <AssessmentFeedbackView feedback={feedback} />
+      );
+    },
+  },
+  architecture_recommendation: {
+    title: "Architecture recommendation",
+    subtitle:
+      "The design to build from — each component with what it takes in and produces",
+    render: (content) => {
+      const recommendation = asArchitectureRecommendation(content);
+      return recommendation === null ? null : (
+        <ArchitectureRecommendationView recommendation={recommendation} />
       );
     },
   },

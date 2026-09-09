@@ -10,10 +10,10 @@
  * segment after the last reported stage, meaning "working here", not "this
  * far along".
  *
- * `FR-041` progressive rendering is degraded for a signed-in account (the
- * stream cannot authenticate; see `api/events.ts`), so on this instance the
- * rail usually lights from the 2-second poll rather than the stream. It still
- * only lights on what the server said.
+ * The rail lights from the event stream, which since D-74 authenticates
+ * like every other request (see `api/events.ts`), and from the 2-second poll
+ * when the stream is unavailable. Either way it only lights on what the
+ * server said.
  */
 
 import { formatDuration } from "../format";

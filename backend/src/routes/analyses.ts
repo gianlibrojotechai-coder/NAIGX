@@ -583,7 +583,15 @@ export const analysisRoutes: FastifyPluginAsync<AnalysisRouteOptions> = (
       }
       subscription.unsubscribe();
 
+      // ⚠️ WRITING TO THE RAW RESPONSE BYPASSES EVERY HEADER FASTIFY HAS SET —
+      // including the CORS headers `@fastify/cors` attached in its hook. A
+      // cross-origin browser client (the documented local setup, Vite on
+      // 5173 against the API on 3000) then receives the frames and refuses
+      // to read them: `net::ERR_FAILED`, silently, on every reconnect. Found
+      // by D-74's browser check. The headers already decided for this reply
+      // are carried across; the stream's own come after and win.
       reply.raw.writeHead(200, {
+        ...(reply.getHeaders() as Record<string, string | number | string[]>),
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
         Connection: "keep-alive",

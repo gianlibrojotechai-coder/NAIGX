@@ -198,6 +198,58 @@ export const renderAssessmentFeedback = (
   })),
 });
 
+/**
+ * Architecture Recommendation — the requirement path's architecture, as an
+ * artifact ([D-73](../../../../docs/48-D-73-Business-Requirement-Artifacts.md)).
+ *
+ * `AI §9.1` gives the requirement path an "Architecture Recommendation";
+ * until D-73 the path reasoned to one and then handed the reader nothing but
+ * the reasoning hierarchy. This is the same projection discipline as the
+ * assessment feedback above — every field is Stage 6's own value — with two
+ * differences that follow from `FR-020` rather than `FR-023`:
+ *
+ *   · every component carries its inputs and outputs, because a recommended
+ *     design has to say what flows where before a reader can build it, and
+ *     Stage 6 already produced both;
+ *   · trade-offs and rejected approaches are carried when Stage 6 produced
+ *     them and are otherwise empty — `FR-020` does not require them, so the
+ *     renderer does not invent one to satisfy a rule that does not apply.
+ *
+ * `standing` is fixed here so the document says what it is: a
+ * recommendation, not an assessment of something submitted.
+ */
+export const renderArchitectureRecommendation = (
+  architecture: ArchitectureResult,
+): Record<string, unknown> => ({
+  standing: "recommendation",
+  summary: architecture.summary,
+  data_flow: architecture.dataFlowDescription,
+  components: architecture.components.map((component) => ({
+    ordinal: component.ordinal,
+    name: component.name,
+    responsibility: component.responsibility,
+    inputs: component.inputs,
+    outputs: component.outputs,
+    failure_handling: component.failureHandling,
+    ...(component.externalSystem !== undefined
+      ? { external_system: component.externalSystem }
+      : {}),
+    ...(component.integrationDirection === "inbound" ||
+    component.integrationDirection === "outbound" ||
+    component.integrationDirection === "bidirectional"
+      ? { integration_direction: component.integrationDirection }
+      : {}),
+  })),
+  trade_offs: (architecture.tradeOffs ?? []).map((tradeOff) => ({
+    choice: tradeOff.choice,
+    accepted: tradeOff.accepted,
+  })),
+  rejected_approaches: (architecture.rejectedApproaches ?? []).map((entry) => ({
+    approach: entry.approach,
+    rejection_reason: entry.rejectionReason,
+  })),
+});
+
 /** Mermaid node ids must be identifier-safe; component names are free text. */
 const nodeId = (index: number): string => `n${String(index)}`;
 

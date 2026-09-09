@@ -1,6 +1,6 @@
 # NAIGX — Session Handoff
 
-**Written:** 2026-09-08 · **Last updated:** 2026-09-09 (minItems deployed; M-20 latency decomposed from traces — the in-contract lever evaluated and not adopted; what remains is a decision, latency log §9)
+**Written:** 2026-09-08 · **Last updated:** 2026-09-10 (D-72 Stages 10 and 12, D-73 requirement-path artifacts, D-74 authenticated stream — built, gate-green, replay reproduced; see §7a "D-72, D-73, D-74")
 **Purpose:** hand a new chat session everything it needs to continue building NAIGX without re-deriving context or re-litigating settled decisions.
 
 > **Read this first, then `docs/STATUS.md`.** STATUS.md is the authoritative current-state record. This file covers the most recent working sessions, and the exact next step.
@@ -131,7 +131,11 @@ These are standing instructions given explicitly. **They override default thorou
 
 | `docs/46` **D-71** | **The n8n workflow scaffold** — a seventh artifact: the implementation plan as a file n8n imports, one node per step wired in order with a sticky note per node (purpose, setup, credential) and a README stating it is a scaffold. Rendered, deterministic, no prompt change. **DEPLOYED 2026-09-10** as `e9e3f7c75a3b` at `6de98d5` |
 
-**Numbering convention: the next standalone record is `docs/47` D-72.** Nothing is currently owed.
+| `docs/47` **D-72** | **Stages 10 and 12** — response validation beyond schema (six classes: schema, rationale completeness, reference integrity, provenance integrity, unsupported-claim *advisory*, internal consistency) and one assembly step that verifies disclosure completeness on every response. `M-05` 8 → 10 of 12. No prompt, schema or recording changed; the fifteen recordings reproduce `d1b67b9017b86257`. Built 2026-09-10 |
+| `docs/48` **D-73** | **The requirement path's rendered artifacts** — `architecture_recommendation` (new schema, inputs/outputs per component, standing fixed) and the diagram, both projections of the Stage 6 architecture. Closes the "produces no artifacts" gap **without** touching the `platform_recommendation` decision. Built 2026-09-10 |
+| `docs/49` **D-74** | **The event stream authenticates** — `fetch` with the `Authorization` header replaces `EventSource`; bounded reconnects, explicit `Last-Event-ID`. Closes M-15 limitation 1. No server change; pinned by `event-stream-auth.test.ts`. Built 2026-09-10 |
+
+**Numbering convention: the next standalone record is `docs/50` D-75.** Nothing is currently owed.
 
 ⚠️ **D-63 without its §7 amendment is actively wrong.** The original decision made the runner re-resolve recordings against authored fragments, which invalidated **10 of 13** committed recordings the moment authored content drifted. The amendment separates **replayability** from **evidential currency**: a recording that carries its own captured composition replays against *that* and is never stale for replay; only the activation gate asks the currency question. Read §7 before touching anything in `src/regression/`.
 
@@ -537,6 +541,18 @@ replay rollback is the same command without the overlay. The frontend's
 sign-up toggle now reads *Create the owner account* and states the
 restriction; `API-021` returns the owner's submitted text so an analysis
 opened from history is correctable (`FR-014`).
+
+### ▶ D-72, D-73, D-74 — finishing the build, 2026-09-10 (owner-directed: "finish building the naigx project")
+
+Three records, all free — no provider call, no fragment change, no capture:
+
+- **D-72 (`docs/47`)** — Stage 10 with six validation classes (five enforced, unsupported-claim advisory) and Stage 12 as one assembly step verifying disclosure completeness. `M-05` 8 → **10 of 12**. Every response now traces 10 and 12; a Stage 1 halt traces `1, 10, 12`.
+- **D-73 (`docs/48`)** — the requirement path renders `architecture_recommendation` (eighth schema, v2) and the diagram from Stage 6. Its trace is now `1, 2, 3, 5, 6, 9, 10, 12`. The `platform_recommendation` decision is **untouched** and still the owner's.
+- **D-74 (`docs/49`)** — the stream authenticates (`fetch` + header, bounded reconnects, explicit `Last-Event-ID`), closing M-15 limitation 1. ⚠️ The browser check found the raw SSE response carried **no CORS headers** — one-line route fix, pinned; production is same-origin and was never exposed.
+
+**Evidence:** full gate green (1038 tests / 1034 pass / 0 fail / 4 skipped before the route fix; re-run after it in the same session), fifteen recordings **reproduce** `d1b67b9017b86257`, and a signed-in browser against a local replay backend received nine stream frames with the rail lit before any poll answered (D-74 §4).
+
+**What this does NOT change:** M-20 (`NFR-002`), M-08, M-10, M-11 measurement, M-17 walk, M-18, Stage 4 and Stage 11 — all exactly as open as before. The paid and decision items are listed in the session report, with costs, for a ceiling.
 
 ### The replay-mode increment (2026-09-08) — still true, now the floor
 

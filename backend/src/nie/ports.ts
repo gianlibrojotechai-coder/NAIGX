@@ -131,7 +131,14 @@ export interface ValidationEventSink {
     readonly stageTraceId: string;
     readonly artifactType: string;
     /** `DB §4.7` ValidationClass. Only `schema` is produced today. */
-    readonly validationClass: "schema";
+    /** D-72: the six `AI §3.2` classes; `schema` was the only one until Stage 10 landed. */
+    readonly validationClass:
+      | "schema"
+      | "rationale_completeness"
+      | "reference_integrity"
+      | "provenance_integrity"
+      | "unsupported_claim_detection"
+      | "internal_consistency";
     readonly passed: boolean;
     /** Present only when `passed` is false. Never user content. */
     readonly failureDetail?: string;

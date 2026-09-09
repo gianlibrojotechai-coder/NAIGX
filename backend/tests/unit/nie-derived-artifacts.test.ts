@@ -26,6 +26,7 @@ import {
   planDerivedArtifacts,
   planIntentBrief,
   renderIntentBrief,
+  renderArchitectureRecommendation,
   renderAssessmentFeedback,
   renderMermaidDiagram,
   renderRiskAssessment,
@@ -133,10 +134,50 @@ test("the assessment path plans its whole AI §9.1 set", () => {
   assert.ok(plan.every((entry) => entry.planned));
 });
 
-test("a path with no implemented artifacts plans nothing to generate", () => {
-  // `business_requirement` artifacts are M-07 work. The plan is empty rather
-  // than full of omissions, because nothing was deliberated over.
-  assert.deepEqual(planDerivedArtifacts("business_requirement", "because"), []);
+test("the requirement path plans its two rendered artifacts (D-73)", () => {
+  // The rest of its `AI §9.1` set is reasoning work and is not declared, so
+  // the plan carries no omission rows for it — nothing was deliberated over.
+  const plan = planDerivedArtifacts("business_requirement", "because");
+
+  assert.deepEqual(
+    plan.map((entry) => entry.artifactType),
+    ["architecture_recommendation", "mermaid_diagram"],
+  );
+  assert.ok(plan.every((entry) => entry.planned));
+});
+
+test("an unsupported input plans nothing to generate", () => {
+  assert.deepEqual(planDerivedArtifacts("unsupported", "because"), []);
+});
+
+// --- Architecture Recommendation (D-73) ----------------------------------
+
+test("the architecture recommendation carries every component with inputs and outputs", () => {
+  const content = renderArchitectureRecommendation(architecture);
+  validateArtifact("architecture_recommendation", content);
+
+  assert.equal(content["standing"], "recommendation");
+  const components = content["components"] as Record<string, unknown>[];
+  assert.equal(components.length, architecture.components.length);
+  architecture.components.forEach((component, index) => {
+    assert.equal(components[index]?.["name"], component.name);
+    assert.equal(components[index]?.["inputs"], component.inputs);
+    assert.equal(components[index]?.["outputs"], component.outputs);
+    assert.equal(components[index]?.["ordinal"], component.ordinal);
+  });
+});
+
+test("the architecture recommendation states absent trade-offs as empty, not invented", () => {
+  const {
+    tradeOffs: _t,
+    rejectedApproaches: _r,
+    ...requirementOnly
+  } = architecture;
+  const content = renderArchitectureRecommendation(requirementOnly);
+  validateArtifact("architecture_recommendation", content);
+
+  assert.deepEqual(content["trade_offs"], []);
+  assert.deepEqual(content["rejected_approaches"], []);
 });
 
 // --- Workflow Recommendation ---------------------------------------------

@@ -196,11 +196,12 @@ test(
       );
 
       // Every implemented stage *on this path* ran and was traced, in order.
-      // Stages 7-9 are excluded because `AI §9.1` scopes recommendation
-      // generation and the portfolio artifact to the job-description path: a
+      // Stages 7 and 8 are excluded because `AI §9.1` scopes recommendation
+      // generation and artifact planning to the job-description path: a
       // business requirement that ran them would be answering a question
-      // nobody asked.
-      const JOB_DESCRIPTION_PATH_ONLY = new Set([7, 8, 9]);
+      // nobody asked. Stage 9 runs here since D-73 — it renders the
+      // requirement's architecture recommendation and diagram.
+      const JOB_DESCRIPTION_PATH_ONLY = new Set([7, 8]);
       const implemented = STAGES.filter(
         (s) => s.implemented && !JOB_DESCRIPTION_PATH_ONLY.has(s.stageNumber),
       ).map((s) => s.stageNumber);
@@ -225,7 +226,10 @@ test(
       // stages that call one. Stage 5 is deterministic (`AI` App. A,
       // `docs/12` D-35): it is traced like any other stage but reaches no
       // provider, so it contributes a trace and no invocation.
-      const DETERMINISTIC = new Set([5]);
+      // D-72: Stages 10 (response validation) and 12 (response assembly) are
+      // deterministic too — traced, never a provider call. D-73: so is Stage 9
+      // on this path, which renders from the Stage 6 architecture.
+      const DETERMINISTIC = new Set([5, 9, 10, 12]);
       const providerStages = implemented.filter((n) => !DETERMINISTIC.has(n));
       assert.equal(report.provider.invocations.length, providerStages.length);
       for (const invocation of report.provider.invocations) {

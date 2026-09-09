@@ -487,3 +487,45 @@ export const asMermaidDiagram = (content: unknown): MermaidDiagram | null => {
   if (typeof candidate.node_count !== "number") return null;
   return candidate as MermaidDiagram;
 };
+
+/** `backend/schemas/architecture_recommendation.schema.json` (D-73). */
+export interface RecommendedComponent {
+  readonly ordinal: number;
+  readonly name: string;
+  readonly responsibility: string;
+  readonly inputs: string;
+  readonly outputs: string;
+  readonly failure_handling: string;
+  readonly external_system?: string;
+  readonly integration_direction?: "inbound" | "outbound" | "bidirectional";
+}
+
+export interface ArchitectureRecommendation {
+  readonly standing: "recommendation";
+  readonly summary: string;
+  readonly data_flow: string;
+  readonly components: readonly RecommendedComponent[];
+  readonly trade_offs: readonly {
+    readonly choice: string;
+    readonly accepted: string;
+  }[];
+  readonly rejected_approaches: readonly {
+    readonly approach: string;
+    readonly rejection_reason: string;
+  }[];
+}
+
+export const asArchitectureRecommendation = (
+  content: unknown,
+): ArchitectureRecommendation | null => {
+  if (content === null || typeof content !== "object") return null;
+  const candidate = content as Partial<ArchitectureRecommendation>;
+  if (candidate.standing !== "recommendation") return null;
+  if (typeof candidate.summary !== "string") return null;
+  if (typeof candidate.data_flow !== "string") return null;
+  if (!Array.isArray(candidate.components) || candidate.components.length === 0)
+    return null;
+  if (!Array.isArray(candidate.trade_offs)) return null;
+  if (!Array.isArray(candidate.rejected_approaches)) return null;
+  return candidate as ArchitectureRecommendation;
+};

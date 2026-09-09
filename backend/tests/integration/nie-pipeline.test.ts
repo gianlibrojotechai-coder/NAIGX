@@ -287,7 +287,8 @@ test("runs stages 1-3 in order and produces typed handoffs", async () => {
   // `FR-010`: fixed order, no stage bypassed.
   assert.deepEqual(
     traces.map((t) => t.stageNumber),
-    [1, 2, 3, 5, 6],
+    // D-72: Stages 10 and 12 trace on every response.
+    [1, 2, 3, 5, 6, 9, 10, 12],
   );
   assert.deepEqual(
     traces.map((t) => t.stageKey),
@@ -297,6 +298,11 @@ test("runs stages 1-3 in order and produces typed handoffs", async () => {
       "context_extraction",
       "reasoning_planning",
       "architecture_analysis",
+      // Stage 9's key is its one generator (`stages.ts`); on this path it
+      // renders the requirement's artifacts (D-73).
+      "portfolio_suggestions",
+      "response_validation",
+      "response_assembly",
     ],
   );
   // The vertical slice: a business requirement reaches a grounded architecture.
@@ -314,7 +320,8 @@ test("every stage emits a trace event (AP-8, FR-100)", async () => {
   // 1-2-3 then Stage 5 (deterministic planning, `docs/12` D-35) then Stage 6.
   assert.deepEqual(
     traces.map((t) => t.stageNumber),
-    [1, 2, 3, 5, 6],
+    // D-72: Stages 10 and 12 trace on every response.
+    [1, 2, 3, 5, 6, 9, 10, 12],
   );
   for (const trace of traces) {
     assert.equal(trace.analysisId, ANALYSIS_ID);
@@ -392,7 +399,13 @@ test("unsupported input halts after stage 1 with no reasoning performed", async 
   assert.equal(result.haltedAt?.stageNumber, 1);
   assert.match(result.haltedAt?.reason ?? "", /FR-092/);
   assert.equal(result.intent, undefined);
-  assert.equal(traces.length, 1, "stages 2 and 3 never ran");
+  // D-72: Stages 10 and 12 trace on every response, a refusal included;
+  // the reasoning stages are what must be absent.
+  assert.deepEqual(
+    traces.map((t) => t.stageNumber),
+    [1, 10, 12],
+    "stages 2 and 3 never ran",
+  );
 });
 
 test("insufficient context halts before reasoning but keeps what was extracted", async () => {
@@ -422,7 +435,12 @@ test("insufficient context halts before reasoning but keeps what was extracted",
     "Describe the current steps",
     "AI §5.4: the system states what would resolve it",
   );
-  assert.equal(traces.length, 3, "all three stages ran and were traced");
+  // D-72: plus Stages 10 and 12, which trace on every response.
+  assert.deepEqual(
+    traces.map((t) => t.stageNumber),
+    [1, 2, 3, 10, 12],
+    "all three stages ran and were traced",
+  );
 });
 
 test("a failing stage still emits its trace, with the failure recorded", async () => {
@@ -529,7 +547,7 @@ test("the pipeline is provider-neutral — a different adapter changes nothing s
 
 // --- stage inventory (docs/12 D-7) --------------------------------------
 
-test("the stage inventory is twelve stages, eight implemented", () => {
+test("the stage inventory is twelve stages, ten implemented", () => {
   assert.equal(STAGES.length, 12, "docs/12 D-7 — twelve, not six");
   // Stage 7 joined in Phase 2 (`docs/12` D-27); stages 8 and 9 in Phase 3A
   // (`docs/12` D-29), both on the job-description path. Stage 5 joined with
@@ -537,7 +555,9 @@ test("the stage inventory is twelve stages, eight implemented", () => {
   // pre-assessment.
   assert.deepEqual(
     STAGES.filter((s) => s.implemented).map((s) => s.stageNumber),
-    [1, 2, 3, 5, 6, 7, 8, 9],
+    // D-72: 10 (response validation) and 12 (response assembly) landed;
+    // 4 (knowledge assembly, D-15) and 11 (confidence, D-33) stay deferred.
+    [1, 2, 3, 5, 6, 7, 8, 9, 10, 12],
   );
   assert.equal(
     STAGES.find((s) => s.stageNumber === 6)?.stageKey,

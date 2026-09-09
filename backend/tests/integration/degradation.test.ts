@@ -362,6 +362,7 @@ test("retrying a deterministic rendered artifact is refused with a reason", asyn
     "risk_assessment",
     "assessment_feedback",
     "mermaid_diagram",
+    "architecture_recommendation",
   ]) {
     const app = await retryApp({ retryArtifact: () => Promise.resolve() });
     const res = await retry(app, type);

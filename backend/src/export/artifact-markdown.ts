@@ -412,6 +412,89 @@ const renderAssessmentFeedback = (document: unknown): ArtifactRender => {
   return { lines, rendered: true };
 };
 
+// --- architecture_recommendation -------------------------------------------
+
+/**
+ * The requirement path's recommended architecture (D-73). Inputs and outputs
+ * are laid out per component because a reader of a recommendation is about
+ * to build it; the standing line comes first so the document is never read
+ * as an assessment of something the reader submitted.
+ */
+const renderArchitectureRecommendation = (
+  document: unknown,
+): ArtifactRender => {
+  if (!isRecord(document)) return unrenderable("architecture_recommendation");
+  if (document.standing !== "recommendation") {
+    return unrenderable("architecture_recommendation");
+  }
+  const summary = str(document.summary);
+  const dataFlow = str(document.data_flow);
+  const components = list(document.components).filter(isRecord);
+  if (summary === null || dataFlow === null || components.length === 0) {
+    return unrenderable("architecture_recommendation");
+  }
+
+  const lines: string[] = [
+    "*A recommended architecture for the stated requirement — rendered from the reasoning above, not generated beside it. It is a recommendation to build from, not an assessment of a submitted design.*",
+    "",
+    "#### The recommended approach",
+    "",
+    summary,
+    "",
+    `**Data flow.** ${dataFlow}`,
+    "",
+    "| # | Component | Responsibility | Inputs | Outputs | On failure | Integrates with |",
+    "|---|---|---|---|---|---|---|",
+  ];
+
+  for (const component of components) {
+    const external = str(component.external_system);
+    const direction = str(component.integration_direction);
+    const integration =
+      external === null
+        ? "—"
+        : `${external}${direction === null ? "" : ` (${direction})`}`;
+    lines.push(
+      `| ${String(int(component.ordinal) ?? "—")} | ${inlineCell(str(component.name) ?? "—")} | ${inlineCell(str(component.responsibility) ?? "—")} | ${inlineCell(str(component.inputs) ?? "—")} | ${inlineCell(str(component.outputs) ?? "—")} | ${inlineCell(str(component.failure_handling) ?? "—")} | ${inlineCell(integration)} |`,
+    );
+  }
+  lines.push("");
+
+  const tradeOffs = list(document.trade_offs).filter(isRecord);
+  lines.push("#### What this approach accepts", "");
+  if (tradeOffs.length === 0) {
+    lines.push(
+      "*No trade-offs were stated for this recommendation. `FR-020` does not require them on the requirement path; none has been invented here.*",
+      "",
+    );
+  } else {
+    for (const tradeOff of tradeOffs) {
+      lines.push(
+        `- **${str(tradeOff.choice) ?? "Unnamed choice"}** — accepts: ${str(tradeOff.accepted) ?? "not recorded"}`,
+      );
+    }
+    lines.push("");
+  }
+
+  const rejected = list(document.rejected_approaches).filter(isRecord);
+  lines.push("#### What was rejected, and why", "");
+  if (rejected.length === 0) {
+    lines.push(
+      "*No rejected alternative was stated. The reasoning hierarchy above records how the architecture was reached; a comparison of alternatives is not part of this artifact.*",
+      "",
+    );
+  } else {
+    for (const entry of rejected) {
+      lines.push(
+        `- **${str(entry.approach) ?? "Unnamed approach"}** — ${str(entry.rejection_reason) ?? "no reason recorded"}`,
+      );
+    }
+    lines.push("");
+  }
+
+  return { lines, rendered: true };
+};
+
 // --- mermaid_diagram --------------------------------------------------------
 
 /**
@@ -454,6 +537,7 @@ export const ARTIFACT_TITLES: Readonly<Record<string, string>> = {
   workflow_recommendation: "Workflow Recommendation",
   risk_assessment: "Risk Assessment",
   assessment_feedback: "Assessment Feedback",
+  architecture_recommendation: "Architecture Recommendation",
   mermaid_diagram: "Architecture Diagram",
 };
 
@@ -540,6 +624,7 @@ const RENDERERS: Readonly<
   workflow_recommendation: renderWorkflowRecommendation,
   risk_assessment: renderRiskAssessment,
   assessment_feedback: renderAssessmentFeedback,
+  architecture_recommendation: renderArchitectureRecommendation,
   mermaid_diagram: renderMermaidDiagram,
 };
 

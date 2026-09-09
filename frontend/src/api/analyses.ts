@@ -81,7 +81,7 @@ const readErrorEnvelope = (data: unknown): ErrorEnvelope | undefined => {
  * Session first: a claimed analysis no longer answers to its anonymous token,
  * because the claim clears `anonymous_token_hash` server-side.
  */
-const analysisAuth = (): Record<string, string> => {
+export const analysisAuth = (): Record<string, string> => {
   if (isSignedIn()) return authHeader();
   return anonymousToken === null
     ? {}

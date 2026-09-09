@@ -560,6 +560,12 @@ export const ARTIFACT_TYPES = [
   // Technical-assessment path (`FR-023`).
   "assessment_feedback",
   "mermaid_diagram",
+  // Business-requirement path (`FR-020`, `AI §9.1` "Architecture
+  // Recommendation"), rendered from the Stage 6 architecture — D-73. The
+  // path also produces `mermaid_diagram`, the same type the assessment path
+  // renders. `platform_recommendation`, the path's reasoning artifact, stays
+  // an open owner decision (STATUS) and is not declared.
+  "architecture_recommendation",
 ] as const;
 export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
 
@@ -572,15 +578,18 @@ export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
  * artifact of every *other* path — telling a job-description reader that a
  * Mermaid diagram was "omitted", which is true of a question nobody asked.
  *
- * `business_requirement` is empty because its artifacts — business analysis,
- * architecture recommendation, platform comparison, risk assessment,
- * complexity score, diagram — are M-07 work and unbuilt. An empty list plans
- * nothing, which is the honest state.
+ * `business_requirement` lists the two of its `AI §9.1` artifacts that are
+ * pure projections of the Stage 6 architecture (D-73): the architecture
+ * recommendation and the diagram. Business analysis, platform comparison,
+ * risk assessment and complexity score are reasoning work — M-07, and the
+ * `platform_recommendation` decision STATUS records as the owner's — and are
+ * not declared, for the reason given above: a declared type with no
+ * generator would be planned and omitted on every run.
  */
 export const PATH_ARTIFACT_TYPES: Readonly<
   Record<ClassificationType, readonly ArtifactType[]>
 > = {
-  business_requirement: [],
+  business_requirement: ["architecture_recommendation", "mermaid_diagram"],
   existing_workflow: ["workflow_recommendation", "risk_assessment"],
   job_description: [
     "skill_gap_analysis",
@@ -601,6 +610,7 @@ export const IMPLEMENTED_ARTIFACT_TYPES = [
   "risk_assessment",
   "assessment_feedback",
   "mermaid_diagram",
+  "architecture_recommendation",
 ] as const;
 
 /**

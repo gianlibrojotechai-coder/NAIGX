@@ -116,6 +116,7 @@ export const STAGES: readonly StageDefinition[] = [
       "risk_assessment",
       "assessment_feedback",
       "mermaid_diagram",
+      "architecture_recommendation",
       "n8n_workflow",
     ],
   },
@@ -123,7 +124,7 @@ export const STAGES: readonly StageDefinition[] = [
     stageNumber: 10,
     stageKey: "response_validation",
     name: "Response Validation",
-    implemented: false,
+    implemented: true,
     producesArtifactTypes: [],
   },
   {
@@ -137,7 +138,7 @@ export const STAGES: readonly StageDefinition[] = [
     stageNumber: 12,
     stageKey: "response_assembly",
     name: "Response Assembly",
-    implemented: false,
+    implemented: true,
     producesArtifactTypes: [],
   },
 ];
