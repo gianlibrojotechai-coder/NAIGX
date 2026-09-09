@@ -123,4 +123,4 @@ after the motion landed reported, and it is 9/0 again at rest.
 | Axe WCAG 2.1 A/AA over input, sign-in and policy surfaces on the new build | ✅ 9/0 |
 | Rendered against a local replay stack (jd-002): landing, processing, decision summary with build and proof cards, full reasoning fold, sign-in | ✅ screenshots reviewed; two copy defects found and fixed before publication |
 | Motion pass: hero relaid as a two-column grid after the one allowed look showed the card colliding with the headline; frames re-recorded; preview republished with a flipbook of the two moving moments | ✅ |
-| Production deploy | ⏳ awaiting the owner's go on the motion preview |
+| Production deploy | ✅ **2026-09-10, owner's go** — shipped with D-69 (already live) and D-70 as image `d69c2bdaba6b` at `a5377fe`; the served bundle carries the hero, the processing rail and the cyan theme; fonts self-hosted (no CDN request in the served CSS) |
