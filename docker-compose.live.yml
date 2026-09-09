@@ -36,6 +36,10 @@ services:
       PROVIDER_OUTPUT_USD_PER_MTOK: ${NAIGX_PROVIDER_OUTPUT_USD_PER_MTOK:?required for a live instance (SA §3.5, NFR-083)}
       PROVIDER_EFFORT: ${NAIGX_PROVIDER_EFFORT:-medium}
 
+      # FR-094 executor deadline. 180 s is the default; a high-effort model
+      # needs more (D-69). An execution guard, never the latency requirement.
+      NAIGX_ANALYSIS_TIMEOUT_MS: ${NAIGX_ANALYSIS_TIMEOUT_MS:-180000}
+
       # D-67 §2 — owner-only. The allowlist is the owner's account email(s);
       # anonymous submission is refused. Both are REQUIRED here on purpose:
       # `${VAR:?}` makes the deploy fail loudly rather than start open.
