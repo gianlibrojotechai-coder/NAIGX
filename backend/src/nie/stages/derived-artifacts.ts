@@ -33,7 +33,9 @@ import {
   type ArtifactType,
   type ClassificationType,
   type IntentResult,
+  type RecommendationForArtifacts,
   type WorkflowReviewResult,
+  isBuildableKind,
 } from "../contracts.js";
 
 /**
@@ -197,6 +199,104 @@ export const renderAssessmentFeedback = (
     rejection_reason: entry.rejectionReason,
   })),
 });
+
+/**
+ * Skill Gap Analysis — the Stage 7 requirement weighing, as an artifact
+ * ([D-75](../../../../docs/50-D-75-Skill-Gap-Analysis.md)).
+ *
+ * `AI §9.1`: "required skills, gaps, priority; requirements classified
+ * must/nice-have". Stage 7 already produced every part of that — the
+ * requirements with necessity, kind and provenance (`FR-022`), the matches
+ * with the evidence a screener could open, the gaps with priority and why
+ * they matter, and which gaps the verdict turned on. Asking a model to
+ * restate it would cost money to add nothing and could disagree with the
+ * verdict it came from; so it is rendered, and Stage 10 checks it against
+ * the recommendation at validation time.
+ *
+ * The priorities list is the one thing the hierarchy does not lay out: the
+ * gaps in the order to close them — decisive first, then by priority, then
+ * must-have before nice-to-have — so a reader who takes one thing away takes
+ * the right one. Rendered for both verdicts: an `apply_now` analysis with
+ * no gaps says so, which is a finding, not an absence.
+ */
+export const renderSkillGapAnalysis = (
+  recommendation: RecommendationForArtifacts,
+): Record<string, unknown> => {
+  const decisive = new Set(recommendation.verdict.decisiveGaps);
+  const gapsByRequirement = new Map(
+    recommendation.gaps.map((gap) => [gap.requirementId, gap] as const),
+  );
+  const matchesByRequirement = new Map<
+    string,
+    { capability_id: string; strength: string; evidence_ref: string }[]
+  >();
+  for (const match of recommendation.matched) {
+    const list = matchesByRequirement.get(match.requirementId) ?? [];
+    list.push({
+      capability_id: match.capabilityId,
+      strength: match.strength,
+      evidence_ref: match.evidenceRef,
+    });
+    matchesByRequirement.set(match.requirementId, list);
+  }
+
+  const requirements = recommendation.requiredCapabilities.map((req) => {
+    const gap = gapsByRequirement.get(req.id);
+    return {
+      id: req.id,
+      name: req.name,
+      necessity: req.necessity,
+      kind: req.kind,
+      provenance: req.provenance,
+      status: gap === undefined ? "evidenced" : "gap",
+      evidence: matchesByRequirement.get(req.id) ?? [],
+      gap:
+        gap === undefined
+          ? null
+          : {
+              priority: gap.priority,
+              why_it_matters: gap.whyItMatters,
+              decisive: decisive.has(req.id),
+              buildable: isBuildableKind(req.kind),
+            },
+    };
+  });
+
+  const PRIORITY_RANK = { high: 0, medium: 1, low: 2 } as const;
+  const NECESSITY_RANK = { must_have: 0, nice_to_have: 1 } as const;
+  const priorities = requirements
+    .filter((req) => req.gap !== null)
+    .map((req) => ({
+      requirement_id: req.id,
+      name: req.name,
+      necessity: req.necessity,
+      priority: req.gap?.priority ?? "low",
+      decisive: req.gap?.decisive ?? false,
+      buildable: req.gap?.buildable ?? false,
+    }))
+    .sort(
+      (a, b) =>
+        Number(b.decisive) - Number(a.decisive) ||
+        PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] ||
+        NECESSITY_RANK[a.necessity] - NECESSITY_RANK[b.necessity],
+    );
+
+  return {
+    standing: "gap_analysis",
+    decision: recommendation.verdict.decision,
+    requirements,
+    priorities,
+    summary: {
+      requirements: requirements.length,
+      must_have: requirements.filter((r) => r.necessity === "must_have").length,
+      nice_to_have: requirements.filter((r) => r.necessity === "nice_to_have")
+        .length,
+      evidenced: requirements.filter((r) => r.status === "evidenced").length,
+      gaps: priorities.length,
+      decisive_gaps: priorities.filter((p) => p.decisive).length,
+    },
+  };
+};
 
 /**
  * Architecture Recommendation — the requirement path's architecture, as an

@@ -380,6 +380,32 @@ export function checkInternalConsistency(
       }
       break;
     }
+    case "skill_gap_analysis": {
+      const rec = ctx.recommendation;
+      const rendered = asArray(doc["requirements"]);
+      const expected = rec?.requiredCapabilities.length ?? 0;
+      if (rendered.length !== expected)
+        problems.push(
+          `${String(rendered.length)} requirements rendered, ${String(expected)} reasoned`,
+        );
+      const gaps = rendered.filter((r) => asRecord(r)?.["gap"] !== null).length;
+      const expectedGaps = rec?.gaps.length ?? 0;
+      if (gaps !== expectedGaps)
+        problems.push(
+          `${String(gaps)} gaps rendered, ${String(expectedGaps)} reasoned`,
+        );
+      const decisive = rendered.filter(
+        (r) => asRecord(asRecord(r)?.["gap"])?.["decisive"] === true,
+      ).length;
+      const expectedDecisive = rec?.verdict.decisiveGaps.length ?? 0;
+      if (decisive !== expectedDecisive)
+        problems.push(
+          `${String(decisive)} decisive gaps rendered, ${String(expectedDecisive)} in the verdict`,
+        );
+      if (rec !== undefined && doc["decision"] !== rec.verdict.decision)
+        problems.push("decision differs from the verdict");
+      break;
+    }
     case "architecture_recommendation": {
       const components = ctx.architecture?.components ?? [];
       const rendered = asArray(doc["components"]);

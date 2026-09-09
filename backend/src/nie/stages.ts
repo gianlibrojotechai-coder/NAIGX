@@ -111,6 +111,7 @@ export const STAGES: readonly StageDefinition[] = [
     // `FR-039` asks that of a rendered artifact exactly as it does a generated
     // one. Boundary check 5 reads it.
     producesArtifactTypes: [
+      "skill_gap_analysis",
       "portfolio_suggestions",
       "workflow_recommendation",
       "risk_assessment",

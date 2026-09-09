@@ -210,12 +210,32 @@ test("apply_now plans nothing, and says why", () => {
   assert.match(entry?.omissionReason ?? "", /apply_now/);
 });
 
-test("the unimplemented generators are omitted as a decision, not a failure", () => {
+test("the unimplemented generator is omitted as a decision, not a failure", () => {
   const plan = planArtifacts(recommendation());
-  for (const type of ["skill_gap_analysis", "interview_guidance"] as const) {
-    const entry = plan.find((e) => e.artifactType === type);
-    assert.equal(entry?.planned, false);
-    assert.match(entry?.omissionReason ?? "", /No generator/);
+  const entry = plan.find((e) => e.artifactType === "interview_guidance");
+  assert.equal(entry?.planned, false);
+  assert.match(entry?.omissionReason ?? "", /No generator/);
+});
+
+test("the gap analysis is planned whichever way the verdict went (D-75)", () => {
+  for (const decision of ["build_first", "apply_now"] as const) {
+    const plan = planArtifacts(
+      recommendation({
+        verdict: {
+          decision,
+          rationale: "x",
+          decisiveGaps: decision === "build_first" ? ["req-2"] : [],
+          criteriaApplied:
+            "Must-have technical requirements weighted above nice-to-haves; a gap is decisive when nothing in the profile evidences it.",
+          alternatives: [
+            { alternative: "apply now", rejectionReason: "a decisive gap" },
+          ],
+        },
+      }),
+    );
+    const entry = plan.find((e) => e.artifactType === "skill_gap_analysis");
+    assert.equal(entry?.planned, true, decision);
+    assert.match(entry?.inclusionReason ?? "", /Rendered from the Stage 7/);
   }
 });
 
@@ -265,7 +285,13 @@ test("every unplanned entry is outcome `omitted`, keeping its reason", () => {
     }),
   );
 
+  // D-75: the gap analysis is planned on every verdict; the rest are
+  // planned out here, and each of those is final the moment it is written.
   for (const entry of plan) {
+    if (entry.artifactType === "skill_gap_analysis") {
+      assert.equal(entry.planned, true);
+      continue;
+    }
     assert.equal(entry.planned, false);
     assert.equal(entry.outcome, "omitted", entry.artifactType + " is omitted");
     assert.ok(
@@ -295,10 +321,13 @@ test("withOutcome touches only the planned entry it names", () => {
     after.find((e) => e.artifactType === "portfolio_suggestions")?.outcome,
     "failed",
   );
-  for (const entry of after.filter(
-    (e) => e.artifactType !== "portfolio_suggestions",
-  )) {
+  for (const entry of after.filter((e) => !e.planned)) {
     assert.equal(entry.outcome, "omitted", "unplanned entries are untouched");
   }
+  assert.equal(
+    after.find((e) => e.artifactType === "skill_gap_analysis")?.outcome,
+    undefined,
+    "the other planned entry is untouched too (D-75)",
+  );
   assert.notEqual(plan, after, "the Stage 8 plan is not mutated");
 });

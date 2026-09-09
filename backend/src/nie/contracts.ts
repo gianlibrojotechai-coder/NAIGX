@@ -605,6 +605,8 @@ export const PATH_ARTIFACT_TYPES: Readonly<
 export const IMPLEMENTED_ARTIFACT_TYPES = [
   "intent_brief",
   "n8n_workflow",
+  // D-75: rendered from the Stage 7 recommendation.
+  "skill_gap_analysis",
   "portfolio_suggestions",
   "workflow_recommendation",
   "risk_assessment",

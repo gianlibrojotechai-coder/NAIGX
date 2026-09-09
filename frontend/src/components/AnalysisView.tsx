@@ -40,6 +40,7 @@ import {
   asMermaidDiagram,
   asPortfolioSuggestions,
   asRiskAssessment,
+  asSkillGapAnalysis,
   asWorkflowRecommendation,
   type Analysis,
   type ArtifactEntry,
@@ -63,6 +64,7 @@ import { CopyArtifactButton, ExportAnalysisButton } from "./ExportControls";
 import { MermaidDiagramView } from "./MermaidDiagram";
 import { PortfolioSuggestionsView } from "./PortfolioSuggestions";
 import { RiskAssessmentView } from "./RiskAssessment";
+import { SkillGapAnalysisView } from "./SkillGapAnalysis";
 import { WorkflowRecommendationView } from "./WorkflowRecommendation";
 import {
   Badge,
@@ -231,6 +233,14 @@ interface ArtifactPresenter {
 }
 
 const ARTIFACT_PRESENTERS: Readonly<Record<string, ArtifactPresenter>> = {
+  skill_gap_analysis: {
+    title: "Skill gap analysis",
+    subtitle: "Every requirement classified, and the order to close the gaps",
+    render: (content) => {
+      const gaps = asSkillGapAnalysis(content);
+      return gaps === null ? null : <SkillGapAnalysisView analysis={gaps} />;
+    },
+  },
   portfolio_suggestions: {
     title: "Portfolio suggestions",
     subtitle: "What to build to close the decisive gaps",

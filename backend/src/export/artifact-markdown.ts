@@ -412,6 +412,68 @@ const renderAssessmentFeedback = (document: unknown): ArtifactRender => {
   return { lines, rendered: true };
 };
 
+// --- skill_gap_analysis ------------------------------------------------------
+
+/**
+ * The job-description path's gap analysis (D-75). The priorities come first —
+ * the order to close the gaps is the one thing a reader takes away — then
+ * every requirement with its necessity, its evidence or its gap.
+ */
+const renderSkillGapAnalysis = (document: unknown): ArtifactRender => {
+  if (!isRecord(document)) return unrenderable("skill_gap_analysis");
+  if (document.standing !== "gap_analysis") {
+    return unrenderable("skill_gap_analysis");
+  }
+  const requirements = list(document.requirements).filter(isRecord);
+  const priorities = list(document.priorities).filter(isRecord);
+  const summary = isRecord(document.summary) ? document.summary : {};
+  if (requirements.length === 0) return unrenderable("skill_gap_analysis");
+
+  const lines: string[] = [
+    "*The posting's requirements as the verdict weighed them — rendered from the reasoning above, not generated beside it. Each is classified must-have or nice-to-have and is either evidenced by something a screener could open, or a gap with a priority.*",
+    "",
+    `**In numbers.** ${String(int(summary.requirements) ?? requirements.length)} requirements (${String(int(summary.must_have) ?? 0)} must-have, ${String(int(summary.nice_to_have) ?? 0)} nice-to-have); ${String(int(summary.evidenced) ?? 0)} evidenced; ${String(int(summary.gaps) ?? 0)} gaps, of which ${String(int(summary.decisive_gaps) ?? 0)} decided the verdict.`,
+    "",
+    "#### Close these first",
+    "",
+  ];
+  if (priorities.length === 0) {
+    lines.push(
+      "*No gaps. Every requirement is evidenced — there is nothing to close before applying.*",
+      "",
+    );
+  } else {
+    lines.push(
+      "| Order | Requirement | Necessity | Priority | Decisive | A build could close it |",
+      "|---|---|---|---|---|---|",
+    );
+    priorities.forEach((entry, index) => {
+      lines.push(
+        `| ${String(index + 1)} | ${inlineCell(str(entry.name) ?? "—")} | ${humaniseToken(str(entry.necessity))} | ${humaniseToken(str(entry.priority))} | ${entry.decisive === true ? "yes" : "no"} | ${entry.buildable === true ? "yes" : "no"} |`,
+      );
+    });
+    lines.push("");
+  }
+
+  lines.push("#### Every requirement", "");
+  for (const req of requirements) {
+    const gap = isRecord(req.gap) ? req.gap : null;
+    lines.push(
+      `- **${str(req.name) ?? "Unnamed requirement"}** — ${humaniseToken(str(req.necessity))}, ${humaniseToken(str(req.kind))}, ${str(req.provenance) ?? "unknown provenance"}. ${gap === null ? "**Evidenced.**" : `**Gap** (${humaniseToken(str(gap.priority))}${gap.decisive === true ? ", decisive" : ""}): ${str(gap.why_it_matters) ?? "no reason recorded"}`}`,
+    );
+    for (const ev of list(req.evidence).filter(isRecord)) {
+      lines.push(
+        `  - ${humaniseToken(str(ev.strength))} match, \`${str(ev.capability_id) ?? "?"}\` — ${str(ev.evidence_ref) ?? ""}`,
+      );
+    }
+  }
+  lines.push("");
+  return { lines, rendered: true };
+};
+
+const humaniseToken = (token: string | null): string =>
+  token === null ? "—" : token.replace(/_/g, " ");
+
 // --- architecture_recommendation -------------------------------------------
 
 /**
@@ -620,6 +682,7 @@ const RENDERERS: Readonly<
 > = {
   intent_brief: renderIntentBrief,
   n8n_workflow: renderN8nWorkflow,
+  skill_gap_analysis: renderSkillGapAnalysis,
   portfolio_suggestions: renderPortfolioSuggestions,
   workflow_recommendation: renderWorkflowRecommendation,
   risk_assessment: renderRiskAssessment,

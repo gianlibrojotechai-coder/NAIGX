@@ -488,6 +488,62 @@ export const asMermaidDiagram = (content: unknown): MermaidDiagram | null => {
   return candidate as MermaidDiagram;
 };
 
+/** `backend/schemas/skill_gap_analysis.schema.json` (D-75). */
+export interface SkillGapRequirement {
+  readonly id: string;
+  readonly name: string;
+  readonly necessity: "must_have" | "nice_to_have";
+  readonly kind: string;
+  readonly provenance: "stated" | "inferred";
+  readonly status: "evidenced" | "gap";
+  readonly evidence: readonly Match[];
+  readonly gap: {
+    readonly priority: "high" | "medium" | "low";
+    readonly why_it_matters: string;
+    readonly decisive: boolean;
+    readonly buildable: boolean;
+  } | null;
+}
+
+export interface SkillGapAnalysis {
+  readonly standing: "gap_analysis";
+  readonly decision: "apply_now" | "build_first";
+  readonly requirements: readonly SkillGapRequirement[];
+  readonly priorities: readonly {
+    readonly requirement_id: string;
+    readonly name: string;
+    readonly necessity: "must_have" | "nice_to_have";
+    readonly priority: "high" | "medium" | "low";
+    readonly decisive: boolean;
+    readonly buildable: boolean;
+  }[];
+  readonly summary: {
+    readonly requirements: number;
+    readonly must_have: number;
+    readonly nice_to_have: number;
+    readonly evidenced: number;
+    readonly gaps: number;
+    readonly decisive_gaps: number;
+  };
+}
+
+export const asSkillGapAnalysis = (
+  content: unknown,
+): SkillGapAnalysis | null => {
+  if (content === null || typeof content !== "object") return null;
+  const candidate = content as Partial<SkillGapAnalysis>;
+  if (candidate.standing !== "gap_analysis") return null;
+  if (
+    !Array.isArray(candidate.requirements) ||
+    candidate.requirements.length === 0
+  )
+    return null;
+  if (!Array.isArray(candidate.priorities)) return null;
+  if (candidate.summary === undefined || typeof candidate.summary !== "object")
+    return null;
+  return candidate as SkillGapAnalysis;
+};
+
 /** `backend/schemas/architecture_recommendation.schema.json` (D-73). */
 export interface RecommendedComponent {
   readonly ordinal: number;

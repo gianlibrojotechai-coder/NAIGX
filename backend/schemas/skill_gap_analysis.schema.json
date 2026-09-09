@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://naigx/schemas/skill_gap_analysis.schema.json",
+  "title": "Skill Gap Analysis",
+  "description": "D-75: the job-description path's FR-022 artifact (AI §9.1 'Skill Gap Analysis — required skills, gaps, priority; requirements classified must/nice-have'), rendered deterministically from the Stage 7 recommendation — the same requirements, matches and gaps the reasoning hierarchy shows, projected into one document a reader keeps, exports and cites. Every requirement carries its necessity (the AI §9.1 validation rule), its provenance and kind, and is either evidenced (with the evidence a screener could open) or a gap (with priority, why it matters, and whether the verdict turned on it). The priorities list orders the gaps the way a reader should close them: decisive first, then by priority. Repository-authored per docs/12 D-1, published to ARTIFACT_SCHEMA.",
+  "type": "object",
+  "required": ["standing", "decision", "requirements", "priorities", "summary"],
+  "properties": {
+    "standing": {
+      "const": "gap_analysis",
+      "description": "What this document is: the requirements as weighed by the verdict, not the verdict itself and not a project plan."
+    },
+    "decision": { "enum": ["apply_now", "build_first"] },
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "necessity", "kind", "provenance", "status", "evidence", "gap"],
+        "properties": {
+          "id": { "$ref": "#/$defs/nonEmptyString" },
+          "name": { "$ref": "#/$defs/nonEmptyString" },
+          "necessity": { "enum": ["must_have", "nice_to_have"] },
+          "kind": { "enum": ["technical", "domain_experience", "track_record", "disposition"] },
+          "provenance": { "enum": ["stated", "inferred"] },
+          "status": { "enum": ["evidenced", "gap"] },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["capability_id", "strength", "evidence_ref"],
+              "properties": {
+                "capability_id": { "$ref": "#/$defs/nonEmptyString" },
+                "strength": { "enum": ["strong", "partial"] },
+                "evidence_ref": { "$ref": "#/$defs/nonEmptyString" }
+              }
+            }
+          },
+          "gap": {
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "required": ["priority", "why_it_matters", "decisive", "buildable"],
+                "properties": {
+                  "priority": { "enum": ["high", "medium", "low"] },
+                  "why_it_matters": { "$ref": "#/$defs/nonEmptyString" },
+                  "decisive": { "type": "boolean" },
+                  "buildable": {
+                    "type": "boolean",
+                    "description": "Whether a build could close it — true only for a technical requirement (docs/12 D-28)."
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "priorities": {
+      "type": "array",
+      "description": "The gaps, in the order to close them: decisive first, then high → medium → low, then must-have before nice-to-have.",
+      "items": {
+        "type": "object",
+        "required": ["requirement_id", "name", "necessity", "priority", "decisive", "buildable"],
+        "properties": {
+          "requirement_id": { "$ref": "#/$defs/nonEmptyString" },
+          "name": { "$ref": "#/$defs/nonEmptyString" },
+          "necessity": { "enum": ["must_have", "nice_to_have"] },
+          "priority": { "enum": ["high", "medium", "low"] },
+          "decisive": { "type": "boolean" },
+          "buildable": { "type": "boolean" }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["requirements", "must_have", "nice_to_have", "evidenced", "gaps", "decisive_gaps"],
+      "properties": {
+        "requirements": { "type": "integer", "minimum": 1 },
+        "must_have": { "type": "integer", "minimum": 0 },
+        "nice_to_have": { "type": "integer", "minimum": 0 },
+        "evidenced": { "type": "integer", "minimum": 0 },
+        "gaps": { "type": "integer", "minimum": 0 },
+        "decisive_gaps": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1, "pattern": "\\S" }
+  }
+}

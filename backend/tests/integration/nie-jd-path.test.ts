@@ -669,7 +669,7 @@ test("a project citing a gap outside the eligible set fails the artifact", async
   );
 });
 
-test("apply_now plans no artifact and never reaches Stage 9", async () => {
+test("apply_now plans no generated artifact; Stage 9 still renders the gap analysis (D-75)", async () => {
   const { result, traces } = await harness({
     recommendation: JSON.stringify({
       required_capabilities: [
@@ -713,8 +713,17 @@ test("apply_now plans no artifact and never reaches Stage 9", async () => {
   assert.equal(result.portfolioSuggestions, undefined);
   assert.deepEqual(
     traces.map((t) => t.stageNumber),
-    [1, 2, 3, 5, 7, 8, 10, 12],
-    "no Stage 9 trace, because no Stage 9 call was made",
+    [1, 2, 3, 5, 7, 8, 9, 10, 12],
+    "Stage 9 is traced for the rendered gap analysis, with no provider call",
+  );
+  const gap = (result.artifactPlan ?? []).find(
+    (e) => e.artifactType === "skill_gap_analysis",
+  );
+  assert.equal(gap?.planned, true);
+  assert.equal(
+    gap?.outcome,
+    "generated",
+    "the gap analysis is rendered on apply_now too",
   );
   const entry = (result.artifactPlan ?? []).find(
     (e) => e.artifactType === "portfolio_suggestions",
@@ -1086,6 +1095,9 @@ test("the run narrates itself in the order API §7.4 specifies", async () => {
       "understanding",
       "reasoning_complete",
       "plan",
+      "artifact",
+      // D-75: the gap analysis lands right after the portfolio, from the
+      // same Stage 9 trace.
       "artifact",
       // D-71: the n8n workflow is planned once the portfolio exists — an
       // omission here, announced as a plan event like any other decision.

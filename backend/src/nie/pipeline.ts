@@ -102,6 +102,7 @@ import {
   renderIntentBrief,
   renderArchitectureRecommendation,
   renderAssessmentFeedback,
+  renderSkillGapAnalysis,
   renderMermaidDiagram,
   renderRiskAssessment,
   renderWorkflowRecommendation,
@@ -1299,15 +1300,39 @@ export function createPipeline(deps: PipelineDependencies) {
         artifactPlan,
       );
 
+      // D-75 — the gap analysis is rendered from the recommendation on every
+      // run that reaches here. Its renderer is registered once; which Stage 9
+      // trace it is attributed to depends on whether the portfolio generator
+      // runs (below), so a stage still has exactly one trace (`AP-8`).
+      const gapPlan = artifactPlan.filter(
+        (e) => e.artifactType === "skill_gap_analysis",
+      );
+      const gapRenderers = {
+        skill_gap_analysis: () => renderSkillGapAnalysis(recommendation),
+      };
+      const withoutGap = (
+        entries: readonly ArtifactPlanEntry[],
+        rendered: readonly ArtifactPlanEntry[],
+      ): readonly ArtifactPlanEntry[] =>
+        entries.map(
+          (e) => rendered.find((r) => r.artifactType === e.artifactType) ?? e,
+        );
+
       if (!isPlanned(artifactPlan, "portfolio_suggestions")) {
         // Planned out, with the reason already on the entry. Not a halt: the
-        // run completed everything its path defines.
+        // run completed everything its path defines — including, since D-75,
+        // the gap analysis, which an apply_now verdict still has to show.
+        const gapEntries = await emitDerivedArtifacts(
+          input,
+          gapPlan,
+          gapRenderers,
+        );
         return {
           classification,
           intent,
           context,
           recommendation,
-          artifactPlan: withBrief(artifactPlan),
+          artifactPlan: withBrief(withoutGap(artifactPlan, gapEntries)),
         };
       }
 
@@ -1463,6 +1488,15 @@ export function createPipeline(deps: PipelineDependencies) {
         regenerationTriggered: portfolioAttempts > 1,
       });
 
+      // D-75 — the gap analysis, attributed to the same Stage 9 trace as the
+      // portfolio and announced right after it, before the n8n decision.
+      const gapEntries = await emitDerivedArtifacts(
+        input,
+        gapPlan,
+        gapRenderers,
+        portfolioTraceId === null ? {} : { traceId: portfolioTraceId },
+      );
+
       // D-71 — the n8n import file, rendered from the portfolio's
       // implementation plan. Planned here, at Stage 9, when the plan exists
       // (like the brief at Stage 2): a decision either way, so an analysis
@@ -1494,7 +1528,10 @@ export function createPipeline(deps: PipelineDependencies) {
         context,
         recommendation,
         artifactPlan: withBrief([
-          ...withOutcome(artifactPlan, "portfolio_suggestions", outcome),
+          ...withoutGap(
+            withOutcome(artifactPlan, "portfolio_suggestions", outcome),
+            gapEntries,
+          ),
           ...n8nEntries,
         ]),
         ...(portfolioSuggestions !== undefined ? { portfolioSuggestions } : {}),

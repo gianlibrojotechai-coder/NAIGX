@@ -96,8 +96,24 @@ export function planArtifacts(
         depthLevel: "standard",
         outcome: "omitted",
         omissionReason:
-          "No generator for this artifact type yet; Phase 3A implements " +
-          "portfolio_suggestions only (docs/12 D-29). Omitted by decision, not failure.",
+          "No generator for this artifact type yet (docs/12 D-29; " +
+          "skill_gap_analysis is rendered since D-75, portfolio_suggestions " +
+          "generated since Phase 3A). Omitted by decision, not failure.",
+      };
+    }
+
+    // D-75 — the gap analysis is a projection of the recommendation itself,
+    // so it is planned whenever Stage 7 produced one, whichever way the
+    // verdict went: an apply_now analysis with no gaps says so, which is a
+    // finding rather than an absence.
+    if (artifactType === "skill_gap_analysis") {
+      return {
+        artifactType,
+        planned: true,
+        depthLevel: "standard",
+        inclusionReason:
+          `Rendered from the Stage 7 recommendation: ${String(recommendation.requiredCapabilities.length)} requirement(s), ` +
+          `${String(recommendation.gaps.length)} gap(s), ${String(recommendation.verdict.decisiveGaps.length)} decisive (D-75).`,
       };
     }
 
