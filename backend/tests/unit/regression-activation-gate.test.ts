@@ -308,12 +308,15 @@ const exercisingRun = async (
 };
 
 /**
- * Every case a foundation fragment composes into — all **fourteen** recorded.
+ * Every case a foundation fragment composes into — all **fifteen** recorded.
  *
- * ⚠️ `ew-001` was admitted 2026-09-09, which is why this is 14. A foundation
- * fragment composes into every recording, so admitting one widens what any
- * reference must cover to stay sufficient — that is the gate working, and it
- * is exactly why admission is a decision rather than a filing step.
+ * ⚠️ `br-006` and `br-008` are absent because they were WITHDRAWN on
+ * 2026-09-09: their compositions were stale against the candidate and neither
+ * could be re-captured. They are unrecorded now, so they leave every covered
+ * set rather than blocking it — see research/regression-withdrawn/.
+ *
+ * A foundation fragment composes into every recording, so admitting one widens
+ * what any reference must cover to stay sufficient. That is the gate working.
  */
 const ALL_RECORDED = [
   "br-001",
@@ -321,13 +324,14 @@ const ALL_RECORDED = [
   "br-003",
   "br-004",
   "br-005",
-  "br-006",
   "br-007",
-  "br-008",
   "br-009",
   "br-010",
   "br-011",
   "ew-001",
+  "jd-002",
+  "jd-008",
+  "ta-005",
   "un-001",
   "un-002",
 ];

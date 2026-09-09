@@ -62,43 +62,57 @@ test("every committed recording produces a packet", () => {
 
   assert.equal(
     packets.length,
-    14,
-    "the fourteen committed recordings are the whole available sample",
+    15,
+    "the fifteen committed recordings are the whole available sample",
   );
   assert.equal(
     new Set(packets.map((p) => p.reviewerId)).size,
-    14,
+    15,
     "identifiers are unique, or two analyses share a review record",
   );
 });
 
-test("the sample covers business_requirement, unsupported and existing_workflow", () => {
-  // Stated as a test so a later capture that widens the corpus fails here and
-  // forces the M-11 non-claim to be revisited deliberately.
-  //
-  // ⚠️ IT DID EXACTLY THAT ON 2026-09-09, and this is the deliberate revision.
-  // Admitting `ew-001` added the first `existing_workflow` recording, so the
-  // sample is no longer business-requirement-plus-unsupported.
-  //
-  // ⚠️ WHAT THIS DOES **NOT** LICENCE. One recording is not a vertical. The
-  // `existing_workflow` path is represented by a single case, so nothing here
-  // supports an M-11 claim about that path — and `technical_assessment` still
-  // has no recording at all (`ta-001`'s capture failed and was never retried).
-  // Widening the sample widens what may be *reviewed*, never what may be
-  // *concluded*.
+test("the sample now covers all five input types — and still evidences one", () => {
+  // Stated as a test so a capture that widens the corpus fails here and forces
+  // the M-11 non-claim to be revisited deliberately. It has now fired twice:
+  // once when `ew-001` was admitted, and again on 2026-09-09 when `ta-005`,
+  // `jd-002` and `jd-008` were.
   const { inputs } = packetInputs();
-  const types = new Set(inputs.map((i) => i.corpusCase.inputType));
+  const byType = new Map<string, number>();
+  for (const i of inputs) {
+    byType.set(
+      i.corpusCase.inputType,
+      (byType.get(i.corpusCase.inputType) ?? 0) + 1,
+    );
+  }
 
   assert.deepEqual(
-    [...types].sort(),
-    ["business_requirement", "existing_workflow", "unsupported"],
-    "these packets are still not evidence for technical_assessment or job_description",
+    [...byType.keys()].sort(),
+    [
+      "business_requirement",
+      "existing_workflow",
+      "job_description",
+      "technical_assessment",
+      "unsupported",
+    ],
+    "every FR-011 terminal type except none is now represented",
   );
 
-  assert.equal(
-    inputs.filter((i) => i.corpusCase.inputType === "existing_workflow").length,
-    1,
-    "a single existing_workflow recording — a sample of one, not a vertical",
+  // ⚠️ WHAT THIS DOES **NOT** LICENCE, AND THE NUMBERS ARE THE ARGUMENT.
+  // Breadth is not depth. Four of the five types are represented by one or two
+  // recordings, and `docs/10` §4 wants ≥20 analyses per input type before a
+  // rate is claimed. Widening the sample widens what may be *reviewed*, never
+  // what may be *concluded*.
+  assert.deepEqual(
+    [...byType.entries()].sort().map(([t, n]) => `${t}=${String(n)}`),
+    [
+      "business_requirement=9",
+      "existing_workflow=1",
+      "job_description=2",
+      "technical_assessment=1",
+      "unsupported=2",
+    ],
+    "a sample of one or two per path supports no M-11 claim about that path",
   );
 });
 
@@ -182,7 +196,7 @@ test("the unblinding index holds what the packets withhold", () => {
   };
 
   assert.match(parsed.warning, /DO NOT OPEN BEFORE REVIEWING/);
-  assert.equal(parsed.packets.length, 14);
+  assert.equal(parsed.packets.length, 15);
   assert.ok(
     parsed.packets.every(
       (p) => p.caseId !== "" && p.fragmentsManifestVersion !== null,
@@ -297,9 +311,26 @@ test("the historical br/unsupported recordings still mark C-3 and C-6 not assess
   // Derived, not assumed — and for these recordings the derivation must reach
   // the same answer the old hard-coding did, or the fix would have changed
   // what the committed evidence says.
+  //
+  // ⚠️ SCOPED TO THE CASES THIS TEST NAMES. Since the 2026-09-09 admission the
+  // sample also holds `jd-002` and `jd-008`, which reach Stage 7 and therefore
+  // DO carry artifact-plan and `FR-034` material — so C-3 and C-6 are genuinely
+  // assessable for them. That is the derivation working, and the sibling test
+  // "a JD recording reaching Stage 7 … is not pre-marked" asserts it. Looping
+  // over every input here would assert the opposite of that.
   const { inputs } = packetInputs();
+  const withoutStage7 = inputs.filter(
+    (i) =>
+      !i.recording.stages.some(
+        (s) => s.stageKey === "recommendation_generation",
+      ),
+  );
+  assert.ok(
+    withoutStage7.length > 0,
+    "the br/un/ew recordings are the subject",
+  );
 
-  for (const input of inputs) {
+  for (const input of withoutStage7) {
     const state = assessabilityOf(input.recording);
     assert.equal(state["C-3"]?.assessable, false, input.corpusCase.caseId);
     assert.equal(state["C-6"]?.assessable, false, input.corpusCase.caseId);
@@ -526,7 +557,9 @@ test("the index reports coverage without judging it", () => {
   );
   const index = buildIndex(packets, stages);
 
-  assert.match(index, /\*\*business_requirement\*\*: 11/);
+  // 9, not 11: `br-006` and `br-008` were withdrawn on 2026-09-09 because their
+  // compositions were stale against the candidate — research/regression-withdrawn/.
+  assert.match(index, /\*\*business_requirement\*\*: 9/);
   assert.match(index, /\*\*unsupported\*\*: 2/);
   assert.match(index, /≥20 analyses per input type/);
   assert.match(index, /no packet in this bundle can be recorded as a/);

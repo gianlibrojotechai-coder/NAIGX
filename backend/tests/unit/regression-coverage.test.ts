@@ -51,16 +51,16 @@ const coverageFor = (fragmentKey: string) =>
     resolver,
   });
 
-// The 14 committed recordings: 11 `br-*`, 2 `un-*` and `ew-001`. `br-005` halts
-// at Stage 3 (`AI §5.4` insufficiency) and the `un-*` cases decline at Stage 1
-// (`FR-092`), so the three of them compose fewer stages than the rest.
+// The 15 committed recordings after the 2026-09-09 admission: 9 `br-*`,
+// 2 `un-*`, `ew-001`, `ta-005`, `jd-002` and `jd-008`. `br-005` halts at
+// Stage 3 (`AI §5.4`) and the `un-*` cases decline at Stage 1 (`FR-092`), so
+// those three compose fewer stages than the rest.
 //
-// ⚠️ `ew-001` was ADMITTED 2026-09-09 and is why this is 14 rather than 13. It
-// is an `existing_workflow` case, so Stage 6 routes it to `workflow_review` and
-// **not** to architecture design (`FR-021` via `AI §7.1`, D-40) — which is why
-// it raises the foundation counts but not `ARCHITECTURE_CASES`.
-const RECORDED = 14;
-const ARCHITECTURE_CASES = 10; // every `br-*` except br-005
+// ⚠️ 9 br-* rather than 11: `br-006` and `br-008` were WITHDRAWN, their
+// compositions being stale against the candidate and not re-capturable. They
+// are unrecorded now, not uncovered — see research/regression-withdrawn/.
+const RECORDED = 15;
+const ARCHITECTURE_CASES = 9; // every recorded `br-*` except br-005
 
 // --- a fragment every composition includes -------------------------------
 
@@ -88,6 +88,9 @@ test("a stage fragment covers only the cases that reached that stage", async () 
     // Stage 6 sends an existing_workflow case to workflow_review, never to
     // architecture design (D-40). Its absence here is the routing, not a gap.
     "ew-001",
+    // The job-description path produces no architecture at all (AI §9.1).
+    "jd-002",
+    "jd-008",
     "un-001",
     "un-002",
   ]);
@@ -101,13 +104,14 @@ test("a stage fragment covers only the cases that reached that stage", async () 
 test("a type modifier covers only its own path", async () => {
   const coverage = await coverageFor("type.business_requirement");
 
-  assert.equal(coverage.coveredCaseIds.length, 11);
+  assert.equal(coverage.coveredCaseIds.length, 9);
   assert.deepEqual(
     coverage.uncoveredCaseIds,
-    // ⚠️ `ew-001` composes `type.workflow` instead — which is precisely what
+    // ⚠️ Each of these composes its OWN type modifier — `type.workflow`,
+    // `type.job_description`, `type.assessment` — which is precisely what
     // "only its own path" means. `un-*` decline at Stage 1 (`FR-092`), so no
     // type modifier is ever composed for them.
-    ["ew-001", "un-001", "un-002"],
+    ["ew-001", "jd-002", "jd-008", "ta-005", "un-001", "un-002"],
     "a type modifier covers its own type's cases and no others",
   );
 });
@@ -132,13 +136,19 @@ test("a fragment no case composes covers nothing, and says so", async () => {
 test("coverage reflects the composed set, not assumed path membership", async () => {
   const coverage = await coverageFor("type.job_description");
 
-  // Every `jd-*` case is in the corpus and would compose this fragment — but
-  // none has a recording, so none has a composition to inspect. Guessing from
-  // `expected_classification` would report ten covered cases on no evidence.
-  assert.equal(coverage.coveredCaseIds.length, 0);
+  // ⚠️ TEN `jd-*` cases are in the corpus and every one would compose this
+  // fragment — but only TWO have recordings, so only two have a composition to
+  // inspect. Guessing from `expected_classification` would report ten covered
+  // cases on the evidence of two.
+  assert.deepEqual(
+    coverage.coveredCaseIds,
+    ["jd-002", "jd-008"],
+    "covered means recorded and composed, never merely the right input type",
+  );
   assert.ok(
-    coverage.unrecordedCaseIds.some((id) => id.startsWith("jd-")),
-    "the jd cases are undetermined, not covered",
+    coverage.unrecordedCaseIds.filter((id) => id.startsWith("jd-")).length ===
+      8,
+    "the other eight jd cases are undetermined, not covered and not uncovered",
   );
 
   const architecture = await coverageFor("stage.architecture_analysis");
