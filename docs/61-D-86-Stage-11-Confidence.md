@@ -61,7 +61,7 @@ D-31 decision 6 requires the weights and thresholds to be calibrated against the
 | `confidence_band` evaluated by the runner and the capture, advisory; a mismatch is reported and does not fail the case; a halted synthetic case expects `low`; every trace pin gains Stage 11 | ✅ `tests/integration/regression-runner.test.ts` (+1), pins updated deliberately |
 | Full suite, lint, format, typecheck, build | ✅ 2026-09-10 — 1118 tests, 1114 pass, 0 fail, 4 skipped |
 | Fifteen-case gate with `confidence_band` evaluated | ✅ 15 passed, two advisory mismatches printed (`br-004`, `jd-002`) → `efa67a16d03574d1` (no fragment changed, so no activation rests on it) |
-| Production | ⏳ |
+| Production | ✅ **Deployed, 2026-09-10:** image `2e47ffbbea36` at `dfb9693` (rollback tag `rollback-8afa2bc`, the D-84 image), the `analysis.overall_confidence_factors` migration applied by the `migrate` service, no schema or fragment change, live mode unchanged; health 200, the live bundle carries the confidence table. ⏳ **Live verification owed** with D-80 through D-85 (docs/59 §5): one billed requirement run after the day cap resets at 00:00 UTC, checked for a band with seven factors on the analysis |
 
 ## 6. Minimum authoritative amendments to ratify
 
