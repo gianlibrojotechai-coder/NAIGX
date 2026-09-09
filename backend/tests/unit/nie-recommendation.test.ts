@@ -289,6 +289,86 @@ test("a match citing an evidence locator the capability does not have is rejecte
   );
 });
 
+/**
+ * ⚠️ THE TWO FAILURE MODES THAT COST THREE PAID JOB-DESCRIPTION CAPTURES.
+ *
+ * Both are subtler than the foreign-URL case above: each cites a string that
+ * really does appear in the profile, or really is a prefix of one, so a check
+ * looser than exact equality against *that capability's* locators would let
+ * them through. The prompt was tightened for these; these keep the validator
+ * honest whatever the prompt says.
+ */
+test("a match BORROWING a real locator from another capability is rejected", () => {
+  // jd-001's shape: `https://example.invalid/notes.md` is a genuine declared
+  // locator — on cap-002, not on the cap-001 this match names.
+  assert.throws(
+    () =>
+      parse(
+        body({
+          matched: [
+            {
+              requirement_id: "req-1",
+              capability_id: "cap-001",
+              strength: "strong",
+              evidence_ref: "https://example.invalid/notes.md",
+            },
+          ],
+        }),
+      ),
+    (error: unknown) =>
+      error instanceof RecommendationGroundingError &&
+      /is not a locator on capability/.test(error.message),
+  );
+});
+
+test("a match ADDING an anchor to a declared locator is rejected", () => {
+  // jd-002's shape: the locator is real and the file exists; the fragment was
+  // invented. `#business-logic` on a README that declares `#workflow-breakdown`
+  // is a citation a reader cannot open, which is what the rule protects.
+  assert.throws(
+    () =>
+      parse(
+        body({
+          matched: [
+            {
+              requirement_id: "req-1",
+              capability_id: "cap-001",
+              strength: "strong",
+              evidence_ref:
+                "https://example.invalid/lead-routing.json#error-branch",
+            },
+          ],
+        }),
+      ),
+    (error: unknown) =>
+      error instanceof RecommendationGroundingError &&
+      /is not a locator on capability/.test(error.message),
+  );
+});
+
+test("the exact declared locator is accepted — the rule is not simply strict", () => {
+  // Without this the two rejections above would also pass against a validator
+  // that refused everything.
+  const result = parse(
+    body({
+      matched: [
+        {
+          requirement_id: "req-1",
+          capability_id: "cap-001",
+          strength: "strong",
+          evidence_ref: "https://example.invalid/lead-routing.json",
+        },
+      ],
+      gaps: [],
+    }),
+  );
+
+  assert.equal(
+    result.matched[0]?.evidenceRef,
+    "https://example.invalid/lead-routing.json",
+  );
+});
+
 test("a match or gap naming an unknown requirement is rejected", () => {
   for (const overrides of [
     {

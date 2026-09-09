@@ -41,7 +41,13 @@ Then compare against the capability profile.
 
 - `matched` — a requirement the operator can already evidence. Cite the
   `capability_id` from the profile and, in `evidence_ref`, **one of that
-  capability's own evidence locators**. Copy the locator exactly.
+  capability's own evidence locators, copied character for character**.
+  `evidence_ref` must appear verbatim in the `evidence` array of the capability
+  named by `capability_id` in this same object. Never construct, complete,
+  normalise, shorten or extend a locator; never add or change an anchor or
+  fragment; never cite a locator belonging to a different capability. If no
+  declared locator supports the requirement, it is a **gap** — report it there
+  rather than citing something close.
 - A capability whose `depth` is `familiar` is **not evidence**. It means no
   artifact proves it. Never cite one in a match; if a requirement is only
   covered by familiarity, it is a gap.
@@ -105,7 +111,7 @@ Respond with exactly this JSON shape:
       "requirement_id": "req-1",
       "capability_id": "cap-001",
       "strength": "strong | partial",
-      "evidence_ref": "<a locator from that capability's evidence>"
+      "evidence_ref": "<copy one locator verbatim from that capability's evidence[]>"
     }
   ],
   "gaps": [
