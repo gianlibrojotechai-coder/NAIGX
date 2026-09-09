@@ -70,6 +70,8 @@ export interface AnalysisRunnerDependencies {
   readonly onError?: (error: unknown) => void;
   /** Receives progress events (`FR-041`). Absent means nothing is watching. */
   readonly eventSink?: AnalysisEventSink;
+  /** `FR-094` deadline override; absent means the executor's default (D-65). */
+  readonly analysisTimeoutMs?: number;
 }
 
 export interface AnalysisRunner {
@@ -175,6 +177,9 @@ export async function createAnalysisRunner(
     runPipeline: (input) => pipeline.run(input),
     ...(deps.onError !== undefined ? { onError: deps.onError } : {}),
     ...(deps.eventSink !== undefined ? { eventSink: deps.eventSink } : {}),
+    ...(deps.analysisTimeoutMs !== undefined
+      ? { timeoutMs: deps.analysisTimeoutMs }
+      : {}),
   });
 
   return {

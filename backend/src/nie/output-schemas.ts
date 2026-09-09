@@ -71,13 +71,18 @@ const array = (items: OutputSchema): OutputSchema => ({
   items,
 });
 
-/** An object in which every property is required and nothing else is allowed. */
+/**
+ * An object in which every property is required — except those named in
+ * `optional`, which the model may omit — and nothing else is allowed. The
+ * dialect permits properties outside `required` (verified 2026-09-09).
+ */
 const object = (
   properties: Readonly<Record<string, OutputSchema>>,
+  optional: readonly string[] = [],
 ): OutputSchema => ({
   type: "object",
   properties,
-  required: Object.keys(properties),
+  required: Object.keys(properties).filter((k) => !optional.includes(k)),
   additionalProperties: false,
 });
 
@@ -199,39 +204,45 @@ const recommendationGeneration = object({
 
 /**
  * Derived from `schemas/portfolio_suggestions.schema.json`, which stays the
- * validation authority. `why_not_consolidated` is always required here —
- * the published schema requires it only for single-gap projects and accepts
- * it otherwise, so asking for it every time is the honest superset.
+ * validation authority. `why_not_consolidated` is **optional** here, exactly
+ * as the published schema has it: required only for a single-gap project,
+ * which the parser enforces, and rejected when present-but-empty, which the
+ * published schema enforces. ⚠️ The first live Sonnet 5 run showed why it
+ * cannot be required: asked for it on a multi-gap project, the model wrote
+ * `""`, and the published schema correctly refused it.
  */
 const portfolioSuggestions = object({
   projects: array(
-    object({
-      rank: integer,
-      name: string,
-      complexity: enumOf(PORTFOLIO_COMPLEXITY),
-      primary_gaps: array(string),
-      secondary_capabilities: array(string),
-      why_this_project: string,
-      business_problem: string,
-      what_to_build: string,
-      workflow: array(string),
-      platforms: array(string),
-      technical_concepts: array(string),
-      evidence_to_produce: array(
-        object({
-          type: enumOf(PORTFOLIO_EVIDENCE_TYPES),
-          what_it_shows: string,
+    object(
+      {
+        rank: integer,
+        name: string,
+        complexity: enumOf(PORTFOLIO_COMPLEXITY),
+        primary_gaps: array(string),
+        secondary_capabilities: array(string),
+        why_this_project: string,
+        business_problem: string,
+        what_to_build: string,
+        workflow: array(string),
+        platforms: array(string),
+        technical_concepts: array(string),
+        evidence_to_produce: array(
+          object({
+            type: enumOf(PORTFOLIO_EVIDENCE_TYPES),
+            what_it_shows: string,
+          }),
+        ),
+        why_not_consolidated: string,
+        reusability: object({
+          provenance: { const: "inferred" },
+          basis: string,
+          claim: string,
         }),
-      ),
-      why_not_consolidated: string,
-      reusability: object({
-        provenance: { const: "inferred" },
-        basis: string,
-        claim: string,
-      }),
-      estimated_effort: enumOf(BUILD_EFFORT),
-      portfolio_value: string,
-    }),
+        estimated_effort: enumOf(BUILD_EFFORT),
+        portfolio_value: string,
+      },
+      ["why_not_consolidated"],
+    ),
   ),
   consolidation_rationale: string,
 });

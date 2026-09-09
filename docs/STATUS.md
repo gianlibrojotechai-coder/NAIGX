@@ -351,9 +351,22 @@ That is the honest summary of the exercise: it found something real, and it demo
 
 ---
 
-## Sonnet 5 Pilot — Attempted and Rejected, 2026-09-08
+## Sonnet 5 Pilot — Attempted and Rejected, 2026-09-08 — ⚠️ SUPERSEDED BY D-65, 2026-09-09
 
-**`claude-sonnet-5` was evaluated as a replacement provider model and REJECTED. The configured model remains `claude-sonnet-4-5`.** All pilot code was reverted; nothing below changed the shipped configuration.
+> **The rejection below is superseded.** On the owner's instruction the live
+> provider model is now **`claude-sonnet-5`**, and the pilot's blocker was
+> fixed at its cause rather than worked around: [D-65](40-D-65-Structured-Outputs-And-Sonnet-5.md)
+> sends each stage's output schema as `output_config.format`, keeps
+> `temperature` off the 5-generation with the `AI §10.2` degradation recorded,
+> and steers thinking with `PROVIDER_EFFORT`. Re-verified live on the new,
+> owner-confirmed account (organisation `50a4c891-…`): all four paths
+> completed on the compiled application, including **jd-002 through Stage 9
+> with a schema-valid artifact on the first generation**, at $0.06–$0.15 per
+> analysis. Two things were found and fixed on the way (D-65 §7.2). The
+> pilot's facts stand as history; its verdict does not. **Production remains
+> in replay mode with no provider credentials.**
+
+**`claude-sonnet-5` was evaluated as a replacement provider model and REJECTED on 2026-09-08. The configured model remained `claude-sonnet-4-5` until D-65.** All pilot code was reverted; nothing below changed the shipped configuration at the time.
 
 | | |
 |---|---|

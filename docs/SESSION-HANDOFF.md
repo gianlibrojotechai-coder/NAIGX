@@ -1,6 +1,6 @@
 # NAIGX — Session Handoff
 
-**Written:** 2026-09-08 · **Last updated:** 2026-09-09 (M-20 measured LIVE and NOT MET; provider credits exhausted mid-sample; `NFR-021` confirmed absent on the VPS)
+**Written:** 2026-09-08 · **Last updated:** 2026-09-09 (D-65: Sonnet 5 with structured outputs, verified live on the new account across all four paths; M-20 measured and NOT MET; `NFR-021` absent on the VPS)
 **Purpose:** hand a new chat session everything it needs to continue building NAIGX without re-deriving context or re-litigating settled decisions.
 
 > **Read this first, then `docs/STATUS.md`.** STATUS.md is the authoritative current-state record. This file covers the most recent working sessions, and the exact next step.
@@ -140,7 +140,7 @@ These are the defects that *passed every test* before being caught. They are the
 - **A schema-compatibility check cannot see a DATA-FORMAT change, and `SA §9.3` only asks for the former** (D-57). The pre-encryption build started against the current schema, passed its health check, and served every user a base64 envelope where their document should be — **without erroring**, because the Phase 3 migration was perfectly additive and the schema rolled back fine. ⚠️ **Fixed in Phase 4a:** the sealed columns were renamed so old builds get `42703 undefined_column` instead of ciphertext, and a `data_format` version now refuses startup when the data is newer than the build. The general lesson stands — **when the meaning of stored bytes changes, rename the column**; a purely additive migration is exactly what makes the misread silent.
 - **`set -euo pipefail` kills a script inside a command substitution BEFORE it can print its own diagnostic.** Two defects in `restore-drill.sh` had this shape — the primary-only-backup case exited 2 with no output at all, on exactly the failure it was written to report clearly. Add `|| true` to any substitution whose failure you intend to *handle*.
 - **A benchmark against an endpoint you are not authorised for measures the 401.** `GET /analyses` requires a user, so an unauthenticated request is rejected **before reaching the query** — the first version of `bench.ts` printed confident sub-millisecond numbers for history search that measured the authorization rejection, not the decrypt path. It looked entirely plausible. ⚠️ **Check the status code a measured request actually returns before believing its timing.**
-- **⚠️ `claude-sonnet-5` WAS TRIED AND REJECTED — do not retry it without reading the finding first.** 3 live runs, $0.2122, **0 of 3 completed, 3 of 3 failed schema validation**, each at a different point. The decisive result: **the same input run twice failed at the same stage with two different errors.** Sonnet 5 removed sampling parameters, so `temperature: 0` cannot be sent and `AI §10.2`'s low-variance degradation applies to every call — `FR-024` reproducibility loss, measured rather than predicted. **Cost was not the problem** (output tokens were flat or lower than Sonnet 4.5; ~$0.23 projected per complete analysis). ⚠️ **The comparison is uncontrolled** — Sonnet 4.5 was never given the same inputs, so "Sonnet 5 is worse at schema conformance" is *not* claimed. Full record: `STATUS.md` → *Sonnet 5 Pilot — Attempted and Rejected*. The indicated lever is `output_config.format` (structured outputs), **not adopted**.
+- **⚠️ `claude-sonnet-5` was tried and rejected on 2026-09-08 — and ADOPTED on 2026-09-09 once the cause was fixed ([D-65](40-D-65-Structured-Outputs-And-Sonnet-5.md)).** The lesson that survives: *a shape-conformance failure is a contract-transport problem, not a model verdict.* The pilot's facts: 3 live runs, $0.2122, **0 of 3 completed, 3 of 3 failed schema validation**, each at a different point. The decisive result: **the same input run twice failed at the same stage with two different errors.** Sonnet 5 removed sampling parameters, so `temperature: 0` cannot be sent and `AI §10.2`'s low-variance degradation applies to every call — `FR-024` reproducibility loss, measured rather than predicted. **Cost was not the problem** (output tokens were flat or lower than Sonnet 4.5; ~$0.23 projected per complete analysis). ⚠️ **The comparison is uncontrolled** — Sonnet 4.5 was never given the same inputs, so "Sonnet 5 is worse at schema conformance" is *not* claimed. Full record: `STATUS.md` → *Sonnet 5 Pilot — Attempted and Rejected*. The indicated lever is `output_config.format` (structured outputs), **not adopted**.
 - **A health endpoint with no probes wired answers 503 faster than a healthy one answers 200.** `buildApp` leaves `checkProvider`/`checkTemplates` undefined unless they are passed, and `probe()` then returns `unavailable` **without doing any work** — so `GET /health` returned **503 in 0.4ms** and the benchmark published it as a comfortable `NFR-003` pass. It was the cost of declining to check anything. Same shape as the 401 above, wearing a different status code, and **an earlier version of this handoff quoted the number.** ⚠️ The general lesson: **a rejected or short-circuited request still produces a timing, and a fast, plausible one.** `bench.ts`'s `measure()` now takes the HTTP status a measurement must receive and throws during warmup otherwise — verified by differential. The health defect surfaced within seconds of that guard existing.
 - **Timing a sub-microsecond operation per call measures the clock, not the code.** Timing each `seal()` individually printed `0.0ms` — which reads like a result and is really `performance.now()`'s resolution. Aggregate over many iterations and divide; report µs.
 - **An alert on a misspelled series never fires, and Prometheus never says so.** It evaluates to an empty vector, indistinguishable from "the condition is not met". `naigx_full_analysis_p95` vs `naigx_full_analysis_latency_p95` cost exactly that; `tests/unit/alert-rules.test.ts` now checks the rules against the renderer's real output.
@@ -370,10 +370,23 @@ records the decision; the code is committed and proved offline:
   `additionalProperties` relaxed — the schemas are not stricter than the
   parsers. Suite 969 / 965 pass / 4 skips.
 
-⚠️ **Live verification is PENDING the owner's account confirmation** (D-65
-§8): the key reveals the organisation ID and nothing else — no name, no
-workspace, no balance. Spend so far on the new account: **$0.00** (two
-unbilled model-list/retrieve calls). Cap remaining: **$8.87**.
+✅ **Live verification DONE, 2026-09-09, on the new account only** — after
+the owner confirmed in the Console that the funded account's Organization ID
+is `50a4c891-ba45-4afe-bf8b-12027d721087`, matching the API's header for the
+configured key. D-65 §7 has every number. In short: one minimal request
+($0.0017), then the **compiled application** in live mode ran **br-001,
+ew-001, ta-005 and jd-002 — all four completed, jd-002 through Stage 9 with
+a schema-valid artifact on its first generation**, $0.06–$0.15 each. No
+stage failed on shape. Two findings fixed on the way: `why_not_consolidated`
+is optional in the request schema (the model wrote `""` when it was
+required, and the published schema rightly refused it), and the `FR-094`
+deadline is now configurable (`NAIGX_ANALYSIS_TIMEOUT_MS`, **default
+unchanged**) because the JD path on Sonnet 5 runs ~195 s. Spend on the new
+account: **$0.5914** (24 calls, reconciled from the trace store). ⚠️ The
+production host still runs image `14c8321f5b9b` from `1da10e3` in replay
+mode with no provider variables; the D-65 source is on `main` and on the
+host checkout but **not built into the running image** — rebuilding is
+harmless in replay mode and is **not** authorised as a live switch.
 
 ### The replay-mode increment (2026-09-08) — still true, now the floor
 
@@ -618,7 +631,7 @@ Two mechanisms, because neither covers both directions:
 
 | Constraint | Source |
 |---|---|
-| **No provider spend without authorisation.** ⚠️ AMENDED 2026-09-09 (evening): the owner replaced per-case approval with a **US$10 cap for the Sprint 5 continuation**, "only when necessary", free verification preferred where it measures the same thing, no subscriptions or recurring infrastructure. **Spent under it: $1.1319** (the M-20 live sample, 63 invocations). **Remaining: $8.87 — but UNUSABLE**: the provider account's credit balance is exhausted (`400 invalid_request_error: Your credit balance is too low`), which only the owner can change. Earlier campaign spend: $1.7121, case by case. Project cumulative: **$3.83** across all live work recorded in `STATUS.md` and the campaign. | Owner, 2026-09-09 |
+| **No provider spend without authorisation.** ⚠️ AMENDED 2026-09-09 (evening): the owner replaced per-case approval with a **US$10 cap for the Sprint 5 continuation**, "only when necessary", free verification preferred where it measures the same thing, no subscriptions or recurring infrastructure. **Spent under it: $1.7233** — $1.1319 on the retired account (the M-20 live sample, 63 invocations) and $0.5914 on the new account (D-65 verification, 24 calls). **Remaining: $8.2767.** ⚠️ The retired account is exhausted and **must not be used again** (owner, 2026-09-09); the new account's $100 balance is the account's, not the task's. Earlier campaign spend: $1.7121, case by case. Project cumulative: **$4.42** across all live work recorded in `STATUS.md` and the campaign. | Owner, 2026-09-09 |
 | ~~**Prompt fragments stay inactive.**~~ ✅ **SUPERSEDED 2026-09-09** — the owner authorised publication with `d4abcd42626452df`; 15 versions are active in production through the unchanged gate. D-39's *principle* stands: nothing further activates without a covering reference and an authorisation. | **D-39**, owner 2026-09-09 |
 | **No M-08 packet review, no rubric verdicts.** AI review excluded "in any capacity, for any criterion". | `docs/10` §4.3 |
 | **Do not implement `platform_recommendation`** / expand `business_requirement`. | Owner, explicit |

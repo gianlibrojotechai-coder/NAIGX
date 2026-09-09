@@ -91,6 +91,13 @@ export interface AppConfig {
    */
   readonly ipHashSecret?: string;
   /**
+   * `NAIGX_ANALYSIS_TIMEOUT_MS` — the `FR-094` executor deadline. Omitted
+   * means `DEFAULT_ANALYSIS_TIMEOUT_MS` (180 s), unchanged. Made
+   * configurable on 2026-09-09 (D-65) because Sonnet 5's stage latencies
+   * put the job-description path past 180 s before Stage 9 could finish.
+   */
+  readonly analysisTimeoutMs?: number;
+  /**
    * Path to the host-held root key file
    * ([D-61](../../../docs/36-D-61-Host-Held-Key-File.md)).
    *
@@ -240,6 +247,22 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   // only environment where falling back to the in-repository default would be
   // a defect rather than a convenience.
   const isProduction = env["NODE_ENV"]?.trim() === "production";
+  // `FR-094` deadline override (D-65). A positive integer of milliseconds, or
+  // absent; anything else is a configuration error rather than a silent
+  // fallback to the default.
+  const rawTimeout = env["NAIGX_ANALYSIS_TIMEOUT_MS"]?.trim();
+  let analysisTimeoutMs: number | undefined;
+  if (rawTimeout !== undefined && rawTimeout !== "") {
+    const parsed = Number(rawTimeout);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      problems.push(
+        `NAIGX_ANALYSIS_TIMEOUT_MS must be a positive integer of milliseconds (received ${JSON.stringify(rawTimeout)})`,
+      );
+    } else {
+      analysisTimeoutMs = parsed;
+    }
+  }
+
   const ipHashSecret = env["NAIGX_IP_HASH_SECRET"]?.trim();
   if (isProduction && (ipHashSecret === undefined || ipHashSecret === "")) {
     problems.push(
@@ -337,6 +360,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     port,
     trustProxy,
     ...(keyFile !== undefined ? { keyFile } : {}),
+    ...(analysisTimeoutMs !== undefined ? { analysisTimeoutMs } : {}),
     ...(ipHashSecret !== undefined && ipHashSecret !== ""
       ? { ipHashSecret }
       : {}),

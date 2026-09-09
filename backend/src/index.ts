@@ -341,6 +341,10 @@ const main = async (): Promise<void> => {
         eventLog.publish(analysisId, event);
       },
     },
+    // `FR-094` deadline, configurable since D-65; the default is unchanged.
+    ...(config.analysisTimeoutMs !== undefined
+      ? { analysisTimeoutMs: config.analysisTimeoutMs }
+      : {}),
   });
 
   /**

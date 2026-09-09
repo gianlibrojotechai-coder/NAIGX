@@ -81,10 +81,21 @@ test("1. every stage schema is in the constrained-decoding dialect", () => {
         const props = Object.keys(
           (node["properties"] as Record<string, unknown>) ?? {},
         );
+        const required = node["required"] as string[];
+        // Optional properties are permitted by the dialect; every required
+        // name must still be a declared property, and only the one field the
+        // published artifact schema itself makes conditional is optional.
+        for (const name of required) {
+          assert.ok(
+            props.includes(name),
+            `${path}: required "${name}" is not a property`,
+          );
+        }
+        const optional = props.filter((p) => !required.includes(p));
         assert.deepEqual(
-          [...(node["required"] as string[])].sort(),
-          [...props].sort(),
-          `${path}: every property must be required`,
+          optional.filter((p) => p !== "why_not_consolidated"),
+          [],
+          `${path}: unexpected optional properties`,
         );
       }
     });
@@ -156,16 +167,6 @@ test("2. every recorded stage output in the canonical corpus satisfies its stage
 const OPTIONAL_ARRAYS = new Set(["trade_offs", "rejected_approaches"]);
 
 /**
- * The one field the schema asks for beyond what the parser requires.
- * `why_not_consolidated` is mandatory only for single-gap projects; the schema
- * requires it always because the published artifact schema accepts any
- * non-empty string but rejects `null`, so a nullable field would trade a
- * shape failure for a validation failure. Filled with a placeholder where a
- * recording omitted it.
- */
-const ALWAYS_ASKED = new Set(["why_not_consolidated"]);
-
-/**
  * Adds `null` for any required-but-nullable property the response omitted,
  * and `[]` for the named optional arrays. Only those are filled: a genuinely
  * missing required field still fails, which is the check.
@@ -189,8 +190,6 @@ function fillNulls(value: unknown, schema: unknown): unknown {
       );
       if (!(name in out) && nullable) out[name] = null;
       else if (!(name in out) && OPTIONAL_ARRAYS.has(name)) out[name] = [];
-      else if (!(name in out) && ALWAYS_ASKED.has(name))
-        out[name] = "(not required by the parser for this project)";
       else if (name in out) out[name] = fillNulls(out[name], propSchema);
     }
     return out;

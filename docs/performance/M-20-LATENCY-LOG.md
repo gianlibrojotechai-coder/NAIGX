@@ -316,3 +316,11 @@ reasoning the evidence campaign just validated, and none was made here.
 **`M-20` therefore stays NOT PASSED — on evidence.** What closes it is no
 longer a measurement: it is a decision about `NFR-001`'s definition and
 `NFR-002`'s target, which is the owner's.
+
+⚠️ **The figures above are Sonnet 4.5 figures and stay labelled as such.**
+The live model moved to `claude-sonnet-5` later the same day
+([D-65](../40-D-65-Structured-Outputs-And-Sonnet-5.md)); its four-path
+verification recorded wall-clock times of 85–141 s per completed analysis at
+`medium` effort and ~195 s for the job-description path — **an
+observation from five runs, not an `M-20` measurement**, and not a pass
+either. A Sonnet 5 `M-20` sample would be a fresh D-58 run.

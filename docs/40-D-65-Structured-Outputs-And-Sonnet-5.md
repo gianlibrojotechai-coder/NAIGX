@@ -146,7 +146,68 @@ Recorded below as runs happen. Free checks first.
 | All 54 canonical recorded outputs satisfy their stage schema (relaxed `additionalProperties`) | ✅ pass |
 | Provider conformance suite (`AI-005`), unchanged | ✅ pass |
 | Endpoint and model through the application's config loader, unbilled | ✅ `https://api.anthropic.com`, `models.retrieve("claude-sonnet-5")` 200, organisation `50a4c891-…` |
-| Live Sonnet 5 analyses across the four paths, including `jd-002` through Stage 9 | ⏳ pending the owner's confirmation of the funded account (§8) |
+| **Account identity** | ✅ The owner confirmed in the Console that the funded account's Organization ID is `50a4c891-ba45-4afe-bf8b-12027d721087`, matching the header the API returns for key `…aQAA`. Balance stated by the owner: $100 (the account's, not the task's) |
+| Minimal request through `loadConfig` → `createAnthropicProvider` with the schema registry | ✅ `input_classification` on a one-sentence input: schema-shaped JSON back, `low_variance_unavailable` recorded, 548 in / 61 out, **$0.0017** |
+| Live Sonnet 5 analyses across the four paths, **compiled application**, `effort: medium` | ✅ see below |
+
+### 7.1 The four-path run — 2026-09-09, compiled `dist/`, live, new account only
+
+| Case | Path | Outcome | Artifacts | Wall clock | Calls | Cost |
+|---|---|---|---|---|---|---|
+| br-001 | business_requirement | **completed** | none by design | 123.4 s | 4 | $0.0875 |
+| ew-001 | existing_workflow | **completed** | `workflow_recommendation`, `risk_assessment` generated | 140.9 s | 4 | $0.1056 |
+| ta-005 | technical_assessment | **completed** | `assessment_feedback`, `mermaid_diagram` generated | 85.2 s | 4 | $0.0622 |
+| jd-002 (first) | job_description | **timed_out** at the 180 s executor deadline — see 7.2 | Stage 9 reached; artifact refused by the published schema; regeneration fired and finished after the cut | 180.0 s (cut) | 6 | $0.1805 |
+| jd-002 (rerun, after 7.2) | job_description | **completed** — **Stage 9 generated, `validation_status: valid`, 1 project, single attempt** | `portfolio_suggestions` generated | 112.7 s | 5 | $0.1538 |
+
+**No stage failed on shape anywhere.** Every provider call was a single
+attempt; every call carries `fallback_used = true` — the honest
+`low_variance_unavailable` record, the same differential the pilot saw.
+Context extraction on Sonnet 5 at `medium` effort took 21–95 s per call
+(the pilot recorded 21 s); recommendation generation 49–53 s; portfolio
+suggestions 21–28 s.
+
+### 7.2 Two integration findings from the first run, both fixed and re-verified
+
+1. **`why_not_consolidated` cannot be a required property.** Asked for it
+   on a multi-gap project, the model wrote `""`, and the published artifact
+   schema correctly refused it (`must NOT have fewer than 1 characters`). The
+   regeneration fired with the violation as its addendum — the `FR-039`
+   path working — and would have succeeded, but the executor deadline cut
+   it. The dialect permits optional properties (verified against the
+   documentation), so the field is now optional in the request schema,
+   exactly as the published schema has it. The rerun validated first time.
+2. **The 180 s executor deadline is structurally short for the
+   job-description path on Sonnet 5.** Stages 1–3 alone took 102 s on the
+   first run; the path reached Stage 9 at ~152 s and its regeneration at
+   ~195 s. `NAIGX_ANALYSIS_TIMEOUT_MS` now overrides `FR-094`'s deadline;
+   **the default is unchanged at 180 s**, production runs replay and sets
+   nothing, and the local verification used 420 s. Whether the default
+   should move is a requirements question next to `NFR-002` (already NOT
+   MET on Sonnet 4.5), not a code decision, and is left open.
+
+### 7.3 Spend, reconciled from the trace store
+
+Every call is a `provider_invocation` row with `estimated_cost` at the
+verified $2 / $10 rates. Reconciled after the runs, not summed from the
+harness — the first jd-002 run's regeneration finished *after* the analysis
+was marked `timed_out`, so the harness's figure for it was low by one call.
+
+| | Calls | Cost |
+|---|---|---|
+| Minimal request (adapter, not traced; from returned usage) | 1 | $0.0017 |
+| Four-path run (jd-002 first attempt 6 calls, the others 4 each) | 18 | $0.4359 |
+| jd-002 rerun | 5 | $0.1538 |
+| **New account, this record** | **24** | **$0.5914** |
+| Retired account, earlier this continuation | 63 | $1.1319 |
+| **Continuation total** | **87** | **$1.7233** of the US$10 cap — **$8.2767 remaining** |
+
+Token totals for the 23 traced Sonnet 5 calls: 109,776 in / 37,011 out.
+The new tokenizer's ~30% inflation is visible in the per-call input counts
+(3,000+ tokens for a Stage 1 call that was ~2,300 on Sonnet 4.5), and the
+lower per-token price roughly cancels it: per completed analysis, Sonnet 5
+at `medium` cost $0.06–$0.15 against Sonnet 4.5's $0.07–$0.19 on the same
+cases.
 
 ## 8. ⚠️ Account identity — what the key can and cannot say
 
