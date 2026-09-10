@@ -402,7 +402,7 @@ test("D-90 — a step index outside the workflow is refused by the parser, with 
   };
   assert.throws(
     () => parse(body({ projects: [project({ implementation: outside })] })),
-    /step is 4, but the workflow has 3 step(s): step indices run from 1 to 3/,
+    /step is 4, but the workflow has 3 step\(s\): step indices run from 1 to 3/,
   );
 });
 
