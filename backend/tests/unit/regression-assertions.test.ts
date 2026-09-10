@@ -17,6 +17,7 @@ import { evaluateCase } from "../../src/regression/assertions.js";
 import { parseCorpusCase } from "../../src/regression/corpus.js";
 import type {
   ArchitectureResult,
+  IntentResult,
   ClassificationResult,
   ClassificationType,
   ContextElement,
@@ -105,6 +106,7 @@ const result = (
     context?: ContextResult;
     architecture?: ArchitectureResult | null;
     haltedAt?: { stageNumber: number; reason: string };
+    intent?: IntentResult;
   } = {},
 ): PipelineResult => {
   const arch =
@@ -113,7 +115,7 @@ const result = (
       : (overrides.architecture ?? architecture);
   return {
     classification: overrides.classification ?? classification(),
-    intent: {
+    intent: overrides.intent ?? {
       primaryObjective: { content: "Automate invoicing", provenance: "stated" },
       secondaryObjectives: [],
       inferredScope: "Accounts payable",
@@ -221,6 +223,37 @@ test("an expected halt does not fail completeness", () => {
 
   assert.equal(statusOf(outcomes, "run_completeness"), "passed");
   assert.equal(statusOf(outcomes, "refusal_behaviour"), "passed");
+});
+
+test("D-90: a declined design is complete without an architecture, and an unwarranted one without components", () => {
+  const declined = evaluateCase(
+    corpusCase(),
+    result({
+      architecture: null,
+      intent: {
+        primaryObjective: { content: "Write it down", provenance: "stated" },
+        secondaryObjectives: [],
+        inferredScope: "Onboarding",
+        requestedOutcome: "understanding_only",
+        declineQuote: "I do not want a design",
+      },
+    }),
+  );
+  assert.equal(statusOf(declined, "run_completeness"), "passed");
+
+  const unwarranted = evaluateCase(
+    corpusCase(),
+    result({
+      architecture: {
+        summary: "Keep it manual",
+        dataFlowDescription: "n/a",
+        components: [],
+        unknownDispositions: [],
+        automationUnwarranted: { statement: "Once a year is not a build." },
+      },
+    }),
+  );
+  assert.equal(statusOf(unwarranted, "run_completeness"), "passed");
 });
 
 test("a non-architecture path is complete without an architecture (AI §9.1)", () => {

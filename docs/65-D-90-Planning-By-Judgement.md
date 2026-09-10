@@ -1,6 +1,6 @@
 # D-90 — Planning by judgement, and complexity-appropriate depth
 
-**Date:** 2026-09-11
+**Date:** 2026-09-10
 **Status:** Accepted — owner-directed ("proceed with planning by judgement and complexity-appropriate depth … simple requirements should not automatically receive the full artifact set")
 **Sprint:** 5 (continuation) toward finish line 2 (v1.0)
 **Resolves:** the largest known-missing-code item the corpus exposed (M-11 measurement, D-89 §1): the pipeline never omitted an artifact by judgement — `FR-017` ("minimal input yields a minimal artifact set"), `FR-020`'s "automation is unwarranted" conclusion, `PV §3.2` over-production, `AC-037` (not met by construction, `research/ac-037-measurement.md`), and the second depth level `docs/12` D-34 deferred
@@ -45,7 +45,7 @@ The minimal sets, per path, are fitted to the four minimal cases and not re-fitt
 - A declined design returns after Stage 3 with the plan and the business analysis: not a halt, the run did what was asked. An unwarranted verdict returns after Stage 6 with no generator called.
 - The requirement and assessment paths' results now carry the intent brief in `artifactPlan`, as the other paths already did.
 
-**Two fragments changed** (`stage.intent`, `stage.architecture_analysis`), so every recording from Stage 2 on is stale against the new composition and the gate cannot activate either version without fresh evidence — see §6. The request schemas make the new keys optional for the same reason `why_not_consolidated` is: the pre-D-90 recordings have none of them, and the parsers read absence as `design` / warranted.
+**Two fragments changed** (`stage.intent`, `stage.architecture_analysis`), so every recording from Stage 2 on is stale against the new composition and the gate cannot activate either version without fresh evidence — see §6. **The new keys are required in the request schemas.** They were optional in the first cut, on the `why_not_consolidated` precedent, and the first capture showed why that was wrong: Sonnet 5 omitted `automation_verdict` on `br-002` although the prompt asked for it, and a judgement the model can skip is a judgement that never fires. The parsers still read absence as `design` / warranted — a tolerance for the pre-D-90 recordings, not for new responses.
 
 ## 4. What the corpus says, and what it does not
 
@@ -62,7 +62,9 @@ The corpus's frozen expectations for the five contradicting cases are the specif
 2. an unregistered failure alongside a registered one fails the case as usual;
 3. an entry whose contradiction stops manifesting is reported as stale, so the register cannot outlive the disagreement.
 
-Adding an entry is a recorded engineering act with the decision cited; removing one is the owner's, when the expectation or the decision changes. **D-29 is not changed** by this record. The register holds one entry.
+Adding an entry is a recorded engineering act with the decision cited; removing one is the owner's, when the expectation or the decision changes. **D-29 is not changed** by this record.
+
+**The register's first entry was withdrawn the day it was registered.** `jd-008` was entered as "the corpus expects a portfolio; D-29 omits it on `apply_now`". The D-90 recapture returned a **`build_first`** verdict for the same input (the 2026-09-09 recording said `apply_now`), the portfolio was generated, and the case passed `artifact_set` outright — the runner reported the entry as no longer manifesting, which is the rule working. The corpus freezes no verdict for `jd-008`, so the two captures do not measure a conflict with D-29; they measure **Stage 7 verdict variance on one input** (`FR-024`), which is recorded as a finding in `research/m11-artifact-set-measurement.md` and not resolved by this record. The register is empty; the mechanism stays, with the withdrawn entry's history in the file.
 
 ## 6. Verification
 
@@ -70,8 +72,9 @@ Adding an entry is a recorded engineering act with the decision cited; removing 
 |---|---|
 | Unit: the depth rule at its boundaries; each judgement's plan, reasons and precedence; the minimal sets equal the corpus's; the decline verified, unverifiable, absent and stray; the verdict with and without components, on both paths; the posting planner at minimal depth | ✅ `tests/unit/nie-planning-by-judgement.test.ts` (+18) |
 | Integration: a declined design skips Stage 6 (3 provider calls, traces `1,2,3,5,8,9,10,11,12`), an unwarranted verdict runs no generator, a minimal assessment omits the feedback with its reason; the runner's `conflict` status, totals, reference and stale-entry report | ✅ `nie-pipeline.test.ts`, `nie-m11-paths.test.ts`, `regression-runner.test.ts` |
-| Full suite, lint, typecheck, format | ✅ 2026-09-11 — 1144 tests, **1138 pass, 2 fail**: the two `replay-corpus` tests that replay the canonical recordings against the current fragments, which are stale by design until the recapture below is admitted |
+| Full suite, lint, typecheck, format | ✅ 2026-09-10 — 1145 tests, **1138 pass, 3 fail, 4 skipped**: the three tests that replay or schema-check every pinned canonical recording, which fail on `jd-002` alone — its recording predates D-90 and could not be recaptured (below). Lint 0 errors, typecheck clean |
 | Dry-run capture of the five judgement cases | ✅ free rehearsal: `br-004` 3 generated / 8 omitted, `ta-005` 3 / 1, `jd-008` 4 / 1 (`ew-001` fails in the dry-run adapter, which has no `workflow_review` fixture — pre-existing, not a D-90 regression) |
-| **Paid recapture of the 13 canonical cases** (`stage.intent` and `stage.architecture_analysis` changed) | _pending — filled in below when the campaign completes_ |
-| M-11 and `AC-037` re-measured | _pending_ |
-| Production | _not deployed — production stays on `48958722db57` (D-89) until every check above passes_ |
+| **Paid recapture of the 13 canonical cases** (`stage.intent` and `stage.architecture_analysis` changed) | **12 of 13 admitted, $3.4421 in four batches** (ceiling stated at $6.50 before the first; the ceiling refuses to start a case past it and does not cancel one in flight, so the true bound was one case more). Batch 1 aborted on two consecutive generator validation slips ($0.6255, nothing admissible — and showed Sonnet 5 omitting an optional `automation_verdict`, so both keys became required); batch 2 captured 12 ($2.5475; `jd-002` failed Stage 10); batch 3 recaptured `br-005` and failed `jd-002` at Stage 7 ($0.1506); batch 4 failed `jd-002` at Stage 7 again, identically ($0.1185) — sampling stopped there. The three judgement cases fired as designed: `br-003` unwarranted with zero components, `br-010` declined with the verified quote, `br-004` and `ta-005` minimal. `br-005` returned a Stage 1 confidence of **0.55 on both samples** (frozen ≥ 0.6; not sampled a third time). Superseded recordings and the campaign record: `research/regression-superseded/README.md`; held evidence and quarantined failures: `research/regression-pending/d90-2026-09-10/` |
+| M-11 and `AC-037` re-measured (`npm run measure:artifact-sets`) | **`artifact_set` agrees on 14 of 14 replayable cases** ([research/m11-artifact-set-measurement.md](../research/m11-artifact-set-measurement.md)); **`AC-037` not shown met** by its prescribed measure — the cases that plan fewer artifacts carry no complexity score, and the depth rule is a length rule ([research/ac-037-measurement.md](../research/ac-037-measurement.md)). Two assertions learned the D-90 outcomes: `run_completeness` accepts a declined design without an architecture and an unwarranted one without components; a fixture-builder defect that could not key Stage 3 for a declined intent was fixed (br-010 replayed as "no recorded response" until it was) |
+| Default regression run (`regression:run`, 13-case vertical) | **10 passed · 1 failed (`br-005`, confidence bound) · 2 blocked (no recording) · no pass reference issued.** The D-90 fragments are candidates only |
+| Production | ⚠️ **NOT deployed.** Production stays on `48958722db57` (D-89) with the pre-D-90 fragments active. What would unblock it: `br-005`'s bound — a classification-fragment change with fresh evidence, or a `docs/11` §6.2 re-versioning (the owner's) — and, for any selection naming it, a `jd-002` recording |

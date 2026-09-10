@@ -109,14 +109,25 @@ for (const caseId of [...loaded.served].sort()) {
     modelKey: "replay",
     capabilityProfile: profile,
   });
-  const result = await pipeline.run({
-    analysisId: randomUUID(),
-    text: corpusCase.inputText,
-  });
+  let result;
+  try {
+    result = await pipeline.run({
+      analysisId: randomUUID(),
+      text: corpusCase.inputText,
+    });
+  } catch (error) {
+    console.log(
+      `💥 ${caseId}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    continue;
+  }
   const plan = result.artifactPlan ?? [];
   const planned = plan.filter((e) => e.planned);
   const generated = planned.filter((e) => e.outcome === "generated");
-  const depth = plan[0]?.depthLevel ?? "—";
+  // The brief is planned at standard depth on every path (D-66); the depth
+  // the path ran at is on the entries Stage 8 planned.
+  const depth =
+    plan.find((e) => e.artifactType !== "intent_brief")?.depthLevel ?? "—";
   const outcomes = evaluateCase(corpusCase, result);
   const set = outcomes.find((o) => o.id === "artifact_set");
   const registered = caseId === "jd-008" && set?.status === "failed";
@@ -136,7 +147,7 @@ for (const caseId of [...loaded.served].sort()) {
   rows.push(
     `| ${caseId} | ${corpusCase.inputType} | ${judgement} | ${generated.map((e) => e.artifactType).join(", ")} | ${registered ? "⚖️ conflict" : (set?.status ?? "—")} | ${(set?.detail ?? "").replace(/\|/g, "/")} |`,
   );
-  const score = result.complexityAssessment?.score;
+  const score = result.complexityAssessment?.complexityScore;
   ac037.push(
     `| ${caseId} | ${corpusCase.inputType} | ${String(corpusCase.inputText.length)} | ${depth} | ${score === undefined ? "—" : String(score)} | ${String(planned.length)} | ${String(generated.length)} |`,
   );

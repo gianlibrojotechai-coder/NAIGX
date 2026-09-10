@@ -60,7 +60,7 @@ Fundraising Regulator's code.
 
 ## 2 · What the system produced
 
-*10 stage(s) recorded: Classification → Intent → Context extraction → Architecture analysis → Complexity assessment → Implementation roadmap → Edge cases and practices → Risk register → Platform recommendation → Integration requirements.*
+*10 stage(s) recorded: Classification → Intent → Context extraction → Architecture analysis → Complexity assessment → Implementation roadmap → Integration requirements → Edge cases and practices → Risk register → Platform recommendation.*
 
 > **Reading the grounding.** Context elements are an ordered array. Where a
 > later stage cites `grounded_in_context_indices`, those are **0-based**
@@ -73,9 +73,8 @@ Fundraising Regulator's code.
 ```json
 {
   "determined_type": "business_requirement",
-  "confidence": 0.95,
+  "confidence": 0.93,
   "candidate_types": [
-    "business_requirement",
     "existing_workflow"
   ],
   "dominant_type": null
@@ -87,36 +86,34 @@ Fundraising Regulator's code.
 ```json
 {
   "primary_objective": {
-    "content": "Automate donation reconciliation across four channels (JustGiving, Stripe, Lloyds bank, cash/cheques) so matching happens automatically where possible, with a worklist for exceptions instead of a full manual pass, and determine Gift Aid eligibility continuously rather than in a quarterly scramble so claimable/blocked donations are visible while there's still time to chase missing declarations",
+    "content": "Automate reconciliation of donations across four channels with matching done automatically where possible and an exception worklist, and make Gift Aid eligibility determined continuously rather than in a quarterly manual process, to reduce manual effort and increase claimed Gift Aid",
     "provenance": "stated"
   },
   "secondary_objectives": [
     {
-      "content": "Reduce the ~8% of standing order transactions that currently require phoning the donor to match",
+      "content": "Reduce the 8% (340 of ~4,100) unmatched standing order transactions that currently require phoning donors",
       "provenance": "stated"
     },
     {
-      "content": "Reduce under-claiming of Gift Aid caused by doubtful cases being dropped rather than chased",
+      "content": "Reduce the eleven days of staff time spent building the quarterly Gift Aid claim spreadsheet",
       "provenance": "stated"
     },
     {
-      "content": "Cut the eleven days of manual staff time currently spent building the quarterly Gift Aid claim spreadsheet",
+      "content": "Stop under-claiming Gift Aid caused by dropping doubtful cases instead of chasing missing declarations",
       "provenance": "stated"
     },
     {
-      "content": "Keep total tooling cost within roughly £6,000 a year",
+      "content": "Keep tooling cost within roughly £6,000 a year",
       "provenance": "stated"
     },
     {
-      "content": "Maintain compliance with UK GDPR and the Fundraising Regulator's code given sensitive donor data",
-      "provenance": "stated"
-    },
-    {
-      "content": "Retain a manual step for final HMRC Charities Online claim submission since no API is known to exist",
+      "content": "Remain compliant with UK GDPR and the Fundraising Regulator's code when handling donor data",
       "provenance": "stated"
     }
   ],
-  "inferred_scope": "The individual giving income stream (~£2.1m of £6m total) at a ~40-staff UK charity, covering donation reconciliation across JustGiving, Stripe, Lloyds bank standing orders, and cash/cheque events, plus Gift Aid eligibility determination and claim preparation, all centred on the existing Salesforce NPSP CRM; final HMRC submission process is explicitly out of automation scope pending API availability."
+  "inferred_scope": "The individual giving income stream (~£2.1m of £6m total) across four donation channels (JustGiving, Stripe via website, Lloyds standing orders, cheques/cash at events), reconciliation against Salesforce NPSP donor records, and Gift Aid eligibility determination and claim preparation up to HMRC Charities Online submission; excludes other income streams and does not extend to HR or staffing processes",
+  "requested_outcome": "design",
+  "decline_quote": null
 }
 ```
 
@@ -127,10 +124,10 @@ Fundraising Regulator's code.
   "elements": [
     {
       "id": "e1",
-      "content": "Registered charity, about 40 staff, income around £6m a year",
+      "content": "Registered charity, ~40 staff, income around £6m/year",
       "category": "scale",
       "provenance": "stated",
-      "specificity_score": 0.9,
+      "specificity_score": 0.8,
       "source_quote": "about 40 staff, income around £6m a year",
       "inference_basis": null,
       "resolution_hint": null,
@@ -138,19 +135,19 @@ Fundraising Regulator's code.
     },
     {
       "id": "e2",
-      "content": "Individual giving is roughly £2.1m of total income and is the problem area",
+      "content": "Individual giving is ~£2.1m of total income",
       "category": "scale",
       "provenance": "stated",
       "specificity_score": 0.9,
-      "source_quote": "Roughly £2.1m\nof that is individual giving and that's where the problem is.",
+      "source_quote": "Roughly £2.1m\nof that is individual giving",
       "inference_basis": null,
       "resolution_hint": null,
       "conflicts_with_id": null
     },
     {
       "id": "e3",
-      "content": "Donations come through four channels: JustGiving, Stripe (own website), Lloyds bank standing orders, and cash/cheques at events",
-      "category": "environment",
+      "content": "Four donation channels: JustGiving, Stripe (website), Lloyds standing orders, cheques/cash at events",
+      "category": "system",
       "provenance": "stated",
       "specificity_score": 0.95,
       "source_quote": "Donations come in through four channels: JustGiving, our own website (Stripe),\nstanding orders straight into our bank (Lloyds), and cheques or cash at events.",
@@ -160,7 +157,7 @@ Fundraising Regulator's code.
     },
     {
       "id": "e4",
-      "content": "CRM in use is Salesforce NPSP",
+      "content": "CRM is Salesforce NPSP",
       "category": "system",
       "provenance": "stated",
       "specificity_score": 1,
@@ -171,10 +168,10 @@ Fundraising Regulator's code.
     },
     {
       "id": "e5",
-      "content": "Reconciliation is currently manual: someone downloads JustGiving report, Stripe payouts, exports bank statement, and matches against Salesforce donor records",
+      "content": "Reconciliation is currently fully manual, combining JustGiving report, Stripe payouts, bank statement and Salesforce matching",
       "category": "environment",
       "provenance": "stated",
-      "specificity_score": 0.9,
+      "specificity_score": 0.8,
       "source_quote": "Someone downloads the JustGiving report and the Stripe payouts,\nexports the bank statement, and matches everything against donor records in\nSalesforce.",
       "inference_basis": null,
       "resolution_hint": null,
@@ -182,10 +179,10 @@ Fundraising Regulator's code.
     },
     {
       "id": "e6",
-      "content": "Standing order bank references are often just a surname or outdated, causing matching difficulty",
-      "category": "environment",
+      "content": "Standing order bank references are often unreliable (surname only, outdated)",
+      "category": "constraint",
       "provenance": "stated",
-      "specificity_score": 0.85,
+      "specificity_score": 0.8,
       "source_quote": "the bank reference is often just\na surname, sometimes an old reference from before someone changed banks",
       "inference_basis": null,
       "resolution_hint": null,
@@ -197,14 +194,14 @@ Fundraising Regulator's code.
       "category": "scale",
       "provenance": "stated",
       "specificity_score": 0.9,
-      "source_quote": "about\n8% can't be matched without someone phoning the donor.",
+      "source_quote": "about\n8% can't be matched without someone phoning the donor",
       "inference_basis": null,
       "resolution_hint": null,
       "conflicts_with_id": null
     },
     {
       "id": "e8",
-      "content": "Last month there were 340 unmatched transactions out of about 4,100",
+      "content": "340 unmatched transactions out of ~4,100 last month",
       "category": "scale",
       "provenance": "stated",
       "specificity_score": 1,
@@ -215,7 +212,7 @@ Fundraising Regulator's code.
     },
     {
       "id": "e9",
-      "content": "HMRC allows claiming 25p per pound for UK taxpayer donations with a valid declaration",
+      "content": "Gift Aid rate is 25p per pound for eligible UK taxpayer donations with declarations",
       "category": "constraint",
       "provenance": "stated",
       "specificity_score": 0.9,
@@ -226,10 +223,10 @@ Fundraising Regulator's code.
     },
     {
       "id": "e10",
-      "content": "Declarations held in Salesforce were migrated from a previous system in 2019, and some are known to be missing or unsigned",
+      "content": "Declarations held in Salesforce, migrated from a previous system in 2019, some known missing or unsigned",
       "category": "environment",
       "provenance": "stated",
-      "specificity_score": 0.85,
+      "specificity_score": 0.8,
       "source_quote": "We hold declarations in Salesforce but they were migrated from\na previous system in 2019 and we know some are missing or unsigned.",
       "inference_basis": null,
       "resolution_hint": null,
@@ -237,7 +234,7 @@ Fundraising Regulator's code.
     },
     {
       "id": "e11",
-      "content": "Gift Aid claim spreadsheet is built quarterly, checking each donation for valid declaration and matching donor address",
+      "content": "Gift Aid claim built quarterly via spreadsheet, checked manually, submitted through HMRC Charities Online",
       "category": "environment",
       "provenance": "stated",
       "specificity_score": 0.85,
@@ -259,7 +256,7 @@ Fundraising Regulator's code.
     },
     {
       "id": "e13",
-      "content": "Belief that charity is under-claiming Gift Aid because doubtful cases are dropped rather than chased",
+      "content": "Belief that Gift Aid is under-claimed because doubtful cases are dropped rather than chased",
       "category": "objective",
       "provenance": "stated",
       "specificity_score": 0.6,
@@ -270,18 +267,18 @@ Fundraising Regulator's code.
     },
     {
       "id": "e14",
-      "content": "Desire for reconciliation to be matched automatically where possible, with a worklist for exceptions rather than full manual pass",
+      "content": "Desire for automatic matching with an exception worklist rather than full manual reconciliation",
       "category": "objective",
       "provenance": "stated",
       "specificity_score": 0.8,
-      "source_quote": "The reconciliation matched automatically where it can be, with a\nworklist for the exceptions rather than a full manual pass.",
+      "source_quote": "The\nreconciliation matched automatically where it can be, with a\nworklist for the exceptions rather than a full manual pass.",
       "inference_basis": null,
       "resolution_hint": null,
       "conflicts_with_id": null
     },
     {
       "id": "e15",
-      "content": "Desire for Gift Aid eligibility to be determined continuously rather than quarterly, so claimable/blocked status is visible in time to chase donors",
+      "content": "Desire for continuous Gift Aid eligibility determination instead of quarterly scramble",
       "category": "objective",
       "provenance": "stated",
       "specificity_score": 0.8,
@@ -292,29 +289,29 @@ Fundraising Regulator's code.
     },
     {
       "id": "e16",
-      "content": "Tooling budget constraint of about £6,000 a year, justified to trustees",
+      "content": "Tooling budget cap of about £6,000/year",
       "category": "constraint",
       "provenance": "stated",
-      "specificity_score": 0.95,
-      "source_quote": "we'd struggle to justify more than\nabout £6,000 a year in tooling to our trustees.",
+      "specificity_score": 1,
+      "source_quote": "we'd struggle to justify more than\nabout £6,000 a year in tooling to our trustees",
       "inference_basis": null,
       "resolution_hint": null,
       "conflicts_with_id": null
     },
     {
       "id": "e17",
-      "content": "HMRC's Charities Online has no known API for claim submission, so final submission may have to remain manual",
+      "content": "HMRC Charities Online has no known API for claim submission, so final submission may remain manual",
       "category": "constraint",
       "provenance": "stated",
       "specificity_score": 0.9,
-      "source_quote": "HMRC's Charities Online has no API for claim submission that we're aware of, so the final submission may have to stay\nmanual.",
+      "source_quote": "HMRC's Charities Online has no API\nfor claim submission that we're aware of, so the final submission may have to stay\nmanual.",
       "inference_basis": null,
       "resolution_hint": null,
       "conflicts_with_id": null
     },
     {
       "id": "e18",
-      "content": "Donor data is sensitive and subject to UK GDPR and the Fundraising Regulator's code",
+      "content": "Subject to UK GDPR and the Fundraising Regulator's code for donor data",
       "category": "constraint",
       "provenance": "stated",
       "specificity_score": 0.85,
@@ -325,61 +322,61 @@ Fundraising Regulator's code.
     },
     {
       "id": "e19",
-      "content": "No developers or technical staff are mentioned; who would build/operate an automation is not stated",
+      "content": "No mention of in-house developer or technical staff capability for building/maintaining automation",
       "category": "environment",
       "provenance": "unknown",
-      "specificity_score": 0,
+      "specificity_score": 0.5,
       "source_quote": null,
       "inference_basis": null,
-      "resolution_hint": "Does the charity have any in-house technical/development capability, or would this rely entirely on off-the-shelf/no-code tooling and vendor support?",
+      "resolution_hint": "Does the charity have any in-house technical/developer capacity, or would this need to be a no-code/low-code solution operated by non-technical staff?",
       "conflicts_with_id": null
     },
     {
       "id": "e20",
-      "content": "No detail on what data formats/APIs are available from JustGiving, Stripe, and Lloyds for extracting transaction data programmatically",
-      "category": "dependency",
+      "content": "No detail on volume/frequency of JustGiving, Stripe, and cheque/cash transactions individually (only aggregate ~4,100/month across all channels implied)",
+      "category": "scale",
       "provenance": "unknown",
-      "specificity_score": 0,
+      "specificity_score": 0.4,
       "source_quote": null,
       "inference_basis": null,
-      "resolution_hint": "Do JustGiving, Stripe, and Lloyds provide APIs or automated export/feed mechanisms suitable for integration, or are current downloads manual-only?",
+      "resolution_hint": "What is the per-channel transaction volume and frequency, especially for cheques/cash at events which likely require manual entry regardless of automation?",
       "conflicts_with_id": null
     },
     {
       "id": "e21",
-      "content": "No detail on how cash/cheque donations at events are currently recorded before reconciliation",
-      "category": "environment",
+      "content": "No detail on existing integration capability of Salesforce NPSP (APIs, existing middleware, custom fields for declarations)",
+      "category": "dependency",
       "provenance": "unknown",
-      "specificity_score": 0,
+      "specificity_score": 0.5,
       "source_quote": null,
       "inference_basis": null,
-      "resolution_hint": "How are cash/cheque donations captured and entered into Salesforce today - manually, via a form, or some other process?",
+      "resolution_hint": "What integration options exist for Salesforce NPSP (native APIs, existing connectors) that any automation would need to use to read/write donor and declaration records?",
       "conflicts_with_id": null
     },
     {
       "id": "e22",
-      "content": "Existing tooling budget of £6,000/year is a hard annual limit that must accommodate any new automation platform",
-      "category": "constraint",
-      "provenance": "inferred",
-      "specificity_score": 0.6,
+      "content": "No detail on how declaration validity is currently verified (rules for matching name/address) which affects what 'valid declaration' automation logic would need",
+      "category": "dependency",
+      "provenance": "unknown",
+      "specificity_score": 0.4,
       "source_quote": null,
-      "inference_basis": "The input states a specific budget ceiling for tooling that trustees would accept, implying any solution design must fit within this recurring cost.",
-      "resolution_hint": null,
+      "inference_basis": null,
+      "resolution_hint": "What are the exact rules HMRC/the charity use to determine a declaration is valid (e.g., address match tolerance, taxpayer status confirmation) that an automated eligibility engine would need to encode?",
       "conflicts_with_id": null
     },
     {
       "id": "e23",
-      "content": "No information on whether Salesforce NPSP has existing automation capability (e.g., Flow, Apex) already licensed that could be leveraged",
-      "category": "system",
-      "provenance": "unknown",
-      "specificity_score": 0,
+      "content": "Cheques/cash at events likely cannot be reconciled via automated bank/API matching and require manual entry",
+      "category": "dependency",
+      "provenance": "inferred",
+      "specificity_score": 0.5,
       "source_quote": null,
-      "inference_basis": null,
-      "resolution_hint": "What Salesforce edition/licence level is in use, and does it include automation tools like Flow, Apex triggers, or paid AppExchange matching tools?",
+      "inference_basis": "Cheques and cash have no electronic transaction trail comparable to JustGiving, Stripe, or bank feeds, so matching them automatically is not supported by the input's description of channels.",
+      "resolution_hint": null,
       "conflicts_with_id": null
     }
   ],
-  "sufficiency": "sufficient"
+  "sufficiency": "thin"
 }
 ```
 
@@ -387,16 +384,16 @@ Fundraising Regulator's code.
 
 ```json
 {
-  "summary": "The design automates donation reconciliation across four income channels (JustGiving, Stripe, Lloyds bank standing orders, and cash/cheque events) into Salesforce NPSP, routing unmatched transactions to a human worklist instead of a full manual pass, and layers a continuous Gift Aid eligibility engine on top so claimable and blocked donations are visible year-round rather than discovered in a quarterly scramble. Final HMRC Charities Online submission remains a manual step because no API is known to exist. The design is constrained by a roughly £6,000/year tooling budget and UK GDPR / Fundraising Regulator obligations around donor data, and several integration and capability unknowns are left unresolved pending further information.",
-  "data_flow_description": "Transaction data enters from four sources: JustGiving reports, Stripe payouts, Lloyds bank statement exports, and cash/cheque records from events. Each source feeds a channel-specific ingestion step that normalises the transaction into a common format. The normalised records pass to a matching engine that attempts to pair each transaction against existing Salesforce NPSP donor records; matches update donor giving history directly, while unmatched transactions (including the standing orders with weak references) are pushed to an exception worklist for staff review and manual resolution, closing the loop by writing resolved matches back to Salesforce. In parallel, every donation reaching Salesforce (matched or manually resolved) is evaluated continuously by a Gift Aid eligibility component that checks for a valid, signed declaration and consistent donor address, tagging each donation claimable, blocked, or needing-declaration-chase. Blocked/doubtful records feed a donor-chase list so missing declarations can be pursued while still actionable. At claim time, a claim-preparation component compiles the tagged claimable donations into the HMRC Charities Online format, which a staff member manually reviews and submits, since no submission API exists.",
+  "summary": "The design automates reconciliation of individual-giving donations across JustGiving, Stripe, Lloyds standing orders and event cash/cheques against Salesforce NPSP, replacing manual matching with automatic matching plus an exception worklist, and replaces the quarterly Gift Aid spreadsheet process with continuous eligibility determination feeding a claim file for manual submission to HMRC Charities Online.",
+  "data_flow_description": "Transaction data enters from JustGiving's export, Stripe's payout data and Lloyds bank statement lines via an ingestion layer, while cheque/cash entries are captured through a manual entry interface for events staff. All normalised transactions pass to a matching engine that attempts to pair each against Salesforce NPSP donor records; matches are written back to Salesforce, and non-matches are routed to an exception worklist for staff (and where needed donor phone) follow-up, with resolved exceptions fed back to the matching engine to update matching rules or donor records. In parallel, a Gift Aid eligibility engine continuously reads donation and declaration records from Salesforce to flag eligible donations and surface missing or unsigned declarations for chasing. Eligible, matched donations accumulate in a claim builder that compiles the periodic HMRC claim file, which staff review and submit manually through Charities Online since no submission API exists.",
   "components": [
     {
-      "name": "Channel Ingestion (JustGiving)",
-      "responsibility": "Retrieve JustGiving donation report data and normalise it into a common transaction record",
-      "inputs": "JustGiving downloadable report data",
-      "outputs": "Normalised transaction records",
-      "failure_handling": "If retrieval fails or format is unexpected, ingestion halts for that batch and the run is flagged for manual review rather than silently dropping records",
-      "external_system": "JustGiving",
+      "name": "Electronic Channel Ingestion",
+      "responsibility": "Retrieve and normalise transaction data from JustGiving, Stripe and the Lloyds bank feed into a common transaction format",
+      "inputs": "JustGiving export/report, Stripe payout data, Lloyds bank statement lines",
+      "outputs": "Normalised transaction records ready for matching",
+      "failure_handling": "If a channel feed is unavailable or malformed, ingestion for that channel is skipped and flagged for staff attention rather than blocking the other channels",
+      "external_system": "JustGiving, Stripe, Lloyds Bank",
       "integration_direction": "inbound",
       "grounded_in_context_indices": [
         2,
@@ -404,56 +401,41 @@ Fundraising Regulator's code.
       ]
     },
     {
-      "name": "Channel Ingestion (Stripe)",
-      "responsibility": "Retrieve Stripe payout data and normalise it into a common transaction record",
-      "inputs": "Stripe payout data",
-      "outputs": "Normalised transaction records",
-      "failure_handling": "If retrieval fails, the affected payout period is flagged for manual re-check rather than assumed complete",
-      "external_system": "Stripe",
-      "integration_direction": "inbound",
-      "grounded_in_context_indices": [
-        2,
-        4
-      ]
-    },
-    {
-      "name": "Channel Ingestion (Lloyds Bank)",
-      "responsibility": "Retrieve Lloyds bank statement export data (including standing orders) and normalise it into a common transaction record",
-      "inputs": "Lloyds bank statement export",
-      "outputs": "Normalised transaction records, including weak/partial references (e.g. surname-only)",
-      "failure_handling": "If the export format changes or import fails, the batch is held and flagged rather than partially processed",
-      "external_system": "Lloyds Bank",
-      "integration_direction": "inbound",
-      "grounded_in_context_indices": [
-        2,
-        4,
-        5
-      ]
-    },
-    {
-      "name": "Cash/Cheque Intake",
-      "responsibility": "Capture cash and cheque donation records from events into the common transaction format",
-      "inputs": "Event-recorded cash/cheque donation data",
-      "outputs": "Normalised transaction records",
-      "failure_handling": "Undetermined pending clarification of how these donations are currently captured; design leaves this step generic until that is known",
+      "name": "Manual Cash/Cheque Entry Interface",
+      "responsibility": "Allow event staff to record cheque and cash donations that have no electronic transaction trail",
+      "inputs": "Staff-entered donor and amount details from events",
+      "outputs": "Transaction records in the common format for matching",
+      "failure_handling": "If entry is incomplete, the record is held in a draft state pending staff completion rather than passed to matching",
       "external_system": null,
       "integration_direction": null,
       "grounded_in_context_indices": [
         2,
-        20
+        22
       ]
     },
     {
-      "name": "Donation Matching Engine",
-      "responsibility": "Match normalised transaction records against existing Salesforce NPSP donor records automatically where possible",
-      "inputs": "Normalised transaction records from all four channels, existing Salesforce donor records",
-      "outputs": "Matched donation updates written to Salesforce; unmatched transactions passed to the exception worklist",
-      "failure_handling": "A transaction that cannot be confidently matched is never force-matched; it is routed to the exception worklist rather than guessed",
+      "name": "Transaction Matching Engine",
+      "responsibility": "Match normalised transactions from all channels against existing Salesforce NPSP donor and gift records",
+      "inputs": "Normalised transaction records, Salesforce donor/gift records",
+      "outputs": "Matched transactions written to Salesforce; unmatched transactions passed to the exception worklist",
+      "failure_handling": "A transaction that cannot be matched with sufficient confidence is not forced into a match; it is routed to the exception worklist rather than silently misassigned",
       "external_system": "Salesforce NPSP",
       "integration_direction": "bidirectional",
       "grounded_in_context_indices": [
-        3,
         4,
+        5,
+        13
+      ]
+    },
+    {
+      "name": "Exception Worklist",
+      "responsibility": "Present unmatched or low-confidence transactions to staff for manual resolution, including cases needing donor phone contact",
+      "inputs": "Unmatched transactions from the matching engine",
+      "outputs": "Resolved matches or updated donor reference data fed back to the matching engine and Salesforce",
+      "failure_handling": "Unresolved items remain visible on the worklist rather than being dropped, so aging exceptions stay tracked instead of disappearing",
+      "external_system": "Salesforce NPSP",
+      "integration_direction": "outbound",
+      "grounded_in_context_indices": [
         5,
         6,
         7,
@@ -461,27 +443,13 @@ Fundraising Regulator's code.
       ]
     },
     {
-      "name": "Exception Worklist",
-      "responsibility": "Present unmatched transactions to staff for manual resolution instead of requiring a full manual reconciliation pass",
-      "inputs": "Unmatched transactions from the matching engine",
-      "outputs": "Staff-resolved matches written back to Salesforce",
-      "failure_handling": "If a worklist item is not resolved, it remains open and visible rather than being lost, preserving the current fallback of phoning the donor",
-      "external_system": "Salesforce NPSP",
-      "integration_direction": "outbound",
-      "grounded_in_context_indices": [
-        6,
-        7,
-        13
-      ]
-    },
-    {
       "name": "Gift Aid Eligibility Engine",
-      "responsibility": "Continuously evaluate each donation in Salesforce for Gift Aid eligibility based on declaration validity and donor address match",
-      "inputs": "Donation records and donor declaration/address data from Salesforce",
-      "outputs": "Claimable/blocked/needs-chase status tags on donation records",
-      "failure_handling": "A donation with ambiguous or incomplete declaration data is tagged needs-chase rather than silently excluded, addressing the current under-claiming problem",
+      "responsibility": "Continuously determine Gift Aid eligibility for matched donations based on donor declarations held in Salesforce",
+      "inputs": "Matched donation records, donor declaration status from Salesforce",
+      "outputs": "Eligibility flags per donation; a list of donations blocked by missing or unsigned declarations",
+      "failure_handling": "A donation with an ambiguous or unverifiable declaration is flagged for review rather than being marked eligible or silently excluded",
       "external_system": "Salesforce NPSP",
-      "integration_direction": "bidirectional",
+      "integration_direction": "inbound",
       "grounded_in_context_indices": [
         8,
         9,
@@ -490,42 +458,29 @@ Fundraising Regulator's code.
       ]
     },
     {
-      "name": "Declaration Chase List",
-      "responsibility": "Surface donations tagged needs-chase so staff can pursue missing or unsigned declarations while there is time to act",
-      "inputs": "Needs-chase tagged donations from the Gift Aid Eligibility Engine",
-      "outputs": "Prioritised chase list for staff outreach",
-      "failure_handling": "Items not chased within a claim cycle remain visible on the list rather than dropping out silently",
+      "name": "Declaration Chase Notifier",
+      "responsibility": "Surface donations blocked by missing or unsigned declarations so staff can pursue them instead of dropping the case",
+      "inputs": "Blocked-declaration list from the eligibility engine",
+      "outputs": "Chase task list for staff follow-up with donors",
+      "failure_handling": "If a chase task is not actioned within a review cycle it stays open on the list rather than being cleared automatically",
       "external_system": null,
       "integration_direction": null,
       "grounded_in_context_indices": [
         9,
-        12,
-        14
+        12
       ]
     },
     {
-      "name": "Gift Aid Claim Preparation",
-      "responsibility": "Compile all donations tagged claimable into the format required for HMRC Charities Online claim submission",
-      "inputs": "Claimable-tagged donation records from Salesforce",
-      "outputs": "A compiled claim file/report ready for manual review",
-      "failure_handling": "If compilation fails or data looks inconsistent, the prior manual quarterly process remains the fallback until resolved",
-      "external_system": "Salesforce NPSP",
-      "integration_direction": "inbound",
-      "grounded_in_context_indices": [
-        10,
-        11,
-        14
-      ]
-    },
-    {
-      "name": "Manual HMRC Submission",
-      "responsibility": "Staff member reviews the compiled claim and submits it manually to HMRC Charities Online since no submission API exists",
-      "inputs": "Compiled claim file from Gift Aid Claim Preparation",
-      "outputs": "Submitted HMRC Gift Aid claim",
-      "failure_handling": "Retained explicitly as a human step; any submission failure is handled by the staff member outside the automated system",
+      "name": "Gift Aid Claim Builder",
+      "responsibility": "Compile eligible, matched donations into a claim file formatted for HMRC Charities Online submission",
+      "inputs": "Eligibility-flagged donations from the eligibility engine",
+      "outputs": "A periodic claim file for staff review and manual submission",
+      "failure_handling": "If the compiled claim contains records failing basic completeness checks, those records are excluded from the file and listed separately rather than submitted incorrectly",
       "external_system": "HMRC Charities Online",
       "integration_direction": "outbound",
       "grounded_in_context_indices": [
+        10,
+        11,
         16
       ]
     }
@@ -534,26 +489,30 @@ Fundraising Regulator's code.
     {
       "context_index": 18,
       "disposition": "excluded",
-      "statement": "The design does not specify who would build or operate the automation; this is left out of the architecture until the charity's in-house technical capability or reliance on vendor/no-code tooling is known."
+      "statement": "The design does not assume any in-house development or ongoing technical maintenance capability; whether operation requires a no-code/low-code platform run by non-technical staff is left open until the charity's technical capacity is known."
     },
     {
       "context_index": 19,
-      "disposition": "assumed",
-      "statement": "The ingestion components assume JustGiving, Stripe, and Lloyds each provide some retrievable data (report, payout, or export) suitable for automated intake, consistent with current manual downloads; whether this can be automated via API versus remaining a manual download step is left open."
+      "disposition": "deferred",
+      "statement": "Per-channel transaction volumes are not broken out, so the design accommodates either a small or large per-channel load without sizing the ingestion or worklist components to a specific per-channel figure; this would need per-channel counts to refine."
     },
     {
       "context_index": 20,
       "disposition": "excluded",
-      "statement": "How cash/cheque donations are currently captured before reconciliation is not stated, so the Cash/Cheque Intake component is left generic and its concrete inputs/failure handling cannot be fully specified until this is known."
+      "statement": "No detail on Salesforce NPSP's available APIs or existing middleware is given, so the specific integration mechanism between the matching/eligibility engines and Salesforce is left unspecified until that is known."
     },
     {
-      "context_index": 22,
+      "context_index": 21,
       "disposition": "excluded",
-      "statement": "Whether Salesforce NPSP already has licensed automation capability (Flow, Apex, AppExchange matching tools) that could be reused is not addressed by the architecture; this would affect which components could be built natively in Salesforce versus requiring external tooling, and is left for further investigation."
+      "statement": "The exact rules for declaration validity (address matching, taxpayer status confirmation) are not stated, so the Gift Aid Eligibility Engine's matching logic is left as a placeholder eligibility check rather than a fully encoded rule set until those rules are supplied."
     }
   ],
   "trade_offs": [],
-  "rejected_approaches": []
+  "rejected_approaches": [],
+  "automation_verdict": {
+    "warranted": true,
+    "statement": "Automation is warranted because the context states concrete recurring costs of the manual process (340 of ~4,100 unmatched transactions requiring phone calls monthly, and eleven staff-days per quarterly Gift Aid claim) and a stated belief that Gift Aid is under-claimed, all of which automatic matching, an exception worklist and continuous eligibility determination directly address."
+  }
 }
 ```
 
@@ -565,27 +524,27 @@ Fundraising Regulator's code.
     {
       "factor": "workflow",
       "score": 4,
-      "justification": "Four distinct ingestion paths feed a matching engine with exception routing, plus a parallel continuous Gift Aid eligibility pipeline with its own chase-list branch and a separate quarterly-turned-continuous claim preparation and manual submission step. Multiple conditional paths (matched/unmatched, claimable/blocked/needs-chase) and human decision points across two coupled sub-processes push this above a moderate branching design."
+      "justification": "The design has multiple parallel paths (electronic ingestion vs manual cash/cheque entry), a matching engine with exception routing and feedback loops back into matching, plus a separate continuous eligibility pipeline feeding a periodic claim builder — several interacting branches and a feedback loop rather than a simple linear or single-branch flow."
     },
     {
       "factor": "integration",
       "score": 4,
-      "justification": "The design integrates four heterogeneous external systems (JustGiving, Stripe, Lloyds bank exports, and cash/cheque event records) plus bidirectional Salesforce NPSP read/write, with no confirmed APIs for JustGiving/Stripe/Lloyds (context 19 unknown) and no API at all for HMRC Charities Online submission (context 16), forcing a manual endpoint. This heterogeneity and interface uncertainty sits close to the high end."
+      "justification": "The architecture must connect to four heterogeneous donation channels (JustGiving, Stripe, Lloyds bank feed, manual cash/cheque), Salesforce NPSP bidirectionally, and HMRC Charities Online which has no submission API, forcing a manual step; this is many systems of varying interface quality, close to but not quite the most severe anchor since Salesforce and Stripe are conventional APIs."
     },
     {
       "factor": "data_logic",
       "score": 4,
-      "justification": "Normalisation differs per channel (context 2), matching must handle weak/outdated standing order references (context 5) with an 8% historical unmatched rate (context 6), and the Gift Aid engine applies declaration-validity and address-matching rules against data known to have migration gaps (context 9). This is denser than a moderate mapping problem, though not full multi-source reconciliation across many disparate schemas."
+      "justification": "Matching logic must reconcile unreliable standing order references (surname-only, outdated) and cross-channel transaction formats, while the Gift Aid engine applies declaration-validity and eligibility rules against incomplete/migrated 2019 declaration data; this is dense rule application and reconciliation across sources, though the exact eligibility rules remain unspecified (context 21), limiting confidence in full extent."
     },
     {
       "factor": "failure_risk",
       "score": 4,
-      "justification": "Failure modes are numerous and consequential: mismatched donations affect donor records and financial reporting, incorrect Gift Aid tagging risks incorrect HMRC claims (context 8, 12), and unmatched/needs-chase items must never be silently dropped, requiring deliberate non-destructive handling at nearly every component. The manual HMRC submission step also depends on correct upstream compilation, raising the consequence of upstream errors."
+      "justification": "About 8% of transactions (340 of ~4,100 last month) fail to match and require donor phone follow-up, incorrect Gift Aid claims carry regulatory consequence (HMRC submission, GDPR/Fundraising Regulator obligations per context 17), and the design explicitly guards against forced mismatches and incorrect claim inclusion — several consequential failure modes needing deliberate handling, though not extreme ordering/idempotency demands are stated."
     },
     {
       "factor": "operational",
-      "score": 3,
-      "justification": "Staff must actively work the exception worklist and declaration chase list (contexts 6,7,9,12) and manually review/submit HMRC claims periodically, but the design implies no continuous technical monitoring beyond routine business-as-usual attention, placing it at a periodic-attention midpoint rather than a high-maintenance system."
+      "score": 4,
+      "justification": "The exception worklist and declaration chase list require ongoing staff triage (unresolved items persist and must be actively worked), and the claim builder still needs manual review and manual HMRC submission each cycle; this implies frequent recurring attention rather than unattended operation, though not necessarily specialist technical maintenance given the unknown in-house capability (context 18)."
     }
   ]
 }
@@ -598,62 +557,216 @@ Fundraising Regulator's code.
   "phases": [
     {
       "ordinal": 1,
-      "name": "Multi-channel ingestion and normalisation",
-      "objective": "Build the four channel-specific ingestion paths (JustGiving, Stripe, Lloyds, and cash/cheque events) that normalise raw transaction data into a common record format, since every downstream component depends on this common format existing first. This phase is where the unresolved unknown about JustGiving/Stripe/Lloyds API or export availability (context 19) must be tested in practice, and where the cash/cheque intake step is built generically pending clarification of how those donations are currently captured (context 20).",
+      "name": "Transaction Capture Foundation",
+      "objective": "Build the data-capture layer for all four donation channels: automated ingestion for JustGiving, Stripe and Lloyds, and a manual entry path for cheque/cash donations that have no electronic trail (context 22), producing a common normalised transaction format that later components will consume.",
       "components": [
-        "Channel Ingestion (JustGiving)",
-        "Channel Ingestion (Stripe)",
-        "Channel Ingestion (Lloyds Bank)",
-        "Cash/Cheque Intake"
+        "Electronic Channel Ingestion",
+        "Manual Cash/Cheque Entry Interface"
       ],
       "depends_on": [],
-      "outcome": "Transaction data from all four channels can be pulled or imported and converted into a single normalised record format, even if some channels still rely on manual download for now. No matching or reconciliation happens yet; this phase proves whether automated retrieval is feasible per channel before the matching engine is built on top of it.",
+      "outcome": "Transactions from all four channels—including events cash/cheques—can be captured and normalised into a common record format, ready to be matched, though nothing is yet matched against Salesforce.",
       "estimate": null
     },
     {
       "ordinal": 2,
-      "name": "Automated reconciliation and exception handling",
-      "objective": "Build the Donation Matching Engine to pair normalised transactions against Salesforce NPSP donor records, and the Exception Worklist to route unmatched transactions (including the weak-reference standing orders) to staff instead of a full manual pass, directly addressing the stated 8%/340-of-4,100 unmatched-transaction problem and the desire in context 13 for automatic matching with an exceptions worklist.",
+      "name": "Reconciliation via Matching and Exceptions",
+      "objective": "Build the Transaction Matching Engine to pair normalised transactions against Salesforce NPSP donor/gift records, and the Exception Worklist to hold unmatched or low-confidence items (including the unreliable standing-order references and the ~8% needing donor phone contact) for staff resolution, replacing the fully manual reconciliation process.",
       "components": [
-        "Donation Matching Engine",
+        "Transaction Matching Engine",
         "Exception Worklist"
       ],
       "depends_on": [
         1
       ],
-      "outcome": "Transactions from all four channels are automatically matched against Salesforce donor records where possible; unmatched transactions appear on a worklist for staff to resolve, and resolved matches write back to Salesforce. The manual reconciliation process described in context 4 is replaced end to end.",
+      "outcome": "Donations from all channels are automatically matched against Salesforce where possible; unmatched or ambiguous transactions appear on a worklist for staff follow-up instead of requiring full manual reconciliation of every transaction.",
       "estimate": null
     },
     {
       "ordinal": 3,
-      "name": "Continuous Gift Aid eligibility",
-      "objective": "Build the Gift Aid Eligibility Engine and Declaration Chase List on top of the now-flowing, reconciled Salesforce donation records, replacing the quarterly spreadsheet check (context 10) with continuous claimable/blocked/needs-chase tagging and giving staff time to chase missing declarations (contexts 9, 12, 14) before a claim is due.",
+      "name": "Continuous Gift Aid Eligibility",
+      "objective": "Build the Gift Aid Eligibility Engine to continuously assess matched donations against Salesforce declaration records, and the Declaration Chase Notifier to surface donations blocked by missing or unsigned declarations so they can be pursued rather than dropped, replacing the quarterly scramble and addressing the belief that Gift Aid is under-claimed.",
       "components": [
         "Gift Aid Eligibility Engine",
-        "Declaration Chase List"
+        "Declaration Chase Notifier"
       ],
       "depends_on": [
         2
       ],
-      "outcome": "Every donation reaching Salesforce, matched automatically or resolved via the worklist, is continuously tagged claimable, blocked, or needs-chase. Staff can see and act on doubtful declarations year-round instead of discovering them at quarter-end, directly targeting the suspected under-claiming in context 12.",
+      "outcome": "Matched donations are continuously assessed for Gift Aid eligibility as they arrive, and donations blocked by missing or unsigned declarations are visible to staff for chasing, instead of being assessed only at quarterly claim time.",
       "estimate": null
     },
     {
       "ordinal": 4,
-      "name": "Claim preparation and manual submission",
-      "objective": "Build the Gift Aid Claim Preparation component to compile claimable-tagged donations into HMRC Charities Online claim format, retaining Manual HMRC Submission as a human step since no submission API exists (context 16), completing the design end to end.",
+      "name": "Claim Compilation",
+      "objective": "Build the Gift Aid Claim Builder to compile eligibility-flagged, matched donations into a periodic claim file for staff review and manual submission through HMRC Charities Online, since no submission API exists (context 16).",
       "components": [
-        "Gift Aid Claim Preparation",
-        "Manual HMRC Submission"
+        "Gift Aid Claim Builder"
       ],
       "depends_on": [
         3
       ],
-      "outcome": "A claim file is compiled automatically from continuously-tagged claimable donations rather than built manually over eleven days each quarter (context 11); a staff member reviews and submits it to HMRC. At this point the full architecture exists: ingestion, matching, exception handling, continuous eligibility tagging, chase list, and claim preparation, with only final HMRC submission remaining manual by design.",
+      "outcome": "The whole design exists end to end: donations are captured across all channels, automatically matched with exceptions worked by staff, continuously assessed for Gift Aid eligibility with chasing of missing declarations, and compiled into a claim file that staff review and submit manually to HMRC.",
       "estimate": null
     }
   ],
-  "sequencing_rationale": "Ingestion must come first because every other component consumes the normalised transaction records it produces, and because the input leaves open whether JustGiving, Stripe, and Lloyds even support automated retrieval (context 19) — this is the riskiest integration and must be proven before anything is built on top of it; cash/cheque intake is included here as a fourth ingestion path even though its current capture method is unresolved (context 20), since it belongs structurally with the other channels rather than as later hardening. Matching and the exception worklist come second because they need normalised records from all four channels to exist, and because they replace the manual reconciliation process (context 4) that is the most time-consuming current pain point (8% unmatched, 340 of 4,100 last month). Gift Aid eligibility comes third because it evaluates donations that are already in Salesforce as a result of matching or worklist resolution — building it earlier would mean evaluating incomplete or unreconciled donation data. Claim preparation and manual submission come last because they consume the claimable tags the eligibility engine produces, and because the manual submission step is a fixed constraint (context 16) rather than something to build toward; it is included in the phase that produces its input rather than a later 'hardening' phase, since the fallback belongs with the component it fails over from."
+  "sequencing_rationale": "Each later phase consumes the output of the one before it, so the order follows the data flow rather than a generic build sequence. The Matching Engine and Exception Worklist (phase 2) cannot operate until normalised transactions exist from all four channels, including the manual cheque/cash path that has no electronic trail (context 22) — so capture (phase 1) comes first, and its fallback for incomplete cheque/cash entries is built in that same phase rather than deferred. The Gift Aid Eligibility Engine (phase 3) operates on matched donations, so it depends on matching being in place; building it before matching existed would leave it with nothing reliable to assess, and the declaration-chasing objective (context 12, 14) only makes sense once eligibility determination is running. The Claim Builder (phase 4) is last because it consumes eligibility flags, and its manual-submission fallback (context 16) is built as part of this phase rather than a separate hardening step, since the absence of an HMRC API is a property of the claim-submission step itself. Matching against Salesforce (phase 2) is treated as the component with the most input-supported risk — unreliable standing-order references (context 5) and an 8% unmatched rate (context 6) are stated directly — so it is proven before the eligibility logic that depends on its output is built."
+}
+```
+
+### Integration requirements
+
+```json
+{
+  "integrations": [
+    {
+      "system": "JustGiving, Stripe, Lloyds Bank",
+      "component": "Electronic Channel Ingestion",
+      "purpose": "Retrieve transaction data from each electronic donation channel for normalisation and matching against Salesforce records",
+      "direction": "inbound",
+      "capabilities_required": [
+        "Read/export donation transaction reports (JustGiving)",
+        "Read payout and transaction data (Stripe)",
+        "Read bank statement lines or transaction feed (Lloyds)",
+        "Stable transaction identifiers across polls/exports to avoid duplicate ingestion"
+      ],
+      "constraints": [
+        {
+          "constraint": "Standing order bank references are often unreliable (surname only, outdated), limiting what can be matched from Lloyds data alone",
+          "provenance": "stated",
+          "context_index": 5
+        },
+        {
+          "constraint": "JustGiving's public API/reporting is typically rate-limited and requires an authenticated charity account",
+          "provenance": "general_knowledge",
+          "context_index": null
+        },
+        {
+          "constraint": "Stripe's API enforces rate limits and requires API-key based authentication; payout data is exposed via the Payouts/Balance Transactions endpoints",
+          "provenance": "general_knowledge",
+          "context_index": null
+        },
+        {
+          "constraint": "Lloyds does not offer a general-purpose donor transaction API to third-party automations; bank data typically requires Open Banking access or manual statement export",
+          "provenance": "general_knowledge",
+          "context_index": null
+        }
+      ],
+      "uncertainties": [
+        "Whether JustGiving currently offers an API/export suitable for automated ingestion versus manual report download",
+        "Whether the charity has Open Banking or another electronic feed for Lloyds, or relies on manual statement download",
+        "Whether Stripe payout data includes sufficient donor-identifying metadata to support matching"
+      ]
+    },
+    {
+      "system": "Salesforce NPSP",
+      "component": "Transaction Matching Engine",
+      "purpose": "Match normalised transactions to donor and gift records in Salesforce and write back match results",
+      "direction": "bidirectional",
+      "capabilities_required": [
+        "Read donor and gift records",
+        "Write/update gift records to record matches",
+        "Query/search capability to support fuzzy or reference-based matching",
+        "Idempotent create/update to avoid duplicate gift records"
+      ],
+      "constraints": [
+        {
+          "constraint": "Standing order references are often surname-only or outdated, constraining what data is available for automated matching against Salesforce records",
+          "provenance": "stated",
+          "context_index": 5
+        },
+        {
+          "constraint": "Salesforce API access (REST/Bulk) typically requires OAuth-based authentication and is subject to per-org daily API call limits based on licence/edition",
+          "provenance": "general_knowledge",
+          "context_index": null
+        }
+      ],
+      "uncertainties": [
+        "What specific Salesforce APIs, connected apps, or existing middleware are already provisioned for this org (not stated in the input)",
+        "Whether the NPSP edition/licence in use has sufficient API call allowance for near-real-time or frequent matching runs",
+        "Whether custom fields exist to store match confidence or exception status"
+      ]
+    },
+    {
+      "system": "Salesforce NPSP",
+      "component": "Exception Worklist",
+      "purpose": "Feed resolved matches and updated donor reference data back into Salesforce records",
+      "direction": "outbound",
+      "capabilities_required": [
+        "Write/update donor and gift records with resolved match data",
+        "Ability to update donor reference fields (e.g., correcting standing order references)"
+      ],
+      "constraints": [
+        {
+          "constraint": "About 8% of transactions (340 of ~4,100 last month) require manual phone follow-up before they can be matched, which bounds the volume the worklist and any Salesforce writes must handle",
+          "provenance": "stated",
+          "context_index": 7
+        },
+        {
+          "constraint": "Salesforce API access is subject to per-org daily API call limits based on licence/edition",
+          "provenance": "general_knowledge",
+          "context_index": null
+        }
+      ],
+      "uncertainties": [
+        "Whether the existing Salesforce configuration exposes fields needed to record exception resolution outcomes"
+      ]
+    },
+    {
+      "system": "Salesforce NPSP",
+      "component": "Gift Aid Eligibility Engine",
+      "purpose": "Read donation and declaration records to continuously determine Gift Aid eligibility and identify missing/unsigned declarations",
+      "direction": "inbound",
+      "capabilities_required": [
+        "Read donation/gift records",
+        "Read donor declaration records and their status/signed state",
+        "Query capability to identify missing or unsigned declarations at scale"
+      ],
+      "constraints": [
+        {
+          "constraint": "Declarations were migrated from a previous system in 2019 and some are known missing or unsigned, which the read logic must be able to detect",
+          "provenance": "stated",
+          "context_index": 9
+        },
+        {
+          "constraint": "Salesforce API access is subject to per-org daily API call limits based on licence/edition",
+          "provenance": "general_knowledge",
+          "context_index": null
+        }
+      ],
+      "uncertainties": [
+        "Whether declaration records are stored in a structured, queryable field/object suitable for automated eligibility checks, or in unstructured/legacy form from the 2019 migration",
+        "The exact rules for what makes a declaration valid, which are not specified in the input"
+      ]
+    },
+    {
+      "system": "HMRC Charities Online",
+      "component": "Gift Aid Claim Builder",
+      "purpose": "Compile eligible, matched donations into a claim file for manual submission to HMRC",
+      "direction": "outbound",
+      "capabilities_required": [
+        "Produce a claim file in the format required for Charities Online manual upload/submission",
+        "No programmatic submission capability required, since none exists"
+      ],
+      "constraints": [
+        {
+          "constraint": "HMRC Charities Online has no known API for claim submission, so final submission may remain manual",
+          "provenance": "stated",
+          "context_index": 16
+        },
+        {
+          "constraint": "Gift Aid claims must reflect the 25p per pound rate for eligible UK taxpayer donations with valid declarations",
+          "provenance": "stated",
+          "context_index": 8
+        }
+      ],
+      "uncertainties": [
+        "Whether HMRC has since introduced any programmatic submission channel not reflected in the input",
+        "The exact file format/schema Charities Online currently requires for claim uploads"
+      ]
+    }
+  ],
+  "no_integrations_statement": null,
+  "knowledge_currency_note": "Platform capabilities, rate limits, API availability and pricing for JustGiving, Stripe, Lloyds, Salesforce NPSP and HMRC Charities Online all change over time; every general_knowledge constraint and every capability listed here must be verified against each system's current documentation and the charity's actual account/licence tier before building."
 }
 ```
 
@@ -663,63 +776,74 @@ Fundraising Regulator's code.
 {
   "edge_cases": [
     {
-      "component": "Channel Ingestion (Lloyds Bank)",
-      "scenario": "A standing order reference is just a surname shared by multiple donors, or is outdated and no longer matches any current donor record",
-      "consequence": "The matching engine could either fail to match at all or, worse, match to the wrong donor, corrupting giving history and downstream Gift Aid eligibility for that donor",
-      "handling": "The design routes weak/partial references to the exception worklist rather than force-matching (per the Donation Matching Engine's failure_handling), but the ingestion component itself does not distinguish 'ambiguous multiple candidates' from 'no candidate' - this distinction is not specified and should be added so ambiguous matches are flagged differently from no-match"
+      "component": "Electronic Channel Ingestion",
+      "scenario": "The Lloyds bank feed carries a standing order line where the reference is only a surname and is outdated (per context index 5), so the ingestion layer cannot normalise it into a reliable donor key",
+      "consequence": "The transaction enters matching with insufficient identifying data, increasing the pool of the roughly 8% of transactions that already can't be matched without phoning the donor",
+      "handling": "Ingestion passes the record through with whatever reference exists; the Transaction Matching Engine's failure_handling routes it to the exception worklist rather than forcing a match"
+    },
+    {
+      "component": "Manual Cash/Cheque Entry Interface",
+      "scenario": "An events staff member enters a cheque donation with only a partial name and no amount confirmation before the event day ends",
+      "consequence": "An incomplete record could be passed into matching and either misassigned to the wrong donor or block the Gift Aid eligibility engine from ever evaluating it",
+      "handling": "The component's stated failure_handling holds the record in draft state pending completion rather than forwarding it to matching"
     },
     {
       "component": "Exception Worklist",
-      "scenario": "Roughly 8% of transactions (340 of 4,100 last month) land on the worklist, and a donor who needs phoning never responds or the item is never actioned within the reconciliation cycle",
-      "consequence": "The worklist grows unbounded month over month, donation records stay unmatched, and the charity's giving history and Gift Aid claimable base become permanently understated",
-      "handling": "The current failure_handling keeps unresolved items open and visible rather than lost, but the design does not specify an ageing or escalation mechanism for items that persist across multiple cycles - this is unaddressed"
+      "scenario": "340 of ~4,100 monthly transactions (8%) land on the worklist in a single month, per context indices 6 and 7",
+      "consequence": "If the worklist has no aging or prioritisation, that volume can silently accumulate month over month, with older unmatched donations never resolved and Gift Aid eligibility for them never determined",
+      "handling": "The design keeps unresolved items visible rather than dropping them, but does not specify a volume-based prioritisation; this is a gap since the stated 340/month figure implies a recurring, non-trivial backlog needing active triage, not just visibility"
     },
     {
       "component": "Gift Aid Eligibility Engine",
-      "scenario": "A donation belongs to a donor whose 2019-migrated declaration is known to be missing or unsigned, and the donor is never successfully chased for a new one",
-      "consequence": "The donation remains tagged needs-chase indefinitely, which is functionally the same under-claiming problem the design was meant to fix, just relocated from a dropped quarterly line item to a stalled chase-list entry",
-      "handling": "The Declaration Chase List keeps such items visible rather than dropping them (per its failure_handling), but no disposition is defined for what happens if a declaration is never obtained - whether the donation is permanently excluded from claims or re-evaluated periodically is unspecified"
+      "scenario": "A donor's declaration was migrated from the 2019 system and is known to be missing or unsigned (context index 9), yet the donation itself matches successfully in Salesforce",
+      "consequence": "If eligibility defaults to 'ineligible' or is simply skipped, the donation is dropped from the claim exactly as described in the stated belief that Gift Aid is under-claimed (context index 12); if it defaults to 'eligible', the charity risks submitting an invalid HMRC claim",
+      "handling": "The component's failure_handling flags ambiguous/unverifiable declarations for review rather than resolving the ambiguity automatically, feeding the Declaration Chase Notifier instead of silently deciding either way"
     },
     {
-      "component": "Cash/Cheque Intake",
-      "scenario": "A cash donation collected at an event is entered into Salesforce both by an event staff volunteer at the time of collection and later by the reconciliation process, because how these donations are currently captured is unknown (context index 20, disposition excluded)",
-      "consequence": "The same donation could be recorded twice, inflating both giving totals and the Gift Aid claimable base with a duplicate that would later need correcting",
-      "handling": "The architecture explicitly leaves this component generic pending clarification of the current capture process; until that unknown is resolved, no de-duplication logic can be specified for cash/cheque donations"
+      "component": "Declaration Chase Notifier",
+      "scenario": "A donor is chased for a missing declaration but never responds across multiple review cycles",
+      "consequence": "The donation remains permanently blocked from Gift Aid, and the chase list grows indefinitely with stale entries, which was the same under-claiming problem the design was meant to fix (context index 12)",
+      "handling": "The stated failure_handling keeps the task open rather than auto-clearing it, but the design does not state a resolution path (e.g. a threshold after which the case is marked permanently ineligible and removed from the active list) — this is unsettled by the input"
     },
     {
-      "component": "Gift Aid Claim Preparation",
-      "scenario": "A donation is tagged claimable by the continuous Gift Aid Eligibility Engine, is included in a compiled claim file, but between compilation and the staff member's manual HMRC submission, new information (e.g. an address mismatch discovered) causes the underlying donation to become blocked",
-      "consequence": "An ineligible donation could be submitted to HMRC as part of the claim, risking an incorrect Gift Aid claim to the tax authority",
-      "handling": "The design does not specify a re-validation step immediately before manual submission; the claim-preparation component's failure_handling only covers compilation failures, not post-compilation status drift, so this gap is unaddressed"
+      "component": "Gift Aid Claim Builder",
+      "scenario": "The claim builder compiles a periodic file, but donations continue to be matched and made eligible continuously between build cycles (per the stated desire for continuous eligibility determination, context index 14)",
+      "consequence": "Donations that become eligible after a claim file is built but before the next HMRC submission could be missed from that claim cycle or, if included in two consecutive builds by mistake, submitted twice",
+      "handling": "The design states a completeness check that excludes failing records from the file, but does not state a mechanism preventing a donation from appearing in more than one claim file; this is unaddressed by the given architecture"
     },
     {
-      "component": "JustGiving",
-      "scenario": "JustGiving's report data is not available via a stable automatable feed at the time the ingestion step runs, since whether an API or automated export exists is unresolved (context index 19, disposition assumed)",
-      "consequence": "The Channel Ingestion (JustGiving) component cannot retrieve data automatically as designed, and the entire assumption underlying automated matching for that channel fails",
-      "handling": "The component's failure_handling flags the run for manual review rather than dropping records, but this only mitigates the symptom - the design has not resolved whether ingestion can be automated at all for this source, which is a precondition left open"
+      "component": "Transaction Matching Engine",
+      "scenario": "Salesforce NPSP's actual API and write-back capability are unknown (context index 20, disposition excluded), yet the engine is specified as bidirectional with Salesforce",
+      "consequence": "If the eventual integration mechanism cannot support the write-back volume or matching queries the engine needs, the whole matching step may not be implementable as designed",
+      "handling": "The unknown is explicitly deferred in the architecture rather than assumed away; no handling is designed pending that information, which is the honest position given the input"
     },
     {
-      "component": "Donation Matching Engine",
-      "scenario": "A single donor gift is reported through more than one channel record - for example a JustGiving-initiated donation that also appears as a Stripe payout line, or a Gift Aid top-up recorded separately from the base donation",
-      "consequence": "The donation could be matched and written to Salesforce twice, double-counting income and overstating the Gift Aid claimable base",
-      "handling": "No de-duplication across channels is described in the matching engine's responsibility or failure_handling; this cross-channel duplicate scenario is not covered by the current design"
+      "component": "HMRC Charities Online",
+      "scenario": "The claim submission step has no known API (context index 16), so the manual submission step sits outside the automated chain entirely",
+      "consequence": "Any error introduced between the claim builder's output and the manual submission (e.g. a stale export, a version mismatch) would not be caught by the automation and could result in an incorrect claim being filed",
+      "handling": "The design routes the compiled file to staff for review before manual submission, but does not specify a check that the exact file reviewed is the exact file submitted"
     }
   ],
   "practices": [
     {
-      "applies_to": "Donation Matching Engine",
-      "practice": "Key all writes to Salesforce donation records on a stable transaction identifier (e.g. channel-specific transaction/payout ID) so a re-run of the matching engine after a failure does not create duplicate donation records",
-      "rationale": "The matching engine writes matched updates directly to Salesforce and the ingestion components already anticipate re-checks after failed batches (per their failure_handling), so re-processing the same batch is a realistic occurrence that could otherwise duplicate donor giving history"
-    },
-    {
-      "applies_to": "Gift Aid Eligibility Engine",
-      "practice": "Maintain a timestamped audit trail of eligibility status changes (claimable/blocked/needs-chase) and declaration checks per donation",
-      "rationale": "Donor data is subject to UK GDPR and the Fundraising Regulator's code (context index 17), and Gift Aid claims are subject to HMRC scrutiny, so an auditable record of why a donation was judged claimable or blocked is needed to justify each claim decision"
+      "applies_to": "Transaction Matching Engine",
+      "practice": "Match and write-back keyed on a stable transaction identifier per channel (e.g. JustGiving/Stripe transaction ID or bank statement line reference) rather than donor name alone",
+      "rationale": "The stated unreliability of standing order references (surname only, outdated, context index 5) means name-based matching alone will misfire; a stable per-channel identifier reduces false matches without requiring new data the input doesn't promise exists"
     },
     {
       "applies_to": "Exception Worklist",
-      "practice": "Track age of each open worklist item and distinguish items open beyond a full reconciliation cycle from newly-raised items",
-      "rationale": "The design's stated goal is to replace a full manual pass with an exception worklist, but with 340 of 4,100 transactions unmatched last month, an undifferentiated worklist risks becoming as burdensome as the manual process it replaces unless ageing items are visibly distinguished"
+      "practice": "Track age of each unresolved item and surface a count/backlog view rather than a flat list",
+      "rationale": "The stated monthly volume of 340 unmatched transactions (context index 7) is large enough that without visible aging, older cases are likely to be pushed down by newer ones and never phoned, reproducing the current manual problem in a new interface"
+    },
+    {
+      "applies_to": "Gift Aid Claim Builder",
+      "practice": "Check each donation against a record of donations already included in a prior submitted claim before adding it to a new claim file",
+      "rationale": "Continuous eligibility determination (context index 14) replacing the quarterly batch process creates a real risk of the same donation being picked up across two build cycles, which the architecture does not otherwise prevent"
+    },
+    {
+      "applies_to": "Declaration Chase Notifier",
+      "practice": "Define an explicit maximum chase duration or attempt count after which a case is marked permanently ineligible and closed rather than left open indefinitely",
+      "rationale": "The component's own failure_handling keeps tasks open with no closing condition, and the input's stated concern about under-claiming (context index 12) does not extend to an unbounded manual backlog, which an indefinite open list would create"
     }
   ]
 }
@@ -731,60 +855,67 @@ Fundraising Regulator's code.
 {
   "risks": [
     {
-      "component": "Gift Aid Eligibility Engine",
-      "description": "Declarations migrated from a 2019 system are known to be missing or unsigned; the eligibility engine relies on this Salesforce data to tag donations claimable/blocked, so donations with silently incomplete migrated declarations may be mis-tagged rather than routed to chase, perpetuating the under-claiming problem the design was meant to fix.",
-      "severity": 4,
-      "likelihood": 4,
-      "mitigation": "Run a one-off data-quality audit of migrated 2019 declarations before go-live, and configure the engine to treat any declaration record lacking a clear signed/valid flag as needs-chase by default rather than assuming validity."
-    },
-    {
-      "component": "Channel Ingestion (JustGiving)",
-      "description": "The design assumes JustGiving, Stripe and Lloyds each expose data suitable for automated retrieval, but no API or automated export detail is confirmed for any of them; if one or more only support manual downloads, the corresponding ingestion component cannot function as designed and reconciliation reverts to the current manual process for that channel.",
-      "severity": 5,
-      "likelihood": 3,
-      "mitigation": "Confirm with each provider (or account manager) what automated export/API options exist before building the ingestion components, and design a manual-upload fallback path for any channel that turns out to be download-only."
-    },
-    {
-      "component": "Channel Ingestion (Lloyds Bank)",
-      "description": "Standing order bank references are often just a surname or outdated, and this already causes 8% (340 of 4,100 last month) of transactions to be unmatched; the matching engine and exception worklist will inherit this same volume of routine failures every cycle, not as a rare edge case but as a recurring operational load.",
+      "component": "Transaction Matching Engine",
+      "description": "Standing order references from Lloyds are often surname-only or outdated, so even with automated matching a substantial share of standing order transactions (contributing to the stated 8% / 340 of 4,100 monthly transactions) will remain unmatched and require the same donor-phone follow-up the design was meant to reduce.",
       "severity": 3,
       "likelihood": 5,
-      "mitigation": "Build fuzzy-matching rules combining amount, date, and historical donor payment patterns for standing orders, and separately run a donor communication asking standing-order givers to update payment references to include a donor ID."
+      "mitigation": "Build reference-normalisation and fuzzy-matching heuristics for standing orders specifically, but keep the exception worklist sized for a persistent ~8% residual rate rather than assuming automation will eliminate it."
     },
     {
-      "component": "Cash/Cheque Intake",
-      "description": "How cash/cheque donations are currently captured before reconciliation is unstated and left generic in the design; without a defined capture process this channel may not feed the matching engine or Gift Aid engine reliably, causing event donations to be reconciled late, incorrectly, or not at all.",
+      "component": "Salesforce NPSP",
+      "description": "The design's Transaction Matching Engine, Exception Worklist and Gift Aid Eligibility Engine all depend on bidirectional Salesforce integration, but the available APIs, custom fields and existing middleware for NPSP were not known and this unknown was excluded from the design rather than resolved; if NPSP's integration surface cannot support real-time read/write at the required frequency, the whole reconciliation and eligibility flow cannot be built as described.",
+      "severity": 4,
+      "likelihood": 3,
+      "mitigation": "Confirm Salesforce NPSP's API/connector capability (REST API limits, custom field access for declarations) before committing to the matching and eligibility engine design; adjust the integration pattern if native APIs are insufficient."
+    },
+    {
+      "component": "Gift Aid Eligibility Engine",
+      "description": "The exact rules for declaration validity (e.g. address matching, taxpayer status confirmation) were not stated and this unknown was excluded from the design, so the eligibility engine's logic is a placeholder; if built without the real HMRC/charity rules it could mark donations eligible incorrectly or block eligible ones, directly affecting the accuracy of the HMRC claim.",
+      "severity": 4,
+      "likelihood": 3,
+      "mitigation": "Obtain the charity's and HMRC's exact declaration-validity rules before encoding eligibility logic, and route ambiguous cases to manual review rather than an automatic determination in the interim."
+    },
+    {
+      "component": "Gift Aid Eligibility Engine",
+      "description": "Declarations were migrated from a previous system in 2019 and are known to be sometimes missing or unsigned; a continuous eligibility engine running against this data as-is will systematically block or mis-flag donations tied to those defective records, understating claimable Gift Aid in the same way the manual quarterly process does.",
       "severity": 3,
       "likelihood": 4,
-      "mitigation": "Define and document a standard event-donation capture process (e.g. a form or till record) that outputs directly into the common transaction format before treating this component as automatable."
+      "mitigation": "Run a one-off audit and cleanup pass of migrated declaration records against the eligibility engine's requirements before enabling continuous determination, so historical data defects don't propagate into ongoing claims."
     },
     {
-      "component": "Donation Matching Engine",
-      "description": "Whether Salesforce NPSP already has licensed automation capability (Flow, Apex, or AppExchange matching tools) is unknown; the matching engine may need to be built as a separate external platform integrating with Salesforce, which could exceed the roughly £6,000/year tooling budget once licensing and integration costs are counted.",
-      "severity": 3,
+      "component": "Transaction Matching Engine",
+      "description": "No in-house developer or technical staff capability was confirmed (this was left unresolved and excluded from the design), yet the matching engine, eligibility engine and worklist together require nontrivial integration and rule maintenance; if the charity has no technical capacity, no platform within the £6,000/year budget may be operable without ongoing external support that budget does not cover.",
+      "severity": 4,
       "likelihood": 3,
-      "mitigation": "Confirm Salesforce edition and existing automation entitlements before selecting or costing an external matching platform, to avoid committing budget to capability Salesforce may already provide."
+      "mitigation": "Determine the charity's actual technical operating capacity before platform selection; if none exists, restrict candidate platforms to no-code/low-code tools operable by non-technical fundraising/finance staff, and confirm this fits the £6,000/year cap including any support costs."
     },
     {
       "component": "Exception Worklist",
-      "description": "With roughly 340 unmatched transactions in a single month and no stated resolution SLA in the design, the worklist could accumulate faster than staff can clear it, leaving donor records unreconciled for extended periods and undermining the goal of replacing a full manual pass with a manageable exception queue.",
+      "description": "At the stated volume (340 unmatched of ~4,100 transactions last month), if staff capacity to resolve exceptions does not keep pace, the worklist accumulates aging unresolved items rather than the manual reconciliation backlog it was meant to replace, undermining the objective of moving from full manual matching to an exception-only process.",
       "severity": 3,
       "likelihood": 3,
-      "mitigation": "Set an explicit resolution SLA (e.g. cleared within the reconciliation cycle) and track backlog size against available staff time, escalating to a named person if the queue grows beyond capacity."
+      "mitigation": "Set an aging SLA on the worklist (e.g. items open beyond a defined period trigger escalation) and monitor monthly volume against the ~340/month baseline to flag when staffing needs to increase."
     },
     {
-      "component": "Gift Aid Claim Preparation",
-      "description": "Donor data is sensitive under UK GDPR and the Fundraising Regulator's code, and this component compiles claimable donation and declaration data into a claim file that moves across components and is reviewed by staff; each additional handling point increases the exposure surface for a data protection incident.",
+      "component": "Gift Aid Claim Builder",
+      "description": "Because HMRC Charities Online has no known submission API, the claim builder still hands off a manual step to staff; if the compiled claim file's completeness checks are inadequate, the same risk of errors that occurred in the eleven-day manual quarterly process (built via spreadsheet) can recur at the final, unautomated submission stage.",
+      "severity": 3,
+      "likelihood": 3,
+      "mitigation": "Require staff sign-off against a defined completeness checklist before submission, and keep the excluded-records list (from failed completeness checks) visible for review rather than silently dropped."
+    },
+    {
+      "component": "Exception Worklist",
+      "description": "Resolving unmatched standing-order transactions requires phoning donors, and the design's Gift Aid and reconciliation processes handle donor personal and financial data; contacting donors and storing declaration data must comply with UK GDPR and the Fundraising Regulator's code, and the design does not specify how minimal-necessary data handling or consent basis is enforced in the worklist or chase notifier.",
       "severity": 4,
       "likelihood": 2,
-      "mitigation": "Restrict access to the compiled claim file to authorised staff only, encrypt it in transit and at rest, and confirm any external platform used for compilation has a data processing agreement consistent with UK GDPR."
+      "mitigation": "Define data-minimisation and retention rules for the Exception Worklist and Declaration Chase Notifier, and document the lawful basis for donor contact in line with the Fundraising Regulator's code before staff begin outreach."
     },
     {
-      "component": "HMRC Charities Online",
-      "description": "Final claim submission is retained as a manual step because no API is known to exist; despite automation upstream, a single staff member manually reviewing and submitting the compiled claim remains a point where transcription error or missed deadline can occur, with no automated check on the actual submission.",
-      "severity": 3,
-      "likelihood": 2,
-      "mitigation": "Introduce a documented pre-submission checklist and a second-person sign-off on the compiled claim before manual submission to HMRC."
+      "component": "Manual Cash/Cheque Entry Interface",
+      "description": "Cheque and cash donations at events have no electronic trail and rely entirely on staff data entry with no automated matching path; incomplete or delayed entries held in draft state can stall downstream Gift Aid eligibility determination for those donations indefinitely.",
+      "severity": 2,
+      "likelihood": 3,
+      "mitigation": "Enforce mandatory fields (donor identity, amount, date) at point of entry and set a follow-up reminder for drafts left incomplete beyond a short window."
     }
   ],
   "no_risks_statement": null
@@ -797,329 +928,99 @@ Fundraising Regulator's code.
 {
   "criteria_applied": [
     {
-      "criterion": "Annual tooling budget of about £6,000 must accommodate any new platform",
+      "criterion": "Tooling budget capped at about £6,000/year, ruling out platforms priced for enterprise-scale iPaaS deployments",
       "context_index": 15,
       "component": null
     },
     {
-      "criterion": "Salesforce NPSP must remain the system of record for donor and donation data",
-      "context_index": 3,
-      "component": null
-    },
-    {
-      "criterion": "Donor data is sensitive and subject to UK GDPR and the Fundraising Regulator's code, so any platform handling it must support compliant data handling",
-      "context_index": 17,
-      "component": null
-    },
-    {
-      "criterion": "Who would build and operate the automation (in-house technical capability vs no-code/vendor reliance) is unstated and materially affects which platforms are viable",
+      "criterion": "No stated in-house developer or technical staff capability, favouring a no-code/low-code platform operable by non-technical fundraising/finance staff",
       "context_index": 18,
       "component": null
     },
     {
-      "criterion": "Whether JustGiving, Stripe, and Lloyds expose APIs or automated export mechanisms is unknown and determines whether channel ingestion can be built on standard integration connectors or requires custom scraping/manual steps",
-      "context_index": 19,
-      "component": "Channel Ingestion (JustGiving)"
+      "criterion": "Salesforce NPSP must remain the system of record for donor, gift and declaration data; any platform must read/write to it rather than replace it",
+      "context_index": 3,
+      "component": "Transaction Matching Engine"
     },
     {
-      "criterion": "Volume is moderate (~4,100 transactions/month, 340 unmatched) rather than enterprise-scale, suggesting a lighter-weight platform could suffice if integrations are confirmed feasible",
+      "criterion": "Must integrate with four distinct channels (JustGiving, Stripe, Lloyds bank feed, and a manual cheque/cash path) with different data shapes",
+      "context_index": 2,
+      "component": "Electronic Channel Ingestion"
+    },
+    {
+      "criterion": "Moderate but non-trivial monthly volume (~4,100 transactions, ~340 unmatched) requires an exception-handling workflow, not just a simple trigger-action zap",
       "context_index": 7,
-      "component": "Donation Matching Engine"
-    },
-    {
-      "criterion": "Whether Salesforce NPSP already includes licensed automation tooling (Flow, Apex, AppExchange matching apps) is unknown, which affects whether native Salesforce automation could cover parts of the architecture without new platform spend",
-      "context_index": 22,
-      "component": "Gift Aid Eligibility Engine"
-    },
-    {
-      "criterion": "Final HMRC Charities Online submission must remain a manual human step, so no platform needs to solve for that integration",
-      "context_index": 16,
-      "component": "Manual HMRC Submission"
-    },
-    {
-      "criterion": "The design requires an exception worklist for human review rather than full automation, implying the platform must support human-in-the-loop task queues, not just straight-through processing",
-      "context_index": 13,
       "component": "Exception Worklist"
+    },
+    {
+      "criterion": "HMRC Charities Online has no known submission API, so final claim submission must remain a manual step regardless of platform",
+      "context_index": 16,
+      "component": "Gift Aid Claim Builder"
+    },
+    {
+      "criterion": "Donor data is subject to UK GDPR and the Fundraising Regulator's code, requiring a platform with adequate data-handling and access controls for personal financial data",
+      "context_index": 17,
+      "component": null
+    },
+    {
+      "criterion": "The stated objective is automatic matching with an exception worklist and continuous Gift Aid eligibility, not a full bespoke system build",
+      "context_index": 13,
+      "component": null
     }
   ],
-  "recommended_platform": null,
-  "also_required": [],
-  "rationale": "The architecture's components (channel ingestion, matching, Salesforce read/write, exception worklists, continuous Gift Aid tagging) could plausibly be built on several kinds of platform - a general-purpose low-code integration/automation tool, or native Salesforce automation (Flow/Apex) if already licensed, or some combination. But the context leaves three things unresolved that directly determine which of these is viable: (1) whether the charity has any in-house technical capability or would need a fully no-code, vendor-supported solution (context 18); (2) whether JustGiving, Stripe, and Lloyds actually expose APIs or automated export/feed mechanisms suitable for integration, as opposed to manual-download-only access (context 19); and (3) whether Salesforce NPSP already carries licensed automation capability (Flow, Apex, AppExchange matching apps) that could be leveraged at no extra tooling cost (context 22). Any platform choice made now would be built on invented assumptions about these points rather than what the context supports. The £6,000/year budget (context 15) and the requirement that Salesforce remain the system of record (context 3) narrow the field but do not by themselves select a single platform, since both a lightweight integration tool and a Salesforce-native build could in principle fit within them depending on how the unknowns resolve. The honest position is that a platform recommendation should follow, not precede, answers to those three questions.",
+  "recommended_platform": "Make (formerly Integromat)",
+  "also_required": [
+    {
+      "platform": "A lightweight form/data-capture tool (e.g. a simple web form) for the Manual Cash/Cheque Entry Interface",
+      "role": "Captures event cash/cheque donations that have no electronic trail, feeding normalised records into Make for onward processing, since Make itself is an integration/orchestration layer rather than an end-user data-entry form"
+    }
+  ],
+  "rationale": "The budget cap of ~£6,000/year and the absence of stated in-house developer capacity together point toward a low-code integration platform with per-operation/per-scenario pricing rather than an enterprise iPaaS. Make's visual scenario builder, native Salesforce and Stripe connectors, and support for scheduled/continuous flows fit the requirement for automatic matching plus an exception worklist and continuous Gift Aid eligibility checking (context 13, 14) without requiring custom software development. It can be operated and maintained by non-technical staff once built, matching the unresolved-but-implied constraint at context 18. Because HMRC Charities Online has no submission API (context 16), no platform changes the need for a manual final submission step; the recommendation only automates ingestion, matching, and claim-file compilation up to that point. The volume (~4,100 transactions/month, 340 unmatched) is well within the throughput such platforms are commonly used for, though this is an inference, not a stated capacity figure for Make specifically.",
   "alternatives_rejected": [
     {
-      "platform": "Custom-built bespoke integration (in-house or contracted code)",
-      "rejection_reason": "No developers or technical staff are mentioned anywhere in the context (context 18), and the £6,000/year tooling budget (context 15) reads as a tooling/subscription figure rather than a development budget, making a custom build hard to justify or sustain without further information confirming technical capacity or a separate development budget."
+      "platform": "Workato",
+      "rejection_reason": "Enterprise-oriented pricing structures typically exceed the stated £6,000/year tooling budget, and its administration model assumes more technical operator capability than the context supports."
     },
     {
-      "platform": "A high-end enterprise integration/iPaaS platform with premium connector tiers",
-      "rejection_reason": "The transaction volume stated (about 4,100 transactions/month, context 7) does not indicate enterprise-scale throughput, and the £6,000/year budget (context 15) is a constraint that enterprise-tier pricing would likely strain, though exact current pricing cannot be confirmed from this context and should be checked directly."
+      "platform": "Boomi",
+      "rejection_reason": "Positioned as an enterprise iPaaS with licensing and implementation overhead inconsistent with a £6,000/year budget and no stated technical staff to configure or maintain it."
+    },
+    {
+      "platform": "Zapier",
+      "rejection_reason": "Its native branching and multi-step conditional logic (needed for confidence-based matching and routing to an exception worklist rather than forcing a match) is less developed than Make's scenario router/filter model for this kind of decision-heavy flow; this is a comparative assessment, not a confirmed current limitation, and should be verified against current documentation."
     }
   ],
   "fit": [
     {
-      "component": "Channel Ingestion (JustGiving)",
-      "how": "Platform fit cannot be assessed until it is known whether JustGiving offers an API/export feed (context 19) versus manual-download-only access, which determines whether this can be a standard connector or needs a different approach."
+      "component": "Electronic Channel Ingestion",
+      "how": "Make scenarios would poll or receive webhooks from JustGiving exports, Stripe payouts, and the Lloyds bank feed, normalising each into a common record shape; whether JustGiving and Lloyds have connectors or would need generic HTTP/CSV modules is not confirmed in the input and should be checked against current Make documentation."
     },
     {
-      "component": "Channel Ingestion (Stripe)",
-      "how": "Same dependency as JustGiving ingestion: fit depends on confirmed Stripe API/export access (context 19), which is unknown."
+      "component": "Manual Cash/Cheque Entry Interface",
+      "how": "Handled by the separate lightweight form tool listed under also_required, with Make picking up submitted records via webhook or scheduled poll for onward normalisation."
     },
     {
-      "component": "Channel Ingestion (Lloyds Bank)",
-      "how": "Fit depends on whether Lloyds provides an automatable statement export or open banking feed (context 19); this is unstated, so no platform can be matched to this component yet."
-    },
-    {
-      "component": "Cash/Cheque Intake",
-      "how": "How these donations are currently captured is unknown (context 20), so no platform recommendation can be matched to this component until that process is described."
-    },
-    {
-      "component": "Donation Matching Engine",
-      "how": "Depends on both confirmed channel data access (context 19) and whether Salesforce NPSP's existing licence includes automation tooling (context 22) that could perform matching natively."
+      "component": "Transaction Matching Engine",
+      "how": "A Make scenario using the Salesforce NPSP connector to look up donor/gift records, applying filter/router logic to attempt a match and writing matched results back; low-confidence cases are routed to a separate path rather than forced."
     },
     {
       "component": "Exception Worklist",
-      "how": "Requires a platform or Salesforce feature supporting human task queues; whether this is native to the existing Salesforce licence (context 22) or needs an added tool is unresolved."
+      "how": "Unmatched records routed by the matching scenario into a Salesforce list view, task queue, or connected worklist (e.g. a Salesforce object or a lightweight tracking sheet) for staff review and donor follow-up, with resolutions fed back into Make to update Salesforce."
     },
     {
       "component": "Gift Aid Eligibility Engine",
-      "how": "Could plausibly run as Salesforce-native automation if Flow/Apex capability is already licensed (context 22), but this is unconfirmed."
+      "how": "A scheduled or triggered Make scenario reading donation and declaration status fields from Salesforce, applying eligibility filters, and flagging donations accordingly; the exact validity rules are unspecified (context 21) so this scenario would need those rules defined before build."
     },
     {
-      "component": "Declaration Chase List",
-      "how": "Same dependency as the Gift Aid Eligibility Engine on unresolved Salesforce automation capability (context 22)."
+      "component": "Declaration Chase Notifier",
+      "how": "A Make scenario generates a task list or notification (e.g. email/Slack/Salesforce task) for donations blocked by missing or unsigned declarations, keeping items open until actioned."
     },
     {
-      "component": "Gift Aid Claim Preparation",
-      "how": "Could be a Salesforce report/export or an integration-platform step; the choice depends on the same unresolved capability and integration questions (contexts 19, 22)."
-    },
-    {
-      "component": "Manual HMRC Submission",
-      "how": "This step is explicitly human and platform-independent (context 16); no platform recommendation is needed here regardless of how the other unknowns resolve."
+      "component": "Gift Aid Claim Builder",
+      "how": "A Make scenario compiles eligible, matched donation records into a claim file (e.g. spreadsheet or CSV export) for staff review; since Charities Online has no submission API, the final upload step remains manual regardless of platform."
     }
   ],
-  "knowledge_currency_note": "No specific platform capabilities, connector availability, or pricing tiers have been asserted here as certain. Platform features, integration availability (including for JustGiving, Stripe, Lloyds, and Salesforce AppExchange tools), and pricing change over time; before committing to any platform, verify current capabilities and costs against that platform's own documentation."
-}
-```
-
-### Integration requirements
-
-```json
-{
-  "integrations": [
-    {
-      "system": "JustGiving",
-      "component": "Channel Ingestion (JustGiving)",
-      "purpose": "Retrieve donation report data from JustGiving so it can be normalised and matched against Salesforce donor records",
-      "direction": "inbound",
-      "capabilities_required": [
-        "Read/export donation transaction reports for a given period",
-        "Provide donor-identifying reference data sufficient for matching",
-        "Stable transaction identifiers to support idempotent re-processing"
-      ],
-      "constraints": [
-        {
-          "constraint": "Currently accessed via a downloaded report rather than any confirmed programmatic feed",
-          "provenance": "stated",
-          "context_index": 4
-        },
-        {
-          "constraint": "Where an API exists, JustGiving typically requires a registered application and API key/token for authenticated access",
-          "provenance": "general_knowledge",
-          "context_index": null
-        }
-      ],
-      "uncertainties": [
-        "Whether JustGiving offers an API or automated export/feed suitable for integration, or whether the report download must remain manual (per unresolved context item 19)",
-        "Whether any API access is rate-limited or restricted by account/charity tier",
-        "Whether historical or only recent transaction data is retrievable"
-      ]
-    },
-    {
-      "system": "Stripe",
-      "component": "Channel Ingestion (Stripe)",
-      "purpose": "Retrieve payout and transaction data from Stripe so it can be normalised and matched against Salesforce donor records",
-      "direction": "inbound",
-      "capabilities_required": [
-        "Read payout and charge/transaction data",
-        "List transactions with pagination for a given period",
-        "Idempotent retrieval to avoid double-counting on re-run"
-      ],
-      "constraints": [
-        {
-          "constraint": "Currently accessed via downloaded payout data rather than any confirmed automated pull",
-          "provenance": "stated",
-          "context_index": 4
-        },
-        {
-          "constraint": "Stripe's API is authenticated via API keys and enforces rate limits on requests (historically around 100 read operations per second in live mode, subject to change)",
-          "provenance": "general_knowledge",
-          "context_index": null
-        },
-        {
-          "constraint": "Stripe list endpoints are cursor-paginated",
-          "provenance": "general_knowledge",
-          "context_index": null
-        }
-      ],
-      "uncertainties": [
-        "Whether payout/charge data includes sufficient donor-identifying information for automated matching",
-        "Whether webhooks are enabled/available for this Stripe account to support event-driven ingestion rather than polling"
-      ]
-    },
-    {
-      "system": "Lloyds Bank",
-      "component": "Channel Ingestion (Lloyds Bank)",
-      "purpose": "Retrieve bank statement data, including standing order transactions, for reconciliation against Salesforce donor records",
-      "direction": "inbound",
-      "capabilities_required": [
-        "Read bank statement transaction data for a given period",
-        "Surface the transaction reference field as provided by the bank",
-        "Handle weak or outdated reference data without failing the batch"
-      ],
-      "constraints": [
-        {
-          "constraint": "Standing order bank references are often just a surname or outdated, limiting what the feed can offer for matching",
-          "provenance": "stated",
-          "context_index": 5
-        },
-        {
-          "constraint": "Currently accessed via an exported bank statement rather than a confirmed automated feed",
-          "provenance": "stated",
-          "context_index": 4
-        },
-        {
-          "constraint": "Where Open Banking access is used instead of manual export, UK banks operate under PSD2 rules requiring regulated third-party provider status and periodic customer re-authentication (strong customer authentication)",
-          "provenance": "general_knowledge",
-          "context_index": null
-        }
-      ],
-      "uncertainties": [
-        "Whether Lloyds offers a direct API or Open Banking connection for this account type, or whether statement export must remain manual (per unresolved context item 19)",
-        "Whether reference field content can be enriched or supplemented by the bank side at all"
-      ]
-    },
-    {
-      "system": "Salesforce NPSP",
-      "component": "Donation Matching Engine",
-      "purpose": "Read existing donor records to attempt automatic matching of incoming transactions, and write matched donation updates back",
-      "direction": "bidirectional",
-      "capabilities_required": [
-        "Query donor and donation records (e.g. via SOQL)",
-        "Create or update donation records with idempotent/upsert behaviour keyed on a stable external identifier",
-        "Distinguish confidently matched from unmatched records so unmatched items can be routed to the exception worklist"
-      ],
-      "constraints": [
-        {
-          "constraint": "CRM in use is Salesforce NPSP, so all matching logic must operate against NPSP's donor/opportunity data model",
-          "provenance": "stated",
-          "context_index": 3
-        },
-        {
-          "constraint": "Salesforce API access is governed by per-org API call limits that vary by edition and licence, and by per-transaction governor limits on bulk operations",
-          "provenance": "general_knowledge",
-          "context_index": null
-        },
-        {
-          "constraint": "Salesforce API access requires OAuth-based authentication",
-          "provenance": "general_knowledge",
-          "context_index": null
-        }
-      ],
-      "uncertainties": [
-        "What Salesforce edition/licence is in use and whether it includes sufficient API call allowance and automation tooling (Flow/Apex) for this volume, per unresolved context item 22",
-        "Whether existing AppExchange matching tools are already licensed and could be reused instead of custom matching logic"
-      ]
-    },
-    {
-      "system": "Salesforce NPSP",
-      "component": "Exception Worklist",
-      "purpose": "Write staff-resolved matches for previously unmatched transactions back into donor records",
-      "direction": "outbound",
-      "capabilities_required": [
-        "Create or update records representing resolved matches",
-        "Support a queryable list/view of open exception items for staff to work through"
-      ],
-      "constraints": [
-        {
-          "constraint": "Salesforce API access is governed by per-org API call limits that vary by edition and licence",
-          "provenance": "general_knowledge",
-          "context_index": null
-        }
-      ],
-      "uncertainties": [
-        "Whether the current Salesforce licence supports a custom worklist object/view or would require additional licensing, per unresolved context item 22"
-      ]
-    },
-    {
-      "system": "Salesforce NPSP",
-      "component": "Gift Aid Eligibility Engine",
-      "purpose": "Read donation, declaration and address data to continuously evaluate Gift Aid eligibility, and write claimable/blocked/needs-chase status back to the record",
-      "direction": "bidirectional",
-      "capabilities_required": [
-        "Read declaration status/signed date and donor address fields",
-        "Write an eligibility status field on each donation record",
-        "Run continuously or near-real-time (e.g. triggered on record change) rather than as a quarterly batch"
-      ],
-      "constraints": [
-        {
-          "constraint": "Declarations held in Salesforce were migrated from a previous system in 2019 and some are known to be missing or unsigned, limiting what the data can confirm",
-          "provenance": "stated",
-          "context_index": 9
-        },
-        {
-          "constraint": "Continuous/real-time automation in Salesforce (Flow, Apex triggers) depends on edition and licence, which is not confirmed",
-          "provenance": "general_knowledge",
-          "context_index": null
-        }
-      ],
-      "uncertainties": [
-        "Whether the current Salesforce licence includes Flow/Apex or equivalent automation capability to run eligibility checks continuously, per unresolved context item 22",
-        "Whether declaration and address fields are structured consistently enough across the 2019-migrated records to be machine-checked reliably"
-      ]
-    },
-    {
-      "system": "Salesforce NPSP",
-      "component": "Gift Aid Claim Preparation",
-      "purpose": "Read claimable-tagged donation records to compile the data required for an HMRC Gift Aid claim",
-      "direction": "inbound",
-      "capabilities_required": [
-        "Query all donation records tagged claimable within a claim period",
-        "Bulk export/read capability sufficient to compile a full claim file"
-      ],
-      "constraints": [
-        {
-          "constraint": "Salesforce bulk data extraction is subject to Bulk API batch size and job limits",
-          "provenance": "general_knowledge",
-          "context_index": null
-        }
-      ],
-      "uncertainties": [
-        "Whether the current Salesforce licence/API access supports the bulk extraction volumes needed without hitting daily API limits"
-      ]
-    },
-    {
-      "system": "HMRC Charities Online",
-      "component": "Manual HMRC Submission",
-      "purpose": "Submit the compiled Gift Aid claim to HMRC once staff have reviewed it",
-      "direction": "outbound",
-      "capabilities_required": [
-        "A submission mechanism accepting the compiled claim data in HMRC's required format (manual entry/upload, since no API is known)"
-      ],
-      "constraints": [
-        {
-          "constraint": "HMRC's Charities Online has no known API for claim submission, so final submission may have to remain manual",
-          "provenance": "stated",
-          "context_index": 16
-        }
-      ],
-      "uncertainties": [
-        "Whether HMRC has introduced any programmatic submission channel since this was last checked",
-        "Exact current file/format requirements for a Charities Online Gift Aid claim submission"
-      ]
-    }
-  ],
-  "no_integrations_statement": null,
-  "knowledge_currency_note": "Platform capabilities, rate limits, licensing terms and pricing for JustGiving, Stripe, Lloyds Bank/Open Banking, Salesforce, and HMRC Charities Online change over time; every general_knowledge constraint and every capability listed here must be verified against each system's current documentation and the charity's actual account/licence tier before any of this is built."
+  "knowledge_currency_note": "Platform capabilities, connector availability (particularly for JustGiving and Lloyds bank feeds), and pricing tiers change over time and are not independently verified here; before committing, the reader should confirm current Make (or any alternative) documentation for Salesforce NPSP connector depth, JustGiving/Lloyds integration options, per-operation pricing at the stated volume, and data-handling compliance suitable for UK GDPR and Fundraising Regulator obligations."
 }
 ```
 

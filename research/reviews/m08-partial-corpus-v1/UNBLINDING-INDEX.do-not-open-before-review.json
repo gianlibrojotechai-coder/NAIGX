@@ -5,9 +5,9 @@
       "reviewerId": "RP-27f9fb58",
       "caseId": "br-001",
       "inputType": "business_requirement",
-      "capturedAt": "2026-09-09T21:16:51.031Z",
+      "capturedAt": "2026-09-10T07:44:30.869Z",
       "fragmentsManifestVersion": "fragments-v1",
-      "fragmentsCompositionHash": "c919b84013f955394275b3c91a54022ec5beeb1a9133aba30ce9491acb783247",
+      "fragmentsCompositionHash": "f145d2a513586cde5217e9b73747675ce927f3179af8b4b7096d10bb05902d7a",
       "provider": {
         "adapter": "anthropic",
         "modelKey": "claude-sonnet-5"
@@ -18,9 +18,9 @@
       "reviewerId": "RP-4bb087ba",
       "caseId": "br-002",
       "inputType": "business_requirement",
-      "capturedAt": "2026-09-09T21:19:39.240Z",
+      "capturedAt": "2026-09-10T07:46:35.985Z",
       "fragmentsManifestVersion": "fragments-v1",
-      "fragmentsCompositionHash": "440b272b80a3c55637b09789a9f84d02c914ab91290c67e6298419d0f7c00e61",
+      "fragmentsCompositionHash": "d052242937cd7870072db1973099001d741b73b3f52ac5f6ac9bf44d90eaaa9b",
       "provider": {
         "adapter": "anthropic",
         "modelKey": "claude-sonnet-5"
@@ -31,9 +31,9 @@
       "reviewerId": "RP-ac291956",
       "caseId": "br-003",
       "inputType": "business_requirement",
-      "capturedAt": "2026-09-09T21:41:16.521Z",
+      "capturedAt": "2026-09-10T07:47:42.666Z",
       "fragmentsManifestVersion": "fragments-v1",
-      "fragmentsCompositionHash": "f0e66c1e008a961310a185c5c2cf5cd0404e6227ada424d011a8a06c1de787bf",
+      "fragmentsCompositionHash": "6c6392db6bc6f601d45027a72460294870c79f66a8accbdf4e1d404978b01f6f",
       "provider": {
         "adapter": "anthropic",
         "modelKey": "claude-sonnet-5"
@@ -44,9 +44,9 @@
       "reviewerId": "RP-d41a9d08",
       "caseId": "br-004",
       "inputType": "business_requirement",
-      "capturedAt": "2026-09-09T21:31:20.546Z",
+      "capturedAt": "2026-09-10T07:48:49.622Z",
       "fragmentsManifestVersion": "fragments-v1",
-      "fragmentsCompositionHash": "a17cb11887a47a0d70b6fe7cea1ce9d42a48d8d2bb421ffd64ebc67b44e7a850",
+      "fragmentsCompositionHash": "6c6392db6bc6f601d45027a72460294870c79f66a8accbdf4e1d404978b01f6f",
       "provider": {
         "adapter": "anthropic",
         "modelKey": "claude-sonnet-5"
@@ -57,9 +57,9 @@
       "reviewerId": "RP-5c2b0a40",
       "caseId": "br-005",
       "inputType": "business_requirement",
-      "capturedAt": "2026-09-09T21:32:00.734Z",
+      "capturedAt": "2026-09-10T08:10:26.094Z",
       "fragmentsManifestVersion": "fragments-v1",
-      "fragmentsCompositionHash": "23ff8160f39bfc2f7054e84dcc8f4acaccda228abc9910a15df6ea9ab34f9e5c",
+      "fragmentsCompositionHash": "ca28e80da9dc1244db827c90de4d7cb2e0af5a9111ab54a7f640acc446b5fb50",
       "provider": {
         "adapter": "anthropic",
         "modelKey": "claude-sonnet-5"
@@ -70,9 +70,9 @@
       "reviewerId": "RP-07a977a3",
       "caseId": "br-007",
       "inputType": "business_requirement",
-      "capturedAt": "2026-09-09T21:23:28.621Z",
+      "capturedAt": "2026-09-10T07:51:23.818Z",
       "fragmentsManifestVersion": "fragments-v1",
-      "fragmentsCompositionHash": "187665f7e01f63b049118e096e1f04a959b07125cd2c7eb50d9a18437a69cc1e",
+      "fragmentsCompositionHash": "55114457fc8993ec282c4ca7730cd83fe5c54ead789fbe2c8cf4fb1d4935c730",
       "provider": {
         "adapter": "anthropic",
         "modelKey": "claude-sonnet-5"
@@ -83,9 +83,9 @@
       "reviewerId": "RP-2fa7c3e3",
       "caseId": "br-009",
       "inputType": "business_requirement",
-      "capturedAt": "2026-09-09T21:34:15.967Z",
+      "capturedAt": "2026-09-10T07:53:47.372Z",
       "fragmentsManifestVersion": "fragments-v1",
-      "fragmentsCompositionHash": "f7978f80dd7e32fa34eb8c27515ca31a03c76d617a04c1a69c810bcdca1b4363",
+      "fragmentsCompositionHash": "55114457fc8993ec282c4ca7730cd83fe5c54ead789fbe2c8cf4fb1d4935c730",
       "provider": {
         "adapter": "anthropic",
         "modelKey": "claude-sonnet-5"
@@ -96,9 +96,9 @@
       "reviewerId": "RP-e755dbdf",
       "caseId": "br-010",
       "inputType": "business_requirement",
-      "capturedAt": "2026-09-09T21:36:26.478Z",
+      "capturedAt": "2026-09-10T07:54:08.188Z",
       "fragmentsManifestVersion": "fragments-v1",
-      "fragmentsCompositionHash": "e14fdfba3b5e1227a72276ee3051165faca959c1ace817c8a129a5e613f6e850",
+      "fragmentsCompositionHash": "ca28e80da9dc1244db827c90de4d7cb2e0af5a9111ab54a7f640acc446b5fb50",
       "provider": {
         "adapter": "anthropic",
         "modelKey": "claude-sonnet-5"
@@ -109,9 +109,9 @@
       "reviewerId": "RP-448236a4",
       "caseId": "br-011",
       "inputType": "business_requirement",
-      "capturedAt": "2026-09-09T21:37:54.486Z",
+      "capturedAt": "2026-09-10T07:56:57.248Z",
       "fragmentsManifestVersion": "fragments-v1",
-      "fragmentsCompositionHash": "60806e30a35c201f6a632f5f83ef341bcb1874c2a754cd8f31808456eccf982c",
+      "fragmentsCompositionHash": "70ca166be58f58714060f8e7512d8f50f8011ffb8194ce3b819987bbe74c6514",
       "provider": {
         "adapter": "anthropic",
         "modelKey": "claude-sonnet-5"
@@ -122,9 +122,9 @@
       "reviewerId": "RP-acd0ef55",
       "caseId": "ew-001",
       "inputType": "existing_workflow",
-      "capturedAt": "2026-09-09T22:33:48.115Z",
+      "capturedAt": "2026-09-10T07:59:38.617Z",
       "fragmentsManifestVersion": "fragments-v1",
-      "fragmentsCompositionHash": "dfc3e2fd3dd18c805d599aa74128391552e3564ebfe40188a7446c4debbc367c",
+      "fragmentsCompositionHash": "d052ffcab7dba3030b752bc2e84126809a6cea65bbd3fd0947f07d7fdbe55db0",
       "provider": {
         "adapter": "anthropic",
         "modelKey": "claude-sonnet-5"
@@ -148,9 +148,9 @@
       "reviewerId": "RP-29376439",
       "caseId": "jd-008",
       "inputType": "job_description",
-      "capturedAt": "2026-09-09T17:59:41.798Z",
+      "capturedAt": "2026-09-10T08:05:08.140Z",
       "fragmentsManifestVersion": "fragments-v1",
-      "fragmentsCompositionHash": "91c8ad45c92daffea26b716f4fbc01919c76e65bbe683848918ea8ab3239903a",
+      "fragmentsCompositionHash": "df45b9d24e2058abf588a6042752e0359cb02e89800814a565db7341545e1e24",
       "provider": {
         "adapter": "anthropic",
         "modelKey": "claude-sonnet-5"
@@ -161,9 +161,9 @@
       "reviewerId": "RP-d27b05e0",
       "caseId": "ta-005",
       "inputType": "technical_assessment",
-      "capturedAt": "2026-09-09T18:57:45.966Z",
+      "capturedAt": "2026-09-10T08:06:56.775Z",
       "fragmentsManifestVersion": "fragments-v1",
-      "fragmentsCompositionHash": "f06c2fd33e16631b071f9e8682d7c8b3db64ace8b167300c276641aba81d797e",
+      "fragmentsCompositionHash": "1e293ffbf8727cfe09370f841c8ab46af0f0bd60ce856c6a063148a12074d97c",
       "provider": {
         "adapter": "anthropic",
         "modelKey": "claude-sonnet-5"

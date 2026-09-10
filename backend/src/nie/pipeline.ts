@@ -288,7 +288,10 @@ export function stageProviderInputs(
   if (outputs.intent === undefined) return inputs;
   let intent;
   try {
-    intent = parseIntent(outputs.intent);
+    // D-90: a declined design is verified against the input here too —
+    // without the text, the replay key for Stage 3 of a declined case could
+    // never be built (br-010 replayed as "no recorded response").
+    intent = parseIntent(outputs.intent, inputText);
   } catch {
     return inputs;
   }

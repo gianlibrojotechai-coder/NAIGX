@@ -307,14 +307,23 @@ export function evaluateCase(
     if (result.context === undefined) {
       reasons.push("no context was extracted");
     }
-    if (expectsArchitecture && result.architecture === undefined) {
+    // D-90: a declined design (Stage 2 `understanding_only`, quote verified)
+    // ends the requirement path after Stage 3 with the business analysis;
+    // no architecture is the correct outcome, not an incomplete run.
+    const declined = result.intent?.requestedOutcome === "understanding_only";
+    if (expectsArchitecture && result.architecture === undefined && !declined) {
       reasons.push(
         `${corpusCase.expectedClassification} is an architecture-producing path (AI §9.1) but no architecture was produced`,
       );
     }
+    // D-90: an unwarranted automation (FR-020) is a complete Stage 6 answer
+    // with no components — the conclusion is stated instead of a design.
     if (
       expectsArchitecture &&
-      (result.architecture?.components.length ?? 0) === 0
+      !declined &&
+      result.architecture !== undefined &&
+      result.architecture.components.length === 0 &&
+      result.architecture.automationUnwarranted === undefined
     ) {
       reasons.push("the architecture carries no components (FR-030)");
     }

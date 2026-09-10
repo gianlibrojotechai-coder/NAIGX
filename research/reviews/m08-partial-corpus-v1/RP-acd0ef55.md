@@ -78,24 +78,30 @@ this, so the hardcoded list is out of date.
 ```json
 {
   "primary_objective": {
-    "content": "Identify what's wrong with the existing lead handoff scenario (Make.com workflow from form submission through owner assignment to Slack notification and welcome sequence)",
+    "content": "Identify what is wrong with the existing lead handoff scenario (the Make.com workflow that moves form submissions through HubSpot, enrichment, routing, Slack notification, and welcome email)",
     "provenance": "stated"
   },
   "secondary_objectives": [
     {
-      "content": "Understand the root causes of leads landing with no owner, duplicate Slack postings, and the enrichment API outage causing lost submissions",
-      "provenance": "inferred"
-    },
-    {
-      "content": "Address the hardcoded rep list being out of date since two of three reps have left",
+      "content": "Understand why leads have landed with no owner assigned",
       "provenance": "stated"
     },
     {
-      "content": "Improve reliability so failures in one step (e.g. enrichment API) don't silently drop leads from HubSpot",
-      "provenance": "inferred"
+      "content": "Understand why the same lead was posted into Slack twice",
+      "provenance": "stated"
+    },
+    {
+      "content": "Understand why an enrichment API outage caused ~40 submissions to never reach HubSpot, and how to avoid silent failures like that",
+      "provenance": "stated"
+    },
+    {
+      "content": "Address the hardcoded rep list being out of date since two of three reps left",
+      "provenance": "stated"
     }
   ],
-  "inferred_scope": "The Make.com scenario handling lead handoff from marketing site form submission through HubSpot contact creation/update, enrichment, owner assignment routing, Slack notification, and welcome email list addition; roughly 250 submissions/month; does not extend to other marketing or sales systems not mentioned."
+  "inferred_scope": "The marketing-site lead handoff automation built in Make.com: webhook intake, HubSpot contact lookup/create/update, enrichment API call, owner-routing logic, Slack notification, and HubSpot list/welcome-email trigger, running at roughly 250 submissions a month",
+  "requested_outcome": "design",
+  "decline_quote": null
 }
 ```
 
@@ -106,8 +112,8 @@ this, so the hardcoded list is out of date.
   "elements": [
     {
       "id": "e1",
-      "content": "Trigger: form submission on marketing site fires a webhook into Make.com",
-      "category": "environment",
+      "content": "A form submission on the marketing site fires a webhook into a Make.com scenario",
+      "category": "system",
       "provenance": "stated",
       "specificity_score": 0.9,
       "source_quote": "A form submission on our marketing site fires a webhook into a Make.com scenario.",
@@ -117,51 +123,40 @@ this, so the hardcoded list is out of date.
     },
     {
       "id": "e2",
-      "content": "System: Make.com",
-      "category": "system",
+      "content": "Step 1 looks up the email address in HubSpot to check if the contact exists",
+      "category": "environment",
       "provenance": "stated",
       "specificity_score": 0.9,
-      "source_quote": "fires a webhook into a Make.com scenario",
+      "source_quote": "Step 1 takes the webhook payload and looks up the email address in HubSpot to see\nif the contact already exists.",
       "inference_basis": null,
       "resolution_hint": null,
       "conflicts_with_id": null
     },
     {
       "id": "e3",
-      "content": "System: HubSpot used for contact lookup, creation, updates, lifecycle stage, and list membership",
-      "category": "system",
+      "content": "Step 2 branches: updates lifecycle stage to MQL and writes form fields if contact exists, else creates a new contact",
+      "category": "environment",
       "provenance": "stated",
       "specificity_score": 0.9,
-      "source_quote": "looks up the email address in HubSpot to see\nif the contact already exists",
+      "source_quote": "If the contact exists, it updates the lifecycle stage to MQL and\nwrites the form fields onto the existing record. If not, it creates a new contact.",
       "inference_basis": null,
       "resolution_hint": null,
       "conflicts_with_id": null
     },
     {
       "id": "e4",
-      "content": "System: third-party enrichment API for company size and industry",
-      "category": "system",
+      "content": "Step 3 calls an enrichment API for company size and industry and writes them back to the contact",
+      "category": "environment",
       "provenance": "stated",
-      "specificity_score": 0.8,
-      "source_quote": "Step 3 calls an enrichment API to get company size and industry",
+      "specificity_score": 0.9,
+      "source_quote": "Step 3 calls an enrichment API to get company size and industry, then writes those\ntwo fields back onto the contact.",
       "inference_basis": null,
       "resolution_hint": null,
       "conflicts_with_id": null
     },
     {
       "id": "e5",
-      "content": "System: Slack channel notification",
-      "category": "system",
-      "provenance": "stated",
-      "specificity_score": 0.9,
-      "source_quote": "Step 5 posts a message into a Slack channel saying a new lead came in",
-      "inference_basis": null,
-      "resolution_hint": null,
-      "conflicts_with_id": null
-    },
-    {
-      "id": "e6",
-      "content": "Owner assignment uses a router with three branches (under 50, 50-500, over 500) mapped to a hardcoded list of three sales reps",
+      "content": "Step 4 routes leads via three company-size branches to a hardcoded list of three sales reps, one per branch",
       "category": "environment",
       "provenance": "stated",
       "specificity_score": 0.95,
@@ -171,19 +166,30 @@ this, so the hardcoded list is out of date.
       "conflicts_with_id": null
     },
     {
-      "id": "e7",
-      "content": "Two of the three hardcoded reps have left the company, making the assignment list out of date",
-      "category": "constraint",
+      "id": "e6",
+      "content": "Step 5 posts a Slack message with contact name and assigned owner",
+      "category": "environment",
       "provenance": "stated",
-      "specificity_score": 0.9,
-      "source_quote": "Two of the three reps have left since we built\nthis, so the hardcoded list is out of date.",
+      "specificity_score": 0.85,
+      "source_quote": "Step 5 posts a message into a Slack channel saying a new lead came in, with the\ncontact name and the assigned owner.",
+      "inference_basis": null,
+      "resolution_hint": null,
+      "conflicts_with_id": null
+    },
+    {
+      "id": "e7",
+      "content": "Step 6 adds contact to a HubSpot list that triggers a welcome email sequence",
+      "category": "environment",
+      "provenance": "stated",
+      "specificity_score": 0.85,
+      "source_quote": "Step 6 adds the contact to a HubSpot list that triggers a welcome email sequence.",
       "inference_basis": null,
       "resolution_hint": null,
       "conflicts_with_id": null
     },
     {
       "id": "e8",
-      "content": "Observed failure: leads have landed with no owner assigned",
+      "content": "Leads have landed with no owner assigned",
       "category": "environment",
       "provenance": "stated",
       "specificity_score": 0.7,
@@ -194,10 +200,10 @@ this, so the hardcoded list is out of date.
     },
     {
       "id": "e9",
-      "content": "Observed failure: the same lead posted into Slack twice within about a minute",
+      "content": "The same lead has been posted into Slack twice within about a minute",
       "category": "environment",
       "provenance": "stated",
-      "specificity_score": 0.7,
+      "specificity_score": 0.8,
       "source_quote": "we've seen the same lead\nposted into Slack twice within a minute or so",
       "inference_basis": null,
       "resolution_hint": null,
@@ -205,18 +211,29 @@ this, so the hardcoded list is out of date.
     },
     {
       "id": "e10",
-      "content": "Observed failure: enrichment API outage stopped the whole scenario, causing ~40 submissions to never reach HubSpot, discovered only via customer complaint",
+      "content": "An enrichment API outage last month stopped the whole scenario, causing ~40 submissions to never reach HubSpot",
       "category": "environment",
       "provenance": "stated",
-      "specificity_score": 0.9,
-      "source_quote": "when the enrichment API had an\noutage last month the whole scenario stopped and about 40 submissions never made\nit into HubSpot at all. We only found out when a customer asked why nobody had\ncalled them back.",
+      "specificity_score": 0.95,
+      "source_quote": "when the enrichment API had an\noutage last month the whole scenario stopped and about 40 submissions never made\nit into HubSpot at all",
       "inference_basis": null,
       "resolution_hint": null,
       "conflicts_with_id": null
     },
     {
       "id": "e11",
-      "content": "Scale: roughly 250 form submissions per month",
+      "content": "The team only discovered the outage impact when a customer complained about not being called back, indicating no failure alerting exists",
+      "category": "environment",
+      "provenance": "stated",
+      "specificity_score": 0.9,
+      "source_quote": "We only found out when a customer asked why nobody had\ncalled them back.",
+      "inference_basis": null,
+      "resolution_hint": null,
+      "conflicts_with_id": null
+    },
+    {
+      "id": "e12",
+      "content": "Roughly 250 submissions a month",
       "category": "scale",
       "provenance": "stated",
       "specificity_score": 0.9,
@@ -226,84 +243,106 @@ this, so the hardcoded list is out of date.
       "conflicts_with_id": null
     },
     {
-      "id": "e12",
-      "content": "Objective: identify what is wrong with the current workflow",
-      "category": "objective",
-      "provenance": "stated",
-      "specificity_score": 0.8,
-      "source_quote": "I want to know what's wrong with it.",
-      "inference_basis": null,
-      "resolution_hint": null,
-      "conflicts_with_id": null
-    },
-    {
       "id": "e13",
-      "content": "The scenario has no error handling or retry logic around the enrichment API call, causing a single external failure to halt the entire run and silently drop submissions",
+      "content": "Two of the three reps in the hardcoded owner list have left the company, making the list out of date",
       "category": "constraint",
-      "provenance": "inferred",
-      "specificity_score": 0.6,
-      "source_quote": null,
-      "inference_basis": "The description states the enrichment API outage stopped the whole scenario and 40 submissions were lost with no alert until a customer complained, implying no error handling, retry, or fallback path exists around step 3.",
+      "provenance": "stated",
+      "specificity_score": 0.9,
+      "source_quote": "Two of the three reps have left since we built\nthis, so the hardcoded list is out of date.",
+      "inference_basis": null,
       "resolution_hint": null,
       "conflicts_with_id": null
     },
     {
       "id": "e14",
-      "content": "The router in Step 4 likely has no default/fallback branch for missing or out-of-range company size data, which combined with the outdated rep list could produce unassigned owners",
-      "category": "dependency",
-      "provenance": "inferred",
-      "specificity_score": 0.5,
-      "source_quote": null,
-      "inference_basis": "Leads landing with no owner is stated as an observed problem, and the router is described as having exactly three fixed branches tied to a hardcoded rep list, suggesting no default case is defined for edge cases or missing enrichment data.",
+      "content": "HubSpot is a system that must be kept as the CRM of record",
+      "category": "system",
+      "provenance": "stated",
+      "specificity_score": 0.7,
+      "source_quote": "looks up the email address in HubSpot",
+      "inference_basis": null,
       "resolution_hint": null,
       "conflicts_with_id": null
     },
     {
       "id": "e15",
-      "content": "Whether the scenario has any retry, dead-letter queue, or execution history alerting mechanism for failed runs",
+      "content": "The enrichment API is an external dependency whose failure halts the entire scenario with no fallback or retry logic",
       "category": "dependency",
-      "provenance": "unknown",
-      "specificity_score": 0.4,
+      "provenance": "inferred",
+      "specificity_score": 0.7,
       "source_quote": null,
-      "inference_basis": null,
-      "resolution_hint": "Does the Make.com scenario have any built-in error handling routes, retries, or monitoring/alerting configured for failed executions?",
+      "inference_basis": "The outage caused the whole scenario to stop and 40 submissions to be lost, implying no retry, queue, or fallback path exists around the enrichment call",
+      "resolution_hint": null,
       "conflicts_with_id": null
     },
     {
       "id": "e16",
-      "content": "Whether Step 5 (Slack post) or the webhook trigger has any deduplication logic, and what causes the same lead to trigger the scenario twice",
+      "content": "The duplicate Slack posts suggest the scenario has no idempotency/duplicate-trigger protection (e.g. webhook retries or re-runs)",
+      "category": "constraint",
+      "provenance": "inferred",
+      "specificity_score": 0.5,
+      "source_quote": null,
+      "inference_basis": "A single lead posted twice within a minute implies the scenario or webhook fired more than once for the same submission without deduplication",
+      "resolution_hint": null,
+      "conflicts_with_id": null
+    },
+    {
+      "id": "e17",
+      "content": "Missing owner assignments suggest the router's three branches do not exhaustively cover all cases or a branch can complete without a matching condition",
+      "category": "constraint",
+      "provenance": "inferred",
+      "specificity_score": 0.5,
+      "source_quote": null,
+      "inference_basis": "Leads landing with no owner despite a three-branch router covering under 50, 50-500, and over 500 implies some inputs (missing/invalid company size) fall through unassigned",
+      "resolution_hint": null,
+      "conflicts_with_id": null
+    },
+    {
+      "id": "e18",
+      "content": "Whether the webhook or scenario has retry/duplicate-execution behavior configured in Make.com",
       "category": "dependency",
       "provenance": "unknown",
       "specificity_score": 0.4,
       "source_quote": null,
       "inference_basis": null,
-      "resolution_hint": "Is the duplicate Slack post caused by the form firing the webhook twice, by Make retrying a step, or by a race condition in the contact-exists check? What logging exists to distinguish these causes?",
+      "resolution_hint": "Does the marketing form or Make.com webhook trigger retries or duplicate executions on the same submission, and is there any deduplication logic in place?",
       "conflicts_with_id": null
     },
     {
-      "id": "e17",
-      "content": "Whether there is a current process for updating the hardcoded rep list when sales staff change, or who owns maintaining that mapping",
+      "id": "e19",
+      "content": "Whether there is any error handling, retry, or queuing configured around the enrichment API call or the scenario as a whole",
+      "category": "dependency",
+      "provenance": "unknown",
+      "specificity_score": 0.4,
+      "source_quote": null,
+      "inference_basis": null,
+      "resolution_hint": "Does the scenario have any error handlers, retry logic, or a queue/dead-letter mechanism for failed steps, particularly around the enrichment API call?",
+      "conflicts_with_id": null
+    },
+    {
+      "id": "e20",
+      "content": "What company-size values or missing/malformed data cause a lead to fall through the router without an owner assigned",
       "category": "environment",
       "provenance": "unknown",
       "specificity_score": 0.4,
       "source_quote": null,
       "inference_basis": null,
-      "resolution_hint": "Who is responsible for updating the owner-assignment list when reps join or leave, and is there any process for that today?",
+      "resolution_hint": "What happens in the router when company size is missing, zero, or non-numeric — is there a default/fallback branch?",
       "conflicts_with_id": null
     },
     {
-      "id": "e18",
-      "content": "Whether the enrichment API outage caused a hard error that halted the entire scenario execution, or whether it was a timeout without configured error handling",
-      "category": "dependency",
+      "id": "e21",
+      "content": "Whether an updated or dynamic list of sales reps and territories exists to replace the hardcoded three-rep list",
+      "category": "environment",
       "provenance": "unknown",
       "specificity_score": 0.4,
       "source_quote": null,
       "inference_basis": null,
-      "resolution_hint": "What was the specific failure mode of the enrichment API call (timeout, 4xx/5xx error, rate limit) and how did Make.com's execution log record it?",
+      "resolution_hint": "Is there a current roster or CRM field (e.g. HubSpot owner/territory assignment) that could source rep assignment instead of a hardcoded list?",
       "conflicts_with_id": null
     }
   ],
-  "sufficiency": "thin"
+  "sufficiency": "sufficient"
 }
 ```
 
@@ -311,120 +350,144 @@ this, so the hardcoded list is out of date.
 
 ```json
 {
-  "summary": "This is a Make.com scenario that takes marketing site form submissions, creates or updates a HubSpot contact, enriches the lead with company size/industry from a third-party API, routes the lead to a sales rep via a three-branch router keyed to company size, posts a notification to a Slack channel, and adds the contact to a HubSpot list for a welcome email sequence. It processes roughly 250 submissions per month. In production it has produced leads with no assigned owner, duplicate Slack postings for the same lead, and a full outage where ~40 submissions never reached HubSpot after the enrichment API failed, discovered only via customer complaint.",
-  "data_flow_description": "A form submission fires a webhook that starts the scenario. The payload flows into HubSpot for contact lookup/create/update. The contact record (or the raw submission data) is then passed to a third-party enrichment API to attach company size and industry. The enriched data is passed into a router with three branches (under 50, 50-500, over 500 employees) that maps to a hardcoded list of three sales reps, assigning an owner. The scenario then posts a Slack notification (including presumably the assigned owner and lead details) and separately adds the contact to a HubSpot list to trigger a welcome email sequence. Data flow is linear and synchronous: a failure or missing value at the enrichment or routing stage propagates downstream, and there is no indication of branching for failure recovery.",
+  "summary": "The workflow is a Make.com scenario that takes marketing-site form submissions and moves them through HubSpot contact lookup/create, an enrichment API call, owner-routing by company size, a Slack notification, and finally a HubSpot list trigger that fires a welcome email. It runs at roughly 250 submissions/month. The user has observed three concrete failures in production: leads landing with no owner, duplicate Slack posts for the same lead, and a total scenario outage (triggered by the enrichment API) that silently dropped ~40 submissions, plus a maintenance problem where the hardcoded rep list is stale.",
+  "data_flow_description": "A form submission triggers a webhook that starts the scenario. The email is looked up in HubSpot (Step 1); depending on whether a match is found, the contact is updated with lifecycle stage MQL and form fields, or a new contact is created (Step 2). The (new or updated) contact record is then passed to an enrichment API call, which returns company size and industry and writes them back onto the HubSpot contact (Step 3). Company size is then used to route the lead through one of three branches to a hardcoded rep name (Step 4). The routed lead (contact name + assigned owner) is posted to Slack (Step 5). Finally the contact is added to a HubSpot list, which is an external trigger for a separate welcome-email sequence (Step 6). Data flows strictly linearly and synchronously: each step depends on the previous step's HubSpot state, and the enrichment call sits as a blocking dependency between contact creation and routing/notification.",
   "structure": [
     {
-      "name": "Webhook trigger",
+      "name": "Webhook intake",
       "responsibility": "Receive form submission from the marketing site and start the scenario",
-      "inputs": "Form submission payload from marketing site",
-      "outputs": "Triggers the Make.com scenario with submission data",
-      "failure_handling": "Not described in the submission",
+      "inputs": "Form submission payload from the marketing site",
+      "outputs": "Triggered scenario execution with submission data",
+      "failure_handling": "Not described",
       "external_system": "Marketing site form",
       "integration_direction": "inbound",
       "grounded_in_context_indices": [
-        0,
+        0
+      ]
+    },
+    {
+      "name": "HubSpot contact lookup",
+      "responsibility": "Check whether the submitted email already exists as a HubSpot contact",
+      "inputs": "Email address from form submission",
+      "outputs": "Match/no-match result for the contact",
+      "failure_handling": "Not described",
+      "external_system": "HubSpot",
+      "integration_direction": "outbound",
+      "grounded_in_context_indices": [
         1
       ]
     },
     {
-      "name": "HubSpot contact lookup/create/update",
-      "responsibility": "Look up an existing HubSpot contact or create/update one based on the submission, and manage lifecycle stage and list membership",
-      "inputs": "Submission payload from webhook trigger",
-      "outputs": "HubSpot contact record (created or updated), lifecycle stage set, list membership state",
-      "failure_handling": "Not described in the submission",
+      "name": "HubSpot contact create/update",
+      "responsibility": "Update lifecycle stage and form fields on an existing contact, or create a new contact if none exists",
+      "inputs": "Lookup result plus form field data",
+      "outputs": "Updated or newly created HubSpot contact record",
+      "failure_handling": "Not described",
       "external_system": "HubSpot",
       "integration_direction": "outbound",
       "grounded_in_context_indices": [
-        2
-      ]
-    },
-    {
-      "name": "Enrichment API call",
-      "responsibility": "Call a third-party API to attach company size and industry data to the lead",
-      "inputs": "Contact/lead data from the HubSpot step",
-      "outputs": "Enriched lead data (company size, industry) intended for the router",
-      "failure_handling": "An outage of this API stopped the entire scenario, and roughly 40 submissions never reached HubSpot; the failure was only discovered via a customer complaint, indicating no retry, fallback, or alerting is configured for this step",
-      "external_system": "Third-party enrichment API",
-      "integration_direction": "outbound",
-      "grounded_in_context_indices": [
-        3,
-        9,
-        12
-      ]
-    },
-    {
-      "name": "Owner assignment router",
-      "responsibility": "Route the lead to one of three sales reps based on company size band (under 50, 50-500, over 500)",
-      "inputs": "Enriched company size/industry data",
-      "outputs": "Assigned owner value used for Slack notification and HubSpot updates",
-      "failure_handling": "Not described in the submission; leads have been observed landing with no owner assigned, and the rep list is hardcoded to three named reps of whom two have left the company",
-      "external_system": null,
-      "integration_direction": null,
-      "grounded_in_context_indices": [
-        5,
-        6,
-        7,
+        2,
         13
       ]
     },
     {
-      "name": "Slack notification",
-      "responsibility": "Post a notification of the new/assigned lead into a Slack channel",
-      "inputs": "Lead data and assigned owner from the router step",
-      "outputs": "Message posted to Slack channel",
-      "failure_handling": "Not described in the submission; the same lead has been observed posted twice within about a minute, with the cause (duplicate trigger, Make retry, or race condition) not established by the submission",
-      "external_system": "Slack",
+      "name": "Enrichment API call",
+      "responsibility": "Fetch company size and industry from an external enrichment API and write them to the HubSpot contact",
+      "inputs": "Contact record (email/company identifiers)",
+      "outputs": "Company size and industry written back to HubSpot contact",
+      "failure_handling": "Not described in the workflow itself; observed behaviour is that an outage stopped the whole scenario and ~40 submissions never reached HubSpot, with no alerting until a customer complained",
+      "external_system": "Enrichment API",
       "integration_direction": "outbound",
       "grounded_in_context_indices": [
-        4,
-        8
+        3,
+        9,
+        10,
+        14
       ]
     },
     {
-      "name": "Welcome sequence list addition",
-      "responsibility": "Add the contact to a HubSpot list to enter a welcome email sequence",
-      "inputs": "HubSpot contact record from earlier steps",
-      "outputs": "Contact added to list, triggering downstream welcome emails (outside this scenario)",
-      "failure_handling": "Not described in the submission",
+      "name": "Owner routing",
+      "responsibility": "Route the lead to one of three sales reps based on a company-size branch",
+      "inputs": "Company size value from enrichment step",
+      "outputs": "Assigned owner name (or no assignment if no branch matches)",
+      "failure_handling": "Not described; leads have been observed landing with no owner assigned, implying unmatched cases are not handled",
+      "external_system": null,
+      "integration_direction": null,
+      "grounded_in_context_indices": [
+        4,
+        7,
+        12,
+        16
+      ]
+    },
+    {
+      "name": "Slack notification",
+      "responsibility": "Post a message to Slack with the contact name and assigned owner",
+      "inputs": "Contact name and assigned owner from routing step",
+      "outputs": "Slack message",
+      "failure_handling": "Not described; the same lead has been observed posted twice within about a minute, implying no duplicate-suppression on this or an upstream step",
+      "external_system": "Slack",
+      "integration_direction": "outbound",
+      "grounded_in_context_indices": [
+        5,
+        8,
+        15
+      ]
+    },
+    {
+      "name": "HubSpot list add / welcome email trigger",
+      "responsibility": "Add the contact to a HubSpot list that triggers a separate welcome-email sequence",
+      "inputs": "Finalized HubSpot contact record",
+      "outputs": "List membership change that fires the welcome-email sequence",
+      "failure_handling": "Not described",
       "external_system": "HubSpot",
       "integration_direction": "outbound",
       "grounded_in_context_indices": [
-        2
+        6
       ]
     }
   ],
   "findings": [
     {
-      "component_index": 2,
-      "description": "The enrichment API call has no described error handling, retry, or fallback path. When this API had an outage, the entire scenario halted and roughly 40 submissions were silently lost before reaching HubSpot, with no alert triggered — the failure was only found via a customer complaint. A single external dependency can currently drop leads with no internal visibility.",
+      "component_index": 3,
+      "description": "The enrichment API call is a blocking dependency with no described retry, fallback, or bypass logic. When it went down, the entire scenario stopped, causing ~40 lead submissions to never reach HubSpot at all — not just to lack enrichment data.",
+      "severity": 5,
+      "likelihood": 3,
+      "remediation": "Make the enrichment call non-blocking for the core CRM path: create/update the HubSpot contact and route/notify first, then attempt enrichment as a separate step or subsequent scenario that can fail without stopping contact creation. Add a retry policy (e.g. Make's built-in error handler with retries) around the enrichment call, and if it still fails, continue the scenario without enrichment data rather than halting."
+    },
+    {
+      "component_index": 3,
+      "description": "There is no failure alerting anywhere in the scenario; the team only learned about the outage and lost leads when a customer complained about not being called back, meaning failures are silent by default.",
       "severity": 5,
       "likelihood": 4,
-      "remediation": "Add error handling around the enrichment API call (e.g. a Make error handler route) so that on failure the scenario either retries with backoff, or continues the run with enrichment fields left blank/flagged rather than halting, and ensure the contact still reaches HubSpot. Add a monitoring/alert (e.g. Make's execution history alerting or a separate check) that notifies the team on scenario failure rather than relying on customer complaints."
-    },
-    {
-      "component_index": 3,
-      "description": "The owner assignment router maps company-size bands to a hardcoded list of three sales reps, and two of those three reps have left the company. Assignments made on this branch will route to former employees or, combined with observed unassigned-owner cases, produce leads with no valid owner.",
-      "severity": 4,
-      "likelihood": 5,
-      "remediation": "Replace the hardcoded rep list with a lookup against a maintained source (e.g. a HubSpot team/owner property, a lookup table, or round-robin queue) that reflects current staff, and define an owner for updating it when reps join or leave."
-    },
-    {
-      "component_index": 3,
-      "description": "Leads have been observed landing with no owner assigned. The router has exactly three fixed branches tied to company-size bands; the submission does not describe a default/fallback branch for missing enrichment data or company sizes outside the three defined ranges, which combined with the outdated rep list plausibly explains unassigned leads.",
-      "severity": 3,
-      "likelihood": 3,
-      "remediation": "Add a default/catch-all branch to the router that assigns a fallback owner (or queues for manual triage) when company size data is missing or falls outside the three defined bands, so no lead is left without an owner."
+      "remediation": "Add a Make error handler on the enrichment (and other external-call) modules that sends an alert (Slack/email) to the team on failure, and log failed submissions to a fallback store (e.g. a spreadsheet or HubSpot 'failed enrichment' list) so no submission is silently dropped."
     },
     {
       "component_index": 4,
-      "description": "The same lead has been posted to Slack twice within about a minute. The submission does not establish whether this is caused by the webhook firing twice, a Make.com retry, or a race condition in the contact-exists check, and no deduplication logic is described at this step or the trigger.",
+      "description": "Leads have landed with no owner assigned, indicating the three company-size branches do not exhaustively cover all possible values (e.g. missing, zero, or non-numeric company size falls through without a matching branch).",
+      "severity": 4,
+      "likelihood": 3,
+      "remediation": "Add a default/catch-all branch to the router that assigns an owner (or a designated fallback rep/queue) whenever company size is missing or does not match one of the three defined ranges, so no lead is left unrouted."
+    },
+    {
+      "component_index": 4,
+      "description": "The owner list is hardcoded to three named reps, and two of the three have since left the company, meaning most routed leads are now being assigned to people who no longer work there.",
+      "severity": 5,
+      "likelihood": 5,
+      "remediation": "Replace the hardcoded rep names with a lookup against a maintained source (e.g. a HubSpot custom object, a Google Sheet, or a HubSpot user/team property) that the sales ops team can update directly, so leaving reps do not require a scenario edit."
+    },
+    {
+      "component_index": 5,
+      "description": "The same lead has been posted to Slack twice within about a minute, indicating either the webhook fires more than once for one submission or the scenario re-runs without deduplication, and there is no idempotency check before the Slack post.",
       "severity": 2,
       "likelihood": 3,
-      "remediation": "Instrument the scenario to log webhook receipt timestamps and Make execution IDs to determine the duplicate's root cause, then add deduplication (e.g. a check against a recently-processed lead ID/timestamp before posting to Slack, or idempotency handling on the webhook) once the cause is confirmed."
+      "remediation": "Add a deduplication check keyed on submission ID or email+timestamp before the Slack post (or earlier, right after webhook intake) so a repeated trigger for the same submission does not produce a second notification."
     }
   ],
-  "optimisations": [],
+  "optimisations": [
+    "Consider adding a lightweight status/audit log (e.g. a row per submission recording each step's outcome) so failures and duplicates can be diagnosed without waiting for a customer complaint.",
+    "Consider decoupling the welcome-email trigger from the main scenario path so a failure earlier in the chain does not also block onboarding communication for contacts that were successfully created."
+  ],
   "soundness_statement": null
 }
 ```
@@ -437,27 +500,27 @@ this, so the hardcoded list is out of date.
     {
       "factor": "workflow",
       "score": 3,
-      "justification": "The scenario is largely linear (webhook -> HubSpot -> enrichment -> router -> Slack -> list add) but includes a three-branch router for owner assignment tied to company size bands, giving it a moderate conditional structure without loops or parallelism."
+      "justification": "Six sequential steps with a branch at contact lookup (exists/new) and a three-way company-size router at Step 4; no loops or parallelism, so it sits at a moderate level of branching rather than deep or trivial."
     },
     {
       "factor": "integration",
       "score": 3,
-      "justification": "The design touches four external systems (marketing site webhook, HubSpot, a third-party enrichment API, Slack) plus internal routing logic, which is several conventional systems but not a large or unusually heterogeneous set."
+      "justification": "The scenario connects Make.com, HubSpot (lookup, create/update, list-add), an external enrichment API, and Slack — four heterogeneous systems with conventional REST/webhook interfaces, but no evidence of unstable or undocumented APIs beyond the enrichment outage."
     },
     {
       "factor": "data_logic",
       "score": 2,
-      "justification": "Data transformation is limited to attaching enrichment fields (company size, industry) and mapping a size value to one of three hardcoded owner branches; there is no reconciliation across multiple data sources or dense rule interaction described."
+      "justification": "Data is largely passed through with light mapping (lifecycle stage, form fields, enrichment fields, owner name) and a simple three-branch rule set on company size; no reconciliation across multiple data sources or dense interacting rules is described."
     },
     {
       "factor": "failure_risk",
       "score": 5,
-      "justification": "Observed failures include leads landing with no owner, duplicate Slack postings, and a full scenario halt from an enrichment API outage that silently dropped ~40 submissions discovered only via customer complaint, indicating severe consequences, no retry/error handling, and no monitoring/alerting."
+      "justification": "Observed failures include a full scenario halt from an unhandled enrichment API outage dropping ~40 submissions, duplicate Slack posts indicating no idempotency protection, and leads landing with no owner from an incomplete router — multiple concrete failure modes with real business consequence and no alerting."
     },
     {
       "factor": "operational",
       "score": 4,
-      "justification": "The hardcoded rep list has already gone stale (two of three reps left), and there is no stated process for updating it or for monitoring failed runs, implying the workflow requires specialist knowledge and manual intervention to keep functioning correctly over time."
+      "justification": "The hardcoded three-rep owner list is already stale (two reps have left), the lack of alerting meant an outage was discovered only via customer complaint, and duplicate/unassigned-lead issues require ongoing manual correction — this points to frequent intervention and change even though volume (~250/month) is modest."
     }
   ]
 }
@@ -469,86 +532,94 @@ this, so the hardcoded list is out of date.
 {
   "criteria_applied": [
     {
-      "criterion": "Current platform is Make.com, running the scenario today",
+      "criterion": "The workflow currently runs on Make.com, triggered by a webhook from the marketing site",
+      "context_index": 0,
+      "component": null
+    },
+    {
+      "criterion": "HubSpot must be kept as the CRM of record",
+      "context_index": 13,
+      "component": null
+    },
+    {
+      "criterion": "Volume is roughly 250 submissions a month, a low volume that does not by itself demand a more powerful or expensive platform",
+      "context_index": 11,
+      "component": null
+    },
+    {
+      "criterion": "The steps integrate HubSpot (lookup, create/update, list add), an external enrichment API, and Slack — all systems Make.com already connects to in this scenario",
       "context_index": 1,
-      "component": null
+      "component": "HubSpot contact lookup"
     },
     {
-      "criterion": "Volume is roughly 250 form submissions per month",
-      "context_index": 10,
-      "component": null
-    },
-    {
-      "criterion": "Systems integrated are HubSpot (contact lookup/create/update, lifecycle stage, list membership), a third-party enrichment API, and Slack",
-      "context_index": 2,
-      "component": null
-    },
-    {
-      "criterion": "HubSpot must remain the system of record for contacts and lifecycle stage",
-      "context_index": 2,
-      "component": null
-    },
-    {
-      "criterion": "The enrichment API outage halted the entire scenario with no retry, fallback, or alerting, losing ~40 submissions",
+      "criterion": "The enrichment API outage stopped the whole scenario with no fallback or retry, and no alerting existed to surface it",
       "context_index": 9,
       "component": "Enrichment API call"
     },
     {
-      "criterion": "The owner-assignment router is hardcoded to three reps, two of whom have left, and leads have landed with no owner assigned",
-      "context_index": 6,
-      "component": "Owner assignment router"
+      "criterion": "Leads have landed with no owner assigned, indicating the router's branches do not exhaustively cover all company-size cases",
+      "context_index": 7,
+      "component": "Owner routing"
     },
     {
-      "criterion": "The same lead has posted to Slack twice within about a minute",
+      "criterion": "The same lead was posted to Slack twice within about a minute, indicating no duplicate-execution protection",
       "context_index": 8,
       "component": "Slack notification"
     },
     {
-      "criterion": "No error handling or retry logic exists around the enrichment API call",
+      "criterion": "Two of the three hardcoded reps have left the company, making the owner list stale",
       "context_index": 12,
-      "component": "Enrichment API call"
+      "component": "Owner routing"
     }
   ],
   "recommended_platform": "Make.com",
   "also_required": [],
-  "rationale": "Nothing in the context points to the current platform as the source of the observed failures. The volume (roughly 250 submissions/month) is modest and does not stress Make's execution model or pricing tiers in any way the context indicates. All three integrated systems (HubSpot, the third-party enrichment API, Slack) are already connected on this platform, and the failures observed — the scenario halting on enrichment API errors, leads landing unassigned, duplicate Slack posts — are configuration and design gaps (no error-handler route, no fallback branch on the router, a hardcoded rep list, and an unestablished dedup mechanism) rather than platform limitations. Make.com supports error-handling routes, retry directives, and filters that would address each of these without a migration. Moving platforms would require rebuilding every integration and step from scratch while carrying the same unresolved design defects into the new system, at a cost the context gives no reason to justify. Staying preserves the existing integrations and lets the fixes be scoped to the workflow's logic rather than its runtime.",
+  "rationale": "Every observed failure — the enrichment outage halting the whole run with no alert, the duplicate Slack posts, and leads landing without an owner — is a configuration and design gap (missing error handler/retry around the enrichment call, missing deduplication, a router with no default branch, and a hardcoded rep list) rather than a limitation of Make.com itself. Make.com natively supports error handlers, retry/queue logic, router fallback paths, and filters that would address each of these without a platform change. The stated volume (~250 submissions/month) is modest and gives no basis to justify the cost or migration effort of a different platform, and HubSpot must remain the system of record regardless of execution platform, which Make.com already respects. Moving platforms would not by itself fix the router logic gap or the stale rep list — those require workflow redesign, not a different runner — so staying is the option that fixes the actual problems at lowest cost and risk.",
   "alternatives_rejected": [
     {
-      "platform": "Zapier",
-      "rejection_reason": "Would require rebuilding the HubSpot, enrichment API, and Slack connections from scratch; the context gives no stated capability gap in Make that Zapier would close, and the root failures (hardcoded list, missing error handling, duplicate posting) are not platform-specific."
+      "platform": "n8n",
+      "rejection_reason": "Would offer comparable low-code branching and error-handling primitives, but nothing in the context indicates the current platform lacks the capability to fix the observed failures — migrating would add effort without addressing the root causes (missing retry logic, no default router branch, stale rep list)."
     },
     {
-      "platform": "n8n (self-hosted)",
-      "rejection_reason": "Offers more granular code-level control over error handling, but no budget, hosting preference, or technical constraint is stated that would justify the operational overhead of self-hosting and migrating a 250-submission-per-month workflow."
+      "platform": "Zapier",
+      "rejection_reason": "Similar integration surface to Make.com for HubSpot/Slack, but its branching and error-handling model is generally more limited than Make.com's, and the context gives no stated need that Make.com cannot meet at this volume."
+    },
+    {
+      "platform": "An enterprise iPaaS (e.g. a heavier orchestration platform)",
+      "rejection_reason": "No budget, compliance, or volume figure in the context supports the added cost and complexity of an enterprise-grade platform for a ~250/month workflow with three external integrations."
     }
   ],
   "fit": [
     {
-      "component": "Webhook trigger",
-      "how": "Continues to receive the form submission via Make's webhook module; no change indicated by the context."
+      "component": "Webhook intake",
+      "how": "Continues to receive the marketing-site form submission and start the scenario; no change needed to this step's mechanics."
     },
     {
-      "component": "HubSpot contact lookup/create/update",
-      "how": "Continues via Make's existing HubSpot connector, preserving HubSpot as the system of record for contacts and lifecycle stage."
+      "component": "HubSpot contact lookup",
+      "how": "Continues on Make.com's native HubSpot module to check for an existing contact by email."
+    },
+    {
+      "component": "HubSpot contact create/update",
+      "how": "Continues to branch into update-existing or create-new contact using Make.com's router, keeping HubSpot as the system of record."
     },
     {
       "component": "Enrichment API call",
-      "how": "Remains on Make but should be wrapped in an error-handler/retry route so an API outage no longer halts the whole scenario or silently drops submissions."
+      "how": "Stays on Make.com but should be wrapped in Make.com's built-in error-handling/retry routes so an outage no longer silently halts the whole scenario or drops submissions."
     },
     {
-      "component": "Owner assignment router",
-      "how": "Remains on Make; the hardcoded three-rep list is the underlying defect, not the platform, and should be replaced with a maintained, dynamic mapping (unknown per context index 16) plus a default branch for out-of-range or missing data."
+      "component": "Owner routing",
+      "how": "Stays on Make.com's router, but the three-branch logic needs a default/fallback branch and the hardcoded rep list needs to be replaced with a source that can be updated without editing scenario logic — a design fix, not a platform change."
     },
     {
       "component": "Slack notification",
-      "how": "Remains on Make; a dedup/filter step should be added once the cause of the double post (context index 15) is identified."
+      "how": "Stays on Make.com's Slack module; needs deduplication (e.g. an idempotency check keyed on submission ID) added before this step to prevent duplicate posts."
     },
     {
-      "component": "Welcome sequence list addition",
-      "how": "Continues via Make's existing HubSpot connector, unaffected by the recommendation."
+      "component": "HubSpot list add / welcome email trigger",
+      "how": "Continues to add the contact to the HubSpot list that fires the welcome-email sequence, unaffected by platform choice."
     }
   ],
-  "knowledge_currency_note": "Platform capabilities, connector behavior, error-handling features, and pricing on Make.com (and any alternative considered) change over time; verify current documentation before committing to this recommendation."
+  "knowledge_currency_note": "Platform capabilities, pricing, and limits (including Make.com's error-handling, retry, and router features referenced here) change over time; verify current documentation before committing to this recommendation or its implementation details."
 }
 ```
 

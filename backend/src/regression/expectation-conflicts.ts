@@ -34,16 +34,13 @@ export interface ExpectationConflict {
 }
 
 export const EXPECTATION_CONFLICTS: readonly ExpectationConflict[] = [
-  {
-    caseId: "jd-008",
-    assertion: "artifact_set",
-    expectation:
-      "expected_artifact_set includes portfolio_suggestions on an apply_now verdict (the applicant should still be shown what would strengthen the application)",
-    decision:
-      "docs/12 D-29: the portfolio is planned only on build_first — an apply_now verdict has nothing to build first, and the plan records that omission",
-    recordedIn:
-      "research/m11-artifact-set-measurement.md; STATUS ledger, owner decisions",
-  },
+  // The first entry, jd-008 (D-90 §5), was WITHDRAWN on 2026-09-10 the same
+  // day it was registered. It read the corpus's "portfolio on jd-008" as a
+  // disagreement with D-29's apply_now rule; the D-90 recapture returned a
+  // build_first verdict for the same input, the portfolio was generated, and
+  // the case passed. The corpus freezes no verdict, so what the two captures
+  // measure is Stage 7 verdict variance on one input (FR-024), recorded in
+  // research/m11-artifact-set-measurement.md — not a conflict with D-29.
 ];
 
 export const registeredConflicts = (

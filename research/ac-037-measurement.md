@@ -1,25 +1,24 @@
-# AC-037 — depth proportional to complexity, measured 2026-09-10
+# AC-037 — depth proportional to complexity, measured 2026-09-10 (after D-90)
 
-`docs/08` Appendix C item 9 (D-34): `AC-037` is tested as **artifact-set size against complexity score** (`DB §4.4`), and was "unmeasurable until complexity scoring exists". Complexity scoring exists since D-80; this is the measurement, taken offline from the fifteen recordings in force (no provider, no spend) by parsing each recording's Stage 9 complexity answer and reading the planned artifact set from `PATH_ARTIFACT_TYPES`.
+`PRD §15.3` `AC-037`: *"Output depth is proportional to input complexity across the regression suite"* (`PV §3.2`). `docs/08` Appendix C item 9 (D-34) says how it is tested: **artifact-set size against complexity score** (`DB §4.4`). This is that measurement, taken offline from the recordings in force by replaying each through the pipeline and reading the plan and the Stage 9 complexity score — `npm run measure:artifact-sets`, no provider, no spend. It supersedes the 2026-09-10 morning table, which found every scored requirement case planning the same eleven artifacts.
 
-| Case | Path | Complexity score | Band | Planned artifact set (incl. brief) |
-|---|---|---|---|---|
-| br-001 | business_requirement | 73 | high | 11 |
-| br-002 | business_requirement | 60 | high | 11 |
-| br-003 | business_requirement | 39 | low | 11 |
-| br-004 | business_requirement | 35 | low | 11 |
-| br-005 | business_requirement | — | — | 1 (halted before Stage 9) |
-| br-007 | business_requirement | 48 | moderate | 11 |
-| br-009 | business_requirement | 77 | high | 11 |
-| br-010 | business_requirement | 41 | moderate | 11 |
-| br-011 | business_requirement | 84 | severe | 11 |
-| ew-001 | existing_workflow | 67 | high | 5 |
-| jd-002 | job_description | — | — | 4 (no complexity on this path) |
-| jd-008 | job_description | — | — | 4 (no complexity on this path) |
-| ta-005 | technical_assessment | — | — | 3 (no complexity on this path) |
-| un-001 | unsupported | — | — | 1 (halted before Stage 9) |
-| un-002 | unsupported | — | — | 1 (halted before Stage 9) |
+| Case | Path | Characters | Depth | Complexity score | Planned (incl. brief) | Generated |
+|---|---|---|---|---|---|---|
+| br-001 | business_requirement | 1637 | standard | 69 | 11 | 11 |
+| br-002 | business_requirement | 1177 | standard | 68 | 11 | 11 |
+| br-003 | business_requirement | 967 | standard (unwarranted) | — | 2 | 2 |
+| br-004 | business_requirement | 66 | minimal | — | 3 | 3 |
+| br-005 | business_requirement | 355 | — (halted at Stage 3) | — | 1 | 1 |
+| br-007 | business_requirement | 1410 | standard | 60 | 11 | 11 |
+| br-009 | business_requirement | 2152 | standard | 80 | 11 | 11 |
+| br-010 | business_requirement | 647 | standard (declined) | — | 2 | 2 |
+| br-011 | business_requirement | 2045 | standard | 84 | 11 | 11 |
+| ew-001 | existing_workflow | 1455 | standard | 67 | 5 | 5 |
+| jd-008 | job_description | 1889 | standard | — | 5 | 5 |
+| ta-005 | technical_assessment | 83 | minimal | — | 3 | 3 |
+| un-001 / un-002 | unsupported | 658 / 804 | — (halted at Stage 1) | — | 0 | 0 |
+| jd-002 | job_description | — | stale recording, not replayed | — | — | — |
 
-**Result: NOT MET, by construction.** Nine scored cases span complexity 35–84 (low to severe) and every one of them plans the same eleven artifacts; the only variation in set size is by path (11 / 5 / 4 / 3) and by halting (1). That is exactly what D-34 chose: `depth_level` is single-valued (`"standard"`) in v1, so the artifact set is fixed per path and cannot be proportional to anything. The measurement is honest about what it measures — the plan, not the length or depth of the artifacts, which `DB §4.4` does not define a measure for.
+**Result: NOT SHOWN MET by the prescribed measure.** The set size now varies — 11, 5, 3, 2, 1 — where before D-90 it was fixed per path, and on the requirement path the two-, three- and eleven-artifact plans do follow the inputs the corpus authored as minimal, declined or unwarranted. But the measure the roadmap prescribes is set size *against the complexity score*, and that comparison cannot be made on exactly the cases where the set shrank: the complexity score is a Stage 9 generator's product, and minimal depth and the two no-design judgements omit that generator. Every case that carries a score (60–84) plans eleven; every case that plans fewer carries no score. So the table shows proportionality to **input length and to two stated judgements**, not to the complexity score, and `AC-037` is recorded as not shown met on its own terms.
 
-**What would meet it.** A second depth level, planned at Stage 5 from the complexity pre-assessment D-35 deferred (or, since D-80, from the score itself — which is produced at Stage 9, after the plan), that omits or shortens artifacts for low-complexity inputs. That is a scope decision (`AIQ-7`, D-34 "revisit when complexity scoring exists") and is now the owner's to take with the evidence above.
+**Why the depth rule is a length rule, stated plainly.** D-90's Stage 5 selects minimal depth at or under 200 characters. That is explicit and inspectable (`FR-017`), it matches the corpus's four minimal cases (66–83 characters) against its shortest non-minimal ones (355, 478), and it is **not a complexity measure**: a short input can describe complex work, and the rule would still plan the minimal set for it. A rule keyed on the complexity score itself would need the score before the plan, which the pipeline's order (score at Stage 9, plan at Stage 8) does not provide; producing a pre-assessment at Stage 5 is the `AI §5` output D-35 deferred, and it is still deferred. That is the design gap between what D-90 built and what `AC-037` asks for, and it is recorded here rather than closed.

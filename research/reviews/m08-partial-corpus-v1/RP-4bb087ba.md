@@ -49,7 +49,7 @@ in as a daily CSV from our 3PL.
 
 ## 2 · What the system produced
 
-*10 stage(s) recorded: Classification → Intent → Context extraction → Architecture analysis → Complexity assessment → Integration requirements → Risk register → Implementation roadmap → Edge cases and practices → Platform recommendation.*
+*10 stage(s) recorded: Classification → Intent → Context extraction → Architecture analysis → Complexity assessment → Edge cases and practices → Integration requirements → Implementation roadmap → Risk register → Platform recommendation.*
 
 > **Reading the grounding.** Context elements are an ordered array. Where a
 > later stage cites `grounded_in_context_indices`, those are **0-based**
@@ -75,36 +75,34 @@ in as a daily CSV from our 3PL.
 ```json
 {
   "primary_objective": {
-    "content": "Decide whether and how to automate the customer refund process (Shopify order check, warehouse return confirmation, Stripe refund, customer email) currently run manually through the support inbox.",
+    "content": "Automate customer refund processing for the online store, from customer request through to issuing the refund and notifying the customer",
     "provenance": "stated"
   },
   "secondary_objectives": [
     {
-      "content": "Automate refund processing end to end with no human involvement so the overloaded support team does not need to touch it.",
+      "content": "Eliminate human involvement in the refund process to relieve an overloaded support team",
       "provenance": "stated"
     },
     {
-      "content": "Ensure every refund is reviewed and approved by a member of finance before money leaves the account, per a hard auditor control requirement.",
+      "content": "Ensure every refund is reviewed and approved by finance before money leaves the account, per auditor requirement",
       "provenance": "stated"
     },
     {
-      "content": "Issue refunds within 60 seconds of the customer's request to advertise instant refunds as a competitive differentiator.",
+      "content": "Issue refunds within 60 seconds of request to advertise instant refunds as a competitive differentiator",
       "provenance": "stated"
     },
     {
-      "content": "Accommodate finance's daily batch review at 4pm as the fixed timing for approvals.",
+      "content": "Accommodate finance's fixed once-daily 4pm batch review process",
       "provenance": "stated"
     },
     {
-      "content": "Handle the current volume and value profile (about 200 refunds/week, average £45, occasionally up to £2,000) reliably.",
+      "content": "Integrate with existing systems: Shopify, Stripe, Zendesk, and the 3PL's daily CSV warehouse confirmation feed",
       "provenance": "stated"
-    },
-    {
-      "content": "Reconcile the conflict between requirement 1 (no human involvement, full automation) and requirement 2 (mandatory human finance approval before funds leave) plus requirement 3 (60-second turnaround) versus requirement 4 (once-daily 4pm batch review) — these pairs of stated requirements directly contradict each other and cannot both be satisfied as written.",
-      "provenance": "inferred"
     }
   ],
-  "inferred_scope": "The refund workflow spanning customer request intake (Zendesk support inbox), order verification (Shopify), return confirmation (daily CSV from 3PL warehouse), refund execution (Stripe), customer notification (email), and finance approval — bounded to this single process and its named systems; no other business processes or systems are in scope."
+  "inferred_scope": "The customer refund workflow for an online store, from receipt of a refund request in the support inbox through order verification in Shopify, warehouse return confirmation from the 3PL, refund issuance via Stripe, and customer notification — including the finance approval control point.",
+  "requested_outcome": "design",
+  "decline_quote": null
 }
 ```
 
@@ -118,7 +116,7 @@ in as a daily CSV from our 3PL.
       "content": "Refunds must be fully automated end to end with no human involvement",
       "category": "constraint",
       "provenance": "stated",
-      "specificity_score": 0.8,
+      "specificity_score": 0.9,
       "source_quote": "Refunds must be fully automated end to end with no human involvement.",
       "inference_basis": null,
       "resolution_hint": null,
@@ -126,7 +124,7 @@ in as a daily CSV from our 3PL.
     },
     {
       "id": "e2",
-      "content": "Every refund must be reviewed and approved by a member of the finance team before the money leaves the account, a hard auditor control requirement",
+      "content": "Every refund must be reviewed and approved by finance before money leaves the account, a hard auditor control",
       "category": "constraint",
       "provenance": "stated",
       "specificity_score": 0.9,
@@ -148,10 +146,10 @@ in as a daily CSV from our 3PL.
     },
     {
       "id": "e4",
-      "content": "Finance reviews refunds in a batch once per day at 4pm, fixed schedule",
+      "content": "Finance reviews refunds in a batch once per day at 4pm, fixed and unchangeable",
       "category": "constraint",
       "provenance": "stated",
-      "specificity_score": 0.9,
+      "specificity_score": 1,
       "source_quote": "Finance reviews refunds in a batch once per day at 4pm.",
       "inference_basis": null,
       "resolution_hint": null,
@@ -159,7 +157,7 @@ in as a daily CSV from our 3PL.
     },
     {
       "id": "e5",
-      "content": "About 200 refunds a week, average value £45, occasionally up to £2,000 for bulk orders",
+      "content": "Volume of about 200 refunds a week, average value £45, occasionally up to £2,000",
       "category": "scale",
       "provenance": "stated",
       "specificity_score": 1,
@@ -170,40 +168,18 @@ in as a daily CSV from our 3PL.
     },
     {
       "id": "e6",
-      "content": "System: Shopify (order records)",
+      "content": "Systems involved: Shopify, Stripe, Zendesk, and a 3PL warehouse system",
       "category": "system",
       "provenance": "stated",
       "specificity_score": 0.9,
-      "source_quote": "we currently check\nthe order in Shopify",
+      "source_quote": "We are on Shopify and Stripe. Support uses Zendesk.",
       "inference_basis": null,
       "resolution_hint": null,
       "conflicts_with_id": null
     },
     {
       "id": "e7",
-      "content": "System: Stripe (refund issuance)",
-      "category": "system",
-      "provenance": "stated",
-      "specificity_score": 0.9,
-      "source_quote": "issue the refund through Stripe",
-      "inference_basis": null,
-      "resolution_hint": null,
-      "conflicts_with_id": null
-    },
-    {
-      "id": "e8",
-      "content": "System: Zendesk (support inbox intake)",
-      "category": "system",
-      "provenance": "stated",
-      "specificity_score": 0.9,
-      "source_quote": "Support uses Zendesk.",
-      "inference_basis": null,
-      "resolution_hint": null,
-      "conflicts_with_id": null
-    },
-    {
-      "id": "e9",
-      "content": "Warehouse confirmations arrive as a daily CSV from the 3PL",
+      "content": "Warehouse return confirmations arrive as a daily CSV from the 3PL",
       "category": "dependency",
       "provenance": "stated",
       "specificity_score": 0.9,
@@ -213,7 +189,7 @@ in as a daily CSV from our 3PL.
       "conflicts_with_id": null
     },
     {
-      "id": "e10",
+      "id": "e8",
       "content": "Current manual process: check order in Shopify, verify return received by warehouse, issue refund via Stripe, email customer",
       "category": "environment",
       "provenance": "stated",
@@ -224,47 +200,58 @@ in as a daily CSV from our 3PL.
       "conflicts_with_id": null
     },
     {
-      "id": "e11",
-      "content": "Warehouse confirmation is only available once daily via CSV, which limits how quickly a return can be verified as received relative to a 60-second refund target",
+      "id": "e9",
+      "content": "Support requests arrive through a support inbox / Zendesk",
+      "category": "environment",
+      "provenance": "stated",
+      "specificity_score": 0.6,
+      "source_quote": "When a customer requests a refund through our support inbox",
+      "inference_basis": null,
+      "resolution_hint": null,
+      "conflicts_with_id": null
+    },
+    {
+      "id": "e10",
+      "content": "Whether the CSV-based warehouse confirmation (daily) can support a 60-second refund SLA is unresolved, since confirmation is itself batch-delayed",
       "category": "dependency",
       "provenance": "inferred",
-      "specificity_score": 0.7,
+      "specificity_score": 0.6,
       "source_quote": null,
-      "inference_basis": "The 3PL confirmation is stated to arrive as a daily CSV, which cannot supply real-time return-received data needed to satisfy a 60-second refund promise.",
+      "inference_basis": "The warehouse confirmation feed is stated to arrive only once per day as a CSV, which structurally limits how fast the 'return received' check needed before refund issuance can occur.",
       "resolution_hint": null,
-      "conflicts_with_id": "e3"
+      "conflicts_with_id": null
+    },
+    {
+      "id": "e11",
+      "content": "Who will operate, monitor, and maintain the automation, and what technical capability exists in-house",
+      "category": "environment",
+      "provenance": "unknown",
+      "specificity_score": 0,
+      "source_quote": null,
+      "inference_basis": null,
+      "resolution_hint": "Does the team have in-house developer capability, or does this need to be built and maintained by non-technical staff?",
+      "conflicts_with_id": null
     },
     {
       "id": "e12",
-      "content": "Whether the 60-second refund promise applies to all refunds or only a subset (e.g. those not requiring return verification) is unresolved",
-      "category": "objective",
+      "content": "Budget available for building or licensing an automation platform",
+      "category": "constraint",
       "provenance": "unknown",
-      "specificity_score": 0.3,
+      "specificity_score": 0,
       "source_quote": null,
       "inference_basis": null,
-      "resolution_hint": "Does the 60-second SLA apply to every refund, including those requiring warehouse return confirmation, or only to a subset where no physical return is involved?",
+      "resolution_hint": "What budget, if any, is allocated for tooling, platform licensing, or development of this automation?",
       "conflicts_with_id": null
     },
     {
       "id": "e13",
-      "content": "How the business intends to reconcile the stated no-human-involvement automation goal with the mandatory finance approval control is unresolved",
-      "category": "objective",
-      "provenance": "unknown",
-      "specificity_score": 0.3,
-      "source_quote": null,
-      "inference_basis": null,
-      "resolution_hint": "Is the finance approval intended to be a real human sign-off, or could it be an automated policy check that stands in for the human review demanded by auditors — and would auditors accept that?",
-      "conflicts_with_id": null
-    },
-    {
-      "id": "e14",
-      "content": "Whether high-value refunds (up to £2,000) require different handling or thresholds than average (£45) refunds is unresolved",
+      "content": "What should happen when finance rejects a refund that was already promised/issued instantly, or how a rejected-after-payment scenario is handled",
       "category": "constraint",
       "provenance": "unknown",
-      "specificity_score": 0.3,
+      "specificity_score": 0,
       "source_quote": null,
       "inference_basis": null,
-      "resolution_hint": "Should refunds above a certain value be routed differently (e.g. always held for review) than routine low-value refunds?",
+      "resolution_hint": "If refunds are issued before finance's daily review, what is the process for reversing or flagging a refund that finance later rejects?",
       "conflicts_with_id": null
     }
   ],
@@ -276,55 +263,54 @@ in as a daily CSV from our 3PL.
 
 ```json
 {
-  "summary": "The design covers the current manual refund process (Shopify order check, 3PL return confirmation, Stripe refund, customer email) as a structured pipeline with a mandatory finance approval gate. It cannot simultaneously satisfy the stated 60-second refund promise and the stated fully-automated, no-human-involvement goal, because a hard auditor control requires human finance sign-off and finance only reviews in a once-daily 4pm batch. The architecture below implements the batch-gated version of the process, since that is the requirement carrying an explicit auditor justification; the 60-second and no-human-involvement objectives are not achievable within this structure as stated and are surfaced rather than silently dropped.",
-  "data_flow_description": "A customer refund request enters through the Zendesk support inbox and is captured as a structured record (order id, customer, requested amount). That record is checked against Shopify to confirm the order exists and the requested amount is valid. Separately, return status for the order is checked against the daily CSV file received from the 3PL warehouse; if the order has not yet appeared in that file, the return is treated as unconfirmed. Verified, return-checked requests accumulate in a queue awaiting finance's daily 4pm batch review. At that review, a finance team member approves or rejects each queued refund. Only approved refunds are sent to Stripe for execution. Once Stripe confirms the refund, an email notification is sent to the customer. No refund reaches Stripe without passing through the finance approval gate, and no return is treated as confirmed until it appears in a 3PL CSV file.",
+  "summary": "The design automates the customer refund workflow from request intake through order verification, warehouse-return matching, and Stripe execution, but routes every refund through the finance approval control before money moves, because that control is stated as a hard, unchangeable auditor requirement. It cannot also deliver the stated 60-second instant-refund promise or a fully human-free process, since those two objectives directly conflict with the finance batch requirement and with the daily-CSV nature of warehouse confirmation. Both conflicts are structural, not solvable by picking a side, and are surfaced here rather than resolved silently.",
+  "data_flow_description": "A refund request enters via the support inbox/Zendesk and becomes a structured record. That record is checked against Shopify to verify the order and its eligibility, and matched against the 3PL's daily CSV to confirm the warehouse actually received the return — a check that itself cannot run faster than once a day given the CSV cadence. Verified, return-confirmed candidates accumulate in a finance approval queue that is only processed once, at the fixed 4pm daily batch. Only after that human approval step does a refund get executed through Stripe. The outcome — paid, rejected, or still pending confirmation — is then pushed back out to the customer via Zendesk/email. Nothing in this flow can complete inside 60 seconds of the original request, because both the warehouse confirmation and the finance approval are batch-bound by design and by stated auditor requirement.",
   "components": [
     {
       "name": "Refund Request Intake",
-      "responsibility": "Capture customer refund requests arriving in the Zendesk support inbox and convert them into a structured request record.",
-      "inputs": "Customer refund request email in Zendesk support inbox",
-      "outputs": "Structured refund request record (order id, customer, requested amount)",
-      "failure_handling": "If a request cannot be parsed into a structured record, it remains unprocessed in the support inbox with no automated fallback described in the input.",
+      "responsibility": "Capture a customer refund request from the support channel and convert it into a structured, trackable record.",
+      "inputs": "Customer refund request arriving through the support inbox/Zendesk.",
+      "outputs": "A structured refund request record with a unique identifier for downstream tracking.",
+      "failure_handling": "If intake fails to create a record, the request remains only in the inbox and is not tracked through the automated pipeline, so it must be visible for manual re-entry.",
       "external_system": "Zendesk",
       "integration_direction": "inbound",
       "grounded_in_context_indices": [
-        7,
-        9
+        8,
+        7
       ]
     },
     {
       "name": "Order Verification",
-      "responsibility": "Confirm the order referenced in a refund request exists in Shopify and check the requested refund amount against it.",
-      "inputs": "Order id and requested amount from the intake record",
-      "outputs": "Order validity result (exists/eligible amount) from Shopify",
-      "failure_handling": "If the Shopify lookup fails or the order is not found, the refund request is halted and flagged rather than proceeding to return verification.",
+      "responsibility": "Check the refund request against Shopify to confirm the order exists and is eligible for refund.",
+      "inputs": "Refund request record; order data from Shopify.",
+      "outputs": "Verified order details, or a rejection if the order is not found or ineligible.",
+      "failure_handling": "If the Shopify lookup fails or times out, the request is held in an unverified state rather than passed forward, pending retry or manual check.",
       "external_system": "Shopify",
       "integration_direction": "inbound",
       "grounded_in_context_indices": [
-        5,
+        7,
+        5
+      ]
+    },
+    {
+      "name": "Warehouse Return Matcher",
+      "responsibility": "Match verified refund requests against the 3PL's daily CSV feed to confirm the physical return has actually been received.",
+      "inputs": "Verified order details; the 3PL's daily CSV warehouse confirmation feed.",
+      "outputs": "A return-confirmed status, or a pending status for requests not yet matched to a confirmed return.",
+      "failure_handling": "Because the CSV arrives only once a day, a request with no match simply stays pending until the next day's file; there is no faster confirmation path, and this component cannot be made to answer within the 60-second target.",
+      "external_system": "3PL warehouse system",
+      "integration_direction": "inbound",
+      "grounded_in_context_indices": [
+        6,
         9
       ]
     },
     {
-      "name": "Return Confirmation Check",
-      "responsibility": "Determine whether the warehouse has confirmed receipt of the returned item for a given order, using the daily 3PL CSV feed.",
-      "inputs": "Daily CSV file from the 3PL warehouse; order id",
-      "outputs": "Return-received status for the order (confirmed / not yet confirmed)",
-      "failure_handling": "If the day's CSV is not received, or the order is absent from it, the return status stays unconfirmed and the refund is held over to the next day's file rather than proceeding.",
-      "external_system": "3PL warehouse system",
-      "integration_direction": "inbound",
-      "grounded_in_context_indices": [
-        8,
-        9,
-        10
-      ]
-    },
-    {
       "name": "Finance Approval Queue",
-      "responsibility": "Hold verified refund requests until finance's fixed daily batch review and record each approval or rejection decision.",
-      "inputs": "Verified refund requests with order and return-confirmation status",
-      "outputs": "Approved or rejected refund decisions, produced once daily at the 4pm review",
-      "failure_handling": "If the 4pm batch review does not occur (e.g. finance unavailable), queued refunds remain unapproved and no funds move until the next scheduled review.",
+      "responsibility": "Stage every verified, return-confirmed refund candidate for a single, fixed daily human review by finance before any money moves.",
+      "inputs": "Verified and return-confirmed refund candidates.",
+      "outputs": "A list of finance-approved refunds and a list of finance-rejected refunds, produced once per day at the fixed 4pm batch.",
+      "failure_handling": "If the daily batch review does not run or is incomplete, all queued candidates carry over to the next day's batch rather than being auto-approved or auto-issued, since finance sign-off is a stated hard control.",
       "external_system": null,
       "integration_direction": null,
       "grounded_in_context_indices": [
@@ -334,49 +320,55 @@ in as a daily CSV from our 3PL.
     },
     {
       "name": "Refund Execution",
-      "responsibility": "Issue the actual refund payment through Stripe for requests that have received finance approval.",
-      "inputs": "Approved refund decision (amount, customer, order id)",
-      "outputs": "Executed Stripe refund transaction and confirmation",
-      "failure_handling": "If the Stripe call fails, the refund remains marked approved-but-not-executed and requires a retry or manual finance follow-up, since no other execution path is described.",
+      "responsibility": "Issue the actual refund payment through Stripe for candidates that finance has approved.",
+      "inputs": "The finance-approved refund list from the approval batch.",
+      "outputs": "A completed Stripe refund transaction per approved request.",
+      "failure_handling": "If a Stripe refund call fails, the item is flagged as unpaid-despite-approval and held for retry rather than silently dropped, since finance already signed off on it.",
       "external_system": "Stripe",
       "integration_direction": "outbound",
       "grounded_in_context_indices": [
-        6,
-        9
+        7,
+        5,
+        1
       ]
     },
     {
       "name": "Customer Notification",
-      "responsibility": "Notify the customer by email once their refund has been executed.",
-      "inputs": "Refund execution confirmation",
-      "outputs": "Confirmation email to the customer",
-      "failure_handling": "If the email fails to send, the refund itself has still been processed but the customer is not informed, requiring manual follow-up since no alternate notification channel is described.",
-      "external_system": null,
-      "integration_direction": null,
+      "responsibility": "Inform the customer of the outcome of their refund request at each meaningful state change.",
+      "inputs": "Refund outcome: pending verification, pending finance approval, approved-and-paid, or rejected.",
+      "outputs": "A notification to the customer via email or Zendesk update reflecting current status.",
+      "failure_handling": "If a notification fails to send, the refund's internal state is unaffected but the customer is left uninformed, requiring the failure to be visible for manual follow-up.",
+      "external_system": "Zendesk",
+      "integration_direction": "outbound",
       "grounded_in_context_indices": [
-        9
+        7,
+        8
       ]
     }
   ],
   "unknown_disposition": [
     {
+      "context_index": 10,
+      "disposition": "excluded",
+      "statement": "The design does not assign an operator, monitor, or maintainer for the pipeline; who runs and maintains it, and what technical capability exists in-house, is left out until answered."
+    },
+    {
       "context_index": 11,
       "disposition": "excluded",
-      "statement": "The design applies the same order-verification, return-confirmation and finance-approval path to every refund; it does not carve out a faster path for refunds that might not require return verification, because the input does not say whether such a subset exists or what would define it. Including a subset would require clarifying which refunds do not need return confirmation."
+      "statement": "No budget figure is available, so the design does not assume any particular platform cost tier or build-vs-license posture; this is left for the reader to establish."
     },
     {
       "context_index": 12,
-      "disposition": "assumed",
-      "statement": "The design assumes the finance approval step is a genuine human sign-off (as the auditor control language implies), not an automated policy check standing in for it, and therefore treats no-human-involvement automation as achievable only up to that gate, not through it. If auditors would accept an automated policy check instead, the Finance Approval Queue component could be replaced."
-    },
-    {
-      "context_index": 13,
       "disposition": "excluded",
-      "statement": "The design does not add a separate high-value review path or threshold for refunds approaching £2,000; all refunds pass through the same single approval queue. Adding differentiated handling would require the business to specify a value threshold and what different treatment above it should look like."
+      "statement": "Because this design defers Stripe payment until after finance approval, the specific scenario of reversing an already-issued refund that finance later rejects should not arise under this design, but the design does not address related edge cases (e.g. a Stripe failure after approval, or a future change to issue-before-approval) and leaves the reversal/failure process for those cases unspecified."
     }
   ],
   "trade_offs": [],
-  "rejected_approaches": []
+  "rejected_approaches": [],
+  "automation_verdict": {
+    "warranted": true,
+    "statement": "The design automates the repeatable parts of refund handling — request intake, order verification, warehouse-return matching, approved-refund execution, and customer notification — because these are high-volume, rule-based steps (about 200 refunds a week) well suited to automation; however, it cannot also deliver the stated 60-second refund promise or a fully human-free process, since the auditor-mandated finance approval batch and the daily-CSV warehouse confirmation are both stated as fixed and structurally preclude sub-minute, human-free completion."
+  }
 }
 ```
 
@@ -388,27 +380,100 @@ in as a daily CSV from our 3PL.
     {
       "factor": "workflow",
       "score": 3,
-      "justification": "The pipeline has a linear sequence (intake → Shopify check → 3PL return check → finance batch queue → Stripe execution → email) but includes conditional halts (order not found, return unconfirmed) and a wait state for the daily batch review, giving moderate branching without deep nesting or loops."
+      "justification": "The pipeline has multiple sequential stages (intake, order verification, warehouse matching, finance batch approval, execution, notification) with branching on verification failure, pending-match status, and finance approve/reject outcomes, but no loops or parallel paths beyond simple carry-over-to-next-day retries."
     },
     {
       "factor": "integration",
-      "score": 3,
-      "justification": "Four systems are involved (Zendesk, Shopify, 3PL CSV feed, Stripe) with conventional interfaces for Shopify and Stripe, but the 3PL only offers a daily CSV rather than an API, and the finance queue is a manual human step, adding heterogeneity beyond a simple two-system design."
+      "score": 4,
+      "justification": "Four heterogeneous systems are involved (Shopify, Stripe, Zendesk, 3PL), one of which exposes data only via a daily CSV file rather than a real-time API, which is a poor/unstable interface for this use case and pushes the score above the 'several conventional interfaces' anchor."
     },
     {
       "factor": "data_logic",
-      "score": 2,
-      "justification": "Transformations are modest: parsing a Zendesk request into a structured record, matching order id/amount against Shopify, and matching order id against a CSV return status. There is no reconciliation across many sources or dense rule sets, just a few validity checks."
+      "score": 3,
+      "justification": "The design performs matching/reconciliation between refund requests, Shopify order data, and CSV-based warehouse confirmations, plus state transitions across pending/approved/rejected — a moderate, recognisable mapping and rule set rather than trivial pass-through or extensive multi-source reconciliation."
     },
     {
       "factor": "failure_risk",
       "score": 4,
-      "justification": "Several failure modes are named explicitly - unparsed intake requests, Shopify lookup failure, missing/late 3PL CSV, missed 4pm batch review, and failed Stripe calls left 'approved-but-not-executed' - each requiring deliberate handling; money movement and an auditor control raise the consequence of mishandling, though volumes (200/week, avg £45) limit severity somewhat."
+      "justification": "The architecture surfaces two unresolved structural conflicts (60-second SLA vs daily finance batch vs daily CSV cadence) plus stated failure paths for Stripe execution failure post-approval, unmatched CSV records, and unnotified customers; consequences include real money movement (up to £2,000) and an auditor-mandated control, demanding careful ordering and correctness rather than trivial retry handling."
     },
     {
       "factor": "operational",
       "score": 3,
-      "justification": "The design depends on a fixed daily 4pm finance review and a daily 3PL CSV arriving on schedule, both of which require routine human attention (finance staff, and follow-up if the CSV or Stripe call fails), rather than running fully unattended, but no continuous monitoring or specialist technical skill is implied."
+      "justification": "The daily 4pm finance batch and daily CSV ingestion require routine recurring attention and reconciliation of carried-over pending items, though the design implies no continuous monitoring beyond these fixed daily touchpoints; who operates it is unknown per the unresolved context item."
+    }
+  ]
+}
+```
+
+### Edge cases and practices
+
+```json
+{
+  "edge_cases": [
+    {
+      "component": "Warehouse Return Matcher",
+      "scenario": "A customer's refund request is verified in Shopify but the 3PL's daily CSV never includes a matching return confirmation (e.g. item lost in transit or logged under a mismatched order number)",
+      "consequence": "The request stays pending indefinitely with no path to resolution, and the customer never receives a refund despite having returned the item",
+      "handling": "Not addressed by the stated failure_handling, which only covers 'not yet matched' as a same-day timing issue; the design needs an escalation path for requests that remain unmatched after multiple daily CSV cycles"
+    },
+    {
+      "component": "Finance Approval Queue",
+      "scenario": "A refund candidate for the occasional high-value case (up to £2,000, per the £45 average/£2,000 occasional stated volume) reaches the daily batch alongside routine £45 refunds",
+      "consequence": "High-value refunds are approved with the same blanket process as routine ones, with no differentiated scrutiny despite the auditor control being the reason for review",
+      "handling": "Not addressed in the component design; finance queue currently treats all candidates identically with no value-based tiering"
+    },
+    {
+      "component": "Refund Execution",
+      "scenario": "Finance rejects a refund candidate at the 4pm batch",
+      "consequence": "The customer's refund request is denied but the design's Customer Notification only lists 'approved-and-paid, or rejected' as outcomes without describing what information or recourse the customer receives on rejection",
+      "handling": "Customer Notification's inputs list 'rejected' as a state but failure_handling does not specify content or recourse process for a rejected notification, leaving the rejection communication unspecified"
+    },
+    {
+      "component": "Refund Request Intake",
+      "scenario": "The same customer, or the same order, generates two refund requests in Zendesk (e.g. customer messages twice, or contacts via two channels) before the first is resolved",
+      "consequence": "Duplicate refund request records could both proceed through verification and matching, risking a double refund through Stripe for a single return",
+      "handling": "Not addressed; Intake's failure_handling only covers records failing to be created, not duplicate record creation for the same order"
+    },
+    {
+      "component": "3PL warehouse system",
+      "scenario": "The daily CSV itself is late, malformed, or missing entirely on a given day",
+      "consequence": "The Warehouse Return Matcher has no data to match against, so all pending candidates for that day silently stall a full extra day, compounding the delay against the 60-second SLA that is already unmet",
+      "handling": "Not addressed by the current design; no fallback or alert for an absent/late/malformed CSV file is described"
+    },
+    {
+      "component": "Finance Approval Queue",
+      "scenario": "The stated conflict between the 60-second refund SLA (index 2) and the fixed 4pm daily batch (index 3) means every refund request arriving after 4pm on a given day must wait until the next day's batch",
+      "consequence": "Customers are told or expect a near-instant refund but experience a delay of up to nearly 24 hours, breaching the stated SLA on every single request, not just an edge case but the default outcome",
+      "handling": "The architecture surfaces this as an unresolved structural conflict rather than resolving it; the design does not silently pick a side, per its own summary, but no interim customer-facing communication of the real timeline is defined"
+    },
+    {
+      "component": "Refund Execution",
+      "scenario": "Finance approves a refund at the 4pm batch, but the Stripe refund call subsequently fails for that item",
+      "consequence": "The customer is told (or the system assumes) they were refunded, but no money has moved, creating a discrepancy against the auditor control that required approval before money leaves the account",
+      "handling": "Covered by stated failure_handling: item is flagged as unpaid-despite-approval and held for retry rather than dropped"
+    }
+  ],
+  "practices": [
+    {
+      "applies_to": "Finance Approval Queue",
+      "practice": "Tag each candidate in the daily batch with its refund value (e.g. flag anything approaching the stated £2,000 occasional high end) so finance can apply differentiated scrutiny within the single daily review",
+      "rationale": "The stated volume shows most refunds average £45 but occasionally reach £2,000; treating all candidates identically in one batch undermines the purpose of the auditor control for the outlier cases"
+    },
+    {
+      "applies_to": "Refund Request Intake",
+      "practice": "Deduplicate incoming requests against an existing open request for the same Shopify order before creating a new record",
+      "rationale": "Requests enter through Zendesk/support inbox from customers who may re-contact support before their original request resolves, and the design has no stated mechanism to prevent two records tracking one refund"
+    },
+    {
+      "applies_to": "Warehouse Return Matcher",
+      "practice": "Escalate to a manual check after a fixed number of missed daily CSV cycles rather than leaving unmatched requests pending indefinitely",
+      "rationale": "The component's own failure_handling states unmatched requests 'simply stay pending until the next day's file' with no stated limit, which as designed has no exit condition"
+    },
+    {
+      "applies_to": "Customer Notification",
+      "practice": "Send an explicit interim message stating the real expected timeline (batch-bound, not instant) at the point of intake",
+      "rationale": "The architecture itself states the 60-second SLA cannot be met by this design's structure, so customers should not be left assuming an instant outcome while the request sits in a daily batch queue"
     }
   ]
 }
@@ -422,185 +487,136 @@ in as a daily CSV from our 3PL.
     {
       "system": "Zendesk",
       "component": "Refund Request Intake",
-      "purpose": "Capture customer refund requests arriving in the support inbox and convert them into structured request records for processing.",
+      "purpose": "Capture the customer's refund request as it arrives through the support channel and convert it into a structured, trackable record.",
       "direction": "inbound",
       "capabilities_required": [
-        "Read/receive support inbox messages (e.g. via webhook on new ticket or polling)",
-        "Extract or expose ticket fields needed to identify order id, customer, and requested amount"
+        "Receive or poll for new support tickets/requests",
+        "Read ticket content and requester/order references",
+        "Trigger on ticket creation (webhook or polling)"
       ],
       "constraints": [
         {
-          "constraint": "stated",
+          "constraint": "Support requests arrive through a support inbox / Zendesk",
           "provenance": "stated",
-          "context_index": 7
+          "context_index": 8
+        },
+        {
+          "constraint": "Zendesk's API is subject to per-account rate limits and requires an authenticated API token or OAuth connection",
+          "provenance": "general_knowledge",
+          "context_index": null
         }
       ],
       "uncertainties": [
-        "Whether Zendesk exposes a webhook for new tickets on the plan in use, or whether polling is required",
-        "Whether refund requests arrive as structured ticket fields or free-text email requiring parsing"
+        "Whether the Zendesk plan in use supports webhooks for new-ticket triggers or only polling",
+        "Whether ticket fields carry enough structured order/refund data or require custom fields to be added"
       ]
     },
     {
       "system": "Shopify",
       "component": "Order Verification",
-      "purpose": "Confirm the order referenced in a refund request exists and check the requested refund amount against Shopify order records.",
+      "purpose": "Check the refund request against Shopify to confirm the order exists and is eligible for refund.",
       "direction": "inbound",
       "capabilities_required": [
-        "Read order records by order id",
-        "Read order line-item/amount data to validate requested refund amount"
+        "Read order by identifier",
+        "Check order/refund eligibility status",
+        "Return stable order identifiers for downstream matching"
       ],
       "constraints": [
         {
-          "constraint": "Shopify's public Admin API enforces per-store REST/GraphQL rate limits (leaky-bucket call allowances)",
+          "constraint": "Shopify's Admin API enforces call-rate limits (REST bucket or GraphQL cost-based throttling) per store/app",
           "provenance": "general_knowledge",
           "context_index": null
         },
         {
-          "constraint": "Shopify API access requires an authenticated app (API key/OAuth) scoped to order read permissions",
+          "constraint": "Access requires an authenticated app (API key/OAuth) with scoped permissions to read orders",
           "provenance": "general_knowledge",
           "context_index": null
         }
       ],
       "uncertainties": [
-        "Whether the current Shopify plan and app scopes permit the order read access this integration needs",
-        "Whether order lookup by the identifier available in the refund request (order id vs order number) is reliably supported"
+        "Whether order records expose a field indicating refund eligibility directly, or whether eligibility must be derived elsewhere",
+        "Whether the Shopify plan/app scopes in use permit the needed read access"
       ]
     },
     {
       "system": "3PL warehouse system",
-      "component": "Return Confirmation Check",
-      "purpose": "Determine whether a returned item has been received by the warehouse, using the daily CSV feed, to gate refund eligibility.",
+      "component": "Warehouse Return Matcher",
+      "purpose": "Match verified refund requests against the 3PL's return-confirmation feed to establish that the physical return was received.",
       "direction": "inbound",
       "capabilities_required": [
-        "Receive/ingest a daily CSV file listing confirmed returns",
-        "Match CSV records to order ids"
+        "Ingest a daily CSV file of return confirmations",
+        "Parse CSV rows to order/return identifiers for matching",
+        "Handle unmatched or late-arriving rows across batch cycles"
       ],
       "constraints": [
         {
-          "constraint": "Warehouse confirmations arrive as a daily CSV from the 3PL",
+          "constraint": "Warehouse return confirmations arrive as a daily CSV from the 3PL",
           "provenance": "stated",
-          "context_index": 8
+          "context_index": 6
         },
         {
-          "constraint": "Warehouse confirmation is only available once daily via CSV, which limits how quickly a return can be verified as received",
+          "constraint": "The CSV-based confirmation is itself batch-delayed, structurally limiting how fast a 'return received' check can occur",
           "provenance": "stated",
-          "context_index": 10
+          "context_index": 9
         }
       ],
       "uncertainties": [
-        "Whether the CSV is delivered via a fixed file location, email attachment, SFTP, or another mechanism not described in the input",
-        "Whether the CSV format, delivery time, and field structure are stable and documented by the 3PL",
-        "Whether any alternative real-time confirmation API exists on the 3PL side that could reduce the once-daily delay"
+        "Whether the 3PL offers any faster or event-based confirmation channel (API/webhook) as an alternative to the daily CSV",
+        "Whether the CSV's schema and delivery timing are stable and documented, or subject to change without notice"
       ]
     },
     {
       "system": "Stripe",
       "component": "Refund Execution",
-      "purpose": "Issue the actual refund payment for refund requests that have received finance approval.",
+      "purpose": "Issue the actual refund payment for requests that finance has approved.",
       "direction": "outbound",
       "capabilities_required": [
-        "Create a refund against a prior charge/payment intent",
-        "Idempotent refund creation to avoid duplicate refunds on retry",
-        "Read refund/transaction confirmation status"
+        "Create a refund against an original charge",
+        "Idempotent refund creation to avoid duplicate payouts",
+        "Report refund transaction status back to the pipeline"
       ],
       "constraints": [
         {
-          "constraint": "Stripe's API supports idempotency keys to make refund creation safe to retry",
+          "constraint": "Stripe's API enforces per-account request rate limits and requires an authenticated API key",
           "provenance": "general_knowledge",
           "context_index": null
         },
         {
-          "constraint": "Stripe enforces standard API rate limits per account (requests per second)",
-          "provenance": "general_knowledge",
-          "context_index": null
-        },
-        {
-          "constraint": "Stripe requires the original charge or payment intent id to issue a refund",
+          "constraint": "A Stripe refund cannot exceed the original charge amount and may be time-limited relative to the original transaction",
           "provenance": "general_knowledge",
           "context_index": null
         }
       ],
       "uncertainties": [
-        "Whether the Stripe account in use has any refund-specific limits or holds (e.g. for high-value refunds up to £2,000) that could block or delay execution",
-        "Whether Stripe's current API still ties refunds strictly to an original charge id, and whether that id is reliably available from Shopify order data"
+        "Whether the Stripe account/plan in use supports idempotency keys as needed for safe retries",
+        "Whether occasional higher-value refunds (up to £2,000 per the stated volume) trigger any additional review or hold within Stripe itself"
+      ]
+    },
+    {
+      "system": "Zendesk",
+      "component": "Customer Notification",
+      "purpose": "Inform the customer of the outcome of their refund request at each meaningful state change.",
+      "direction": "outbound",
+      "capabilities_required": [
+        "Update an existing ticket with status/outcome",
+        "Send an outbound email or ticket reply to the customer",
+        "Reliable delivery/acknowledgement of the outbound message"
+      ],
+      "constraints": [
+        {
+          "constraint": "Zendesk's API is subject to per-account rate limits and requires an authenticated API token or OAuth connection",
+          "provenance": "general_knowledge",
+          "context_index": null
+        }
+      ],
+      "uncertainties": [
+        "Whether the notification channel (email vs. ticket update) is fixed or configurable per the plan in use",
+        "Whether failed outbound notifications are surfaced anywhere for manual follow-up, beyond what the architecture states"
       ]
     }
   ],
   "no_integrations_statement": null,
-  "knowledge_currency_note": "Platform capabilities, rate limits, authentication requirements and pricing change over time; every general_knowledge constraint and every capability listed here must be verified against Shopify's, Stripe's, Zendesk's and the specific 3PL's current documentation before building."
-}
-```
-
-### Risk register
-
-```json
-{
-  "risks": [
-    {
-      "component": "Finance Approval Queue",
-      "description": "The architecture is built on the disposed-of assumption that finance approval means a genuine human sign-off, but the input also states a hard 'no human involvement' constraint; if the business actually intends automated approval to satisfy auditors, the entire batch-gate design is wrong and refunds could be blocked or wrongly delayed indefinitely.",
-      "severity": 5,
-      "likelihood": 3,
-      "mitigation": "Confirm with auditors and the business whether a human sign-off is strictly required or whether an automated policy check would satisfy the control before building the Finance Approval Queue as a human-gated step."
-    },
-    {
-      "component": "Return Confirmation Check",
-      "description": "Because the 3PL only supplies return status via a daily CSV, and the stated 60-second refund target conflicts directly with this once-a-day cadence, any refund requiring return verification cannot meet the 60-second SLA; if that SLA is a customer-facing promise, every such refund breaches it.",
-      "severity": 5,
-      "likelihood": 5,
-      "mitigation": "Resolve with the business whether the 60-second SLA applies to returns-required refunds at all (context index 11); if it does, negotiate real-time or more frequent 3PL confirmation feeds, or explicitly scope the SLA to exclude return-dependent refunds."
-    },
-    {
-      "component": "Finance Approval Queue",
-      "description": "The fixed once-daily 4pm batch review means any refund request submitted just after the cutoff waits up to nearly 24 hours before approval, directly contradicting the stated 60-second refund constraint and creating a systematic, routine delay for the ~200/week volume.",
-      "severity": 4,
-      "likelihood": 5,
-      "mitigation": "Set clear customer-facing expectations that refunds are batch-processed daily rather than instant, and consider whether Finance Approval Queue could run more than once daily to narrow the gap."
-    },
-    {
-      "component": "Refund Execution",
-      "description": "Failures against Stripe leave a refund 'approved-but-not-executed' with no described automated retry path; given occasional high-value refunds up to £2,000, an unnoticed failed execution could leave a customer unpaid for a meaningful sum with only manual finance follow-up as the stated fallback.",
-      "severity": 4,
-      "likelihood": 2,
-      "mitigation": "Add an automated retry with alerting to finance for failed Stripe calls, and flag high-value failures (approaching the £2,000 range) for priority follow-up."
-    },
-    {
-      "component": "Refund Execution",
-      "description": "No differentiated handling exists for high-value refunds (up to £2,000) versus the £45 average; a single approval queue treats a routine refund the same as a bulk-order refund, so an erroneous approval of a high-value refund carries outsized financial exposure with no extra check in this design.",
-      "severity": 4,
-      "likelihood": 2,
-      "mitigation": "Introduce a value threshold above which refunds get a secondary review step or additional confirmation before Refund Execution, once the business defines that threshold (context index 13)."
-    },
-    {
-      "component": "Return Confirmation Check",
-      "description": "If the daily CSV from the 3PL is missing, delayed, or malformed, no automated fallback is described beyond holding the refund to the next day's file, which given weekly volumes of ~200 could cause a backlog to accumulate silently across the Finance Approval Queue.",
-      "severity": 3,
-      "likelihood": 3,
-      "mitigation": "Add a monitoring check that confirms the day's CSV was received and parsed, with an alert to an operator if it is missing, so held refunds are visible rather than silently stalled."
-    },
-    {
-      "component": "Order Verification",
-      "description": "If the Shopify lookup fails or times out, the refund halts and is flagged, but no owner or escalation path is described for these flagged, halted requests, risking requests being lost between systems.",
-      "severity": 3,
-      "likelihood": 2,
-      "mitigation": "Route flagged, halted order-verification failures to a visible queue or ticket assigned to a named operational owner rather than leaving them unassigned."
-    },
-    {
-      "component": "Customer Notification",
-      "description": "A failed notification email leaves the refund processed but the customer uninformed, and no alternate channel is described; at ~200 refunds/week even a small email failure rate produces a routine trickle of customers who received money without being told.",
-      "severity": 2,
-      "likelihood": 3,
-      "mitigation": "Add a delivery-failure check on the notification email with a retry, and log failures for periodic manual follow-up."
-    },
-    {
-      "component": "Refund Request Intake",
-      "description": "Requests that fail to parse into a structured record from the Zendesk inbox have no automated fallback and simply remain unprocessed, risking refund requests being missed entirely at the ~200/week volume.",
-      "severity": 3,
-      "likelihood": 2,
-      "mitigation": "Add a parsing-failure alert that surfaces unparsed Zendesk messages to a human reviewer rather than leaving them silently unprocessed."
-    }
-  ],
-  "no_risks_statement": null
+  "knowledge_currency_note": "Platform capabilities, rate limits, pricing, and plan-tier features for Zendesk, Shopify, Stripe, and any 3PL system change over time; every general_knowledge constraint and every capability listed here must be verified against each system's current documentation before this is built."
 }
 ```
 
@@ -611,145 +627,127 @@ in as a daily CSV from our 3PL.
   "phases": [
     {
       "ordinal": 1,
-      "name": "Refund Intake and Order Verification",
-      "objective": "Build the Zendesk-based intake that converts a customer refund request into a structured record, and the Shopify check that validates the order and requested amount against that record. This is the entry point every later component consumes.",
+      "name": "Request Intake and Order Verification",
+      "objective": "Build the entry point that turns a Zendesk support request into a tracked refund record and verifies it against Shopify order data, plus the first notification state (acknowledgement or ineligibility) so a customer sees something happen immediately even though the full refund cannot yet be issued.",
       "components": [
         "Refund Request Intake",
-        "Order Verification"
+        "Order Verification",
+        "Customer Notification"
       ],
       "depends_on": [],
-      "outcome": "A customer refund request raised in Zendesk becomes a structured record and is checked against Shopify for order existence and amount validity; invalid or unmatched orders are flagged and halted rather than proceeding.",
+      "outcome": "A refund request arriving through Zendesk becomes a structured, trackable record and is checked against Shopify for existence and eligibility; the customer receives an initial status update. No refund has moved money yet.",
       "estimate": null
     },
     {
       "ordinal": 2,
-      "name": "Return Confirmation via 3PL CSV",
-      "objective": "Build the Return Confirmation Check that consumes the daily 3PL CSV to determine whether a given order's return has been received, and holds unconfirmed orders over to the next day's file. This is where the once-daily 3PL feed's mismatch with any faster refund expectation becomes structurally visible in the build, since a request cannot be marked return-confirmed until it appears in a CSV.",
+      "name": "Warehouse Return Matching",
+      "objective": "Build the component that matches verified orders against the 3PL's daily CSV to confirm the physical return was received, extending it to hold unmatched requests pending the next day's file. This phase resolves the disposed-of unknown (index 9) about CSV cadence structurally limiting confirmation speed, and extends Customer Notification with a 'pending warehouse confirmation' state.",
       "components": [
-        "Return Confirmation Check"
+        "Warehouse Return Matcher",
+        "Customer Notification"
       ],
       "depends_on": [
         1
       ],
-      "outcome": "A verified refund request from phase 1 can now be checked against the day's 3PL CSV; requests are marked confirmed or held pending the next file, with no return treated as received until it appears in the feed.",
+      "outcome": "Verified orders are checked against the daily warehouse CSV; requests with a matching confirmed return move forward, others wait for the next day's file. Customers see a pending-return-confirmation status. Still no refund has been paid.",
       "estimate": null
     },
     {
       "ordinal": 3,
-      "name": "Finance Approval Gate",
-      "objective": "Build the Finance Approval Queue that accumulates order-verified, return-checked requests and holds them for the fixed 4pm daily batch review, implementing the auditor-mandated human sign-off. This phase fixes the assumed disposition of the no-human-involvement-vs-auditor-control conflict: approval is built as a genuine human decision point, not an automated stand-in.",
+      "name": "Finance Approval Batch",
+      "objective": "Build the Finance Approval Queue that stages every return-confirmed candidate for the single fixed 4pm daily human review, enforcing the stated hard auditor control (context index 1) over the conflicting instant-refund expectation (indices 0, 2), and extend Customer Notification with a 'pending finance approval' state.",
       "components": [
-        "Finance Approval Queue"
+        "Finance Approval Queue",
+        "Customer Notification"
       ],
       "depends_on": [
-        1,
         2
       ],
-      "outcome": "Requests that have passed Shopify and 3PL checks sit in a queue; a finance team member can review and approve or reject each one at the daily 4pm batch, with rejections and non-occurring reviews leaving refunds unapproved rather than defaulting to release.",
+      "outcome": "Return-confirmed candidates accumulate and are reviewed once daily at the fixed batch time, producing approved and rejected lists. Customers see their request is awaiting finance sign-off. Money still has not moved for any refund.",
       "estimate": null
     },
     {
       "ordinal": 4,
-      "name": "Refund Execution via Stripe",
-      "objective": "Build the Refund Execution component that takes finance-approved decisions and issues the Stripe refund, including the approved-but-not-executed fallback state for Stripe call failures.",
+      "name": "Refund Execution and Outcome Notification",
+      "objective": "Build Refund Execution to issue Stripe refunds for finance-approved candidates, including the fallback path for a Stripe call that fails despite approval, and complete Customer Notification with the final paid/rejected states.",
       "components": [
-        "Refund Execution"
+        "Refund Execution",
+        "Customer Notification"
       ],
       "depends_on": [
         3
       ],
-      "outcome": "An approved refund decision from the finance queue results in an actual Stripe refund transaction; failed Stripe calls leave the refund marked approved-but-not-executed for retry or manual finance follow-up, with no other execution path invented.",
-      "estimate": null
-    },
-    {
-      "ordinal": 5,
-      "name": "Customer Notification",
-      "objective": "Build the Customer Notification component that emails the customer once Stripe confirms the refund, completing the pipeline end to end.",
-      "components": [
-        "Customer Notification"
-      ],
-      "depends_on": [
-        4
-      ],
-      "outcome": "A customer whose refund has been executed in Stripe receives a confirmation email; if the email fails, the refund itself has still gone through and the gap is surfaced for manual follow-up. At this point the full design described in the architecture exists and runs end to end from Zendesk intake through Shopify and 3PL checks, finance batch approval, Stripe execution, and customer email.",
+      "outcome": "Finance-approved refunds are paid out through Stripe, with failed payments flagged for retry rather than dropped; customers receive a final outcome notification (paid or rejected). The full pipeline now runs end to end from request intake through payment, within the constraints of the daily warehouse CSV and the fixed daily finance batch — the whole design as specified now exists, though it cannot meet the stated 60-second SLA (indices 0, 2) given the batch-bound components built in phases 2 and 3.",
       "estimate": null
     }
   ],
-  "sequencing_rationale": "The pipeline is built in the order data must actually flow: intake must exist before anything can check an order, and the Shopify order check is grounded on the same structured record intake produces, so phase 1 combines them as the shared entry point every later component consumes. The 3PL return check is built next because it operates on the same order id but is a separate, independently-failing integration (a once-daily external file with no real-time equivalent), and its held-over-to-next-day fallback has to exist before requests can be said to be 'verified' inputs to the approval queue. The Finance Approval Queue comes only after both verification checks exist, because it is defined as consuming order-verified, return-checked requests, and because this is the phase that fixes the assumed resolution of the human-sign-off-versus-full-automation conflict — that decision has to be settled before refund money can move, which is why it precedes Stripe execution. Refund Execution depends on approval because no refund may reach Stripe without passing the approval gate, per the architecture's data flow. Customer Notification is last because it is triggered only by a completed Stripe execution and consumes nothing else. The riskiest integration — reconciling a once-daily 3PL feed and once-daily finance batch against any faster refund expectation — is proven early, in phases 1 and 2, so that the batch-gated structure the rest of the design depends on is established before approval and execution are built on top of it."
+  "sequencing_rationale": "The order follows the data flow the architecture describes: a request must exist as a tracked record before anything can be checked against it, so intake and Shopify verification come first. The warehouse match is next because Finance Approval Queue explicitly requires a return-confirmed candidate as its input, and the CSV's daily cadence (context index 9) is the first structural constraint that must be built and understood before the finance batch is designed around it — building it early also surfaces the SLA conflict (indices 0/2 vs 9) as early as possible rather than late. Finance Approval Queue is built third because it consumes the matcher's output and enforces the hard auditor control (index 1) that the whole design defers payment behind; it is the second point where the stated 60-second SLA (index 2) is structurally violated, and building it before execution keeps that conflict visible before money can move. Refund Execution comes last among the pipeline stages because it consumes only the finance-approved list, so nothing about it can be built or tested until approval output exists. Customer Notification is extended in every phase rather than built once, because each phase introduces a new state (verification, pending return, pending approval, final outcome) that a customer needs to see, and the fallback-handling rule requires each component's failure path to be built alongside the component itself rather than deferred."
 }
 ```
 
-### Edge cases and practices
+### Risk register
 
 ```json
 {
-  "edge_cases": [
-    {
-      "component": "Refund Request Intake",
-      "scenario": "A customer email arrives in the Zendesk inbox that cannot be parsed into order id, customer, and requested amount (e.g. free-text request without order reference)",
-      "consequence": "The request sits unprocessed in the support inbox indefinitely, and the customer's refund is never queued for verification or finance review",
-      "handling": "Component's failure_handling states it 'remains unprocessed in the support inbox with no automated fallback described in the input' — this is an unresolved gap, not a handled case"
-    },
-    {
-      "component": "Order Verification",
-      "scenario": "A refund request references an order id that does not exist in Shopify, or the requested amount exceeds the order's eligible amount",
-      "consequence": "An invalid or inflated refund could proceed toward Stripe execution if not caught",
-      "handling": "Component halts and flags the request rather than passing it to Return Confirmation Check, per its stated failure_handling"
-    },
-    {
-      "component": "Return Confirmation Check",
-      "scenario": "The daily 3PL CSV fails to arrive on a given day, or an order's return is never listed in any subsequent CSV (lost item, warehouse error)",
-      "consequence": "The refund is held over indefinitely with no described escalation, so a customer waiting on a return-dependent refund never gets resolution",
-      "handling": "Held over to the next day's file per stated failure_handling; no described limit on how many days this can repeat, which is unresolved in this design"
-    },
+  "risks": [
     {
       "component": "Finance Approval Queue",
-      "scenario": "The 4pm daily batch review does not occur (finance team member unavailable, holiday, or backlog accumulates across multiple days including the £2,000 bulk-order refunds)",
-      "consequence": "No refunds move to Stripe execution until the next scheduled review, and high-value refunds (up to £2,000) sit in queue the same as low-value ones with no differentiated urgency",
-      "handling": "Failure_handling states refunds 'remain unapproved and no funds move until the next scheduled review' — the design applies no separate handling for high-value items, consistent with unknown_disposition index 13 being excluded"
+      "description": "The finance approval batch (index 1, index 3) runs once daily at a fixed 4pm, which structurally cannot satisfy the stated 60-second refund SLA (index 2) or the stated requirement that refunds be fully automated with no human involvement (index 0); every single refund request is subject to this conflict, not just edge cases.",
+      "severity": 5,
+      "likelihood": 5,
+      "mitigation": "Surface this as an unresolved conflict to the business rather than building against it silently; require a decision on which constraint is authoritative (drop the 60-second promise, remove the finance gate for low-value refunds, or add a same-day emergency approval path) before implementation proceeds."
+    },
+    {
+      "component": "Warehouse Return Matcher",
+      "description": "Warehouse return confirmation arrives only once a day as a CSV (index 6), so this component cannot confirm a return, and therefore cannot clear a refund, any faster than a full day's cadence — directly conflicting with the 60-second SLA for every refund that depends on return confirmation.",
+      "severity": 5,
+      "likelihood": 5,
+      "mitigation": "Either move to a real-time return-confirmation feed from the 3PL, or explicitly scope the 60-second SLA to apply only to refund categories that do not require a physical return (e.g. goodwill refunds), leaving return-dependent refunds on a slower, clearly communicated timeline."
     },
     {
       "component": "Refund Execution",
-      "scenario": "The Stripe API call fails or times out after finance has approved a refund, for example during the daily batch when 200/week volume clusters many approvals at once around 4pm",
-      "consequence": "The refund is approved but money never leaves the account, leaving the customer unrefunded despite approval, with no described retry path",
-      "handling": "Component's failure_handling marks it 'approved-but-not-executed' requiring retry or manual finance follow-up, since no automated retry path is described"
-    },
-    {
-      "component": "Customer Notification",
-      "scenario": "The confirmation email fails to send after a Stripe refund has successfully executed",
-      "consequence": "The customer's money is refunded but they are never told, likely prompting a duplicate support inquiry into the same order via Zendesk",
-      "handling": "Failure_handling states the refund is still processed but requires manual follow-up since no alternate notification channel is described"
-    },
-    {
-      "component": "Finance Approval Queue",
-      "scenario": "The stated 60-second refund promise (index 2) conflicts directly with the fixed once-daily 4pm batch review (index 3): a customer request arriving just after 4pm must wait roughly 24 hours for approval",
-      "consequence": "The design as built cannot meet the stated 60-second SLA for any refund that passes through this gate, undermining the customer-facing commitment",
-      "handling": "Architecture summary explicitly surfaces this as unresolved rather than resolving it silently; the design implements the batch-gated version and leaves the SLA conflict unresolved for the business to settle"
+      "description": "When a Stripe refund call fails after finance has already approved it, the item is flagged for retry, but no operator or team has been assigned to act on that flag, since who operates and maintains the pipeline is an unresolved unknown (index 10); a stuck approved-but-unpaid refund could sit indefinitely.",
+      "severity": 4,
+      "likelihood": 2,
+      "mitigation": "Assign a named owner (e.g. a finance or ops role) responsible for clearing the Stripe-failure queue daily, and set an escalation threshold (e.g. alert if unpaid-approved items exceed 24 hours old)."
     },
     {
       "component": "3PL warehouse system",
-      "scenario": "An order's return appears in the CSV on the same day finance is meant to review it, but after the file has already been ingested by Return Confirmation Check for that cycle",
-      "consequence": "A legitimately return-confirmed refund is delayed an extra day because the day's CSV pull already completed before the update appeared",
-      "handling": "Not addressed in the current failure_handling; the component only distinguishes confirmed/not-yet-confirmed per file, with no described intra-day re-check"
+      "description": "The daily CSV feed is an external, loosely-coupled input with no stated format guarantee; a malformed row, a missed file, or a mismatched order reference would leave refund candidates permanently unmatched with no faster confirmation path available, given the batch-only cadence (index 9).",
+      "severity": 3,
+      "likelihood": 3,
+      "mitigation": "Add validation on CSV ingestion (row count, required fields, order-ID format checks) and an alert if the daily file fails to arrive or fails validation, so unmatched items are caught rather than silently stuck."
+    },
+    {
+      "component": "Finance Approval Queue",
+      "description": "Refund values range up to £2,000 (index 4), and all refunds — regardless of value — wait for the same fixed once-daily batch; a customer awaiting a large refund experiences the same delay as one awaiting the average £45 refund, with no differentiated handling for higher-value or higher-risk cases.",
+      "severity": 3,
+      "likelihood": 3,
+      "mitigation": "Consider a value-based or risk-based triage within the approval queue so high-value refunds are flagged for finance's earliest attention within the daily batch, rather than treated identically to low-value ones."
+    },
+    {
+      "component": "Refund Request Intake",
+      "description": "If intake fails to convert a support request into a structured record, the request remains only in the Zendesk inbox and falls outside the automated pipeline entirely, with no automated detection that this happened.",
+      "severity": 3,
+      "likelihood": 2,
+      "mitigation": "Add a reconciliation check that compares refund-tagged Zendesk tickets against records the intake component actually created, flagging any gap for manual follow-up."
+    },
+    {
+      "component": "Shopify",
+      "description": "If the Shopify order lookup fails or times out, the request is held in an unverified state with no stated timeout or retry policy, and no assigned operator to intervene (unknown 10), so it could remain stuck indefinitely without visibility.",
+      "severity": 3,
+      "likelihood": 2,
+      "mitigation": "Define an explicit retry count and timeout for the Shopify lookup, and route items that exceed it to a visible manual-review queue rather than leaving them silently unverified."
+    },
+    {
+      "component": "Zendesk",
+      "description": "If a customer notification fails to send at a status change, the refund's internal state proceeds correctly but the customer receives no update, which is inconsistent with a support-facing workflow and could prompt duplicate refund requests.",
+      "severity": 2,
+      "likelihood": 2,
+      "mitigation": "Log notification failures separately from refund-state failures and add a low-priority daily check for any refund whose latest status change has no corresponding customer notification sent."
     }
   ],
-  "practices": [
-    {
-      "applies_to": "Refund Execution",
-      "practice": "Idempotent refund execution keyed on the order id (or refund request id) before calling Stripe",
-      "rationale": "The approved-but-not-executed failure state described for this component means a retry after a failed Stripe call could otherwise trigger a duplicate refund against the same order"
-    },
-    {
-      "applies_to": "Finance Approval Queue",
-      "practice": "Maintain an explicit, timestamped audit record of every approval or rejection decision, tied to the order id and refund amount",
-      "rationale": "Finance approval is stated as 'a hard auditor control requirement', so the queue's decisions need to be traceable for audit purposes, not just used to gate execution"
-    },
-    {
-      "applies_to": "Return Confirmation Check",
-      "practice": "Reconciliation pass comparing outstanding held refunds against each new day's 3PL CSV, with an escalation after a defined number of days with no confirmation",
-      "rationale": "The component currently holds unconfirmed refunds over 'to the next day's file' with no stated limit, which could leave a return unconfirmed indefinitely given only daily CSV delivery"
-    }
-  ]
+  "no_risks_statement": null
 }
 ```
 
@@ -759,80 +757,86 @@ in as a daily CSV from our 3PL.
 {
   "criteria_applied": [
     {
-      "criterion": "Volume is low (about 200 refunds a week, average £45, occasionally up to £2,000), which does not require a high-throughput or enterprise-grade execution engine",
+      "criterion": "Weekly volume is low (about 200 refunds/week, average £45, occasionally up to £2,000), which does not by itself require a high-throughput enterprise platform",
       "context_index": 4,
       "component": null
     },
     {
-      "criterion": "The process must integrate Shopify (order verification), Stripe (refund execution), Zendesk (request intake) and a daily CSV file from a 3PL, so the platform must support connectors or APIs to all four plus file parsing",
-      "context_index": null,
-      "component": "Order Verification"
+      "criterion": "The pipeline must integrate with four named external systems (Shopify, Stripe, Zendesk, and a 3PL warehouse system), so the platform needs native or API-level connectivity to each",
+      "context_index": 5,
+      "component": null
     },
     {
-      "criterion": "Finance review happens on a fixed daily batch schedule at 4pm, so the platform needs reliable time-based triggering rather than pure real-time event handling",
-      "context_index": 3,
-      "component": "Finance Approval Queue"
+      "criterion": "Warehouse confirmations arrive only as a daily CSV, so the platform must support batch file ingestion, not just event-driven webhooks",
+      "context_index": 6,
+      "component": "Warehouse Return Matcher"
     },
     {
-      "criterion": "A hard auditor control requires a human finance team member to approve every refund before money moves, so the platform must support a genuine human-in-the-loop approval step, not just automated branching",
+      "criterion": "Finance approval is a stated hard, unchangeable auditor control that must gate every refund before Stripe execution, so the platform must support a genuine human-in-loop approval step with an audit trail, not just automated branching",
       "context_index": 1,
       "component": "Finance Approval Queue"
     },
     {
-      "criterion": "Refund execution failures must not silently drop refunds; approved-but-unexecuted refunds require retry or manual follow-up, so the platform needs error handling and state-holding capability",
-      "context_index": null,
-      "component": "Refund Execution"
+      "criterion": "Finance review runs on a fixed once-daily batch at 4pm, so the platform must support scheduled batch processing rather than assuming continuous real-time flow",
+      "context_index": 3,
+      "component": "Finance Approval Queue"
     },
     {
-      "criterion": "Return status must be held as unconfirmed until it appears in a 3PL CSV, requiring the platform to persist state across daily cycles rather than treating each run as stateless",
-      "context_index": 8,
-      "component": "Return Confirmation Check"
+      "criterion": "Who will operate, monitor, and maintain the automation, and whether in-house developer capability exists, is unresolved, which materially determines whether a no-code, low-code, or custom-built platform is viable",
+      "context_index": 10,
+      "component": null
+    },
+    {
+      "criterion": "Budget for building or licensing an automation platform is unresolved, which determines whether a paid iPaaS, an open-source/self-hosted tool, or a custom build is affordable",
+      "context_index": 11,
+      "component": null
+    },
+    {
+      "criterion": "The stated 60-second refund SLA and the stated fixed daily finance batch are in direct, structural conflict; no platform choice can reconcile them, since the conflict is procedural, not technical",
+      "context_index": 2,
+      "component": null
     }
   ],
-  "recommended_platform": "Make (Integromat)",
+  "recommended_platform": null,
   "also_required": [],
-  "rationale": "The architecture's demands are: moderate low-volume integration across four systems (Shopify, Stripe, Zendesk, a CSV-delivered 3PL feed), a fixed daily batch trigger, a mandatory human approval step, and simple retry/hold-over state between runs. A general-purpose no-code/low-code iPaaS with native connectors to Shopify, Stripe and Zendesk, CSV/file-handling modules, scheduled triggers, and a built-in data store for holding queued and unconfirmed items fits this pattern without requiring custom backend development. The context states no budget figure and does not describe any in-house development capability, so this recommendation rests on process shape, not on cost or team fit, which remain unresolved.",
+  "rationale": "The architecture's integration and control requirements (multi-system connectivity to Shopify, Stripe, Zendesk and a 3PL CSV feed; a genuine human-approval gate with audit trail; scheduled batch processing) are clear enough to describe what any suitable platform must do. But two unknowns the context leaves unresolved — who will operate and maintain the automation and what technical capability exists in-house (context 10), and what budget is available for building or licensing a platform (context 11) — are exactly the factors that decide whether the right answer is a no-code/low-code connector tool, a self-hosted open-source workflow engine, or a custom-built service, and what tier of each is affordable. Naming a specific platform without those answers would mean inventing a team profile or a budget the context does not state. Separately, even the best-chosen platform cannot deliver both the stated 60-second refund SLA and the stated fixed 4pm daily finance batch (context 2 vs. context 3); that conflict is a process decision for the business to resolve, not something platform selection can fix. The honest recommendation is therefore to resolve the operator-capability and budget unknowns, and the SLA-versus-batch conflict, before committing to a specific platform.",
   "alternatives_rejected": [
     {
-      "platform": "Zapier",
-      "rejection_reason": "Handles the four-system connectors and scheduling adequately, but its native support for persistent multi-day state (holding a refund as 'unconfirmed' until it appears in a later day's CSV) and complex conditional holdover logic is weaker than platforms with a dedicated data-store construct, making the Return Confirmation Check and Finance Approval Queue harder to implement cleanly."
+      "platform": "A simple no-code connector tool used at the level of a small number of point-to-point triggers (e.g. a basic Zapier/Make-style workflow with no custom logic)",
+      "rejection_reason": "This class of tool is generally strong at simple trigger-action integration, but a workflow needing daily CSV batch matching against warehouse returns, a genuine audited human-approval gate before payment, and multi-branch state tracking (pending verification, pending approval, paid, rejected) typically exceeds what basic no-code connector logic is designed to express reliably; whether it is adequate here still depends on the unresolved in-house capability (context 10)."
     },
     {
-      "platform": "n8n",
-      "rejection_reason": "Capable of the same integrations and more flexible logic, including self-hosting, but self-hosting and workflow authoring in n8n typically assumes some in-house technical capability to build, host and maintain it, and the context states nothing about who would operate or maintain such a platform, so this cannot be assumed."
-    },
-    {
-      "platform": "An enterprise iPaaS (e.g. Workato-class platform)",
-      "rejection_reason": "Would cover all the integration and approval requirements, but its typical scale and governance features are built for volumes and organisational complexity well beyond the roughly 200 refunds a week stated here, and no budget is stated that would justify that tier."
+      "platform": "A fully custom-built bespoke software service (developed and hosted in-house or via a contractor)",
+      "rejection_reason": "A custom build could in principle satisfy every integration and control requirement, but the context states no budget figure and leaves in-house technical capability unresolved (contexts 10, 11); recommending a custom build would assume both the funding and the developer capacity to build and maintain it, neither of which the input supports."
     }
   ],
   "fit": [
     {
       "component": "Refund Request Intake",
-      "how": "Native Zendesk trigger/connector captures new support tickets matching refund requests and extracts order id, customer and amount into a structured record."
+      "how": "Coverage cannot be assigned to a specific platform yet; whatever platform is eventually chosen must be able to receive or poll Zendesk for new refund requests and create a structured, trackable record, a capability that is common but whose implementation depends on the unresolved operator-capability question."
     },
     {
       "component": "Order Verification",
-      "how": "Native Shopify connector looks up the order by id and checks the requested amount against order data before proceeding."
+      "how": "Any candidate platform needs API-level read access to Shopify order data; this is a standard integration requirement but the specific platform's ability to hold a request in an 'unverified' retry state without invention is a design detail, not a platform-name decision."
     },
     {
-      "component": "Return Confirmation Check",
-      "how": "A scheduled or file-watch module ingests the daily 3PL CSV, and the platform's data store persists 'unconfirmed' status for orders not yet present, checking again on each new day's file."
+      "component": "Warehouse Return Matcher",
+      "how": "The chosen platform must be able to ingest and parse a daily CSV file and match it against pending requests on a schedule; this rules out purely event/webhook-only tools but does not by itself select one platform over another given the unresolved budget and capability questions."
     },
     {
       "component": "Finance Approval Queue",
-      "how": "Queued refund records are held in the platform's data store; a scheduled trigger fires at 4pm to present pending items to a finance team member via an approval interface (e.g. an embedded form or connected app), and their decision is recorded before anything proceeds."
+      "how": "The platform must provide a genuine, audit-trailed human-approval step gated to a fixed daily batch; this is the component most sensitive to who operates it (context 10), since a finance team with no automation background needs a materially different interface than one with technical staff."
     },
     {
       "component": "Refund Execution",
-      "how": "Approved records trigger the native Stripe connector to issue the refund; on API failure the platform's built-in retry/error paths keep the record in an approved-but-unexecuted state pending manual follow-up."
+      "how": "The platform must call the Stripe refund API only after approval and must flag failed calls for retry; this is a common integration pattern across many platforms and is not itself the deciding factor here."
     },
     {
       "component": "Customer Notification",
-      "how": "On Stripe confirmation, an email module sends the customer notification; a failed send is logged in the data store for manual follow-up since no alternate channel is described."
+      "how": "The platform must push status updates back to Zendesk/email at each state change; like Refund Execution, this is broadly available across platform classes and does not resolve which platform to name."
     }
   ],
-  "knowledge_currency_note": "Platform capabilities, connector coverage, data-store limits and pricing for Make, Zapier, n8n and enterprise iPaaS platforms change over time; the specific fit claims made here (e.g. native data-store persistence, approval-step support, CSV handling) should be verified against each platform's current documentation before committing, since this analysis does not have confirmed up-to-date specifications for any of them."
+  "knowledge_currency_note": "No specific platform is named in this recommendation, so no platform capability claim is being made here; however, if a platform is later selected based on resolved budget and team-capability answers, its current integration capabilities, approval/workflow features, CSV/batch handling, and pricing should be verified directly against that platform's current documentation before committing, since these details change over time and are not asserted here."
 }
 ```
 

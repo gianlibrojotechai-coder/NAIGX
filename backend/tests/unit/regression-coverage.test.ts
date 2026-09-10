@@ -60,7 +60,9 @@ const coverageFor = (fragmentKey: string) =>
 // compositions being stale against the candidate and not re-capturable. They
 // are unrecorded now, not uncovered — see research/regression-withdrawn/.
 const RECORDED = 15;
-const ARCHITECTURE_CASES = 9; // every recorded `br-*` except br-005
+// D-90: every recorded `br-*` except br-005 (halts at Stage 3) and br-010
+// (the submitter declined a design, so Stage 6 is not run).
+const ARCHITECTURE_CASES = 8;
 
 // --- a fragment every composition includes -------------------------------
 
@@ -85,6 +87,8 @@ test("a stage fragment covers only the cases that reached that stage", async () 
   );
   assert.deepEqual(coverage.uncoveredCaseIds, [
     "br-005",
+    // D-90: a declined design ends the requirement path after Stage 3.
+    "br-010",
     // Stage 6 sends an existing_workflow case to workflow_review, never to
     // architecture design (D-40). Its absence here is the routing, not a gap.
     "ew-001",

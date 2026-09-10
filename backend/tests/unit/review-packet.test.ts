@@ -329,8 +329,10 @@ test("an overall pass is not reachable and the packet says so", () => {
 
   assert.equal(
     fullyAssessable,
-    1,
-    "exactly one recording reaches Stage 9 today — jd-002's build_first run",
+    2,
+    // D-90 recapture: jd-008 returned build_first too (its 2026-09-09 sample
+    // said apply_now), so two posting recordings now reach Stage 9.
+    "exactly two recordings reach Stage 9 today — the build_first runs of jd-002 and jd-008",
   );
 });
 

@@ -1,31 +1,50 @@
-# M-11 — artifact sets against the corpus, measured 2026-09-10
+# M-11 — artifact sets against the corpus, measured 2026-09-10 (after D-90)
 
-**Criterion** (`docs/08` M-11): the four input types produce their specified artifact sets. **The specification is the corpus**: each case freezes `expected_artifact_set` and `expected_omissions` with reasons (`docs/11` §9), and the runner's `artifact_set` assertion — deferred since Sprint 1, evaluated since D-89 — compares them with what the pipeline generated on replay.
+**Criterion** (`docs/08` M-11): the four input types produce their specified artifact sets. **The specification is the corpus**: each case freezes `expected_artifact_set` and `expected_omissions` with reasons (`docs/11` §9), and the runner's `artifact_set` assertion (evaluated since D-89) compares them with what the pipeline generated on replay. **Regenerate this table:** `npm run measure:artifact-sets` (canonical store) or `-- --from=<held folder>`; the tables below are that script's output, not a transcription.
 
-**Result on the fifteen recorded cases: 10 agree, 5 contradict. NOT MET on the sample.** The other 29 corpus cases have no recording past Stage 3 and are unmeasured; per-type sampling (≥10 per type) needs paid captures.
+**Result on the recordings in force: 14 of 14 replayable cases agree, 0 contradict.** The fifteenth canonical case, `jd-002`, is stale (its recording predates D-90's fragment change and three recapture attempts failed at Stage 10 and twice at Stage 7 — see below), so it is not measured here. The other 29 corpus cases have no recording past Stage 3 and are unmeasured; per-type sampling (≥ 10 per type) needs paid captures. **Measured on the sample: MET. Not claimed for the criterion**, which is the four types across the corpus.
 
-## How the comparison is made
+## What changed since the 2026-09-10 morning measurement (10 of 15)
 
-- Every type in `expected_artifact_set` must be generated. The corpus's `platform_comparison` is the product's `platform_recommendation` (`docs/11` line 278 reconciliation; D-78, D-87). The product's `intent_brief` and `n8n_workflow` are outside the corpus vocabulary and are ignored.
-- Every type in `expected_omissions` must not be generated — **except the four P1 artifacts the corpus froze as "excluded from v1.0 scope (MVP §5.3)"**, which the owner had built on 2026-09-10 (D-82–D-85). Producing those is reported in the detail as a superseded expectation, not a failure, until the corpus is re-versioned under `docs/11` §6.2 (an owner act: the expectation's basis changed, the label did not become wrong on its own).
-- Everything else that contradicts fails the case. Nothing below was relabelled.
+[D-90](../docs/65-D-90-Planning-By-Judgement.md) built the planning judgement the five contradictions pointed at, the two fragments it needed were recaptured, and the five cases now read:
 
-## The five contradictions
-
-| Case | Frozen expectation | What the pipeline did | What it is |
+| Case | Frozen expectation | What the pipeline did on the D-90 recording | Judgement that fired |
 |---|---|---|---|
-| br-003 (`do-not-automate`) | `business_analysis` only; the design artifacts omitted because "automation is unwarranted … the system states this rather than producing a design" (`FR-020`, gap G-2) | generated the full requirement set: architecture, diagram, platform, register, score | **Known missing code.** No stage can conclude "do not automate" and omit the design; Stage 8 plans the whole path set unconditionally. The runner's own `do_not_automate_conclusion` assertion is still deferred for the same reason |
-| br-010 | `business_analysis` only; the submitter says "I don't want you to design the solution" and is running their own supplier comparison | generated the full set | **Known missing code.** The plan does not read the intent for a declined design (`FR-017` proportionality; `PV §3.2` over-production) |
-| br-004 (minimal, 66 characters) | `business_analysis` + `architecture_recommendation`; diagram, platform, register and score omitted as disproportionate to a two-system, single-trigger requirement (`FR-017`, `FR-020` "non-trivial", A-8, A-12) | generated the full set | **Known missing code**, the same shape as `AC-037`: a single depth level cannot omit anything (D-34) |
-| ta-005 (minimal assessment) | `architecture_recommendation` + `mermaid_diagram`; `assessment_feedback` omitted as disproportionate | generated `assessment_feedback` + `mermaid_diagram`, no `architecture_recommendation` | **Two things.** (1) **Known missing code**: `AI §9.1` maps Architecture Recommendation to "Requirement, assessment", and the assessment path never rendered it — fixed by D-89, which renders it on that path from the same architecture. (2) The proportionality omission, as above |
-| jd-008 (`apply_now`) | `portfolio_suggestions` expected | not generated: D-29's rule omits the portfolio when the verdict is `apply_now` ("nothing to build") | **Owner decision.** The corpus author and the design record disagree about whether an applicant with no decisive gap gets a portfolio; `docs/11` §6.2 makes changing either a recorded decision |
+| br-003 (`do-not-automate`) | `business_analysis` only | `intent_brief`, `business_analysis` | Stage 6 concluded automation is unwarranted: *"roughly 90 minutes of manual transcription work performed once a year … too low a volume and frequency to justify designing, building, and maintaining an automated PDF-extraction pipeline"* — with an empty component list, as `FR-020` asks |
+| br-010 (design declined) | `business_analysis` only | `intent_brief`, `business_analysis` | Stage 2 read `understanding_only` with the verbatim quote *"I don't want you to design the solution - the suppliers will pitch their own and I'd rather not anchor them."* — verified against the input; Stage 6 not run |
+| br-004 (minimal, 66 chars) | `business_analysis` + `architecture_recommendation` | exactly those, plus the brief | minimal depth (≤ 200 characters) |
+| ta-005 (minimal, 83 chars) | `architecture_recommendation` + `mermaid_diagram` | exactly those, plus the brief | minimal depth |
+| jd-008 | `portfolio_suggestions` expected | generated | **not a judgement** — Stage 7 returned `build_first` where the 2026-09-09 sample returned `apply_now`. The corpus freezes no verdict, so this is `FR-024` verdict variance on one input, not a conflict with D-29; the register entry D-90 §5 opened for it was withdrawn |
 
-Ten cases agree, including every refusal and halt (`br-005`, `un-001`, `un-002`: empty sets, nothing generated but the brief) and the requirement cases whose only contradictions were the superseded P1 omissions (`br-001`, `br-002`, `br-007`, `br-009`, `br-011`), the workflow case and `jd-002`.
+Nothing in the corpus was relabelled or re-versioned. The four P1 artifacts the corpus froze as omitted (`MVP §5.3`) are still produced at standard depth and still reported as superseded expectations (D-89), pending the owner's re-versioning under `docs/11` §6.2.
 
-## What the measurement says about the product
+## Every replayable case
 
-Three of the five are one defect seen from three inputs: **the pipeline never omits an artifact by judgement.** Every path produces its whole `AI §9.1` set whatever the input says — a request not to design, a process that should not be automated, a two-line requirement. `FR-017` ("minimal input yields a minimal artifact set"), `FR-020`'s "automation is unwarranted" conclusion, `PV §3.2` and `AC-037` all point at the same missing capability: a planning judgement, at Stage 5 or Stage 8, fed by Stage 2 (a declined design) and Stage 6 (an unwarranted automation), and a second depth level. That is reasoning work with a corpus to measure it against, and it is the largest piece of known missing code the corpus exposes.
+| Case | Path | Judgement | Generated | artifact_set | Detail |
+|---|---|---|---|---|---|
+| br-001 | business_requirement | standard | intent_brief, executive_summary, business_analysis, architecture_recommendation, platform_recommendation, risk_assessment, complexity_score, implementation_roadmap, integration_requirements, edge_cases_and_practices, mermaid_diagram | passed | 6 expected type(s) generated, no contradicted omission (P1 superseded: roadmap, edge cases, integrations, executive summary) |
+| br-002 | business_requirement | standard | the same eleven | passed | 6 expected, no contradicted omission (P1 superseded) |
+| br-003 | business_requirement | unwarranted | intent_brief, business_analysis | passed | 1 expected type generated, no contradicted omission |
+| br-004 | business_requirement | minimal (66 chars) | intent_brief, business_analysis, architecture_recommendation | passed | 2 expected, no contradicted omission |
+| br-005 | business_requirement | halted at Stage 3 (insufficient) | intent_brief | passed | 0 expected, no contradicted omission |
+| br-007 | business_requirement | standard | the same eleven | passed | 6 expected, no contradicted omission (P1 superseded) |
+| br-009 | business_requirement | standard | the same eleven | passed | 6 expected, no contradicted omission (P1 superseded) |
+| br-010 | business_requirement | declined | intent_brief, business_analysis | passed | 1 expected, no contradicted omission |
+| br-011 | business_requirement | standard | the same eleven | passed | 6 expected, no contradicted omission (P1 superseded) |
+| ew-001 | existing_workflow | standard | intent_brief, workflow_recommendation, risk_assessment, platform_recommendation, complexity_score | passed | 4 expected, no contradicted omission |
+| jd-008 | job_description | standard, `build_first` | intent_brief, skill_gap_analysis, portfolio_suggestions, interview_guidance, n8n_workflow | passed | 3 expected, no contradicted omission |
+| ta-005 | technical_assessment | minimal (83 chars) | intent_brief, architecture_recommendation, mermaid_diagram | passed | 2 expected, no contradicted omission |
+| un-001 | unsupported | halted at Stage 1 | — | passed | 0 expected, nothing generated |
+| un-002 | unsupported | halted at Stage 1 | — | passed | 0 expected, nothing generated |
+| jd-002 | job_description | — | — | **stale** | the 2026-09-10 pre-D-90 recording; not replayable against the D-90 fragments |
+
+## Findings the recapture produced that are not about the artifact set
+
+- **`br-005` fails its classification-confidence bound on both D-90 samples** (0.55; the corpus freezes ≥ 0.6 and the superseded recording had 0.62). Stage 1's fragment did not change. The case was recaptured once, as the D-84 campaign did, and not a third time: sampling until a bound is met would be manufacturing evidence. Consequence: the default regression selection fails one case and **issues no pass reference**, so the D-90 fragments cannot be activated on this evidence.
+- **`jd-002` could not be recaptured in three attempts** ($0.4557 in all): Stage 10 refused a portfolio step index outside its workflow; then Stage 7 twice returned `build_first` with an empty `decisive_gaps`, which the parser refuses because nothing then states what the build would close. The last two are the same refusal on consecutive samples and are recorded as a finding about `stage.recommendation_generation` on this input; the raw answers are quarantined under `research/regression-pending/d90-2026-09-10/failures/`.
+- **`jd-008`'s verdict moved** from `apply_now` (2026-09-09) to `build_first` (2026-09-10) on identical text — the second posting to show `FR-024` verdict variance (jd-002 was the first, `research/regression-superseded/README.md`).
+- **`ta-005`'s warranted verdict carried the literal statement "placeholder."** The statement of a warranted verdict is not consumed by the pipeline, so nothing failed; it is a prompt-quality finding about `stage.architecture_analysis` on the assessment path.
 
 ## Consequence for the gate
 
-The `artifact_set` assertion is enforced, as `docs/11` §9 lists it. With five contradictions on the recorded cases, **the fifteen-case run no longer issues a pass reference**, so no fragment can be newly activated until either the pipeline omits what the corpus says it should, or the owner re-versions those expectations. The references already in force stand; production is unaffected. Weakening the assertion to advisory was considered and not done: unlike the confidence band (a calibration finding about a model with two factors), these are the product doing the opposite of what its requirements say on inputs authored to test exactly that.
+The `artifact_set` assertion is enforced. It no longer fails any replayable case. What blocks a pass reference now is `br-005`'s confidence bound (above) and, for any selection naming it, `jd-002`'s staleness — neither of which this measurement changes.
