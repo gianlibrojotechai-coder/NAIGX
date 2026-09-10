@@ -1,0 +1,45 @@
+{
+  "caseId": "ta-005",
+  "corpusVersion": "corpus-v1",
+  "failedAt": "2026-09-10T08:49:36.104Z",
+  "provider": {
+    "adapter": "anthropic",
+    "modelKey": "claude-sonnet-5"
+  },
+  "failure": {
+    "stageNumber": 6,
+    "stageKey": "architecture_analysis",
+    "message": "stage 6 (architecture_analysis): An architecture must contain at least one component"
+  },
+  "providerCalls": 4,
+  "responses": [
+    {
+      "task": "input_classification",
+      "output": "{\"determined_type\":\"technical_assessment\",\"confidence\":0.9,\"candidate_types\":[\"technical_assessment\"],\"dominant_type\":\"technical_assessment\"}",
+      "inputTokens": 2661,
+      "outputTokens": 57,
+      "latencyMs": 1984
+    },
+    {
+      "task": "intent_detection",
+      "output": "{\"primary_objective\":{\"content\":\"Design an idempotent webhook receiver, expressed as a diagram plus notes, to be evaluated as an interview/assessment deliverable\",\"provenance\":\"stated\"},\"secondary_objectives\":[{\"content\":\"Demonstrate reasoning about idempotency and receiver architecture without writing code\",\"provenance\":\"inferred\"}],\"inferred_scope\":\"The design of a single webhook-receiving component and its idempotency handling; no specific upstream sender, downstream systems, or volume/latency constraints are given\",\"requested_outcome\":\"design\",\"decline_quote\":null}",
+      "inputTokens": 3001,
+      "outputTokens": 199,
+      "latencyMs": 3193
+    },
+    {
+      "task": "context_extraction",
+      "output": "{\"elements\":[{\"id\":\"e1\",\"content\":\"Design an idempotent webhook receiver\",\"category\":\"objective\",\"provenance\":\"stated\",\"specificity_score\":0.7,\"source_quote\":\"design an idempotent webhook receiver\",\"inference_basis\":null,\"resolution_hint\":null,\"conflicts_with_id\":null},{\"id\":\"e2\",\"content\":\"Deliverable must be diagram plus notes, no code\",\"category\":\"constraint\",\"provenance\":\"stated\",\"specificity_score\":0.9,\"source_quote\":\"Diagram plus notes, no code\",\"inference_basis\":null,\"resolution_hint\":null,\"conflicts_with_id\":null},{\"id\":\"e3\",\"content\":\"This is an interview task, meaning it will be evaluated on reasoning shown, not just correctness of a working system\",\"category\":\"environment\",\"provenance\":\"stated\",\"specificity_score\":0.6,\"source_quote\":\"Interview task\",\"inference_basis\":null,\"resolution_hint\":null,\"conflicts_with_id\":null},{\"id\":\"e4\",\"content\":\"No specific sender/source of webhooks is named\",\"category\":\"system\",\"provenance\":\"unknown\",\"specificity_score\":0.2,\"source_quote\":null,\"inference_basis\":null,\"resolution_hint\":\"Which upstream system(s) send the webhooks (e.g. payment processor, SaaS platform), and do they provide any idempotency aids like event IDs or signatures?\", \"conflicts_with_id\":null},{\"id\":\"e5\",\"content\":\"No expected volume, frequency, or latency requirement is given\",\"category\":\"scale\",\"provenance\":\"unknown\",\"specificity_score\":0.1,\"source_quote\":null,\"inference_basis\":null,\"resolution_hint\":\"What is the expected request volume/frequency and acceptable processing latency for the receiver?\",\"conflicts_with_id\":null},{\"id\":\"e6\",\"content\":\"No downstream system or persistence store is specified for storing dedupe state\",\"category\":\"dependency\",\"provenance\":\"unknown\",\"specificity_score\":0.1,\"source_quote\":null,\"inference_basis\":null,\"resolution_hint\":\"What storage/dependency (database, cache, queue) is available or preferred for tracking processed webhook IDs?\",\"conflicts_with_id\":null},{\"id\":\"e7\",\"content\":\"No delivery-retry semantics of the sender (e.g. at-least-once, exponential backoff) are specified\",\"category\":\"environment\",\"provenance\":\"unknown\",\"specificity_score\":0.1,\"source_quote\":null,\"inference_basis\":null,\"resolution_hint\":\"Does the webhook sender retry on failure, and if so under what policy (timing, max attempts)?\",\"conflicts_with_id\":null},{\"id\":\"e8\",\"content\":\"The task implies the design must handle duplicate delivery of the same webhook event without double-processing\",\"category\":\"objective\",\"provenance\":\"inferred\",\"specificity_score\":0.5,\"source_quote\":null,\"inference_basis\":\"The requirement 'idempotent webhook receiver' implies duplicate deliveries must not cause repeated side effects\",\"resolution_hint\":null,\"conflicts_with_id\":null},{\"id\":\"e9\",\"content\":\"No stated evaluation rubric beyond 'diagram plus notes, no code' is given\",\"category\":\"constraint\",\"provenance\":\"unknown\",\"specificity_score\":0.2,\"source_quote\":null,\"inference_basis\":null,\"resolution_hint\":\"Are there specific evaluation criteria (e.g. scalability discussion, failure handling, security) the interviewer expects to see covered?\",\"conflicts_with_id\":null}],\"sufficiency\":\"thin\"}",
+      "inputTokens": 3627,
+      "outputTokens": 1163,
+      "latencyMs": 11685
+    },
+    {
+      "task": "architecture_analysis",
+      "output": "{\"summary\":\"The design specifies an idempotent webhook receiver as a set of conceptual components: an ingress endpoint that accepts inbound webhook calls, an idempotency check that consults a dedupe store before any processing occurs, a processing handler that performs the business action exactly once per unique event, and a response component that acknowledges the sender. The design intentionally stays abstract about the storage technology and sender identity because the input does not specify them.\",\"data_flow_description\":\"An inbound HTTP request arrives at the Webhook Ingress Endpoint carrying an event payload and (assumed) some form of unique identifier. The endpoint extracts this identifier and passes it to the Idempotency Check, which queries the Dedupe Store to determine whether the event has already been processed. If the event is new, the Processing Handler executes the business logic and the Dedupe Store is updated to mark the event processed; the flow then proceeds to the Response Sender, which returns an acknowledgement to the caller. If the event is a duplicate, the Idempotency Check short-circuits the flow directly to the Response Sender, which still returns a success acknowledgement without re-invoking the Processing Handler, so a retried delivery produces no additional side effects.\",\"components\": [],\"unknown_disposition\": [],\"trade_offs\":[],\"rejected_approaches\":[],\"automation_verdict\":{\"warranted\":true,\"statement\":\"placeholder\"}}",
+      "inputTokens": 6120,
+      "outputTokens": 1248,
+      "latencyMs": 17352
+    }
+  ]
+}
