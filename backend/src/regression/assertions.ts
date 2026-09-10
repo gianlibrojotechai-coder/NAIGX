@@ -97,10 +97,16 @@ export const ASSERTION_CATALOGUE = [
     deferredTo: null,
   },
   {
+    // D-89: evaluated. The corpus's `expected_artifact_set` must all be
+    // generated; an `expected_omissions` entry must not be — except the
+    // four P1 artifacts the corpus froze as "excluded from v1.0 scope
+    // (MVP §5.3)" and the owner then had built (D-82–D-85, 2026-09-10),
+    // which are reported as superseded expectations rather than failures
+    // until the corpus is re-versioned under docs/11 §6.2.
     id: "artifact_set",
     specRef: "docs/11 §9, FR-017",
-    supported: false,
-    deferredTo: "Stages 8-9 (artifact planning and generation), Sprint 2",
+    supported: true,
+    deferredTo: null,
   },
   {
     id: "confidence_band",
@@ -184,6 +190,9 @@ export function evaluateCase(
           `expected ${corpusCase.expectedClassification}, got ${determined}`,
         ),
   );
+
+  // --- artifact set (`docs/11` §9, `FR-017`, D-89) ----------------------------
+  outcomes.push(artifactSetOutcome(corpusCase, result));
 
   // --- confidence band (`AI §8`, D-86) --------------------------------------
   // The frozen label is the oracle the v1 model was fitted against; a
@@ -409,6 +418,73 @@ export function evaluateCase(
 
   return outcomes;
 }
+
+/**
+ * The corpus names artifact types in its own vocabulary (`docs/11` §7.3, a
+ * convention older than the published types); `docs/11` line 278 requires
+ * the two to be reconciled rather than silently diverge. One name differs:
+ * the corpus's `platform_comparison` is the product's
+ * `platform_recommendation` on both paths (D-78, D-87).
+ */
+const CORPUS_TYPE_TO_PRODUCT: Readonly<Record<string, string>> = {
+  platform_comparison: "platform_recommendation",
+};
+const productType = (corpusType: string): string =>
+  CORPUS_TYPE_TO_PRODUCT[corpusType] ?? corpusType;
+
+/**
+ * The corpus froze these four as omitted with the reason "P1, excluded from
+ * v1.0 scope (MVP §5.3)". The owner's 2026-09-10 direction had them built
+ * (D-82, D-83, D-84, D-85), so producing them contradicts a frozen
+ * expectation whose basis no longer holds. `docs/11` §6.2 says an
+ * expectation is changed with a recorded justification and a corpus version
+ * increment — an owner act — so until then the runner reports the
+ * contradiction as a superseded expectation, in the detail, not as a
+ * failure. Any OTHER omission that is produced fails the case.
+ */
+const P1_BUILT_2026_09_10: ReadonlySet<string> = new Set([
+  "implementation_roadmap",
+  "edge_cases_and_practices",
+  "integration_requirements",
+  "executive_summary",
+]);
+
+const artifactSetOutcome = (
+  corpusCase: CorpusCase,
+  result: PipelineResult,
+): AssertionOutcome => {
+  const generated = new Set(
+    (result.artifactPlan ?? [])
+      .filter((e) => e.planned && e.outcome === "generated")
+      .map((e) => e.artifactType as string),
+  );
+  const missing = corpusCase.expectedArtifactSet
+    .map(productType)
+    .filter((t) => !generated.has(t));
+  const producedOmissions = corpusCase.expectedOmissions
+    .map((o) => o.artifactType)
+    .filter((t) => generated.has(productType(t)));
+  const superseded = producedOmissions.filter((t) =>
+    P1_BUILT_2026_09_10.has(t),
+  );
+  const contradicted = producedOmissions.filter(
+    (t) => !P1_BUILT_2026_09_10.has(t),
+  );
+  const problems = [
+    ...missing.map((t) => `expected ${t}, not generated`),
+    ...contradicted.map((t) => `${t} was expected omitted, and was generated`),
+  ];
+  const supersededNote =
+    superseded.length === 0
+      ? ""
+      : ` (expected-omission superseded by the owner's 2026-09-10 direction, P1 built: ${superseded.join(", ")})`;
+  return problems.length === 0
+    ? pass(
+        "artifact_set",
+        `${String(corpusCase.expectedArtifactSet.length)} expected type(s) generated, no contradicted omission${supersededNote}`,
+      )
+    : failed("artifact_set", problems.join("; ") + supersededNote);
+};
 
 export const caseFailed = (outcomes: readonly AssertionOutcome[]): boolean =>
   outcomes.some((o) => o.status === "failed" && o.advisory !== true);

@@ -647,12 +647,19 @@ test("an assessment produces an architecture with trade-offs and a rejected appr
   );
 });
 
-test("the assessment path produces its two AI §9.1 artifacts", async () => {
+test("the assessment path produces its three AI §9.1 artifacts", async () => {
   const { recorded } = await harness(ASSESSMENT);
 
+  // D-89: the architecture recommendation joins the path (AI §9.1 maps it to
+  // "Requirement, assessment"), rendered from the same Stage 6 architecture.
   assert.deepEqual(
     recorded.artifacts.map((a) => a.artifactType),
-    ["intent_brief", "assessment_feedback", "mermaid_diagram"],
+    [
+      "intent_brief",
+      "assessment_feedback",
+      "architecture_recommendation",
+      "mermaid_diagram",
+    ],
   );
   assert.ok(recorded.artifacts.every((a) => a.validationStatus === "valid"));
   assert.ok(

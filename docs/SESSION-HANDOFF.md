@@ -157,7 +157,9 @@ These are standing instructions given explicitly. **They override default thorou
 
 | `docs/63` **D-88** | **Stage 4 under `O-4`** — v1.0 takes the disclosure-of-uncertainty option (already how D-78/D-84/D-86 behave); the curated knowledge set is content the owner must supply or approve for neutrality, so Stage 4 stays unbuilt by decision and M-05 stays at 11 of 12. No code, no spend. Recorded 2026-09-10 |
 
-**Numbering convention: the next standalone record is `docs/64` D-89.** Nothing is currently owed.
+| `docs/64` **D-89** | **The `artifact_set` assertion evaluated** (M-11 measured: 10 of 15 recorded cases; the enforced assertion now blocks new pass references until the planning-by-judgement gap is built or the corpus re-versioned), the assessment path's architecture recommendation, and four recorded defects closed (model version on claim, regeneration attempt number, readiness schema probe, cancelled-call cost as a labelled lower bound). Free. Built 2026-09-10 |
+
+**Numbering convention: the next standalone record is `docs/65` D-90.** Nothing is currently owed.
 
 ⚠️ **D-63 without its §7 amendment is actively wrong.** The original decision made the runner re-resolve recordings against authored fragments, which invalidated **10 of 13** committed recordings the moment authored content drifted. The amendment separates **replayability** from **evidential currency**: a recording that carries its own captured composition replays against *that* and is never stale for replay; only the activation gate asks the currency question. Read §7 before touching anything in `src/regression/`.
 
@@ -263,6 +265,12 @@ Ten provider calls at Opus 5 high effort: roughly **$2.0–2.5 per requirement a
 **M-08 (reasoning quality).** The reviewer packets are regenerated from the recordings in force: `research/reviews/m08-partial-corpus-v1/INDEX.md` lists fifteen, one per recorded case, blinded (do not open `UNBLINDING-INDEX…json` until done). Read `docs/10-Reasoning-Quality-Rubric.md` §3 (the seven criteria), then for each packet write the §4.4 review record — a verdict per criterion with the evidence line — into the packet's result section. Rules that bind: no AI may write or suggest a verdict (§4.3); your review counts as **single-reviewer** and is reported as such; a pass needs seven of seven, and C-3/C-6 are only assessable where the packet shows plan reasons and stated criteria (the job and requirement packets do). Fifteen packets cannot meet §4.1's ≥20 per type — that needs paid captures — so what you can establish now is whether the sample passes, not the milestone.
 
 **M-17 (accessibility).** Open `docs/accessibility/WCAG-AA-CHECKLIST.md`, follow it against the live site `https://naigx.tech` with a keyboard only (§1) and then a screen reader (NVDA is free on Windows), on one completed analysis from your History, and record pass/fail per item in the table at the bottom of that file. Commit the file; that record is the milestone's evidence.
+
+### Engineering this morning, free (2026-09-10, D-89)
+
+- **The `artifact_set` assertion is evaluated** — and it fails five of the fifteen recorded cases: [research/m11-artifact-set-measurement.md](../research/m11-artifact-set-measurement.md). Three are one missing capability (the pipeline never omits an artifact by judgement), one is the owner's call (`jd-008`), one was the assessment path's missing architecture recommendation, now rendered. **The enforced assertion means the fifteen-case run issues no pass reference until the planning gap is built or the corpus is re-versioned** — a fragment change cannot be activated until then. Deliberate: see [D-89](64-D-89-Artifact-Set-Assertion-And-Recorded-Defects.md) §1.
+- **Four recorded defects closed**: `model_version_id` written with the claim; a regeneration's `attempt_number` is 2; readiness probes the artifact schemas (a fourth dependency, `schemas`); a call cancelled at the deadline is priced as a labelled lower bound instead of $0.
+- **Corrections to yesterday's claims**: M-18 is *not* passed — D-61 says so itself; H-2 is resolved only by a recorded deviation from `DB §13.1` the owner has not ratified, and `NFR-021` full-volume encryption is unmet on the VPS (plain ext4). M-10's tables are regenerated from the case data (41/44, Sonnet 5).
 
 ### What remains, and whose it is
 

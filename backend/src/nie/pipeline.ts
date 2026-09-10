@@ -922,7 +922,11 @@ export function createPipeline(deps: PipelineDependencies) {
         }
         const response = await deps.invoker.invoke(
           request,
-          invocationContext,
+          // D-89: a regeneration is the stage's second attempt, and its
+          // provider row says so.
+          addendum === undefined
+            ? invocationContext
+            : { ...invocationContext, attemptBase: 2 },
           input.signal !== undefined ? { signal: input.signal } : {},
         );
         // Captured before parsing, so an unparseable response survives.

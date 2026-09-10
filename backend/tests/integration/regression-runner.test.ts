@@ -79,8 +79,12 @@ const corpusCase = (overrides: Record<string, string> = {}): CorpusCase => {
     ...TEXT.split("\n").map((l) => `  ${l}`),
     `character_count: ${String(TEXT.length)}`,
     `expected_classification: ${fields["expected_classification"] as string}`,
-    "expected_artifact_set:",
-    "  - architecture_recommendation",
+    // D-89: a case that expects a halt expects no artifact (the corpus lists
+    // an empty set with refusal reasons); the default expects the one type
+    // the requirement path renders.
+    ...(fields["expected_artifact_set"] === "[]"
+      ? ["expected_artifact_set: []"]
+      : ["expected_artifact_set:", "  - architecture_recommendation"]),
     "expected_omissions: []",
     `expected_confidence_band: ${fields["expected_confidence_band"] as string}`,
     "expected_classification_confidence:",
@@ -364,8 +368,9 @@ test("a case with a recording runs through the real pipeline and passes", async 
   assert.equal(byId.get("classification_confidence_bound")?.status, "passed");
   assert.equal(byId.get("reference_integrity")?.status, "passed");
   assert.equal(byId.get("run_completeness")?.status, "passed");
-  // What the run did not measure is stated, not omitted.
-  assert.equal(byId.get("artifact_set")?.status, "deferred");
+  // D-89: the artifact set is evaluated; the synthetic case expects one type
+  // the requirement path generates, so it passes.
+  assert.equal(byId.get("artifact_set")?.status, "passed");
   // D-86: the band is evaluated; the synthetic Stage 3 answer is all stated
   // and specific, so it reproduces the case's `high`.
   assert.equal(byId.get("confidence_band")?.status, "passed");
@@ -373,7 +378,7 @@ test("a case with a recording runs through the real pipeline and passes", async 
   // Only what actually ran is reported as evaluated.
   assert.ok(outcome.assertionsEvaluated.includes("classification"));
   assert.ok(
-    !outcome.assertionsEvaluated.includes("artifact_set"),
+    !outcome.assertionsEvaluated.includes("do_not_automate_conclusion"),
     "a deferred assertion measured nothing and must not count as coverage",
   );
   assert.ok(
@@ -508,6 +513,7 @@ test("a truncated recording is still correct when the case expects a halt", asyn
   const target = corpusCase({
     special_class: "insufficient",
     expected_confidence_band: "low",
+    expected_artifact_set: "[]",
   });
   const report = await run(
     [target],
@@ -676,10 +682,12 @@ test("a clean run issues a reference naming the evidence it used", async () => {
   );
   assert.ok(entry.assertionsEvaluated.includes("run_completeness"));
   assert.ok(
-    !entry.assertionsEvaluated.includes("artifact_set"),
+    !entry.assertionsEvaluated.includes("do_not_automate_conclusion"),
     "per-case coverage, not the static catalogue",
   );
-  assert.ok(reference.assertionsDeferred.includes("artifact_set"));
+  assert.ok(
+    reference.assertionsDeferred.includes("do_not_automate_conclusion"),
+  );
   assert.match(reference.attests, /NOT evidence that the current prompt/);
   assert.equal(
     entry.fragmentsCompositionHash,
@@ -703,6 +711,7 @@ test("a suite spanning several compositions still issues a reference", async () 
     expected_classification: "unsupported",
     // D-86: a refusal carries `low` by rule (D-31 decision 1).
     expected_confidence_band: "low",
+    expected_artifact_set: "[]",
   });
 
   const fullRecording = await recordingFor(full);

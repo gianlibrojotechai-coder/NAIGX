@@ -175,6 +175,7 @@ export async function createAnalysisRunner(
     prisma: deps.prisma,
     mode: deps.mode,
     cipher: deps.cipher,
+    modelVersionId: modelVersion.modelVersionId,
     runPipeline: (input) => pipeline.run(input),
     ...(deps.onError !== undefined ? { onError: deps.onError } : {}),
     ...(deps.eventSink !== undefined ? { eventSink: deps.eventSink } : {}),

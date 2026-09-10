@@ -71,6 +71,14 @@ export interface InvocationContext {
   readonly modelVersionId: string;
   /** `MODEL_VERSION.model_key`, used to select the configured rate. */
   readonly modelKey: string;
+  /**
+   * D-89: the attempt number the FIRST call of this invocation records.
+   * A stage's informed regeneration (`AI §3.2`) is a second logical attempt
+   * at the stage, made as a fresh invocation; without this it reported
+   * `attempt_number` 1 like the first, and `DB §4.7`'s per-attempt row could
+   * not tell them apart. Provider-level retries count on from here.
+   */
+  readonly attemptBase?: number;
 }
 
 export interface ProviderInvokerDependencies {
@@ -165,7 +173,7 @@ export function createProviderInvoker(
             ),
             outcome: "success",
             errorClass: null,
-            attemptNumber: attempt,
+            attemptNumber: (context.attemptBase ?? 1) + attempt - 1,
             fallbackUsed: response.degradations.length > 0,
           });
 
@@ -177,16 +185,41 @@ export function createProviderInvoker(
           // A failed call consumed no accountable tokens: the provider either
           // did not answer or answered unusably. Recording an invented token
           // count would corrupt the unit economics `TV-4` rests on.
+          //
+          // D-89 — the one exception is a call CANCELLED IN FLIGHT at the
+          // `FR-094` deadline: the provider read the prompt and generated
+          // until the abort, and bills for it, while no usage comes back. A
+          // row at $0 understated real spend and let the spend guard admit
+          // more than the ledger showed (`NFR-083`). The prompt's input
+          // tokens are estimated from its length (about four characters per
+          // token) and priced at the input rate; the output generated before
+          // the abort is unknowable and is recorded as 0 — so this is a
+          // LOWER BOUND, and the record says so through `errorClass`.
+          // Read through a fresh reference: the pre-call check above narrowed
+          // `options.signal.aborted` to false for the rest of this closure.
+          const signal: AbortSignal | undefined = options.signal;
+          const cancelled = signal !== undefined && signal.aborted;
+          const estimatedInputTokens = cancelled
+            ? Math.ceil(
+                ((request.instructions?.length ?? 0) + request.input.length) /
+                  4,
+              )
+            : 0;
           await record({
             stageTraceId: context.stageTraceId,
             modelVersionId: context.modelVersionId,
             latencyMs,
-            inputTokens: 0,
+            inputTokens: estimatedInputTokens,
             outputTokens: 0,
-            estimatedCostUsd: "0.00000000",
+            estimatedCostUsd: cancelled
+              ? computeEstimatedCostUsd(
+                  { inputTokens: estimatedInputTokens, outputTokens: 0 },
+                  deps.rate,
+                )
+              : "0.00000000",
             outcome: "failure",
             errorClass: failure.failureClass,
-            attemptNumber: attempt,
+            attemptNumber: (context.attemptBase ?? 1) + attempt - 1,
             fallbackUsed: false,
           });
 

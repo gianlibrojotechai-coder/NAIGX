@@ -319,3 +319,59 @@ test("the layer runs offline against the stub adapter end to end", async () => {
     "token usage from the stub produces a real cost",
   );
 });
+
+// --- D-89: a regeneration is the stage's second attempt ----------------------
+
+test("attemptBase threads a regeneration's attempt number through to the row (D-89)", async () => {
+  const { adapter } = adapterReturning([wellFormed]);
+  const { records, recorder } = collectingRecorder();
+  const invoker = createProviderInvoker({
+    adapter,
+    rate,
+    recorder,
+    ...noWait,
+    now: () => 0,
+  });
+  await invoker.invoke(request, { ...context, attemptBase: 2 });
+  assert.equal(records[0]?.attemptNumber, 2);
+});
+
+// --- D-89: a call cancelled in flight is priced as a lower bound --------------
+
+test("a call cancelled at the deadline records the prompt's estimated input cost, not $0 (D-89, NFR-083)", async () => {
+  const controller = new AbortController();
+  const adapter: ProviderAdapter = {
+    capabilities: createStubProvider().capabilities,
+    invoke: () => {
+      controller.abort();
+      return Promise.reject(new ProviderError("persistent", "aborted"));
+    },
+  };
+  const { records, recorder } = collectingRecorder();
+  const invoker = createProviderInvoker({
+    adapter,
+    rate,
+    recorder,
+    ...noWait,
+    now: () => 0,
+  });
+  await assert.rejects(
+    invoker.invoke(request, context, { signal: controller.signal }),
+  );
+  const row = records[0];
+  assert.ok(row);
+  assert.equal(row.outcome, "failure");
+  const promptChars =
+    (request.instructions?.length ?? 0) + request.input.length;
+  assert.equal(
+    row.inputTokens,
+    Math.ceil(promptChars / 4),
+    "input estimated from the prompt length",
+  );
+  assert.equal(
+    row.outputTokens,
+    0,
+    "output before the abort is unknowable and recorded as 0",
+  );
+  assert.notEqual(row.estimatedCostUsd, "0.00000000");
+});

@@ -135,7 +135,7 @@ test("the assessment path plans its whole AI §9.1 set", () => {
 
   assert.deepEqual(
     plan.map((entry) => entry.artifactType),
-    ["assessment_feedback", "mermaid_diagram"],
+    ["assessment_feedback", "architecture_recommendation", "mermaid_diagram"],
   );
   assert.ok(plan.every((entry) => entry.planned));
 });

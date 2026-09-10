@@ -23,6 +23,7 @@ import { createReplayProvider } from "./provider/adapters/replay.js";
 import type { ProviderAdapter } from "./provider/capability.js";
 import type { TokenRate } from "./provider/cost.js";
 import { FOUNDATION_FRAGMENT_KEYS } from "./nie/prompt.js";
+import { IMPLEMENTED_ARTIFACT_TYPES } from "./nie/contracts.js";
 import { STAGE_OUTPUT_SCHEMAS } from "./nie/output-schemas.js";
 import { loadCapabilityProfile } from "./nie/capability-profile.js";
 import type { CapabilityProfile } from "./nie/capability-profile.js";
@@ -243,6 +244,22 @@ const main = async (): Promise<void> => {
     ]);
   };
 
+  // D-89 (`API-060`): every implemented artifact type has a published
+  // schema, or the instance would fail at Stage 9 behind a green readiness.
+  const checkSchemas = async (): Promise<void> => {
+    const rows = await database.prisma.artifactSchema.findMany({
+      select: { artifactType: true },
+      distinct: ["artifactType"],
+    });
+    const published = new Set(rows.map((r) => r.artifactType));
+    const missing = IMPLEMENTED_ARTIFACT_TYPES.filter((t) => !published.has(t));
+    if (missing.length > 0) {
+      throw new Error(
+        `artifact schemas not published for: ${missing.join(", ")}`,
+      );
+    }
+  };
+
   // Replaced by the Fastify logger below. Until then a failure still has
   // somewhere to go — silence during startup is how a misconfiguration hides.
   let reportError: (error: unknown) => void = (error) => {
@@ -420,6 +437,7 @@ const main = async (): Promise<void> => {
     cipher,
     checkProvider,
     checkTemplates,
+    checkSchemas,
     ...(spendGuard !== undefined ? { spendGuard } : {}),
     // `DB §4.1`. Omitted rather than passed as `undefined` so `buildApp`'s own
     // development default applies outside production; `loadConfig` refuses to

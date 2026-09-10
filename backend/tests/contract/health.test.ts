@@ -39,6 +39,7 @@ const build = async (
     findFirst?: () => Promise<unknown>;
     checkProvider?: () => Promise<void>;
     checkTemplates?: () => Promise<void>;
+    checkSchemas?: () => Promise<void>;
   } = {},
 ) =>
   buildApp({
@@ -53,11 +54,13 @@ const build = async (
     } as unknown as Database,
     checkProvider: overrides.checkProvider ?? ok,
     checkTemplates: overrides.checkTemplates ?? ok,
+    // D-89: the artifact-schema probe is a fourth dependency.
+    checkSchemas: overrides.checkSchemas ?? ok,
   });
 
 // --- readiness -----------------------------------------------------------
 
-test("readiness reports all three dependencies when healthy", async () => {
+test("readiness reports all four dependencies when healthy", async () => {
   const app = await build();
   const res = await app.inject({
     method: "GET",
@@ -72,6 +75,7 @@ test("readiness reports all three dependencies when healthy", async () => {
       database: "available",
       provider: "available",
       templates: "available",
+      schemas: "available",
     },
   });
   await app.close();

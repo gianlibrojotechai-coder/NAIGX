@@ -185,6 +185,8 @@ const compose = async (
     } as unknown as Database,
     checkProvider: () => Promise.resolve(),
     checkTemplates: () => Promise.resolve(),
+    // D-89: readiness also probes the artifact schemas; stubbed like the rest.
+    checkSchemas: () => Promise.resolve(),
     hashContent: () => "deadbeef",
     startExecution: (analysisId) => {
       pending = executor.execute(analysisId);

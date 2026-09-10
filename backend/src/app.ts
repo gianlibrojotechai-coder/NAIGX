@@ -62,6 +62,8 @@ export interface AppDependencies {
    */
   readonly checkProvider?: HealthCheck;
   readonly checkTemplates?: HealthCheck;
+  /** D-89: the published artifact schemas (`API-060`). */
+  readonly checkSchemas?: HealthCheck;
   /**
    * Content hashing for `ANALYSIS_INPUT.content_hash` (`DB §4.2`).
    *
@@ -135,6 +137,7 @@ export async function buildApp({
   database,
   checkProvider,
   checkTemplates,
+  checkSchemas,
   hashContent = defaultHashContent,
   startExecution,
   eventLog,
@@ -199,6 +202,7 @@ export async function buildApp({
     prisma: database.prisma,
     ...(checkProvider !== undefined ? { checkProvider } : {}),
     ...(checkTemplates !== undefined ? { checkTemplates } : {}),
+    ...(checkSchemas !== undefined ? { checkSchemas } : {}),
   });
 
   await app.register(analysisRoutes, {

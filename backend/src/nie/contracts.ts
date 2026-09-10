@@ -934,7 +934,14 @@ export const PATH_ARTIFACT_TYPES: Readonly<
     "portfolio_suggestions",
     "interview_guidance",
   ],
-  technical_assessment: ["assessment_feedback", "mermaid_diagram"],
+  // D-89: `AI §9.1` maps Architecture Recommendation to "Requirement,
+  // assessment" — the assessment path had never rendered it (M-11 measurement,
+  // ta-005). Rendered from the same Stage 6 architecture as the feedback.
+  technical_assessment: [
+    "assessment_feedback",
+    "architecture_recommendation",
+    "mermaid_diagram",
+  ],
   // `FR-092` declines before reasoning; nothing is planned for a refusal.
   unsupported: [],
 };

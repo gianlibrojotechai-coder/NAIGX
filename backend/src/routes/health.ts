@@ -38,6 +38,14 @@ export interface HealthRouteOptions {
   readonly checkProvider?: HealthCheck;
   /** Template loadability — the reasoning fragments resolve. */
   readonly checkTemplates?: HealthCheck;
+  /**
+   * D-89: the published artifact schemas — every implemented artifact type
+   * has one. On 2026-09-09 readiness answered 200 with zero schema rows and
+   * three of four paths failed at Stage 9 behind it (STATUS, `API-060` open
+   * issue). Absent means the composition root did not supply the probe,
+   * which is a readiness failure like an absent provider.
+   */
+  readonly checkSchemas?: HealthCheck;
 }
 
 type DependencyStatus = "available" | "unavailable";
@@ -88,6 +96,7 @@ export const healthRoutes: FastifyPluginAsync<HealthRouteOptions> = async (
       ),
       provider: await probe(options.checkProvider, log),
       templates: await probe(options.checkTemplates, log),
+      schemas: await probe(options.checkSchemas, log),
     };
 
     const ready = Object.values(dependencies).every(

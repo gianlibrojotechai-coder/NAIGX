@@ -65,6 +65,8 @@ export interface ExecutionReport {
 }
 
 export interface AnalysisExecutorDependencies {
+  /** D-89: written onto the analysis row when the run is claimed (`AI-004`). */
+  readonly modelVersionId?: string;
   readonly prisma: PrismaClient;
   readonly mode: ExecutionMode;
   /**
@@ -198,7 +200,15 @@ export function createAnalysisExecutor(
       // against double execution, not a distributed lock.
       const claimed = await deps.prisma.analysis.updateMany({
         where: { analysisId, status: "queued" },
-        data: { status: "running" },
+        data: {
+          status: "running",
+          // D-89: `AI-004` drift attribution — the model version the run
+          // will use, written with the claim. Before this only the harness
+          // wrote it, and every API-created analysis carried null.
+          ...(deps.modelVersionId !== undefined
+            ? { modelVersionId: deps.modelVersionId }
+            : {}),
+        },
       });
       if (claimed.count === 0) {
         return { analysisId, mode: deps.mode, outcome: "not_claimable" };

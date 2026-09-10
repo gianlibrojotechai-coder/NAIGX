@@ -33,7 +33,7 @@ One row per `docs/08` milestone, in the milestone's own terms. "Passed" means ev
 | M-08 reasoning quality gate | sampled output passes the rubric | ⚠️ **owner decision + unverified** | no independent human reviewer named (`docs/10` §4.3, §8 A-1); 15 fresh packets in `research/reviews/m08-partial-corpus-v1/`; §4.1 sampling (≥20 per type) needs paid captures |
 | M-09 regression safety | fragment changes gated by a passing run | ✅ passed | 23 fragments activated only under references; gate never weakened |
 | M-10 classification accuracy | ≥95 % on the corpus | ❌ **failed criterion** — 41/44, 93.2 % | [research/m10-classification-measurement.md](../research/m10-classification-measurement.md); three `ta-*` misses; measured on Sonnet 5, one sample each |
-| M-11 all analysis paths | four types produce their specified artifact sets | ⚠️ **known missing code + unverified** | the `artifact_set` assertion is still deferred in the runner; recordings exist for all four types and pass every evaluated assertion |
+| M-11 all analysis paths | four types produce their specified artifact sets | ❌ **failed criterion + known missing code** — 10 of 15 recorded cases agree | [research/m11-artifact-set-measurement.md](../research/m11-artifact-set-measurement.md): the `artifact_set` assertion is evaluated since [D-89](64-D-89-Artifact-Set-Assertion-And-Recorded-Defects.md); three contradictions are one missing capability (the pipeline never omits an artifact by judgement — `br-003` do-not-automate, `br-010` design declined, `br-004` minimal), one is an owner decision (`jd-008`, a portfolio on `apply_now`), one was the assessment path's missing architecture recommendation (fixed by D-89) plus a proportionality omission. The 29 unrecorded cases are unmeasured. ⚠️ **The enforced assertion blocks new pass references** until the pipeline omits what the corpus says it should or the owner re-versions those expectations |
 | M-12 frontend foundation | hierarchy, layered depth, streaming | ⚠️ **unverified** | built and exercised live on every path; the milestone's demonstration is a human judgement not yet recorded |
 | M-13 export | Markdown and PDF presentation-ready | ✅ passed | both formats live; PDF in the container with the sandbox on |
 | M-14 degradation | partial failure yields labelled partial results across all tested failure modes | ✅ passed | `FR-091/093/094`, timeout writes `timed_out`, retry by type and path (D-81); degradation suite |
@@ -49,14 +49,14 @@ One row per `docs/08` milestone, in the milestone's own terms. "Passed" means ev
 
 - Stage 4 Knowledge Assembly, once the owner supplies or approves the curated set (D-88).
 - A second depth level so the artifact set scales with complexity (`AC-037`, `AIQ-7`) — a decision first, then Stage 5 and Stage 8 work.
-- The runner's `artifact_set` assertion, so M-11 can be measured offline (free).
+- **Planning by judgement** (`FR-017`, `FR-020`, `PV §3.2`): a stage that can conclude "do not automate" or "design declined" from Stage 2/6 and omit the design artifacts, and a second depth level for minimal inputs — the largest gap the corpus exposes (M-11 measurement: `br-003`, `br-010`, `br-004`, `ta-005`). The runner's `do_not_automate_conclusion` assertion stays deferred on the same gap.
 - `API-041` export download (specified, unimplemented since D-42).
-- `analysis.model_version_id` is null for analyses created through the API (`AI-004` drift attribution lost); `provider_invocation.attempt_number` not threaded through a regeneration; `API-060` readiness does not probe the artifact schemas; an aborted provider call is recorded at $0 (`NFR-083`).
+- ~~`analysis.model_version_id` null for API analyses; `attempt_number` not threaded through a regeneration; `API-060` readiness not probing the artifact schemas; an aborted call recorded at $0~~ ✅ **all four closed by [D-89](64-D-89-Artifact-Set-Assertion-And-Recorded-Defects.md)** (historical rows not backfilled; the cancelled-call cost is a labelled lower bound).
 - Whatever `NFR-002` needs if the target stands: fewer or faster calls, a faster generator model, or a different pipeline shape.
 
 ### Unverified behaviour
 
-- M-11: the artifact sets per type have never been compared with the corpus's expectations (assertion deferred).
+- M-11: measured on the 15 recorded cases (10 agree); the other 29 cases have no recording past Stage 3.
 - M-12: the demonstration judgement.
 - M-17: the manual accessibility walk.
 - Stage 1 on the production model: M-10 was measured on Sonnet 5, one sample per case.
@@ -65,6 +65,7 @@ One row per `docs/08` milestone, in the milestone's own terms. "Passed" means ev
 ### Failed criteria
 
 - M-10 at 93.2 % against 95 %.
+- M-11 at 10 of 15 recorded cases (the planning-by-judgement gap).
 - `NFR-002` (M-20).
 - `AC-037` — not met by construction ([research/ac-037-measurement.md](../research/ac-037-measurement.md)).
 - Three `FR-015` over-confidence cases at Stage 1 (`ew-003`, `jd-001`, `ta-004`).
@@ -72,7 +73,7 @@ One row per `docs/08` milestone, in the milestone's own terms. "Passed" means ev
 
 ### Owner decisions
 
-- Stage 4's knowledge set; the depth level; the `NFR-002` target; the live spend caps; naming an independent reviewer for M-08 and an external reviewer for Sprint 6; ratifying D-61's `DB §13.1` key-management deviation (what closes H-2); whether a self-review satisfies `AC-026`; provisioning an encrypted data volume for `NFR-021`.
+- Stage 4's knowledge set; the depth level; the `NFR-002` target; the live spend caps; naming an independent reviewer for M-08 and an external reviewer for Sprint 6; ratifying D-61's `DB §13.1` key-management deviation (what closes H-2); whether a self-review satisfies `AC-026`; provisioning an encrypted data volume for `NFR-021`; **whether `jd-008`'s portfolio-on-`apply_now` expectation or D-29's rule is right**; **re-versioning the corpus's P1 omission expectations** (`docs/11` §6.2) now that D-82–D-85 built them.
 
 ### Sprint 6 obligations — retained in full (`docs/08` §Sprint 6)
 
@@ -271,8 +272,8 @@ The working tree is green at every gate and no increment is half-built. The pack
 | Stage 11 confidence | ✅ **Built 2026-09-10** ([D-86](61-D-86-Stage-11-Confidence.md)): the reduced v1 model (CF-2 and CF-4 weighted, CF-3 a cap, the rest versioned at weight 0), **fitted** against the 44 frozen bands once 29 Stage 1–3 captures ($1.51) supplied the features D-33 lacked — 34 of 44 reproduced, the confusion between high and medium. One band per analysis with all seven factors exposed; per-recommendation confidence stays deferred (D-31 decision 5), so `FR-045` is met per analysis and not per recommendation. |
 | ~~**Architecture unknown disposition** ([D-38](13-D-38-Architecture-Unknown-Disposition.md))~~ | ✅ **CLOSED 2026-09-10 by [D-78](53-D-78-Unknown-Disposition-And-Platform-Recommendation.md).** Stage 6 now lists every unknown element with a disposition (assumed / excluded / deferred) and a statement; the parser refuses an undisposed unknown through the one-regeneration path; the dispositions are persisted, carried on both architecture artifacts and shown in the presenters. Recaptured on all ten architecture-bearing cases: 2–6 unknowns each, all disposed. *Original finding:* Specification gap. Remediation authorised by [D-39](14-D-39-D-37-Amendment.md); activation was gated on a capture. Stage 6 can cite an unknown context element without recording how it was handled; the output contract has no field for assumed/excluded/deferred. Measured across the 10 architecture-bearing recordings: **71 unknowns, 20 cited (28%)**, citation rate ranging 0–100% between comparable cases, and one recording citing 5 of 5 while acknowledging none. Remediation — an `unknown_disposition[]` field plus a disposition check through the existing regeneration path — may now be authored and tested, but cannot be activated without a capture. |
 | `VALIDATION_EVENT` attribution | **Closed by M-16.** Both artifact paths now record a schema-validation outcome, so `M-10` is measurable. Rows accrue from the next analysis run onward; nothing is backfilled. |
-| `analysis.model_version_id` | Written only by `src/harness/run.ts`. Null for every analysis created through the API — `AI-004` drift attribution is being lost. |
-| `provider_invocation.attempt_number` | Reports `1` for both Stage 9 attempts; the regeneration does not thread it. |
+| ~~`analysis.model_version_id`~~ | ✅ Closed by [D-89](64-D-89-Artifact-Set-Assertion-And-Recorded-Defects.md): written with the run's claim. Earlier rows stay null. |
+| ~~`provider_invocation.attempt_number`~~ | ✅ Closed by D-89: a regeneration's row records attempt 2 (`InvocationContext.attemptBase`). |
 | ~~Backend binds `0.0.0.0`~~ | ✅ Closed by M-19 Phase 2: `host` and `port` come from configuration (`config.host`), the container binds inside the compose network, and the edge is the only listener. |
 | ~~Uncommitted work~~ | ✅ Stale since 2026-09-08: everything is committed and pushed; `origin/main` is what production runs. |
 | **`M-4` export rate** | **Unmeasurable until M-15**, by decision — [D-41](16-D-41-Anonymous-Export-Deviation.md) §5. Anonymous export volume in this period is **not recoverable retrospectively**, because the rows are not being written and cannot be backfilled. `MVP §3.2` calls `M-4` the primary behavioural trust signal; it records nothing today. |
