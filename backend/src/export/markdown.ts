@@ -205,7 +205,7 @@ const confidenceBlock = (analysis: AnalysisView): string[] => {
           ? "Cap"
           : "Not measured in v1";
     lines.push(
-      `| ${String(fr["id"])} ${String(fr["label"])} | ${value} | ${weight} | ${role} | ${String(fr["note"]).replace(/|/g, "\|")} |`,
+      `| ${String(fr["id"])} ${String(fr["label"])} | ${value} | ${weight} | ${role} | ${String(fr["note"]).replace(/\|/g, "\\|")} |`,
     );
   }
   lines.push("");
@@ -289,9 +289,17 @@ const verdictSection = (analysis: AnalysisView, step: number): string[] => {
   const lines = [`## ${String(step)}. Verdict`, ""];
   const verdict = analysis.verdict;
   if (verdict === null) {
+    // A verdict is the job-description path's Stage 7 product (AI §9.1). On
+    // every other path its absence is the path, not an incomplete stage —
+    // saying "Stage 7 did not complete" of a requirement analysis would
+    // report a failure that never happened (FR-091: omission and failure
+    // are distinguishable).
+    const type = analysis.classification?.determined_type;
     return [
       ...lines,
-      "*No verdict was stored. Stage 7 did not complete for this analysis.*",
+      type !== undefined && type !== "job_description"
+        ? `*Not applicable: a ${humanise(type).toLowerCase()} analysis produces no verdict — the verdict is the job-description path's Stage 7 (AI §9.1).*`
+        : "*No verdict was stored. Stage 7 did not complete for this analysis.*",
       "",
     ];
   }
@@ -382,7 +390,14 @@ const requirementsSection = (
 ): string[] => {
   const lines = [`## ${String(step)}. Requirements`, ""];
   if (analysis.requirements.length === 0) {
-    return [...lines, "*No requirements were stored.*", ""];
+    const type = analysis.classification?.determined_type;
+    return [
+      ...lines,
+      type !== undefined && type !== "job_description"
+        ? `*Not applicable: a ${humanise(type).toLowerCase()} analysis extracts no posting requirements — those are the job-description path's Stage 7 (AI §9.1).*`
+        : "*No requirements were stored.*",
+      "",
+    ];
   }
 
   if (analysis.decisive_gaps.length > 0) {

@@ -492,3 +492,51 @@ test("the document ends with exactly one newline and no blank-line runs", () => 
   assert.equal(document.endsWith("\n\n"), false);
   assert.equal(/\n{3,}/.test(document), false);
 });
+
+// --- D-91 follow-up: three export defects the owner's first live analysis showed
+
+test("a confidence factor note is one cell with its pipes escaped, not spread character by character", () => {
+  const { document } = render({
+    overall_confidence_band: "medium",
+    overall_confidence: {
+      band: "medium",
+      decided_by: "weighted_base",
+      base_score: 0.817,
+      model_version: "confidence-v1",
+      factors: [
+        {
+          id: "CF-1",
+          label: "Input completeness",
+          value: null,
+          weight: 0,
+          role: "excluded",
+          note: "No per-type expected-context schema exists (D-32); excluded | weight 0.",
+        },
+      ],
+    },
+  });
+  assert.match(
+    document,
+    /\| CF-1 Input completeness \| — \| 0% \| Not measured in v1 \| No per-type expected-context schema exists \(D-32\); excluded \\| weight 0\. \|/,
+  );
+  assert.doesNotMatch(document, /\|N\|o\|/, "the note was spread into cells");
+});
+
+test("a requirement analysis says a verdict and requirements are not applicable, not that Stage 7 failed", () => {
+  const { document } = render({
+    classification: {
+      ...(baseAnalysis.classification as NonNullable<
+        AnalysisView["classification"]
+      >),
+      determined_type: "business_requirement",
+    },
+    verdict: null,
+    requirements: [],
+  });
+  assert.match(
+    document,
+    /Not applicable: a business requirement analysis produces no verdict/,
+  );
+  assert.match(document, /extracts no posting requirements/);
+  assert.doesNotMatch(document, /Stage 7 did not complete/);
+});

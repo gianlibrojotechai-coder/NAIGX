@@ -60,13 +60,12 @@ const coverageFor = (fragmentKey: string) =>
 // compositions being stale against the candidate and not re-capturable. They
 // are unrecorded now, not uncovered — see research/regression-withdrawn/.
 const RECORDED = 15;
-// D-90: every recorded `br-*` except br-005 (halts at Stage 3), br-010 (the
-// submitter declined a design, so Stage 6 is not run) and — on the recording
-// in force since the 2026-09-10 D-90b campaign — br-004, whose Stage 3
-// judged the two-line input insufficient on that sample (its two earlier
-// samples judged it thin and proceeded). A pin on a sampled outcome: it
-// moves when the recording does.
-const ARCHITECTURE_CASES = 7;
+// D-90: every recorded `br-*` except br-005 (halts at Stage 3) and br-010
+// (the submitter declined a design, so Stage 6 is not run). br-004 reaches
+// Stage 6 on the recording in force (the D-91 diagnostic rerun answered
+// thin); its halting D-90b sample is in the variance register. A pin on a
+// sampled outcome: it moves when the recording does.
+const ARCHITECTURE_CASES = 8;
 
 // --- a fragment every composition includes -------------------------------
 
@@ -90,8 +89,6 @@ test("a stage fragment covers only the cases that reached that stage", async () 
     "br-005 halts at Stage 3",
   );
   assert.deepEqual(coverage.uncoveredCaseIds, [
-    // Halted at Stage 3 on the recording in force (see ARCHITECTURE_CASES).
-    "br-004",
     "br-005",
     // D-90: a declined design ends the requirement path after Stage 3.
     "br-010",

@@ -716,7 +716,10 @@ const renderPlatformRecommendation = (document: unknown): ArtifactRender => {
   });
   lines.push("", "#### The recommendation", "");
   lines.push(
-    `**${platform === null ? "No platform — do not automate this" : platform}.** ${rationale}`,
+    // A null platform is "no platform" (the fragment: the process is better left
+    // as it is, a build is not justified, or none can be named on this
+    // context); the rationale says which, and the label must not assert more.
+    `**${platform === null ? "No platform recommended" : platform}.** ${rationale}`,
     "",
   );
   const also = list(document.also_required).filter(isRecord);

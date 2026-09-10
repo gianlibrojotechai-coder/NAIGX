@@ -109,3 +109,33 @@ test("a document without the recommendation standing is reported unrenderable", 
   });
   assert.equal(render.rendered, false);
 });
+
+test("a null platform is labelled 'No platform recommended', and the rationale says why — not 'do not automate'", () => {
+  const render = renderArtifactDocument("platform_recommendation", {
+    criteria_applied: [
+      {
+        criterion: "The capability must fit an existing project",
+        context_index: 9,
+        component: null,
+      },
+    ],
+    recommended_platform: null,
+    also_required: [],
+    rationale:
+      "No platform can be named on this context without inventing the facts that would decide it.",
+    alternatives_rejected: [
+      {
+        platform: "Zapier",
+        rejection_reason: "No external system to connect.",
+      },
+    ],
+    component_coverage: [],
+    knowledge_currency_note: "Verify before committing.",
+  });
+  const text = render.lines.join("\n");
+  assert.match(
+    text,
+    /\*\*No platform recommended\.\*\* No platform can be named/,
+  );
+  assert.doesNotMatch(text, /do not automate/);
+});
