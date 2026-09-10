@@ -40,7 +40,7 @@ One row per `docs/08` milestone, in the milestone's own terms. "Passed" means ev
 | M-15 auth and history | persist and retrieve exactly; deletion permanent | ✅ passed | verified live |
 | M-16 instrumentation | all `PRD §3.2` metrics reporting | ✅ passed on the recorded scope reading | seven automatable metrics; `M-4` reportable since M-15 |
 | M-17 accessibility | WCAG 2.1 AA verified on primary flows | ⚠️ **unverified (human)** | axe green on every run; the manual walk in `docs/accessibility/WCAG-AA-CHECKLIST.md` unwalked |
-| M-18 security | review complete; no unresolved high-severity findings | ✅ **passed on the internal review's own terms** (amended 2026-09-10) | H-2 resolved by D-61; four medium and two low findings recorded as deferred/accepted; ⚠️ the review is a self-review — an independent one is a Sprint 6 obligation |
+| M-18 security | review complete; no unresolved high-severity findings | ❌ **not passed — owner decision** | the encryption mechanism is implemented and verified (D-53, D-61 §8), but H-2's key-management condition is met only by D-61's recorded deviation from `DB §13.1`, which the owner has not ratified; the review is a self-review. **`NFR-021` full-volume encryption is unmet** (VPS root is plain ext4; host work, not code). |
 | M-19 deployment | production deploy with monitoring, alerting, verified rollback | ✅ passed (closed 2026-09-09) | drills performed on production |
 | M-20 performance | `NFR-001`, `NFR-002` met under representative load | ❌ **failed criterion + owner decision** | `NFR-001` met; `NFR-002` not met (analysis p50 ≈ 220–280 s at Opus 5 high against a 60 s target); the decision is whether the target, the model or the pipeline changes — the last is code |
 | M-21 beta readiness | `PRD §14.1` and `§15`; qualitative gate | ⏳ **Sprint 6, not started** | the obligations below |
@@ -72,7 +72,7 @@ One row per `docs/08` milestone, in the milestone's own terms. "Passed" means ev
 
 ### Owner decisions
 
-- Stage 4's knowledge set; the depth level; the `NFR-002` target; the live spend caps; naming an independent reviewer for M-08 and an external reviewer for Sprint 6; whether a self-review satisfies `AC-026`.
+- Stage 4's knowledge set; the depth level; the `NFR-002` target; the live spend caps; naming an independent reviewer for M-08 and an external reviewer for Sprint 6; ratifying D-61's `DB §13.1` key-management deviation (what closes H-2); whether a self-review satisfies `AC-026`; provisioning an encrypted data volume for `NFR-021`.
 
 ### Sprint 6 obligations — retained in full (`docs/08` §Sprint 6)
 
