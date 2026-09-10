@@ -124,10 +124,10 @@ export interface RegressionPassReference {
    */
   readonly sampleVariance: readonly {
     readonly caseId: string;
-    readonly fragmentsCompositionHash: string;
     readonly samples: number;
     readonly failed: number;
     readonly rulesContradicted: readonly string[];
+    readonly failedFiles: readonly string[];
   }[];
   /**
    * Which fragment versions the prompt under test was composed from
@@ -397,11 +397,10 @@ export function buildPassReference(
     )
     .map((c) => ({
       caseId: c.caseId,
-      fragmentsCompositionHash:
-        c.sampleVariance?.fragmentsCompositionHash ?? "",
       samples: c.sampleVariance?.samples ?? 0,
       failed: c.sampleVariance?.failed ?? 0,
       rulesContradicted: c.sampleVariance?.rulesContradicted ?? [],
+      failedFiles: c.sampleVariance?.failedFiles ?? [],
     }));
   return {
     suite: SUITE_ID,

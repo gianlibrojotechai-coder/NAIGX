@@ -1,4 +1,23 @@
 {
   "policy": "docs/66-D-91-Sample-Variance-Policy.md — every sample of a case other than its admitted recording, passing or failing, under the composition it was captured with; the runner scopes its assessment to the admitted recording's composition and fails a case that failed two of its last three samples there",
-  "samples": []
+  "samples": [
+    {
+      "caseId": "br-004",
+      "capturedAt": "2026-09-10T08:34:16.536Z",
+      "fragments": {
+        "foundation.neutrality_constraints": "authored:cdc1a7b66f15",
+        "foundation.provenance_rules": "authored:772d3b64e3b9",
+        "foundation.refusal_and_uncertainty": "authored:1b831dfd0838",
+        "foundation.system_frame": "authored:edb12036b2a4",
+        "stage.classification": "authored:522968774948",
+        "stage.context_extraction": "authored:b6f40a3e1d8b",
+        "stage.intent": "authored:c84ceb8909ff",
+        "type.business_requirement": "authored:24bc232708a8"
+      },
+      "outcome": "failed",
+      "failure": "Stage 3 reported sufficiency `insufficient` for the 66-character input (5 elements, 4 stated) and the analysis halted before reasoning; the frozen expectation and the two earlier samples (2026-09-09, 2026-09-10T07:48Z, both `thin`, 10 elements) proceed to a two-artifact plan",
+      "ruleContradicted": "stage.context_extraction: sufficiency is judged on how much the input states; brevity on its own is never a reason to report `insufficient` (AI §5.4: `thin` = a design is possible but inference-heavy, and proceeds)",
+      "file": "research/regression-superseded/br-004-halted-2026-09-10T08-34-16Z.json"
+    }
+  ]
 }

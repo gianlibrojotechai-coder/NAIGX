@@ -73,6 +73,8 @@ Not built in this record; the design it commits to:
 | Runner: variance carried into the reference; two failures fail the case and no reference issues; another composition is not pooled | ✅ `tests/integration/regression-runner.test.ts` |
 | Stage 2: exactly one regeneration then failure; no call after cancellation | ✅ `tests/integration/nie-pipeline.test.ts` |
 | Corpus v3 loads; the suite version is read from the manifest | ✅ `tests/unit/regression-corpus.test.ts` |
-| Full suite, lint, typecheck | _filled in below_ |
-| br-004 diagnostic rerun | _filled in below_ |
-| Regression run, reference, activation, deployment | _filled in below_ |
+| Full suite, lint, typecheck | ✅ 2026-09-10 — 1154 tests, 1150 pass, 0 fail, 4 skipped; lint 0 errors; typecheck clean |
+| br-004 diagnostic rerun (rule 4; **$0.0671**, ceiling $0.10) | ✅ answered `thin` (10 elements), every assertion passed; admitted. The halting sample is retained as `research/regression-superseded/br-004-halted-2026-09-10T08-34-16Z.json` and is the register's first entry, with the rule it contradicted. The runner reports `br-004` as **1 of 2 samples failed under this prompt version** and the reference carries it |
+| Regression runs | ✅ default selection 11 passed · 0 failed · 2 blocked (`br-006`, `br-008` have no recording — no reference, as always for that selection); **all fifteen recorded cases: 15 passed, reference `corpus-regression:corpus-v3+fragments-v1:ba5c6c0837522bd0`** (scope `partial`, `expectationConflicts: []`, `sampleVariance: br-004 — 2 samples, 1 failed, file named`). M-11 on the store under corpus-v3: 15 of 15 agree (`research/m11-artifact-set-measurement.md`) |
+| Activation (local) | ✅ `fragments publish --reference=…ba5c6c0837522bd0`: **5 new versions, 18 unchanged** — `stage.intent`, `stage.architecture_analysis`, `stage.classification`, `stage.recommendation_generation`, `stage.portfolio_suggestions`. The gate accepted a reference that names a variable case; it did not need weakening |
+| Deployment | _recorded in D-90 §6 when done_ |

@@ -631,7 +631,7 @@ if (command === "run") {
         outcome.sampleVariance.failed > 0
       ) {
         console.log(
-          `     ⚠ variance (D-91): ${String(outcome.sampleVariance.failed)} of ${String(outcome.sampleVariance.samples)} sample(s) under this composition failed — ${outcome.sampleVariance.rulesContradicted.join("; ")}`,
+          `     ⚠ variance (D-91): ${String(outcome.sampleVariance.failed)} of ${String(outcome.sampleVariance.samples)} sample(s) under this prompt version failed — ${outcome.sampleVariance.rulesContradicted.join("; ")}`,
         );
       }
     }

@@ -35,6 +35,7 @@ import {
 } from "../../src/regression/recording-store.js";
 import { createRecordedProvider } from "../../src/harness/recordings.js";
 import { runRegression } from "../../src/regression/runner.js";
+import { composePrompt } from "../../src/nie/prompt.js";
 import { buildPassReference } from "../../src/regression/pass-reference.js";
 import type {
   FragmentResolver,
@@ -951,10 +952,42 @@ test("D-90: an unregistered failure alongside a registered one still fails the c
 
 test("D-91: a recorded failing sample under the admitted composition is carried into the reference; two of three fail the case", async () => {
   const target = corpusCase();
-  const recording = await recordingFor(target);
+  // The register scopes samples by prompt version, read from the recording's
+  // persisted composition — so this recording carries one, composed from the
+  // same resolver the runner replays it against.
+  const compositionOf = async (
+    r: CaseRecording,
+  ): Promise<NonNullable<CaseRecording["composition"]>> => {
+    const byKey = new Map<string, ResolvedFragment>();
+    for (const stage of r.stages) {
+      const prompt = await composePrompt(
+        {
+          stageKey: stage.stageKey,
+          ...(stage.classifiedAs !== undefined
+            ? { classifiedAs: stage.classifiedAs }
+            : {}),
+        },
+        resolver,
+      );
+      for (const f of prompt.fragments) byKey.set(f.fragmentKey, f);
+    }
+    return { resolution: "authored", fragments: [...byKey.values()] };
+  };
+  const base = await recordingFor(target);
+  const recording: CaseRecording = {
+    ...base,
+    composition: await compositionOf(base),
+  };
+  const fragmentsOf = (r: CaseRecording): Record<string, string> =>
+    Object.fromEntries(
+      (r.composition?.fragments ?? []).map((f) => [
+        f.fragmentKey,
+        f.fragmentVersionId,
+      ]),
+    );
   const failing = {
     caseId: target.caseId,
-    fragmentsCompositionHash: recording.fragmentsCompositionHash,
+    fragments: fragmentsOf(recording),
     outcome: "failed" as const,
     failure: "Stage 3 judged the input insufficient",
     ruleContradicted:
@@ -1017,12 +1050,12 @@ test("D-91: a recorded failing sample under the admitted composition is carried 
       {
         ...failing,
         capturedAt: "2026-08-13T00:00:00Z",
-        fragmentsCompositionHash: "another",
+        fragments: { "stage.classification": "another" },
       },
       {
         ...failing,
         capturedAt: "2026-08-13T01:00:00Z",
-        fragmentsCompositionHash: "another",
+        fragments: { "stage.classification": "another" },
       },
     ],
   });

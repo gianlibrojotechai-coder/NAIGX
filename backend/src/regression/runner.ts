@@ -103,6 +103,12 @@ export interface CaseEvidence {
    * hash is the oracle, so this cannot be a guess.
    */
   readonly fragmentResolution: CaptureResolution;
+  /**
+   * D-91: the fragment versions the recording composed — its prompt version,
+   * for scoping the sample-variance assessment. Absent on a legacy recording
+   * with no persisted composition.
+   */
+  readonly fragments?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -408,6 +414,16 @@ async function runOne(
       fragmentsCompositionHash: recording.fragmentsCompositionHash,
       capturedAt: recording.capturedAt,
       fragmentResolution,
+      ...(recording.composition !== undefined
+        ? {
+            fragments: Object.fromEntries(
+              recording.composition.fragments.map((f) => [
+                f.fragmentKey,
+                f.fragmentVersionId,
+              ]),
+            ),
+          }
+        : {}),
     },
   };
 }
@@ -480,7 +496,7 @@ export async function runRegression(
       // sample says; any recorded failing sample is carried to the reference.
       const variance = assessVariance(
         corpusCase.caseId,
-        first.evidence.fragmentsCompositionHash,
+        first.evidence.fragments,
         first.evidence.capturedAt,
         options.sampleRegister ?? loadVarianceRegister(),
       );
@@ -503,7 +519,7 @@ export async function runRegression(
           .map((a) => a.id),
         evidence: first.evidence,
         detail: varianceFails
-          ? `sample variance (D-91): ${String(variance?.failedOfLastThree ?? 0)} of the last 3 samples under composition ${first.evidence.fragmentsCompositionHash.slice(0, 12)} failed — the case is failing whatever this sample says`
+          ? `sample variance (D-91): ${String(variance?.failedOfLastThree ?? 0)} of the last 3 samples under this prompt version failed — the case is failing whatever this sample says`
           : isConflict
             ? `expectation conflict (registered, D-90 §5): ${registered
                 .filter((r) => failedIds.includes(r.assertion))
