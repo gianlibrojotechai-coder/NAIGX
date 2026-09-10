@@ -51,4 +51,4 @@ Historical rows are not backfilled: the analyses created before this record keep
 | The assessment path plans and renders three artifacts; the planner's assessment list | ✅ `nie-m11-paths.test.ts`, `nie-derived-artifacts.test.ts` |
 | Runner: a halting synthetic case expects no artifact; the evaluated assertion counts as coverage | ✅ `regression-runner.test.ts` |
 | Full suite, lint, format, typecheck, build | ✅ 2026-09-10 — 1120 tests, 1116 pass, 0 fail, 4 skipped |
-| Production | ⏳ |
+| Production | ✅ **Deployed, 2026-09-10:** image `48958722db57` at `496d0e2` (rollback tag `rollback-858d42e`), migrations a no-op, no fragment or schema change; readiness now answers `{database, provider, templates, schemas}` all `available`, health 200. Free: no billed run was needed to verify a readiness probe and three ledger fields. |
