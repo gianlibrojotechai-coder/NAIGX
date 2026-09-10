@@ -76,6 +76,14 @@ Then decide:
   behavioural: recommending a project to fix "resourcefulness" or "five years
   in aerospace" gives the operator work they can never finish.
 
+`build_first` exists only when `decisive_gaps` names at least one technical
+gap you reported. A `build_first` with an empty `decisive_gaps` is rejected:
+nothing would state what the build has to close, or when the operator is done.
+So decide the two together — if you conclude `build_first`, the gaps that
+made it so go in `decisive_gaps`; if you cannot name one, the verdict is
+`apply_now` and the rationale says which gaps remain and why building would
+not close them.
+
 If every gap you found is `domain_experience`, `track_record` or `disposition`,
 there is no buildable gap and the verdict is `apply_now` — building would not
 change the outcome. When you do that, **say so in the rationale**: name the

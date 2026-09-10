@@ -386,6 +386,26 @@ test("D-70 — an implementation block is read, node by node, with its credentia
   ]);
 });
 
+test("D-90 — a step index outside the workflow is refused by the parser, with the range named", () => {
+  const outside = {
+    ...implementation,
+    steps: [
+      ...implementation.steps,
+      {
+        step: 4,
+        node: "Slack",
+        purpose: "Announce",
+        setup: ["Pick the channel"],
+        credential: null,
+      },
+    ],
+  };
+  assert.throws(
+    () => parse(body({ projects: [project({ implementation: outside })] })),
+    /step is 4, but the workflow has 3 step(s): step indices run from 1 to 3/,
+  );
+});
+
 test("D-70 — null or absent means no implementation, and nothing is invented", () => {
   const absent = parse(body({ projects: [project()] }));
   assert.equal(absent.projects[0]?.implementation, undefined);

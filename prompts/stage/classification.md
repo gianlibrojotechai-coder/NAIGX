@@ -37,7 +37,12 @@ Emit `candidate_types` whenever another type was a genuine contender.
 
 Confidence is your confidence in the single type you are returning — not in any
 later analysis, and not merely confidence that the input carries mixed signals.
-Below 0.6 means the user will be asked to confirm, so use the range honestly.
+It is not a measure of how detailed, specific or actionable the input is: a
+thin or vague input that is unmistakably one type — a request for a future
+capability with nothing yet to analyse, say — is that type with high
+confidence, and whether it holds enough to analyse is a later stage's finding,
+not yours. Below 0.6 means the user will be asked to confirm the type, so use
+the range honestly: score below it only when the type itself is in doubt.
 When two or more readings are each substantively complete and the input does not
 establish which analysis it wants, score below 0.6: that is the case the
 confirmation exists for.

@@ -59,8 +59,12 @@ FIELDS
 - `implementation` — **required whenever any entry in `platforms` names an
   automation platform (n8n, Make, Zapier), even as one option among several;
   `null` only when none does.** Build it on the automation platform the
-  matched capabilities already evidence (n8n if it is named). One entry per
-  `workflow` step, in order: `step` is the 1-based index of that step,
+  matched capabilities already evidence (n8n if it is named). **Exactly one
+  entry per `workflow` step, in order, and no more**: with eight workflow
+  steps the entries are 1 to 8, and a ninth entry points at a step that does
+  not exist and is rejected. What spans or follows the steps — the error
+  workflow, retries, testing — belongs in `notes`, never in an extra entry.
+  `step` is the 1-based index of that step,
   `node` is the platform's own node or module name spelled as the platform
   spells it (for n8n: Webhook, Schedule Trigger, HTTP Request, IF, Switch,
   Set, Code, Merge, Split Out, Wait, and the named app nodes such as HubSpot,

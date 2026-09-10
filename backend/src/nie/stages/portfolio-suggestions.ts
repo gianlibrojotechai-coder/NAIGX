@@ -184,6 +184,8 @@ function parseProject(
     }
   }
 
+  const workflow = requireStringList(record, "workflow", where);
+
   return {
     rank,
     name: requireString(CTX, record, "name"),
@@ -197,7 +199,7 @@ function parseProject(
     whyThisProject: requireString(CTX, record, "why_this_project"),
     businessProblem: requireString(CTX, record, "business_problem"),
     whatToBuild: requireString(CTX, record, "what_to_build"),
-    workflow: requireStringList(record, "workflow", where),
+    workflow,
     platforms: requireStringList(record, "platforms", where),
     technicalConcepts: requireStringList(record, "technical_concepts", where),
     evidenceToProduce: evidenceRaw.map((entry, i) =>
@@ -215,7 +217,7 @@ function parseProject(
       BUILD_EFFORT,
     ),
     portfolioValue: requireString(CTX, record, "portfolio_value"),
-    ...parseImplementation(record["implementation"], where),
+    ...parseImplementation(record["implementation"], where, workflow.length),
   };
 }
 
@@ -228,6 +230,8 @@ function parseProject(
 function parseImplementation(
   raw: unknown,
   where: string,
+  /** The project's workflow length: every step index must fall inside it. */
+  workflowLength: number,
 ): { implementation?: PortfolioImplementation } {
   if (raw === undefined || raw === null) return {};
   if (typeof raw !== "object" || Array.isArray(raw)) {
@@ -250,6 +254,16 @@ function parseImplementation(
       rawIndex >= 1
         ? rawIndex
         : fail(`${label}.steps[${String(i)}].step must be a positive integer`);
+    // The contract Stage 10's reference_integrity re-checks (D-70): a step
+    // index outside the workflow is an instruction nobody can place. Refused
+    // here so the failure is the artifact's — one FR-039 regeneration with
+    // this reason — rather than the run's at Stage 10, which a jd-002
+    // capture on 2026-09-10 turned into a whole-analysis failure.
+    if (index > workflowLength) {
+      fail(
+        `${label}.steps[${String(i)}].step is ${String(index)}, but the workflow has ${String(workflowLength)} step(s): step indices run from 1 to ${String(workflowLength)}, one per workflow step; what follows the steps belongs in notes`,
+      );
+    }
     const credential = step["credential"];
     if (credential !== null && typeof credential !== "string") {
       fail(`${label}.steps[${String(i)}].credential must be a string or null`);
