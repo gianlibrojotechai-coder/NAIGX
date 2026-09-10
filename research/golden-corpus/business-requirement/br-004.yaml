@@ -32,13 +32,17 @@ expected_omissions:
       `FR-020` scopes complexity scoring to non-trivial requirements. See
       ambiguity A-12.
   - artifact_type: implementation_roadmap
-    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-036`)
+    reason: >
+      Omitted at minimal depth (`FR-017`, `AC-037`): expected at standard requirement depth only (corpus-v3, D-91).
   - artifact_type: edge_cases_and_practices
-    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
+    reason: >
+      Omitted at minimal depth (`FR-017`, `AC-037`): expected at standard requirement depth only (corpus-v3, D-91).
   - artifact_type: integration_requirements
-    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-035`)
+    reason: >
+      Omitted at minimal depth (`FR-017`, `AC-037`): expected at standard requirement depth only (corpus-v3, D-91).
   - artifact_type: executive_summary
-    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-038`)
+    reason: >
+      Omitted at minimal depth (`FR-017`, `AC-037`): expected at standard requirement depth only (corpus-v3, D-91).
 
 expected_confidence_band: medium
 

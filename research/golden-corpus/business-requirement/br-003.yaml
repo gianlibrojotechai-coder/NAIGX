@@ -48,13 +48,17 @@ expected_omissions:
       Complexity scores a proposed solution (`docs/09` §1). With no solution
       proposed, there is nothing to score. See gap G-2.
   - artifact_type: implementation_roadmap
-    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-036`)
+    reason: >
+      Omitted because no design is produced — automation is unwarranted (`FR-020`) — so there is nothing to sequence, integrate, enumerate or summarise. Expected at standard requirement depth only (corpus-v3, D-91).
   - artifact_type: edge_cases_and_practices
-    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
+    reason: >
+      Omitted because no design is produced — automation is unwarranted (`FR-020`) — so there is nothing to sequence, integrate, enumerate or summarise. Expected at standard requirement depth only (corpus-v3, D-91).
   - artifact_type: integration_requirements
-    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-035`)
+    reason: >
+      Omitted because no design is produced — automation is unwarranted (`FR-020`) — so there is nothing to sequence, integrate, enumerate or summarise. Expected at standard requirement depth only (corpus-v3, D-91).
   - artifact_type: executive_summary
-    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-038`)
+    reason: >
+      Omitted because no design is produced — automation is unwarranted (`FR-020`) — so there is nothing to sequence, integrate, enumerate or summarise. Expected at standard requirement depth only (corpus-v3, D-91).
 
 expected_confidence_band: high
 

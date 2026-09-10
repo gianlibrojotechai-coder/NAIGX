@@ -116,6 +116,20 @@ export interface RegressionPassReference {
     readonly detail: string;
   }[];
   /**
+   * D-91 — every selected case with a recorded failing sample under the
+   * composition its admitted recording was captured under: how many samples,
+   * how many failed, and the rules the failures contradicted. A reference
+   * that names a case here is evidence about a known-variable case, and a
+   * reader sees that without opening the register.
+   */
+  readonly sampleVariance: readonly {
+    readonly caseId: string;
+    readonly fragmentsCompositionHash: string;
+    readonly samples: number;
+    readonly failed: number;
+    readonly rulesContradicted: readonly string[];
+  }[];
+  /**
    * Which fragment versions the prompt under test was composed from
    * ([D-63](../../../docs/38-D-63-Authored-Fragment-Resolution-For-Regression.md) §4).
    *
@@ -377,6 +391,18 @@ export function buildPassReference(
         .filter((a) => a.status === "failed" && a.advisory !== true)
         .map((a) => ({ caseId: c.caseId, assertion: a.id, detail: a.detail })),
     );
+  const sampleVariance = inputs.report.cases
+    .filter(
+      (c) => c.sampleVariance !== undefined && c.sampleVariance.failed > 0,
+    )
+    .map((c) => ({
+      caseId: c.caseId,
+      fragmentsCompositionHash:
+        c.sampleVariance?.fragmentsCompositionHash ?? "",
+      samples: c.sampleVariance?.samples ?? 0,
+      failed: c.sampleVariance?.failed ?? 0,
+      rulesContradicted: c.sampleVariance?.rulesContradicted ?? [],
+    }));
   return {
     suite: SUITE_ID,
     reference: `${SUITE_ID}:${inputs.report.suiteVersion}+${inputs.fragmentsManifestVersion}:${runId}`,
@@ -385,6 +411,7 @@ export function buildPassReference(
     fragmentsManifestVersion: inputs.fragmentsManifestVersion,
     fragmentsCompositions: compositions,
     expectationConflicts,
+    sampleVariance,
     selectionScope:
       inputs.coverage !== undefined
         ? "targeted"

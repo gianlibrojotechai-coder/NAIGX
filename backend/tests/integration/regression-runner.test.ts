@@ -946,3 +946,86 @@ test("D-90: an unregistered failure alongside a registered one still fails the c
   assert.equal(stale.cases[0]?.status, "passed");
   assert.match(stale.cases[0]?.detail ?? "", /no longer manifests/);
 });
+
+// --- D-91: the sample-variance register ----------------------------------
+
+test("D-91: a recorded failing sample under the admitted composition is carried into the reference; two of three fail the case", async () => {
+  const target = corpusCase();
+  const recording = await recordingFor(target);
+  const failing = {
+    caseId: target.caseId,
+    fragmentsCompositionHash: recording.fragmentsCompositionHash,
+    outcome: "failed" as const,
+    failure: "Stage 3 judged the input insufficient",
+    ruleContradicted:
+      "stage.context_extraction: brevity is never a reason to report insufficient",
+    file: "research/regression-superseded/x.json",
+  };
+
+  // One failing sample before the admitted (passing) recording: variance.
+  const one = await runRegression({
+    cases: [target],
+    suiteVersion: "corpus-v2",
+    store: storeOf(recording),
+    resolver,
+    now: () => new Date(0),
+    sampleRegister: [{ ...failing, capturedAt: "2026-08-13T00:00:00Z" }],
+  });
+  assert.equal(one.cases[0]?.status, "passed");
+  assert.equal(one.cases[0]?.sampleVariance?.failed, 1);
+  const reference = buildPassReference({
+    report: one,
+    fragmentsManifestVersion: "fragments-v1",
+  });
+  assert.ok(reference);
+  assert.deepEqual(
+    reference.sampleVariance.map((v) => [v.caseId, v.samples, v.failed]),
+    [[target.caseId, 2, 1]],
+  );
+
+  // Two failing samples among the last three: the case fails on its history.
+  const two = await runRegression({
+    cases: [target],
+    suiteVersion: "corpus-v2",
+    store: storeOf(recording),
+    resolver,
+    now: () => new Date(0),
+    sampleRegister: [
+      { ...failing, capturedAt: "2026-08-13T00:00:00Z" },
+      { ...failing, capturedAt: "2026-08-13T01:00:00Z" },
+    ],
+  });
+  assert.equal(two.cases[0]?.status, "failed");
+  assert.match(two.cases[0]?.detail ?? "", /sample variance/);
+  assert.equal(
+    buildPassReference({
+      report: two,
+      fragmentsManifestVersion: "fragments-v1",
+    }),
+    null,
+    "no reference on a case failing its history",
+  );
+
+  // A failing sample under another composition is not pooled in.
+  const other = await runRegression({
+    cases: [target],
+    suiteVersion: "corpus-v2",
+    store: storeOf(recording),
+    resolver,
+    now: () => new Date(0),
+    sampleRegister: [
+      {
+        ...failing,
+        capturedAt: "2026-08-13T00:00:00Z",
+        fragmentsCompositionHash: "another",
+      },
+      {
+        ...failing,
+        capturedAt: "2026-08-13T01:00:00Z",
+        fragmentsCompositionHash: "another",
+      },
+    ],
+  });
+  assert.equal(other.cases[0]?.status, "passed");
+  assert.equal(other.cases[0]?.sampleVariance, undefined);
+});

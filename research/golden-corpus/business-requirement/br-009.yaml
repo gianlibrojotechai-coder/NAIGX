@@ -51,16 +51,12 @@ expected_artifact_set:
   - platform_comparison
   - risk_assessment
   - complexity_score
+  - implementation_roadmap
+  - integration_requirements
+  - edge_cases_and_practices
+  - executive_summary
 
 expected_omissions:
-  - artifact_type: implementation_roadmap
-    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-036`)
-  - artifact_type: edge_cases_and_practices
-    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-037`)
-  - artifact_type: integration_requirements
-    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-035`)
-  - artifact_type: executive_summary
-    reason: P1, excluded from v1.0 scope (`MVP §5.3`, `FR-038`)
 
 expected_confidence_band: high
 

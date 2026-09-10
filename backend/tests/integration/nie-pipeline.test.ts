@@ -1266,3 +1266,63 @@ test("D-90: an unwarranted automation keeps the business analysis, runs no gener
     assert.match(entry.omissionReason ?? "", /FR-020/);
   }
 });
+
+// --- D-90 §1 / D-91: the Stage 2 regeneration is exactly one, and never after cancellation
+
+test("D-91: an unverifiable decline quote earns exactly one regeneration, then the stage fails", async () => {
+  const unverifiable = JSON.stringify({
+    primary_objective: { content: "Write it down", provenance: "stated" },
+    secondary_objectives: [],
+    inferred_scope: "Accounts payable",
+    requested_outcome: "understanding_only",
+    decline_quote: "please do not design anything for us",
+  });
+  const { pipeline, traces, invocations } = await harness({
+    intent: unverifiable,
+  });
+
+  await assert.rejects(
+    pipeline.run({ analysisId: ANALYSIS_ID, text: INPUT }),
+    (error: unknown) => error instanceof StageError && error.stageNumber === 2,
+  );
+  const stage2 = traces.find((t) => t.stageNumber === 2);
+  assert.equal(stage2?.outcome, "failure");
+  assert.equal(stage2?.retryCount, 1, "one regeneration, not zero and not two");
+  assert.match(stage2?.failureReason ?? "", /not in the input verbatim/);
+  // Stage 1, then Stage 2 twice: the regeneration's request carries the
+  // addendum and has no fixture, so it is a provider miss — still one call.
+  assert.equal(invocations.length, 3);
+});
+
+test("D-91: a cancelled analysis makes no regeneration call (FR-094)", async () => {
+  const unverifiable = JSON.stringify({
+    primary_objective: { content: "Write it down", provenance: "stated" },
+    secondary_objectives: [],
+    inferred_scope: "Accounts payable",
+    requested_outcome: "understanding_only",
+    decline_quote: "please do not design anything for us",
+  });
+  const { pipeline, traces, invocations } = await harness({
+    intent: unverifiable,
+  });
+  const controller = new AbortController();
+  // Abort as soon as the first Stage 2 answer is in, before the regeneration.
+  const originalPush = invocations.push.bind(invocations);
+  invocations.push = (...items) => {
+    const n = originalPush(...items);
+    if (n === 2) controller.abort();
+    return n;
+  };
+
+  await assert.rejects(
+    pipeline.run({
+      analysisId: ANALYSIS_ID,
+      text: INPUT,
+      signal: controller.signal,
+    }),
+    (error: unknown) => error instanceof StageError && error.stageNumber === 2,
+  );
+  const stage2 = traces.find((t) => t.stageNumber === 2);
+  assert.match(stage2?.failureReason ?? "", /deadline|Cancelled/);
+  assert.equal(invocations.length, 2, "no call after cancellation");
+});

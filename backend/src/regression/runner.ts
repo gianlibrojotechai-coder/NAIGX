@@ -48,6 +48,12 @@ import {
   type ExpectationConflict,
 } from "./expectation-conflicts.js";
 import {
+  assessVariance,
+  loadVarianceRegister,
+  type VarianceAssessment,
+  type VarianceSample,
+} from "./sample-variance.js";
+import {
   fragmentsCompositionHash,
   inputTextHash,
   RecordingIntegrityError,
@@ -166,6 +172,11 @@ export interface CaseOutcome {
   readonly evidence?: CaseEvidence;
   /** Why a case was blocked, stale or errored — empty when it ran. */
   readonly detail: string;
+  /**
+   * D-91: present when the register holds other samples of this case under
+   * the admitted recording's composition. Carried into the pass reference.
+   */
+  readonly sampleVariance?: VarianceAssessment;
 }
 
 export interface RegressionReport {
@@ -242,6 +253,11 @@ export interface RegressionRunOptions {
    * status. Defaults to the repository register; a test supplies its own.
    */
   readonly expectationConflicts?: readonly ExpectationConflict[];
+  /**
+   * D-91 — the sample-variance register. Defaults to the repository's
+   * `research/regression-variance.json`; a test supplies its own.
+   */
+  readonly sampleRegister?: readonly VarianceSample[];
 }
 
 /** The deterministic projection compared across repeats (`FR-024`). */
@@ -459,31 +475,46 @@ export async function runRegression(
       const staleRegister = registered.filter(
         (r) => !failedIds.includes(r.assertion),
       );
+      // D-91 — the case's other samples under this composition. A case
+      // that failed two of its last three samples is failing whatever this
+      // sample says; any recorded failing sample is carried to the reference.
+      const variance = assessVariance(
+        corpusCase.caseId,
+        first.evidence.fragmentsCompositionHash,
+        first.evidence.capturedAt,
+        options.sampleRegister ?? loadVarianceRegister(),
+      );
+      const varianceFails = variance?.failing === true;
       outcomes.push({
         caseId: corpusCase.caseId,
-        status: isConflict
-          ? "conflict"
-          : caseFailed(assertions)
-            ? "failed"
-            : "passed",
+        status: varianceFails
+          ? "failed"
+          : isConflict
+            ? "conflict"
+            : caseFailed(assertions)
+              ? "failed"
+              : "passed",
         assertions,
+        ...(variance !== undefined ? { sampleVariance: variance } : {}),
         // Only what ran: `refusal_behaviour` and `conflict_detection` fire for
         // special-class cases alone, and a deferred assertion measured nothing.
         assertionsEvaluated: assertions
           .filter((a) => a.status !== "deferred")
           .map((a) => a.id),
         evidence: first.evidence,
-        detail: isConflict
-          ? `expectation conflict (registered, D-90 §5): ${registered
-              .filter((r) => failedIds.includes(r.assertion))
-              .map(
-                (r) =>
-                  `${r.assertion} — corpus: ${r.expectation}; decision: ${r.decision}`,
-              )
-              .join(" | ")}`
-          : staleRegister.length > 0
-            ? `registered expectation conflict no longer manifests (remove the register entry): ${staleRegister.map((r) => r.assertion).join(", ")}`
-            : "",
+        detail: varianceFails
+          ? `sample variance (D-91): ${String(variance?.failedOfLastThree ?? 0)} of the last 3 samples under composition ${first.evidence.fragmentsCompositionHash.slice(0, 12)} failed — the case is failing whatever this sample says`
+          : isConflict
+            ? `expectation conflict (registered, D-90 §5): ${registered
+                .filter((r) => failedIds.includes(r.assertion))
+                .map(
+                  (r) =>
+                    `${r.assertion} — corpus: ${r.expectation}; decision: ${r.decision}`,
+                )
+                .join(" | ")}`
+            : staleRegister.length > 0
+              ? `registered expectation conflict no longer manifests (remove the register entry): ${staleRegister.map((r) => r.assertion).join(", ")}`
+              : "",
       });
     } catch (error) {
       const status: CaseStatus =

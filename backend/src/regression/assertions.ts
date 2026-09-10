@@ -441,23 +441,6 @@ const CORPUS_TYPE_TO_PRODUCT: Readonly<Record<string, string>> = {
 const productType = (corpusType: string): string =>
   CORPUS_TYPE_TO_PRODUCT[corpusType] ?? corpusType;
 
-/**
- * The corpus froze these four as omitted with the reason "P1, excluded from
- * v1.0 scope (MVP §5.3)". The owner's 2026-09-10 direction had them built
- * (D-82, D-83, D-84, D-85), so producing them contradicts a frozen
- * expectation whose basis no longer holds. `docs/11` §6.2 says an
- * expectation is changed with a recorded justification and a corpus version
- * increment — an owner act — so until then the runner reports the
- * contradiction as a superseded expectation, in the detail, not as a
- * failure. Any OTHER omission that is produced fails the case.
- */
-const P1_BUILT_2026_09_10: ReadonlySet<string> = new Set([
-  "implementation_roadmap",
-  "edge_cases_and_practices",
-  "integration_requirements",
-  "executive_summary",
-]);
-
 const artifactSetOutcome = (
   corpusCase: CorpusCase,
   result: PipelineResult,
@@ -470,29 +453,22 @@ const artifactSetOutcome = (
   const missing = corpusCase.expectedArtifactSet
     .map(productType)
     .filter((t) => !generated.has(t));
-  const producedOmissions = corpusCase.expectedOmissions
+  // D-91: the corpus was re-versioned (corpus-v3) to expect the four P1
+  // artifacts at standard requirement depth, so the D-89 "superseded
+  // expectation" exception is gone — every produced omission contradicts.
+  const contradicted = corpusCase.expectedOmissions
     .map((o) => o.artifactType)
     .filter((t) => generated.has(productType(t)));
-  const superseded = producedOmissions.filter((t) =>
-    P1_BUILT_2026_09_10.has(t),
-  );
-  const contradicted = producedOmissions.filter(
-    (t) => !P1_BUILT_2026_09_10.has(t),
-  );
   const problems = [
     ...missing.map((t) => `expected ${t}, not generated`),
     ...contradicted.map((t) => `${t} was expected omitted, and was generated`),
   ];
-  const supersededNote =
-    superseded.length === 0
-      ? ""
-      : ` (expected-omission superseded by the owner's 2026-09-10 direction, P1 built: ${superseded.join(", ")})`;
   return problems.length === 0
     ? pass(
         "artifact_set",
-        `${String(corpusCase.expectedArtifactSet.length)} expected type(s) generated, no contradicted omission${supersededNote}`,
+        `${String(corpusCase.expectedArtifactSet.length)} expected type(s) generated, no contradicted omission`,
       )
-    : failed("artifact_set", problems.join("; ") + supersededNote);
+    : failed("artifact_set", problems.join("; "));
 };
 
 export const caseFailed = (outcomes: readonly AssertionOutcome[]): boolean =>

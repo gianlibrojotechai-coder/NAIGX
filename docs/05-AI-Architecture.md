@@ -324,7 +324,7 @@ flowchart TD
 | **Output** | Recommendations, each with: the conclusion, the criteria applied, referenced context elements, rejected alternatives with reasons, per-recommendation confidence input signals |
 | **Responsibilities** | Take a position (`PV §3.3` — neutrality is unbiased, not non-committal); name what was rejected and why (`AI-031`); permit negative conclusions (`AI-040`) |
 | **Determinism** | Model-assisted; structure mandatory (`AIP-4`) |
-| **Failure behavior** | Halting. A recommendation missing rationale or context references fails validation and is regenerated once, then fails. |
+| **Failure behavior** | Halting. A recommendation missing rationale, context references or (for `build_first`) a decisive gap fails validation and **fails the stage visibly — it is not regenerated** (⚠️ amended by D-91 to match `SA §11.3`; the earlier "regenerated once, then fails" conflicted with it). The fragment states the rules the parser enforces, so a refusal is a finding about the prompt, not a retry. |
 
 **The negative-conclusion requirement is structural.** "Do not automate this" and "this design is unsound" must be representable outcomes of this stage, not exceptions handled elsewhere. A stage that can only emit positive recommendations will emit one regardless of whether it is warranted.
 

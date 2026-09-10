@@ -974,7 +974,7 @@ flowchart TD
 |---|---|
 | Provider transient errors | Exponential backoff, jittered, bounded attempt count |
 | Schema validation failure | Exactly one regeneration attempt per artifact |
-| Pipeline stages 5–10 | No automatic retry — a stage failure indicates a systematic issue, and retrying multiplies cost without changing the outcome |
+| Pipeline stages 5–10 | No automatic retry — a stage failure indicates a systematic issue, and retrying multiplies cost without changing the outcome. ⚠️ **Two narrow, recorded exceptions, each exactly one *informed* regeneration with the parser's reason appended (never a blind retry):** Stage 6 on a traceability failure (`AI §3.2`), and Stage 2 on a declined-design quote that is not verbatim in the input (D-90 §1; ratified D-91). Both respect the `FR-094` deadline (no call after cancellation) and are capped at one. **Stage 7 is not an exception** — `AI §5`'s Stage 7 row is amended by D-91 to match this table |
 | User-initiated | Per-artifact retry from results; full re-analysis from input |
 
 **Why stages 5–10 do not auto-retry:** these stages are deterministic in structure. If classification or context extraction fails, the same input will produce the same failure. Retrying spends provider cost to reproduce a fault. The right response is to fail visibly and record the trace.

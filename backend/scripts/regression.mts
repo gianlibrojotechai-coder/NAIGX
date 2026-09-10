@@ -626,6 +626,14 @@ if (command === "run") {
           `     ${a.advisory === true ? "⚠ advisory " : ""}${a.id}: ${a.detail} (${a.specRef})`,
         );
       }
+      if (
+        outcome.sampleVariance !== undefined &&
+        outcome.sampleVariance.failed > 0
+      ) {
+        console.log(
+          `     ⚠ variance (D-91): ${String(outcome.sampleVariance.failed)} of ${String(outcome.sampleVariance.samples)} sample(s) under this composition failed — ${outcome.sampleVariance.rulesContradicted.join("; ")}`,
+        );
+      }
     }
 
     const t = report.totals;

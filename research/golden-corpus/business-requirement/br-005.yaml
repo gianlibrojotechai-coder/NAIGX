@@ -36,13 +36,17 @@ expected_omissions:
   - artifact_type: complexity_score
     reason: Refusal — no solution exists to score (`docs/09` §1).
   - artifact_type: implementation_roadmap
-    reason: Refusal; also P1 (`MVP §5.3`, `FR-036`).
+    reason: >
+      Refusal — no reasoning proceeds past context extraction (`AI §5.4`). Expected at standard requirement depth only (corpus-v3, D-91).
   - artifact_type: edge_cases_and_practices
-    reason: Refusal; also P1 (`MVP §5.3`, `FR-037`).
+    reason: >
+      Refusal — no reasoning proceeds past context extraction (`AI §5.4`). Expected at standard requirement depth only (corpus-v3, D-91).
   - artifact_type: integration_requirements
-    reason: Refusal; also P1 (`MVP §5.3`, `FR-035`).
+    reason: >
+      Refusal — no reasoning proceeds past context extraction (`AI §5.4`). Expected at standard requirement depth only (corpus-v3, D-91).
   - artifact_type: executive_summary
-    reason: Refusal; also P1 (`MVP §5.3`, `FR-038`).
+    reason: >
+      Refusal — no reasoning proceeds past context extraction (`AI §5.4`). Expected at standard requirement depth only (corpus-v3, D-91).
 
 expected_confidence_band: low
 

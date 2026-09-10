@@ -182,7 +182,7 @@ test("CRLF and LF checkouts agree", () => {
 test("the suite version comes from the manifest, not from a case", () => {
   const suiteVersion = loadSuiteVersion();
 
-  assert.equal(suiteVersion, "corpus-v2", "docs/11 §6.3 — D-26 incremented it");
+  assert.equal(suiteVersion, "corpus-v3", "docs/11 §6.3 — D-26 incremented it; D-91 again");
   assert.ok(
     corpus.every((c) => c.corpusVersion === "corpus-v1"),
     "every case still carries its immutable entry marker (docs/11 §4.1)",
