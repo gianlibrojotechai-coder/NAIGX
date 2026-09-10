@@ -201,7 +201,8 @@ test(
       // business requirement that ran them would be answering a question
       // nobody asked. Stage 9 runs here since D-73 — it renders the
       // requirement's architecture recommendation and diagram.
-      const JOB_DESCRIPTION_PATH_ONLY = new Set([7, 8]);
+      // D-90: Stage 8 — the plan by judgement — now records on this path too.
+      const JOB_DESCRIPTION_PATH_ONLY = new Set([7]);
       const implemented = STAGES.filter(
         (s) => s.implemented && !JOB_DESCRIPTION_PATH_ONLY.has(s.stageNumber),
       )
@@ -234,7 +235,8 @@ test(
       // D-72: Stages 10 (response validation) and 12 (response assembly) are
       // deterministic too — traced, never a provider call.
       // D-78: Stage 9 on this path is the platform generator, a provider call.
-      const DETERMINISTIC = new Set([5, 10, 11, 12]);
+      // D-90: Stage 8, the plan by judgement, is deterministic too.
+      const DETERMINISTIC = new Set([5, 8, 10, 11, 12]);
       const providerStages = implemented.filter((n) => !DETERMINISTIC.has(n));
       assert.equal(report.provider.invocations.length, providerStages.length);
       for (const invocation of report.provider.invocations) {

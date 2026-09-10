@@ -19,6 +19,14 @@
       "$ref": "#/$defs/nonEmptyString",
       "description": "The boundary Stage 2 drew around the problem."
     },
+    "requested_outcome": {
+      "enum": ["design", "understanding_only"],
+      "description": "D-90: what the submitter asked to receive. understanding_only means the input declined a design in its own words (see decline_quote), and no solution artifact follows this brief."
+    },
+    "decline_quote": {
+      "type": ["string", "null"],
+      "description": "D-90: the submitter's verbatim words declining a design, verified against the input at Stage 2; null unless requested_outcome is understanding_only."
+    },
     "standing": {
       "const": "understanding_only",
       "description": "Fixed by the renderer, never read from a model: this artifact states how the input was understood before any reasoning, and a reader must be able to tell that from the document itself."

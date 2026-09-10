@@ -111,6 +111,8 @@ export const DEFAULT_BUSINESS_REQUIREMENT_RECORDING: RecordingSet = [
         },
       ],
       inferred_scope: "Accounts payable, from invoice receipt to approval",
+      requested_outcome: "design",
+      decline_quote: null,
     }),
     inputTokens: 460,
     outputTokens: 96,
@@ -162,6 +164,11 @@ export const DEFAULT_BUSINESS_REQUIREMENT_RECORDING: RecordingSet = [
         "Automated invoice capture with rule-based approval routing and an approval status view",
       data_flow_description:
         "Mailbox → capture → extraction → routing → approval → ledger sync",
+      automation_verdict: {
+        warranted: true,
+        statement:
+          "Roughly 200 invoices a month through a four-step manual chain is volume a capture-and-route build repays.",
+      },
       // D-78: the sample context's one unknown (index 2) is disposed of.
       unknown_disposition: [
         {

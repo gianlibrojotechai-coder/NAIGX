@@ -352,6 +352,7 @@ const base: PipelineResult = {
     primaryObjective: { content: "x", provenance: "stated" },
     secondaryObjectives: [],
     inferredScope: "s",
+    requestedOutcome: "design",
   },
   context,
   recommendation,

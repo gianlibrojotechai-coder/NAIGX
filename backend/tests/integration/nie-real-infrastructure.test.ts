@@ -50,8 +50,11 @@ import { StageError } from "../../src/nie/contracts.js";
 import { composePrompt } from "../../src/nie/prompt.js";
 import type { FragmentResolver } from "../../src/nie/ports.js";
 
+// Over the D-90 minimal band (200 characters): these tests exercise the
+// full requirement path, and a two-line input would now run at minimal depth.
 const INPUT =
-  "Invoices arrive by email and are keyed into Xero by hand. Roughly 450 per month.";
+  "Invoices arrive by email and are keyed into Xero by hand. Roughly 450 per month. " +
+  "Approvals go by email to the department head and take five to nine days, so early-payment discounts are missed; we would like the routing and the reminders handled automatically.";
 
 const rate = {
   inputUsdPerMillionTokens: "3.00",
@@ -660,14 +663,16 @@ test(
       });
       assert.deepEqual(
         traces.map((t) => t.stageNumber),
-        [1, 2, 3, 5, 6, 9, 9, 9, 9, 9, 9, 10, 11, 12],
+        [1, 2, 3, 5, 6, 8, 9, 9, 9, 9, 9, 9, 10, 11, 12],
       );
       assert.deepEqual(
         traces.map((t) => t.outcome),
         // Stage 9 renders the requirement path's artifacts since D-73; Stage
         // 10 (response validation) and Stage 12 (assembly) are traced on every
-        // response since D-72. All three are deterministic here.
+        // response since D-72. All three are deterministic here; so is the
+        // D-90 Stage 8 plan.
         [
+          "success",
           "success",
           "success",
           "success",
@@ -813,8 +818,9 @@ test("a trace-store outage does not fail the analysis", { skip }, async () => {
     );
     assert.equal(result.context?.sufficiency, "sufficient");
     // Stages 1-3, the deterministic Stage 5 (`docs/12` D-35), Stage 6, the
-    // rendering Stage 9 (D-73) and the deterministic Stages 10 and 12 (D-72).
-    assert.equal(seen.length, 14, "each failed trace write is surfaced");
+    // deterministic Stage 8 (D-90), six Stage 9 generators, and the
+    // deterministic Stages 10, 11 and 12.
+    assert.equal(seen.length, 15, "each failed trace write is surfaced");
 
     // The durable record still landed: fragment usage is primary-store data.
     const usages = await primary.fragmentUsage.count({
@@ -938,7 +944,8 @@ test(
       // Stages 10 and 12 (D-72) are deterministic for the same reason, and
       // Stage 9 on this path renders rather than generates (D-73).
       // D-78: Stage 9 on this path is the platform generator, a provider call.
-      const DETERMINISTIC = new Set([5, 10, 11, 12]);
+      // D-90: Stage 8, the plan by judgement, is deterministic too.
+      const DETERMINISTIC = new Set([5, 8, 10, 11, 12]);
       const providerTraces = stageTraces.filter(
         (t) => !DETERMINISTIC.has(t.stageNumber),
       );

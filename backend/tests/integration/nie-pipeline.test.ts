@@ -45,8 +45,11 @@ import type {
   StageTraceRecord,
 } from "../../src/nie/ports.js";
 
+// Over the D-90 minimal band (200 characters): these tests exercise the
+// full requirement path, and a two-line input would now run at minimal depth.
 const INPUT =
-  "Invoices arrive by email and are keyed into Xero by hand. Roughly 450 per month.";
+  "Invoices arrive by email and are keyed into Xero by hand. Roughly 450 per month. " +
+  "Approvals go by email to the department head and take five to nine days, so early-payment discounts are missed; we would like the routing and the reminders handled automatically.";
 const ANALYSIS_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
 const rate: TokenRate = {
@@ -202,7 +205,8 @@ const primedAdapter = async (
 
   let intent;
   try {
-    intent = parseIntent(intentOutput);
+    // D-90: a declined design is verified against the input.
+    intent = parseIntent(intentOutput, INPUT);
   } catch {
     return createReplayProvider({ fixtures, lowVarianceSampling: true });
   }
@@ -451,7 +455,7 @@ test("runs stages 1-3 in order and produces typed handoffs", async () => {
   assert.deepEqual(
     traces.map((t) => t.stageNumber),
     // D-72: Stages 10 and 12 trace on every response.
-    [1, 2, 3, 5, 6, 9, 9, 9, 9, 9, 9, 10, 11, 12],
+    [1, 2, 3, 5, 6, 8, 9, 9, 9, 9, 9, 9, 10, 11, 12],
   );
   assert.deepEqual(
     traces.map((t) => t.stageKey),
@@ -461,6 +465,8 @@ test("runs stages 1-3 in order and produces typed handoffs", async () => {
       "context_extraction",
       "reasoning_planning",
       "architecture_analysis",
+      // D-90: Stage 8, the plan by judgement, traced on this path too.
+      "artifact_planning",
       // D-78: Stage 9 on this path is the platform generator, keyed by its
       // generator like the job path's; the rendered artifacts attach to it.
       "platform_recommendation",
@@ -495,7 +501,7 @@ test("every stage emits a trace event (AP-8, FR-100)", async () => {
   assert.deepEqual(
     traces.map((t) => t.stageNumber),
     // D-72: Stages 10 and 12 trace on every response.
-    [1, 2, 3, 5, 6, 9, 9, 9, 9, 9, 9, 10, 11, 12],
+    [1, 2, 3, 5, 6, 8, 9, 9, 9, 9, 9, 9, 10, 11, 12],
   );
   for (const trace of traces) {
     assert.equal(trace.analysisId, ANALYSIS_ID);
@@ -1158,4 +1164,105 @@ test("Stage 11 traces after Stage 10 and the result carries a band with all seve
   // Deterministic: the same input evaluates to the same band.
   const again = await pipeline.run({ analysisId: ANALYSIS_ID, text: INPUT });
   assert.equal(again.confidence?.band, result.confidence?.band);
+});
+
+// --- D-90: planning by judgement on the requirement path ------------------
+
+test("D-90: a declined design skips Stage 6 and plans the business analysis alone, with the quote on every omission", async () => {
+  const { pipeline, traces, invocations } = await harness({
+    intent: JSON.stringify({
+      primary_objective: {
+        content: "Have the requirement written down properly",
+        provenance: "stated",
+      },
+      secondary_objectives: [],
+      inferred_scope: "Accounts payable",
+      requested_outcome: "understanding_only",
+      // Verbatim from INPUT.
+      decline_quote:
+        "we would like the routing and the reminders handled automatically",
+    }),
+  });
+
+  const result = await pipeline.run({ analysisId: ANALYSIS_ID, text: INPUT });
+
+  assert.equal(
+    result.haltedAt,
+    undefined,
+    "not a halt: the run did what was asked",
+  );
+  assert.equal(result.intent?.requestedOutcome, "understanding_only");
+  assert.equal(result.architecture, undefined, "no design was reasoned");
+  assert.ok(
+    !traces.some((t) => t.stageNumber === 6),
+    "Stage 6 must not run for a declined design",
+  );
+  assert.equal(invocations.length, 3, "Stages 1-3 are the only provider calls");
+  // Stage 8 is recorded as the deterministic plan by judgement.
+  assert.deepEqual(
+    traces.map((t) => t.stageNumber),
+    [1, 2, 3, 5, 8, 9, 10, 11, 12],
+  );
+
+  const plan = result.artifactPlan ?? [];
+  assert.deepEqual(
+    plan.filter((e) => e.planned).map((e) => e.artifactType),
+    ["intent_brief", "business_analysis"],
+  );
+  assert.equal(
+    plan.find((e) => e.artifactType === "business_analysis")?.outcome,
+    "generated",
+  );
+  for (const entry of plan.filter((e) => !e.planned)) {
+    assert.equal(entry.outcome, "omitted");
+    assert.match(entry.omissionReason ?? "", /declined a design/);
+    assert.match(entry.omissionReason ?? "", /handled automatically/);
+  }
+});
+
+test("D-90: an unwarranted automation keeps the business analysis, runs no generator, and states the conclusion", async () => {
+  const { pipeline, traces, invocations } = await harness({
+    architecture: JSON.stringify({
+      summary: "Not worth automating",
+      data_flow_description: "Manual keying stays manual",
+      unknown_disposition: [
+        {
+          context_index: 1,
+          disposition: "excluded",
+          statement: "Approver count is irrelevant when nothing is built",
+        },
+      ],
+      components: [],
+      automation_verdict: {
+        warranted: false,
+        statement:
+          "Four hundred and fifty invoices a month is real volume, but the approval delay is a policy problem: set an approval SLA before building anything.",
+      },
+    }),
+  });
+
+  const result = await pipeline.run({ analysisId: ANALYSIS_ID, text: INPUT });
+
+  assert.equal(result.haltedAt, undefined);
+  assert.equal(result.architecture?.components.length, 0);
+  assert.match(
+    result.architecture?.automationUnwarranted?.statement ?? "",
+    /approval SLA/,
+  );
+  assert.equal(invocations.length, 4, "Stages 1-3 and 6; no Stage 9 generator");
+  assert.deepEqual(
+    traces.map((t) => t.stageNumber),
+    [1, 2, 3, 5, 6, 8, 9, 10, 11, 12],
+  );
+
+  const plan = result.artifactPlan ?? [];
+  assert.deepEqual(
+    plan.filter((e) => e.planned).map((e) => e.artifactType),
+    ["intent_brief", "business_analysis"],
+  );
+  for (const entry of plan.filter((e) => !e.planned)) {
+    assert.match(entry.omissionReason ?? "", /automation is unwarranted/);
+    assert.match(entry.omissionReason ?? "", /approval SLA/);
+    assert.match(entry.omissionReason ?? "", /FR-020/);
+  }
 });

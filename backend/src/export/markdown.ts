@@ -237,6 +237,14 @@ const intentSection = (analysis: AnalysisView, step: number): string[] => {
       "",
     );
   }
+  // D-90 — a declined design is the reason the export has no solution
+  // section, and the reader is told so in the submitter's own words.
+  if (analysis.intent.requested_outcome === "understanding_only") {
+    lines.push(
+      `**No design was produced.** The input declined one${analysis.intent.decline_quote === null ? "" : `: "${analysis.intent.decline_quote}"`}. The business analysis states the problem as understood; no solution artifact follows it.`,
+      "",
+    );
+  }
   if (analysis.intent.inferred_scope !== null) {
     lines.push(`**Scope.** ${analysis.intent.inferred_scope}`, "");
   }

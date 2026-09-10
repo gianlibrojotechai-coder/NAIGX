@@ -380,6 +380,10 @@ model IntentRecord {
   inferredScope       String @map("inferred_scope")
   /// Every objective element carries provenance ∈ {stated, inferred} (§4.2).
   objectiveProvenance Json   @map("objective_provenance")
+  /// D-90: `design` | `understanding_only` — what the submitter asked to receive.
+  requestedOutcome    String @default("design") @map("requested_outcome")
+  /// D-90: the verbatim decline, present exactly when understanding_only (CHECK).
+  declineQuote        String? @map("decline_quote")
 
   analysis Analysis @relation(fields: [analysisId], references: [analysisId], onDelete: Cascade)
 
@@ -431,6 +435,9 @@ model ArchitectureModel {
   /// D-78: how Stage 6 disposed of each unknown context element — one entry per
   /// unknown, by context index (docs/13 D-38 remediation).
   unknownDispositions Json     @default("[]") @map("unknown_dispositions")
+  /// D-90 (`FR-020`): set when Stage 6 concluded automation is unwarranted;
+  /// the model then has no components and this is what the system states instead.
+  automationUnwarrantedStatement String? @map("automation_unwarranted_statement")
   createdAt           DateTime @default(now()) @map("created_at")
 
   analysis   Analysis                @relation(fields: [analysisId], references: [analysisId], onDelete: Cascade)
@@ -842,7 +849,7 @@ model ArtifactPlanEntry {
   analysisId      String           @map("analysis_id") @db.Uuid
   artifactType    String           @map("artifact_type")
   planned         Boolean
-  /// v1 domain is the single value `standard` (`docs/12` D-34).
+  /// `standard` | `minimal` since D-90 (`docs/12` D-34 had the single value).
   depthLevel      String           @map("depth_level")
   inclusionReason String?          @map("inclusion_reason")
   omissionReason  String?          @map("omission_reason")

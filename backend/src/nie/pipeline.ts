@@ -110,7 +110,7 @@ import {
   parseClassification,
   proceedsToReasoning as classificationProceeds,
 } from "./stages/classification.js";
-import { parseIntent } from "./stages/intent.js";
+import { IntentDeclineQuoteError, parseIntent } from "./stages/intent.js";
 import {
   parseContext,
   proceedsToReasoning as contextProceeds,
@@ -121,8 +121,8 @@ import {
   WorkflowReviewGroundingError,
 } from "./stages/workflow-review.js";
 import {
-  planDerivedArtifacts,
   planIntentBrief,
+  planPathArtifacts,
   renderIntentBrief,
   renderArchitectureRecommendation,
   renderAssessmentFeedback,
@@ -2220,7 +2220,12 @@ export function createPipeline(deps: PipelineDependencies) {
           // `AI §3.2` Stage 2 input: "Input text + classification".
           stageHandoff({ input_text: input.text, classification }),
         ),
-      parse: parseIntent,
+      // D-90: a declined design must be quoted verbatim from the input.
+      parse: (text) => parseIntent(text, input.text),
+      // The one Stage 2 failure worth a single regeneration: the model read
+      // a decline and could not point at it. Same shape as Stage 6's
+      // traceability regeneration (`AI §3.2`).
+      regenerateOnce: (error) => error instanceof IntentDeclineQuoteError,
     });
     extendContext(input, { intent });
 
@@ -2310,12 +2315,40 @@ export function createPipeline(deps: PipelineDependencies) {
     // complexity pre-assessment, which remains undefined. Recorded like any
     // other stage so the routing below is auditable rather than implicit —
     // `FR-017` wants orchestration "explicit and inspectable".
-    const reasoningPlan = planReasoning(classification.determinedType);
+    // D-90: the depth is read from the input's length — the one rule, in
+    // `reasoning-planning.ts`, recorded with its input so the trace shows why.
+    const depthSignals = { characterCount: input.text.length };
+    const reasoningPlan = planReasoning(
+      classification.determinedType,
+      depthSignals,
+    );
     await recordDeterministicStage(input, {
       stageNumber: 5,
-      structuredInput: { classification, intent },
+      structuredInput: { classification, intent, depthSignals },
       structuredOutput: reasoningPlan,
     });
+
+    // D-90 — Stage 8 by judgement, recorded as its own deterministic stage
+    // on every path that reaches it (`AI` App. A lists Stage 8 as
+    // deterministic; the job-description path has recorded it since D-29).
+    const recordPlan = async (
+      plan: readonly ArtifactPlanEntry[],
+      judged: Record<string, unknown>,
+    ): Promise<void> => {
+      await recordDeterministicStage(input, {
+        stageNumber: 8,
+        structuredInput: {
+          classifiedAs: classification.determinedType,
+          depthLevel: reasoningPlan.depthLevel,
+          characterCount: input.text.length,
+          requestedOutcome: intent.requestedOutcome,
+          ...judged,
+        },
+        structuredOutput: plan,
+      });
+      emit(input.analysisId, planEvent(plan));
+      await deps.resultSink?.persistArtifactPlan?.(input.analysisId, plan);
+    };
 
     // `FR-022` — the job-description path decides whether to apply now or
     // build first. `AI §9.1` gives it no architecture, so this is where that
@@ -2369,10 +2402,17 @@ export function createPipeline(deps: PipelineDependencies) {
       // Stage 8 — deterministic (`AI` App. A). No prompt, no provider call, no
       // model judgement: the same input yields the same plan, which is what
       // `FR-024` requires of artifact selection.
-      const artifactPlan = planArtifacts(recommendation);
+      // D-90: at minimal depth only the gap analysis is planned.
+      const artifactPlan = planArtifacts(
+        recommendation,
+        reasoningPlan.depthLevel,
+      );
       await recordDeterministicStage(input, {
         stageNumber: 8,
-        structuredInput: { recommendation },
+        structuredInput: {
+          recommendation,
+          depthLevel: reasoningPlan.depthLevel,
+        },
         structuredOutput: artifactPlan,
       });
       // `DB §4.4`: the plan is written at Stage 8, including the entries that
@@ -2713,15 +2753,40 @@ export function createPipeline(deps: PipelineDependencies) {
       );
       emit(input.analysisId, reasoningCompleteEvent(review.summary));
 
-      const workflowPlan = planDerivedArtifacts(
-        "existing_workflow",
-        `The review identified ${String(review.structure.length)} step(s) and ${String(review.findings.length)} finding(s).`,
-      );
-      emit(input.analysisId, planEvent(workflowPlan));
-      await deps.resultSink?.persistArtifactPlan?.(
-        input.analysisId,
-        workflowPlan,
-      );
+      // D-90: planned by judgement — at minimal depth the review is the
+      // whole answer, and the platform comparison and score are omitted
+      // with their reasons on the entries.
+      const workflowPlan = planPathArtifacts({
+        classifiedAs: "existing_workflow",
+        depthLevel: reasoningPlan.depthLevel,
+        characterCount: input.text.length,
+        intent,
+        architecture: observed,
+        inclusionReason: `The review identified ${String(review.structure.length)} step(s) and ${String(review.findings.length)} finding(s).`,
+      });
+      await recordPlan(workflowPlan, {
+        steps: review.structure.length,
+        findings: review.findings.length,
+      });
+
+      if (!isPlanned(workflowPlan, "platform_recommendation")) {
+        const renderedMinimal = await emitDerivedArtifacts(
+          input,
+          workflowPlan,
+          {
+            workflow_recommendation: () => renderWorkflowRecommendation(review),
+            risk_assessment: () => renderRiskAssessment(review),
+          },
+        );
+        return {
+          classification,
+          intent,
+          context,
+          architecture: observed,
+          workflowReview: review,
+          artifactPlan: withBrief(renderedMinimal),
+        };
+      }
 
       // D-87 — the platform comparison (keep, move or stop) and, D-80, the
       // complexity assessment, both against the observed structure and
@@ -2787,6 +2852,45 @@ export function createPipeline(deps: PipelineDependencies) {
       return { classification, intent, context, artifactPlan: withBrief() };
     }
 
+    // D-90 — the submitter declined a design (Stage 2, with their own words
+    // verified against the input). The requirement path then produces the
+    // problem statement and nothing that designs, chooses or scores a
+    // solution: Stage 6 is not run, because a design nobody asked for is the
+    // over-production `PV §3.2` names and `FR-017` forbids. Not a halt — the
+    // run completed everything the input asked of it, and the plan records
+    // every omission with its reason.
+    if (
+      classification.determinedType === "business_requirement" &&
+      intent.requestedOutcome === "understanding_only"
+    ) {
+      const declinedPlan = planPathArtifacts({
+        classifiedAs: classification.determinedType,
+        depthLevel: reasoningPlan.depthLevel,
+        characterCount: input.text.length,
+        intent,
+        inclusionReason: "",
+      });
+      await recordPlan(declinedPlan, {
+        declineQuote: intent.declineQuote ?? null,
+        stage6: "skipped: the submitter declined a design",
+      });
+      emit(
+        input.analysisId,
+        reasoningCompleteEvent(
+          `No design produced: the submitter declined one ("${intent.declineQuote ?? ""}"). The business analysis states the problem as understood.`,
+        ),
+      );
+      const renderedDeclined = await emitDerivedArtifacts(input, declinedPlan, {
+        business_analysis: () => renderBusinessAnalysis(intent, context),
+      });
+      return {
+        classification,
+        intent,
+        context,
+        artifactPlan: withBrief(renderedDeclined),
+      };
+    }
+
     const architecture: ArchitectureResult = await runStage(input, {
       stageNumber: 6,
       classifiedAs: classification.determinedType,
@@ -2830,18 +2934,25 @@ export function createPipeline(deps: PipelineDependencies) {
     // diagram from the same source (D-73); its reasoning artifacts —
     // platform recommendation and the rest — remain the open decision STATUS
     // records, and `PATH_ARTIFACT_TYPES` lists only what is rendered.
-    const assessmentPlan = planDerivedArtifacts(
-      classification.determinedType,
-      classification.determinedType === "technical_assessment"
-        ? `The assessment produced ${String(architecture.components.length)} component(s) with ${String(architecture.rejectedApproaches?.length ?? 0)} rejected approach(es).`
-        : `The requirement was reasoned to an architecture of ${String(architecture.components.length)} component(s); the recommendation and its diagram are rendered from that architecture (D-73).`,
-    );
-
-    emit(input.analysisId, planEvent(assessmentPlan));
-    await deps.resultSink?.persistArtifactPlan?.(
-      input.analysisId,
-      assessmentPlan,
-    );
+    // D-90: planned by judgement. An unwarranted automation (Stage 6's
+    // conclusion, `FR-020`) keeps the business analysis alone; a minimal
+    // input keeps the path's minimal set; otherwise the whole set.
+    const assessmentPlan = planPathArtifacts({
+      classifiedAs: classification.determinedType,
+      depthLevel: reasoningPlan.depthLevel,
+      characterCount: input.text.length,
+      intent,
+      architecture,
+      inclusionReason:
+        classification.determinedType === "technical_assessment"
+          ? `The assessment produced ${String(architecture.components.length)} component(s) with ${String(architecture.rejectedApproaches?.length ?? 0)} rejected approach(es).`
+          : `The requirement was reasoned to an architecture of ${String(architecture.components.length)} component(s); the recommendation and its diagram are rendered from that architecture (D-73).`,
+    });
+    await recordPlan(assessmentPlan, {
+      components: architecture.components.length,
+      automationUnwarranted:
+        architecture.automationUnwarranted?.statement ?? null,
+    });
 
     const renderers = {
       assessment_feedback: () =>
@@ -3009,7 +3120,9 @@ export function createPipeline(deps: PipelineDependencies) {
         intent,
         context,
         architecture,
-        artifactPlan: rendered,
+        // D-90: the brief is part of every reasoning path plan (D-66); the
+        // workflow and posting paths already returned it, this one did not.
+        artifactPlan: withBrief(rendered),
         ...(platform.recommendation !== undefined
           ? { platformRecommendation: platform.recommendation }
           : {}),
@@ -3040,7 +3153,7 @@ export function createPipeline(deps: PipelineDependencies) {
       intent,
       context,
       architecture,
-      artifactPlan: rendered,
+      artifactPlan: withBrief(rendered),
     };
   };
 

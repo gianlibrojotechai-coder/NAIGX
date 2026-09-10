@@ -55,6 +55,10 @@ export interface ClassificationView {
 export interface IntentView {
   readonly primary_objective: string;
   readonly inferred_scope: string | null;
+  /** D-90: `design` | `understanding_only` — what the submitter asked to receive. */
+  readonly requested_outcome: string;
+  /** D-90: the verbatim decline; null unless `understanding_only`. */
+  readonly decline_quote: string | null;
   /**
    * `{ primary, secondary[] }` — per-objective provenance, stored as a
    * document because `DB §4.2` specifies no child entity for it.
@@ -320,6 +324,8 @@ export async function readAnalysis(
       ? {
           primary_objective: analysis.intentRecord.primaryObjective,
           inferred_scope: analysis.intentRecord.inferredScope,
+          requested_outcome: analysis.intentRecord.requestedOutcome,
+          decline_quote: analysis.intentRecord.declineQuote,
           objective_provenance: analysis.intentRecord.objectiveProvenance,
         }
       : null,

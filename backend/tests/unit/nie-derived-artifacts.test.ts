@@ -328,6 +328,7 @@ test("intent brief: a projection of the intent record that validates against its
       },
     ],
     inferredScope: "Accounts payable, from receipt to approval",
+    requestedOutcome: "design",
   });
 
   // Validates as an artifact (FR-039) — a rendering bug is a schema failure.
@@ -354,6 +355,7 @@ test("intent brief: an input with one aim renders with no secondary objectives, 
     primaryObjective: { content: "One aim", provenance: "inferred" },
     secondaryObjectives: [],
     inferredScope: "One team",
+    requestedOutcome: "design",
   });
   validateArtifact("intent_brief", brief);
   assert.deepEqual(brief["secondary_objectives"], []);
@@ -365,6 +367,7 @@ test("intent brief: the schema refuses a document that claims a different standi
       primaryObjective: { content: "x", provenance: "stated" },
       secondaryObjectives: [],
       inferredScope: "y",
+      requestedOutcome: "design",
     }),
     standing: "conclusion",
   };

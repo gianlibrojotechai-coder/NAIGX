@@ -44,6 +44,10 @@ import {
 } from "./assertions.js";
 import type { CorpusCase } from "./corpus.js";
 import {
+  EXPECTATION_CONFLICTS,
+  type ExpectationConflict,
+} from "./expectation-conflicts.js";
+import {
   fragmentsCompositionHash,
   inputTextHash,
   RecordingIntegrityError,
@@ -68,7 +72,15 @@ const REPLAY_RATE: TokenRate = {
  * for a state the design intends, and would hide the one thing the operator
  * needs to know: this case needs re-capture, not debugging.
  */
-export type CaseStatus = "passed" | "failed" | "blocked" | "stale" | "errored";
+/**
+ * `conflict` (D-90 §5) is a case whose only non-advisory failures are
+ * registered in `expectation-conflicts.ts`: the product followed an accepted
+ * decision the corpus disagrees with. Neither passed nor failed — reported by
+ * name, counted apart, carried into the reference — so the disagreement stays
+ * visible until the owner settles it, without failing every run in between.
+ */
+export type CaseStatus =
+  "passed" | "failed" | "conflict" | "blocked" | "stale" | "errored";
 
 /** What was replayed, so the pass reference can name the evidence. */
 export interface CaseEvidence {
@@ -172,6 +184,8 @@ export interface RegressionReport {
     readonly selected: number;
     readonly passed: number;
     readonly failed: number;
+    /** D-90 §5: registered expectation conflicts, neither passed nor failed. */
+    readonly conflict: number;
     readonly blocked: number;
     readonly stale: number;
     readonly errored: number;
@@ -223,6 +237,11 @@ export interface RegressionRunOptions {
    */
   readonly repeat?: number;
   readonly now?: () => Date;
+  /**
+   * D-90 §5 — the expectation-conflict register consulted for `conflict`
+   * status. Defaults to the repository register; a test supplies its own.
+   */
+  readonly expectationConflicts?: readonly ExpectationConflict[];
 }
 
 /** The deterministic projection compared across repeats (`FR-024`). */
@@ -424,9 +443,29 @@ export async function runRegression(
       }
 
       const assertions = evaluateCase(corpusCase, first.result);
+      // D-90 §5 — a registered expectation conflict is neither a pass nor a
+      // failure. Only when every non-advisory failure on the case is
+      // registered; an unregistered failure fails the case as usual, and a
+      // registered entry that no longer manifests is reported as stale.
+      const failedIds = assertions
+        .filter((a) => a.status === "failed" && a.advisory !== true)
+        .map((a) => a.id);
+      const registered = (
+        options.expectationConflicts ?? EXPECTATION_CONFLICTS
+      ).filter((r) => r.caseId === corpusCase.caseId);
+      const isConflict =
+        failedIds.length > 0 &&
+        failedIds.every((id) => registered.some((r) => r.assertion === id));
+      const staleRegister = registered.filter(
+        (r) => !failedIds.includes(r.assertion),
+      );
       outcomes.push({
         caseId: corpusCase.caseId,
-        status: caseFailed(assertions) ? "failed" : "passed",
+        status: isConflict
+          ? "conflict"
+          : caseFailed(assertions)
+            ? "failed"
+            : "passed",
         assertions,
         // Only what ran: `refusal_behaviour` and `conflict_detection` fire for
         // special-class cases alone, and a deferred assertion measured nothing.
@@ -434,7 +473,17 @@ export async function runRegression(
           .filter((a) => a.status !== "deferred")
           .map((a) => a.id),
         evidence: first.evidence,
-        detail: "",
+        detail: isConflict
+          ? `expectation conflict (registered, D-90 §5): ${registered
+              .filter((r) => failedIds.includes(r.assertion))
+              .map(
+                (r) =>
+                  `${r.assertion} — corpus: ${r.expectation}; decision: ${r.decision}`,
+              )
+              .join(" | ")}`
+          : staleRegister.length > 0
+            ? `registered expectation conflict no longer manifests (remove the register entry): ${staleRegister.map((r) => r.assertion).join(", ")}`
+            : "",
       });
     } catch (error) {
       const status: CaseStatus =
@@ -467,6 +516,7 @@ export async function runRegression(
       selected: outcomes.length,
       passed: count("passed"),
       failed: count("failed"),
+      conflict: count("conflict"),
       blocked: count("blocked"),
       stale: count("stale"),
       errored: count("errored"),

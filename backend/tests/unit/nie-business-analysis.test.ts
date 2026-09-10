@@ -25,6 +25,7 @@ const intent: IntentResult = {
     { content: "Recover early-payment discounts", provenance: "inferred" },
   ],
   inferredScope: "Accounts payable, from receipt to approval",
+  requestedOutcome: "design",
 };
 
 const context: ContextResult = {

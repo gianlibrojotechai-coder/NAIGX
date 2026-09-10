@@ -56,6 +56,8 @@ const TEXT = [
   "We need to automate our supplier invoice approval process.",
   "Invoices arrive as PDF attachments and finance keys each one into Xero.",
   "Volumes run about 450 per month from 90 suppliers.",
+  // Over the D-90 minimal band: the capture tests expect the full path.
+  "Approvals go by email to the department head and take five to nine days, so early-payment discounts are missed; we would like the routing and the reminders handled automatically.",
 ].join("\n");
 
 const resolver: FragmentResolver = {

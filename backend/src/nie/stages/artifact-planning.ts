@@ -32,6 +32,7 @@ import {
   type RecommendationForArtifacts,
   type RecommendationResult,
   type RequiredCapability,
+  type DepthLevel,
 } from "../contracts.js";
 
 /**
@@ -78,6 +79,8 @@ export function eligibleGaps(
  */
 export function planArtifacts(
   recommendation: RecommendationResult,
+  /** D-90: Stage 5's depth. At `minimal`, only the gap analysis is planned. */
+  depthLevel: DepthLevel = "standard",
 ): readonly ArtifactPlanEntry[] {
   const eligible = eligibleGaps(recommendation);
   const implemented = new Set<string>(IMPLEMENTED_ARTIFACT_TYPES);
@@ -109,11 +112,30 @@ export function planArtifacts(
     // D-76 — the interview guidance is derived from the same recommendation
     // and is wanted on either verdict: an apply_now operator is about to be
     // interviewed; a build_first operator will be, once the build is done.
+    // D-90 — a minimal posting (`FR-017`): the gap analysis is the one
+    // artifact it supports. `FR-022` wants portfolio recommendations
+    // "specific and buildable, not generic project categories" and guidance
+    // "addressing the architectural competencies the posting implies"; a
+    // posting at or under the minimal band names tools and nothing else, so
+    // either would be the generic output the requirement names as failure.
+    if (depthLevel === "minimal" && artifactType !== "skill_gap_analysis") {
+      return {
+        artifactType,
+        planned: false,
+        depthLevel,
+        outcome: "omitted",
+        omissionReason:
+          artifactType === "portfolio_suggestions"
+            ? "Omitted by judgement: the posting is at or under the minimal band, and FR-022 requires portfolio recommendations to be specific and buildable — from a posting that names tools and nothing else, only generic categories could be produced (FR-017; D-90)."
+            : "Omitted by judgement: the posting is at or under the minimal band, and FR-022 requires guidance addressing the competencies the posting implies — a posting that names tools and nothing else implies none beyond them (FR-017; D-90).",
+      };
+    }
+
     if (artifactType === "interview_guidance") {
       return {
         artifactType,
         planned: true,
-        depthLevel: "standard",
+        depthLevel,
         inclusionReason:
           `Generated from the Stage 7 recommendation: the competencies ${String(recommendation.requiredCapabilities.length)} requirement(s) imply, ` +
           `with ${String(recommendation.matched.length)} matched capability(ies) to cite (D-76).`,
@@ -124,7 +146,7 @@ export function planArtifacts(
       return {
         artifactType,
         planned: true,
-        depthLevel: "standard",
+        depthLevel,
         inclusionReason:
           `Rendered from the Stage 7 recommendation: ${String(recommendation.requiredCapabilities.length)} requirement(s), ` +
           `${String(recommendation.gaps.length)} gap(s), ${String(recommendation.verdict.decisiveGaps.length)} decisive (D-75).`,

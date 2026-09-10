@@ -104,6 +104,18 @@ export interface RegressionPassReference {
   readonly completedAt: string;
   readonly cases: readonly ReferencedCase[];
   /**
+   * D-90 §5 — the registered expectation conflicts this run carried, by case
+   * and assertion, with the detail the runner reported. Empty when every
+   * case passed outright. A reference that names a conflict is evidence
+   * that the product followed an accepted decision the corpus disputes, and
+   * a reader of the reference sees that without opening the run.
+   */
+  readonly expectationConflicts: readonly {
+    readonly caseId: string;
+    readonly assertion: string;
+    readonly detail: string;
+  }[];
+  /**
    * Which fragment versions the prompt under test was composed from
    * ([D-63](../../../docs/38-D-63-Authored-Fragment-Resolution-For-Regression.md) §4).
    *
@@ -309,7 +321,9 @@ export function runIdFor(inputs: PassReferenceInputs): string {
  */
 export const isCleanRun = (report: RegressionReport): boolean =>
   report.totals.selected > 0 &&
-  report.totals.passed === report.totals.selected &&
+  // D-90 §5: a registered expectation conflict does not disqualify the run —
+  // it is named in the reference instead (`expectationConflicts`).
+  report.totals.passed + report.totals.conflict === report.totals.selected &&
   report.totals.failed === 0 &&
   report.totals.blocked === 0 &&
   report.totals.stale === 0 &&
@@ -356,6 +370,13 @@ export function buildPassReference(
 
   const resolution: RunResolution = runResolutionOf(cases) ?? "active";
   const runId = runIdFor(inputs);
+  const expectationConflicts = inputs.report.cases
+    .filter((c) => c.status === "conflict")
+    .flatMap((c) =>
+      c.assertions
+        .filter((a) => a.status === "failed" && a.advisory !== true)
+        .map((a) => ({ caseId: c.caseId, assertion: a.id, detail: a.detail })),
+    );
   return {
     suite: SUITE_ID,
     reference: `${SUITE_ID}:${inputs.report.suiteVersion}+${inputs.fragmentsManifestVersion}:${runId}`,
@@ -363,6 +384,7 @@ export function buildPassReference(
     suiteVersion: inputs.report.suiteVersion,
     fragmentsManifestVersion: inputs.fragmentsManifestVersion,
     fragmentsCompositions: compositions,
+    expectationConflicts,
     selectionScope:
       inputs.coverage !== undefined
         ? "targeted"

@@ -58,12 +58,14 @@ import {
   REQUIREMENT_NECESSITY,
   SUFFICIENCY_LEVELS,
   UNKNOWN_DISPOSITIONS,
+  REQUESTED_OUTCOMES,
 } from "./contracts.js";
 
 export type OutputSchema = Readonly<Record<string, unknown>>;
 
 const string: OutputSchema = { type: "string" };
 const number: OutputSchema = { type: "number" };
+const boolean: OutputSchema = { type: "boolean" };
 const integer: OutputSchema = { type: "integer" };
 const nullable = (schema: OutputSchema): OutputSchema => ({
   anyOf: [schema, { type: "null" }],
@@ -118,11 +120,21 @@ const objective = object({
   provenance: enumOf(INTENT_PROVENANCE),
 });
 
-const intentDetection = object({
-  primary_objective: objective,
-  secondary_objectives: array(objective),
-  inferred_scope: string,
-});
+const intentDetection = object(
+  {
+    primary_objective: objective,
+    secondary_objectives: array(objective),
+    inferred_scope: string,
+    // D-90: what the submitter asked to receive; the quote is verified by the parser.
+    requested_outcome: enumOf(REQUESTED_OUTCOMES),
+    decline_quote: nullable(string),
+  },
+  // Optional in the request schema, as why_not_consolidated is (test 3 in
+  // output-schemas.test.ts): the canonical recordings captured before D-90
+  // have neither key, and the parser reads absence as design. The prompt
+  // asks for both on every response.
+  ["requested_outcome", "decline_quote"],
+);
 
 const contextExtraction = object({
   elements: array(
@@ -153,24 +165,31 @@ const component = object({
   grounded_in_context_indices: groundedIndices,
 });
 
-const architectureAnalysis = object({
-  summary: string,
-  data_flow_description: string,
-  components: array(component),
-  // D-78: one entry per unknown context element; the parser enforces coverage.
-  unknown_disposition: array(
-    object({
-      context_index: integer,
-      disposition: enumOf(UNKNOWN_DISPOSITIONS),
-      statement: string,
-    }),
-  ),
-  // Required by the assessment path (`FR-023`); the parser enforces that.
-  trade_offs: array(object({ choice: string, accepted: string })),
-  rejected_approaches: array(
-    object({ approach: string, rejection_reason: string }),
-  ),
-});
+const architectureAnalysis = object(
+  {
+    summary: string,
+    data_flow_description: string,
+    components: array(component),
+    // D-78: one entry per unknown context element; the parser enforces coverage.
+    unknown_disposition: array(
+      object({
+        context_index: integer,
+        disposition: enumOf(UNKNOWN_DISPOSITIONS),
+        statement: string,
+      }),
+    ),
+    // Required by the assessment path (`FR-023`); the parser enforces that.
+    trade_offs: array(object({ choice: string, accepted: string })),
+    rejected_approaches: array(
+      object({ approach: string, rejection_reason: string }),
+    ),
+    // D-90 (`FR-020`): the one conclusion that produces no design.
+    automation_verdict: object({ warranted: boolean, statement: string }),
+  },
+  // Optional for the same reason: pre-D-90 recordings carry no verdict, and
+  // the parser reads absence as warranted. The prompt requires it.
+  ["automation_verdict"],
+);
 
 const workflowReview = object({
   summary: string,

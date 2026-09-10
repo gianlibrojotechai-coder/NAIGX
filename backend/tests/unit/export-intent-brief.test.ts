@@ -28,6 +28,7 @@ const brief = renderIntentBrief({
     { content: "Recover early-payment discounts", provenance: "inferred" },
   ],
   inferredScope: "Accounts payable, from receipt to approval",
+  requestedOutcome: "design",
 });
 
 test("the brief has a heading of its own in the export", () => {
@@ -61,6 +62,7 @@ test("a brief with no secondary objectives omits the list rather than printing a
     primaryObjective: { content: "One aim", provenance: "inferred" },
     secondaryObjectives: [],
     inferredScope: "One team",
+    requestedOutcome: "design",
   });
   const text = renderArtifactDocument("intent_brief", lone).lines.join("\n");
 

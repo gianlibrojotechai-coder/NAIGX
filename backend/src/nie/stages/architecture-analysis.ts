@@ -141,8 +141,18 @@ export function parseArchitecture(
     parseComponent,
   );
 
-  if (components.length === 0) {
+  // D-90 — `FR-020`: the one conclusion that produces no design. Absent
+  // reads as warranted (every pre-D-90 response designed something); the
+  // output schema makes the key mandatory on new responses.
+  const automationUnwarranted = parseAutomationVerdict(record);
+
+  if (components.length === 0 && automationUnwarranted === undefined) {
     fail("An architecture must contain at least one component");
+  }
+  if (components.length > 0 && automationUnwarranted !== undefined) {
+    fail(
+      "automation_verdict says automation is unwarranted, but components were designed anyway: state the conclusion with an empty components list, or design and say automation is warranted",
+    );
   }
 
   // `DB §4.3`: unique on (architecture_id, name). Name uniqueness is what lets
@@ -191,6 +201,15 @@ export function parseArchitecture(
   const tradeOffs = parseTradeOffs(record);
   const rejectedApproaches = parseRejectedApproaches(record);
 
+  // D-90: the unwarranted conclusion belongs to the requirement path. An
+  // assessment evaluates the design it was given (`FR-023`); declining to
+  // design it is not an assessment of it.
+  if (requireTradeOffs && automationUnwarranted !== undefined) {
+    return fail(
+      "automation_verdict.warranted must be true on the technical-assessment path: an assessment evaluates the design it was given, and the unwarranted conclusion belongs to the requirement path (FR-020)",
+    );
+  }
+
   if (requireTradeOffs) {
     if (rejectedApproaches.length === 0) {
       return fail(
@@ -211,8 +230,37 @@ export function parseArchitecture(
     unknownDispositions,
     ...(tradeOffs.length > 0 ? { tradeOffs } : {}),
     ...(rejectedApproaches.length > 0 ? { rejectedApproaches } : {}),
+    ...(automationUnwarranted !== undefined ? { automationUnwarranted } : {}),
   };
 }
+
+/**
+ * D-90 — `automation_verdict: { warranted, statement }`.
+ *
+ * Returns the unwarranted conclusion, or `undefined` when automation is
+ * warranted or the key is absent. An unwarranted verdict without a
+ * statement is rejected: `FR-020` requires the system to *state* the
+ * conclusion, and an empty statement states nothing.
+ */
+const parseAutomationVerdict = (
+  record: Record<string, unknown>,
+): { readonly statement: string } | undefined => {
+  const raw = record["automation_verdict"];
+  if (raw === undefined || raw === null) return undefined;
+  const verdict = asRecord(CTX, raw, "automation_verdict");
+  const warranted = verdict["warranted"];
+  if (typeof warranted !== "boolean") {
+    return fail("automation_verdict.warranted must be a boolean");
+  }
+  if (warranted) return undefined;
+  const statement = requireString(CTX, verdict, "statement");
+  if (statement.trim() === "") {
+    return fail(
+      "automation_verdict.statement must say why automation is unwarranted and what the submitter should do instead (FR-020)",
+    );
+  }
+  return { statement };
+};
 
 /**
  * D-78 — the disposition of every unknown context element.

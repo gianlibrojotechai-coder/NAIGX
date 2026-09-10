@@ -144,6 +144,7 @@ const cleanReport = (
       selected: 1,
       passed: 1,
       failed: 0,
+      conflict: 0,
       blocked: 0,
       stale: 0,
       errored: 0,

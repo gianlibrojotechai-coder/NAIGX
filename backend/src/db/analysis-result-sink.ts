@@ -124,6 +124,11 @@ export function createStageResultSink(prisma: PrismaClient): StageResultSink {
             secondary: intent.secondaryObjectives.map((o) => o.provenance),
           },
           inferredScope: intent.inferredScope,
+          // D-90: what the submitter asked to receive, with the verified quote.
+          requestedOutcome: intent.requestedOutcome,
+          ...(intent.declineQuote !== undefined
+            ? { declineQuote: intent.declineQuote }
+            : {}),
         },
       });
     },
@@ -475,6 +480,13 @@ export function createStageResultSink(prisma: PrismaClient): StageResultSink {
               disposition: d.disposition,
               statement: d.statement,
             })),
+            // D-90: the conclusion stated instead of a design (`FR-020`).
+            ...(architecture.automationUnwarranted !== undefined
+              ? {
+                  automationUnwarrantedStatement:
+                    architecture.automationUnwarranted.statement,
+                }
+              : {}),
           },
           select: { architectureId: true },
         });

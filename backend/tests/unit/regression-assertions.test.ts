@@ -117,6 +117,7 @@ const result = (
       primaryObjective: { content: "Automate invoicing", provenance: "stated" },
       secondaryObjectives: [],
       inferredScope: "Accounts payable",
+      requestedOutcome: "design",
     },
     context: overrides.context ?? {
       elements: [element],

@@ -27,17 +27,20 @@
 
 import {
   IMPLEMENTED_ARTIFACT_TYPES,
+  MINIMAL_PATH_ARTIFACT_TYPES,
   PATH_ARTIFACT_TYPES,
   type ArchitectureResult,
   type ArtifactPlanEntry,
   type ArtifactType,
   type ClassificationType,
   type ContextResult,
+  type DepthLevel,
   type IntentResult,
   type RecommendationForArtifacts,
   type WorkflowReviewResult,
   isBuildableKind,
 } from "../contracts.js";
+import { MINIMAL_INPUT_CHARACTERS } from "./reasoning-planning.js";
 
 /**
  * The intent brief's plan entry — one, planned, on every reasoning path
@@ -79,43 +82,213 @@ export const renderIntentBrief = (
     provenance: objective.provenance,
   })),
   inferred_scope: intent.inferredScope,
+  // D-90: what the submitter asked to receive, carried from Stage 2 so the
+  // brief says up front whether a design is coming.
+  requested_outcome: intent.requestedOutcome,
+  decline_quote: intent.declineQuote ?? null,
   standing: "understanding_only",
 });
 
 /**
- * Plans the artifacts of a path whose set is fixed rather than conditional.
+ * What Stage 8 reads to plan a path's artifacts by judgement
+ * ([D-90](../../../../docs/65-D-90-Planning-By-Judgement.md)).
+ */
+export interface PathPlanSignals {
+  readonly classifiedAs: ClassificationType;
+  /** Stage 5's depth (`reasoning-planning.ts`). */
+  readonly depthLevel: DepthLevel;
+  /** The input's length, so a minimal-depth omission can say why. */
+  readonly characterCount: number;
+  /** Stage 2: whether the submitter declined a design. */
+  readonly intent: IntentResult;
+  /** Stage 6, when it ran: whether it concluded automation is unwarranted. */
+  readonly architecture?: ArchitectureResult;
+  /** The reason recorded on every artifact the judgement keeps. */
+  readonly inclusionReason: string;
+}
+
+/** Why each artifact is left out when the path produces no design. */
+const NO_DESIGN_CLAUSES: Partial<Record<ArtifactType, string>> = {
+  architecture_recommendation: "no architecture is designed",
+  mermaid_diagram:
+    "no architecture is designed, so there is nothing to diagram",
+  platform_recommendation:
+    "recommending a platform would imply a build that is not being proposed",
+  risk_assessment:
+    "FR-032 requires every risk to name an affected component, and no design exists to have one",
+  complexity_score:
+    "complexity scores a proposed solution (docs/09 §1), and none is proposed",
+  implementation_roadmap: "a roadmap sequences a build, and none is proposed",
+  integration_requirements:
+    "integration requirements derive from a design's external systems, and nothing is designed",
+  edge_cases_and_practices:
+    "edge cases are enumerated per component of a design, and nothing is designed",
+  executive_summary:
+    "there are no generated findings to summarise; the business analysis is the whole answer",
+  assessment_feedback: "no architecture is designed to assess",
+};
+
+/** Why each artifact is disproportionate to a minimal input (`FR-017`, `AC-037`). */
+const MINIMAL_CLAUSES: Partial<Record<ArtifactType, string>> = {
+  mermaid_diagram:
+    "a diagram of a design this small adds nothing the recommendation's component list does not already say",
+  platform_recommendation:
+    "the systems are named by the submitter, so no platform decision exists and no alternative could honestly be rejected (FR-034)",
+  risk_assessment:
+    "FR-020 scopes risk analysis to non-trivial requirements, and one trigger between named systems is not one",
+  complexity_score:
+    "FR-020 scopes complexity scoring to non-trivial requirements; a five-factor score of this would be a number with no decision attached",
+  implementation_roadmap:
+    "a roadmap for a design this small is its component list",
+  integration_requirements:
+    "the recommendation already names the systems and the direction of every flow",
+  edge_cases_and_practices:
+    "an input this short states no failure modes to enumerate against, and inventing them is the over-production PV §3.2 names",
+  executive_summary:
+    "there are no generated findings to summarise beyond the analysis and the recommendation",
+  assessment_feedback:
+    "FR-023's trade-off defence would reject alternatives on grounds the input did not give",
+};
+
+const omitted = (
+  artifactType: ArtifactType,
+  depthLevel: DepthLevel,
+  omissionReason: string,
+): ArtifactPlanEntry => ({
+  artifactType,
+  planned: false,
+  depthLevel,
+  outcome: "omitted",
+  omissionReason,
+});
+
+/**
+ * Stage 8 for the requirement, workflow and assessment paths: the artifact
+ * plan, decided by judgement rather than copied from the path's list
+ * ([D-90](../../../../docs/65-D-90-Planning-By-Judgement.md)).
  *
- * Unlike the job-description plan, which decides against the eligible gap set,
- * these paths produce their whole `AI §9.1` set whenever they run — there is no
- * judgement to make, so the plan records inclusion rather than deliberation.
- * Types with no generator are still listed with an omission reason, because
- * `DB §4.4` exists so "chose not to" and "has no generator" stay legible.
+ * Until D-90 every path produced its whole `AI §9.1` set whatever the input
+ * said; the M-11 measurement found the corpus contradicting that on three
+ * inputs authored to test exactly this. The judgement is three rules, in
+ * precedence, each with the artifact-by-artifact reason recorded on the
+ * entry so `DB §4.4`'s "chose not to" stays legible:
+ *
+ *   1. **The submitter declined a design** (Stage 2 `understanding_only`,
+ *      with the verbatim quote): the requirement path produces the business
+ *      analysis and nothing that designs, chooses or scores a solution
+ *      (`FR-017` proportionality; `PV §3.2` over-production).
+ *   2. **Automation is unwarranted** (Stage 6's conclusion): the same set —
+ *      the system states the conclusion instead of producing a design
+ *      (`FR-020`).
+ *   3. **Minimal depth** (Stage 5): the path's `MINIMAL_PATH_ARTIFACT_TYPES`
+ *      and nothing else (`FR-017`: "minimal input yields a minimal artifact
+ *      set"; `AC-037`).
+ *
+ * Otherwise the whole path set is planned, as before. Types with no
+ * generator are still listed with an omission reason. Pure: same signals,
+ * same plan (`FR-024`).
+ */
+export function planPathArtifacts(
+  signals: PathPlanSignals,
+): readonly ArtifactPlanEntry[] {
+  const implemented = new Set<string>(IMPLEMENTED_ARTIFACT_TYPES);
+  const { classifiedAs, depthLevel } = signals;
+  const declined =
+    classifiedAs === "business_requirement" &&
+    signals.intent.requestedOutcome === "understanding_only"
+      ? (signals.intent.declineQuote ?? "")
+      : undefined;
+  const unwarranted = signals.architecture?.automationUnwarranted?.statement;
+  const minimal = new Set<string>(MINIMAL_PATH_ARTIFACT_TYPES[classifiedAs]);
+
+  return PATH_ARTIFACT_TYPES[classifiedAs].map(
+    (artifactType: ArtifactType): ArtifactPlanEntry => {
+      if (!implemented.has(artifactType)) {
+        return omitted(
+          artifactType,
+          depthLevel,
+          `No generator for ${artifactType} yet. Omitted by decision, not failure.`,
+        );
+      }
+
+      // Rule 1 — a declined design. Only the problem statement survives.
+      if (declined !== undefined) {
+        if (artifactType === "business_analysis") {
+          return {
+            artifactType,
+            planned: true,
+            depthLevel,
+            inclusionReason: `The submitter asked for the problem written down and declined a design ("${declined}"); the business analysis is that statement (D-77, FR-017).`,
+          };
+        }
+        return omitted(
+          artifactType,
+          depthLevel,
+          `Omitted by judgement: the submitter declined a design — "${declined}" — and ${NO_DESIGN_CLAUSES[artifactType] ?? "this artifact presupposes one"} (FR-017 proportionality; PV §3.2 treats over-production as a defect).`,
+        );
+      }
+
+      // Rule 2 — automation unwarranted. The conclusion is stated, not designed.
+      if (unwarranted !== undefined) {
+        if (artifactType === "business_analysis") {
+          return {
+            artifactType,
+            planned: true,
+            depthLevel,
+            inclusionReason: `Automation is unwarranted (Stage 6: ${unwarranted}); the business analysis states the problem the conclusion answers (FR-020, D-77).`,
+          };
+        }
+        return omitted(
+          artifactType,
+          depthLevel,
+          `Omitted by judgement: automation is unwarranted — ${unwarranted} — and ${NO_DESIGN_CLAUSES[artifactType] ?? "this artifact presupposes a design"} (FR-020: the system states this rather than producing a design).`,
+        );
+      }
+
+      // Rule 3 — minimal depth. The path's minimal set and nothing else.
+      if (depthLevel === "minimal" && !minimal.has(artifactType)) {
+        return omitted(
+          artifactType,
+          depthLevel,
+          `Omitted by judgement: the input is ${String(signals.characterCount)} characters, at or under the ${String(MINIMAL_INPUT_CHARACTERS)}-character minimal band, and ${MINIMAL_CLAUSES[artifactType] ?? "this artifact is disproportionate to it"} (FR-017: minimal input yields a minimal artifact set; AC-037).`,
+        );
+      }
+
+      return {
+        artifactType,
+        planned: true,
+        depthLevel,
+        inclusionReason:
+          depthLevel === "minimal"
+            ? `Planned at minimal depth (${String(signals.characterCount)} characters, at or under ${String(MINIMAL_INPUT_CHARACTERS)}): one of the artifacts a minimal input on this path supports (FR-017). ${signals.inclusionReason}`
+            : signals.inclusionReason,
+      };
+    },
+  );
+}
+
+/**
+ * The pre-D-90 plan: the whole path set at standard depth, no judgement.
+ *
+ * Kept for callers that have no input, intent or architecture in hand — it
+ * is `planPathArtifacts` with every judgement signal at its default.
  */
 export function planDerivedArtifacts(
   classifiedAs: ClassificationType,
   inclusionReason: string,
 ): readonly ArtifactPlanEntry[] {
-  const implemented = new Set<string>(IMPLEMENTED_ARTIFACT_TYPES);
-
-  return PATH_ARTIFACT_TYPES[classifiedAs].map(
-    (artifactType: ArtifactType): ArtifactPlanEntry => {
-      if (!implemented.has(artifactType)) {
-        return {
-          artifactType,
-          planned: false,
-          depthLevel: "standard",
-          outcome: "omitted",
-          omissionReason: `No generator for ${artifactType} yet. Omitted by decision, not failure.`,
-        };
-      }
-      return {
-        artifactType,
-        planned: true,
-        depthLevel: "standard",
-        inclusionReason,
-      };
+  return planPathArtifacts({
+    classifiedAs,
+    depthLevel: "standard",
+    characterCount: MINIMAL_INPUT_CHARACTERS + 1,
+    intent: {
+      primaryObjective: { content: "unstated", provenance: "inferred" },
+      secondaryObjectives: [],
+      inferredScope: "",
+      requestedOutcome: "design",
     },
-  );
+    inclusionReason,
+  });
 }
 
 /**
@@ -244,6 +417,11 @@ export const renderBusinessAnalysis = (
   const known = context.elements.filter((e) => e.provenance !== "unknown");
   return {
     standing: "problem_statement",
+    // D-90: Stage 2's reading of what the submitter wants back — part of the
+    // problem as understood, and the reason a declined design has no
+    // solution artifacts after this one.
+    requested_outcome: intent.requestedOutcome,
+    decline_quote: intent.declineQuote ?? null,
     objective: {
       content: intent.primaryObjective.content,
       provenance: intent.primaryObjective.provenance,

@@ -39,6 +39,30 @@ describes how data moves through the components end to end.
 Design for what the context supports. Where an unknown element makes part of the
 design uncertain, prefer the simpler structure and let the unknown stand.
 
+IS AUTOMATION WARRANTED?
+
+Before designing, decide whether automating this is the right answer to the
+context at all. `automation_verdict` is required on every response:
+
+- `{ "warranted": true, "statement": "..." }` — the usual case. `statement`
+  says, in a sentence, what the design automates and why the context justifies
+  it.
+- `{ "warranted": false, "statement": "..." }` — when the context shows that
+  automating this process would not serve the objective: the volume is too low
+  to repay a build, the work is a judgement the submitter wants kept human, the
+  failure to be fixed is not one automation addresses, or the input says the
+  process must stay manual and gives a reason the context supports. Then
+  `components` is an empty list — do not design what should not be built — and
+  `statement` states the conclusion and what the submitter should do instead,
+  grounded in the context elements. `unknown_disposition` still lists every
+  unknown.
+
+This is a conclusion, not a hedge. An unwarranted verdict with components
+designed anyway is rejected, and so is a design that automates a process the
+context says should not be automated. A small or simple process is not, by
+itself, unwarranted — design it, simply. On the technical-assessment path
+`warranted` is always `true`: an assessment evaluates the design it was given.
+
 DISPOSE OF EVERY UNKNOWN. The context set marks some elements
 `provenance: "unknown"` — things the input does not settle. A design that
 cites an unknown as if it were known is a design built on an assumption
@@ -55,14 +79,15 @@ exactly once, by its `index`, and says what the design did about it:
 List only unknown elements here — never a stated or inferred one. An empty
 list is correct only when the context set contains no unknown element.
 
-Respond with a single JSON object containing exactly these four top-level
-keys — `summary`, `data_flow_description`, `components` and
-`unknown_disposition` — and no others, except where the section below adds
-two for one specific path:
+Respond with a single JSON object containing exactly these five top-level
+keys — `summary`, `data_flow_description`, `automation_verdict`,
+`components` and `unknown_disposition` — and no others, except where the
+section below adds two for one specific path:
 
 {
   "summary": "...",
   "data_flow_description": "...",
+  "automation_verdict": { "warranted": true, "statement": "..." },
   "unknown_disposition": [
     { "context_index": 4, "disposition": "assumed | excluded | deferred", "statement": "..." }
   ],

@@ -10,6 +10,14 @@
       "const": "problem_statement",
       "description": "What this document is: the problem as understood, stated before any solution artifact and not revised by one."
     },
+    "requested_outcome": {
+      "enum": ["design", "understanding_only"],
+      "description": "D-90: Stage 2's reading of what the submitter wants back — part of the problem as understood. understanding_only is why a declined design has no solution artifact after this one."
+    },
+    "decline_quote": {
+      "type": ["string", "null"],
+      "description": "D-90: the submitter's verbatim words declining a design; null unless requested_outcome is understanding_only."
+    },
     "objective": { "$ref": "#/$defs/objective" },
     "secondary_objectives": { "type": "array", "items": { "$ref": "#/$defs/objective" } },
     "scope": { "$ref": "#/$defs/nonEmptyString" },

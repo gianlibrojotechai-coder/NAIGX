@@ -19,13 +19,49 @@
  * no scale, entity or vocabulary exists for it anywhere. Nothing is invented to
  * fill the gap, and this stage fabricates no complexity score.
  *
- * DEPTH IS SINGLE-VALUED (`docs/12` D-34, resolving `AIQ-7`). `"standard"` is
- * the whole domain. Proportionality is carried by the artifact set (`FR-017`),
- * and `AC-037` is tested as `DB §4.4` specifies — artifact-set size against
- * complexity score — which needs no depth taxonomy.
+ * DEPTH HAS TWO VALUES SINCE D-90 (`docs/12` D-34 made it one). `"standard"`
+ * is the default; `"minimal"` is selected for an input near the `FR-002`
+ * floor, by the one rule below, and the artifact plan (Stage 8) reads it to
+ * omit what a minimal input does not support (`FR-017`, `AC-037`, `PV §3.2`).
+ * The rule is a character count because `FR-017` wants orchestration rules
+ * "explicit and inspectable, not left entirely to model discretion", and a
+ * count is the one property of the input that needs no judgement to read.
  */
 
-import { producesArchitecture, type ClassificationType } from "../contracts.js";
+import {
+  producesArchitecture,
+  type ClassificationType,
+  type DepthLevel,
+} from "../contracts.js";
+
+/**
+ * D-90 — an input of at most this many characters runs at `minimal` depth.
+ *
+ * Fitted to the golden corpus and recorded as such: its four minimal cases
+ * are 66–83 characters, the shortest non-minimal case (`br-005`, an
+ * insufficiency refusal) is 355 and the shortest that expects a full set
+ * (`ta-009`) is 478. 200 sits in that gap with room on both sides — about
+ * three lines of text, or "a two-system, single-trigger requirement" as
+ * `br-004`'s rationale puts it. It is not a measure of simplicity in
+ * general: a 250-character input that names one trigger and one system still
+ * runs at standard depth, and that is a limitation this rule states rather
+ * than hides. `FR-002`'s floor is 50, so the minimal band is 50–200.
+ */
+export const MINIMAL_INPUT_CHARACTERS = 200;
+
+/** The observable properties Stage 5 reads to choose a depth. */
+export interface DepthSignals {
+  readonly characterCount: number;
+}
+
+/**
+ * D-90 — the depth rule, stated once.
+ *
+ * Pure and total: any count gives a depth, and equal counts give equal
+ * depths (`FR-024`).
+ */
+export const depthFor = (signals: DepthSignals): DepthLevel =>
+  signals.characterCount <= MINIMAL_INPUT_CHARACTERS ? "minimal" : "standard";
 
 /**
  * The reasoning modules Stage 5 may select.
@@ -57,8 +93,8 @@ export interface ReasoningPlan {
    * reasoning has not failed at anything.
    */
   readonly requiredAnalyses: readonly ReasoningModule[];
-  /** `docs/12` D-34: the whole domain. */
-  readonly depthLevel: "standard";
+  /** D-90: `minimal` for an input at or under `MINIMAL_INPUT_CHARACTERS`. */
+  readonly depthLevel: DepthLevel;
 }
 
 /**
@@ -67,7 +103,15 @@ export interface ReasoningPlan {
  * Pure, total over `ClassificationType`, and identical inputs give an identical
  * plan — the `FR-024` consistency property this stage is expected to hold.
  */
-export function planReasoning(classifiedAs: ClassificationType): ReasoningPlan {
+export function planReasoning(
+  classifiedAs: ClassificationType,
+  /**
+   * D-90. Absent means standard depth — the pre-D-90 behaviour, kept so a
+   * caller that has no input in hand (a unit test of the module routing)
+   * still gets a plan.
+   */
+  signals?: DepthSignals,
+): ReasoningPlan {
   const requiredAnalyses: ReasoningModule[] = [];
 
   // `AI §4.2`: "Architecture design applies to requirements and assessments."
@@ -97,5 +141,8 @@ export function planReasoning(classifiedAs: ClassificationType): ReasoningPlan {
   // `unsupported` falls through to an empty plan, which is correct and settled:
   // `FR-092` declines before reasoning.
 
-  return { requiredAnalyses, depthLevel: "standard" };
+  return {
+    requiredAnalyses,
+    depthLevel: signals === undefined ? "standard" : depthFor(signals),
+  };
 }

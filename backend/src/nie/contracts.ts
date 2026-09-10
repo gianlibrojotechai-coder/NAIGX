@@ -58,6 +58,32 @@ export type ContextProvenance = (typeof CONTEXT_PROVENANCE)[number];
 export const INTENT_PROVENANCE = ["stated", "inferred"] as const;
 export type IntentProvenance = (typeof INTENT_PROVENANCE)[number];
 
+/**
+ * D-90 — what the submitter asked to receive.
+ *
+ * `design` is the default reading of a requirement: the submitter wants the
+ * problem solved. `understanding_only` is the reading the corpus's br-010
+ * authored to test — the submitter says, in the input, that they do not
+ * want a design (`FR-017` proportionality; `PV §3.2` over-production). It
+ * is recorded at Stage 2 because that is where intent is read, and it is
+ * only ever `understanding_only` with a verbatim quote from the input that
+ * the parser verifies — a declined design is a stated fact or it is nothing.
+ */
+export const REQUESTED_OUTCOMES = ["design", "understanding_only"] as const;
+export type RequestedOutcome = (typeof REQUESTED_OUTCOMES)[number];
+
+/**
+ * D-90 — the depth a reasoning path is run at (`AI §5`, `FR-017`).
+ *
+ * `docs/12` D-34 made `standard` the whole domain; D-90 adds `minimal` for
+ * inputs near the `FR-002` floor, where a full artifact set would be
+ * disproportionate to what the input supports (`FR-017`: "minimal input
+ * yields a minimal artifact set"; `AC-037`). The rule that selects it is
+ * deterministic and stated once, in `reasoning-planning.ts`.
+ */
+export const DEPTH_LEVELS = ["standard", "minimal"] as const;
+export type DepthLevel = (typeof DEPTH_LEVELS)[number];
+
 /** `AI §5.4`. */
 export const SUFFICIENCY_LEVELS = [
   "sufficient",
@@ -95,6 +121,15 @@ export interface IntentResult {
   readonly primaryObjective: IntentObjective;
   readonly secondaryObjectives: readonly IntentObjective[];
   readonly inferredScope: string;
+  /** D-90. `design` unless the input declines one (see `declineQuote`). */
+  readonly requestedOutcome: RequestedOutcome;
+  /**
+   * D-90: present exactly when `requestedOutcome` is `understanding_only` —
+   * the submitter's own words declining a design, verified verbatim against
+   * the input at parse time. A decline the input does not contain is a
+   * Stage 2 failure, not a reading.
+   */
+  readonly declineQuote?: string;
 }
 
 // --- Stage 3 -------------------------------------------------------------
@@ -233,6 +268,37 @@ export const producesArchitecture = (type: ClassificationType): boolean =>
   ARCHITECTURE_PRODUCING_TYPES.includes(type);
 
 /**
+ * D-90 — the artifact set a path produces at `minimal` depth (`FR-017`).
+ *
+ * One artifact per path states the analysis; a second is kept only where it
+ * is the path's own product rendered from reasoning already done. Everything
+ * else on the path's `PATH_ARTIFACT_TYPES` list is omitted with a reason
+ * the plan records. Fitted against the corpus's four minimal cases (`br-004`,
+ * `ew-004`, `jd-004`, `ta-005`) and not re-fitted to pass anything else:
+ *
+ *   · requirement — the problem statement and the recommended architecture;
+ *     no diagram, platform decision, register, score, roadmap, integration
+ *     list, edge cases or summary of a two-line requirement;
+ *   · workflow — the review; one reported symptom supports no register, no
+ *     platform decision and no five-factor score;
+ *   · assessment — the architecture and its diagram, which an assessment
+ *     exists to produce; not the trade-off defence, which would reject
+ *     alternatives on grounds the input did not give (`FR-023`);
+ *   · posting — the gap analysis; no portfolio or interview guidance can be
+ *     "specific and buildable" (`FR-022`) from a posting that names tools
+ *     and nothing else.
+ */
+export const MINIMAL_PATH_ARTIFACT_TYPES: Readonly<
+  Record<ClassificationType, readonly ArtifactType[]>
+> = {
+  business_requirement: ["business_analysis", "architecture_recommendation"],
+  existing_workflow: ["workflow_recommendation"],
+  technical_assessment: ["architecture_recommendation", "mermaid_diagram"],
+  job_description: ["skill_gap_analysis"],
+  unsupported: [],
+};
+
+/**
  * One component of the derived design (`FR-030`, `DB §4.3`).
  *
  * `groundedInContextIndices` is the traceability link `FR-030` requires:
@@ -318,6 +384,16 @@ export interface ArchitectureResult {
   readonly rejectedApproaches?: readonly RejectedApproach[];
   /** D-78: one entry per `unknown` context element; empty when there is none. */
   readonly unknownDispositions: readonly UnknownDisposition[];
+  /**
+   * D-90 — `FR-020`: "where the correct conclusion is that automation is
+   * unwarranted, the system states this rather than producing a design".
+   * Present when Stage 6 reached that conclusion; `components` is then empty
+   * (the only case the parser allows it to be) and `statement` is what the
+   * system states instead of a design. Absent on every design and on the
+   * workflow path's observed structure (a review transcribes; it does not
+   * decide whether to automate).
+   */
+  readonly automationUnwarranted?: { readonly statement: string };
 }
 
 // --- Stage 6W, existing-workflow path (`FR-021`, `docs/15` D-40) ----------
@@ -1065,7 +1141,8 @@ export type ArtifactOutcome = (typeof ARTIFACT_OUTCOMES)[number];
 export interface ArtifactPlanEntry {
   readonly artifactType: ArtifactType;
   readonly planned: boolean;
-  readonly depthLevel: "standard";
+  /** D-90: the depth the path ran at, on every entry of the plan. */
+  readonly depthLevel: DepthLevel;
   /** Required when planned. */
   readonly inclusionReason?: string;
   /** Required when not planned. Omission is a decision, not an absence. */

@@ -258,6 +258,8 @@ export function createDryRunAdapter(
       },
       secondary_objectives: [],
       inferred_scope: "Dry-run placeholder scope",
+      requested_outcome: "design",
+      decline_quote: null,
     }),
     context_extraction: JSON.stringify({
       elements: [
@@ -278,6 +280,10 @@ export function createDryRunAdapter(
     architecture_analysis: JSON.stringify({
       summary: "Dry-run placeholder architecture",
       data_flow_description: "Dry-run placeholder data flow",
+      automation_verdict: {
+        warranted: true,
+        statement: "Dry-run placeholder verdict",
+      },
       components: [
         {
           name: "Dry Run Component",

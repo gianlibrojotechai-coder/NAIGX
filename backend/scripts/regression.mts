@@ -613,6 +613,7 @@ if (command === "run") {
       const mark = {
         passed: "✅",
         failed: "❌",
+        conflict: "⚖️ ",
         blocked: "⏸ ",
         stale: "♻️ ",
         errored: "💥",
@@ -629,7 +630,7 @@ if (command === "run") {
 
     const t = report.totals;
     console.log(
-      `\n${String(t.passed)} passed · ${String(t.failed)} failed · ${String(t.blocked)} blocked · ` +
+      `\n${String(t.passed)} passed · ${String(t.failed)} failed · ${String(t.conflict)} expectation conflict(s) · ${String(t.blocked)} blocked · ` +
         `${String(t.stale)} stale · ${String(t.errored)} errored`,
     );
     if (t.stale > 0) {
@@ -831,6 +832,7 @@ if (command === "evaluate") {
     const mark = {
       passed: "✅",
       failed: "❌",
+      conflict: "⚖️ ",
       blocked: "⏸ ",
       stale: "♻️ ",
       errored: "💥",
@@ -860,7 +862,7 @@ if (command === "evaluate") {
 
   const t = report.totals;
   console.log(
-    `\n${String(t.passed)} passed · ${String(t.failed)} failed · ${String(t.blocked)} blocked · ` +
+    `\n${String(t.passed)} passed · ${String(t.failed)} failed · ${String(t.conflict)} expectation conflict(s) · ${String(t.blocked)} blocked · ` +
       `${String(t.stale)} stale · ${String(t.errored)} errored`,
   );
   console.log(

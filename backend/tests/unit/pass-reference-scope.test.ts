@@ -51,6 +51,7 @@ const reportOf = (
       selected: cases.length,
       passed: cases.length,
       failed: 0,
+      conflict: 0,
       blocked: 0,
       stale: 0,
       errored: 0,

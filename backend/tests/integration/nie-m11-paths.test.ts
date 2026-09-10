@@ -148,6 +148,9 @@ const WORKFLOW_REVIEW_OUTPUT = JSON.stringify({
 const ASSESSMENT_INPUT = [
   "Take-home: design an ingestion path for partner webhooks into our warehouse.",
   "Partners retry on non-2xx. Volume is roughly 50 events a second at peak.",
+  // Over the D-90 minimal band: this scenario expects the assessment path's
+  // full set, and a two-line take-home would now run at minimal depth.
+  "Events must land within a minute, duplicates must be dropped, and the warehouse is BigQuery; explain the trade-offs you accept.",
 ].join("\n");
 
 const ASSESSMENT_CONTEXT = JSON.stringify({
@@ -757,3 +760,29 @@ for (const scenario of [WORKFLOW, ASSESSMENT]) {
     );
   });
 }
+
+// --- D-90: minimal depth on the assessment path ---------------------------
+
+test("D-90: a minimal assessment plans the recommendation and diagram, and omits the trade-off defence with a reason", async () => {
+  // The two-line take-home (149 characters): under the 200-character band.
+  const MINIMAL_ASSESSMENT: Scenario = {
+    ...ASSESSMENT,
+    input: ASSESSMENT_INPUT.split("\n").slice(0, 2).join("\n"),
+  };
+  assert.ok(MINIMAL_ASSESSMENT.input.length <= 200);
+
+  const { result, recorded } = await harness(MINIMAL_ASSESSMENT);
+
+  assert.equal(result.haltedAt, undefined);
+  assert.deepEqual(
+    recorded.artifacts.map((a) => a.artifactType),
+    ["intent_brief", "architecture_recommendation", "mermaid_diagram"],
+  );
+  const feedback = recorded
+    .plan()
+    .find((e) => e.artifactType === "assessment_feedback");
+  assert.equal(feedback?.planned, false);
+  assert.equal(feedback?.depthLevel, "minimal");
+  assert.match(feedback?.omissionReason ?? "", /Omitted by judgement/);
+  assert.match(feedback?.omissionReason ?? "", /FR-023/);
+});

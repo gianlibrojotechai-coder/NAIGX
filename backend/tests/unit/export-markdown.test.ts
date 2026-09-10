@@ -51,6 +51,8 @@ const baseAnalysis: AnalysisView = {
     primary_objective: "Determine fit for an automation engineer role",
     inferred_scope:
       "One posting, assessed against the stored capability profile",
+    requested_outcome: "design",
+    decline_quote: null,
     objective_provenance: { primary: "inferred", secondary: [] },
   },
   context: [

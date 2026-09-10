@@ -33,6 +33,7 @@ const intent: IntentResult = {
   },
   secondaryObjectives: [],
   inferredScope: "Accounts payable, from receipt to approval",
+  requestedOutcome: "design",
 };
 
 const context: ContextResult = {

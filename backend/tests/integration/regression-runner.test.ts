@@ -345,7 +345,7 @@ const run = (cases: readonly CorpusCase[], store: RecordingStore, repeat = 1) =>
     now: () => new Date(0),
   });
 
-const NO_STALE = { blocked: 0, stale: 0, errored: 0 } as const;
+const NO_STALE = { conflict: 0, blocked: 0, stale: 0, errored: 0 } as const;
 
 // --- a recorded case runs and passes -------------------------------------
 
@@ -542,6 +542,7 @@ test("a case with no recording is blocked, not passed and not failed", async () 
     selected: 1,
     passed: 0,
     failed: 0,
+    conflict: 0,
     blocked: 1,
     stale: 0,
     errored: 0,
@@ -856,4 +857,92 @@ test("a confidence-band mismatch is reported but does not fail the case (D-86)",
     outcome.assertionsEvaluated.includes("confidence_band"),
     "an advisory assertion still counts as evaluated",
   );
+});
+
+// --- D-90 §5: the expectation-conflict register ---------------------------
+
+const CONFLICT_ENTRY = {
+  assertion: "classification" as const,
+  expectation: "existing_workflow",
+  decision: "a test decision",
+  recordedIn: "this test",
+};
+
+test("D-90: a registered expectation conflict is `conflict`, not failed — counted apart and named in the reference", async () => {
+  // The frozen classification disagrees with what the recording produces;
+  // registering that disagreement turns the failure into a visible conflict.
+  const target = corpusCase({ expected_classification: "existing_workflow" });
+  const report = await runRegression({
+    cases: [target],
+    suiteVersion: "corpus-v2",
+    store: storeOf(await recordingFor(target)),
+    resolver,
+    now: () => new Date(0),
+    expectationConflicts: [{ caseId: target.caseId, ...CONFLICT_ENTRY }],
+  });
+
+  assert.deepEqual(report.totals, {
+    selected: 1,
+    passed: 0,
+    failed: 0,
+    conflict: 1,
+    blocked: 0,
+    stale: 0,
+    errored: 0,
+  });
+  const outcome = report.cases[0];
+  assert.equal(outcome?.status, "conflict");
+  assert.match(outcome?.detail ?? "", /expectation conflict/);
+  assert.match(outcome?.detail ?? "", /a test decision/);
+  // The assertion itself still reads failed: the register reports, it does
+  // not relabel.
+  assert.equal(
+    outcome?.assertions.find((a) => a.id === "classification")?.status,
+    "failed",
+  );
+
+  // The run is clean for the reference, and the reference names the conflict.
+  const reference = buildPassReference({
+    report,
+    fragmentsManifestVersion: "fragments-v1",
+  });
+  assert.ok(
+    reference,
+    "a run whose only failures are registered issues a reference",
+  );
+  assert.deepEqual(
+    reference.expectationConflicts.map((c) => [c.caseId, c.assertion]),
+    [[target.caseId, "classification"]],
+  );
+});
+
+test("D-90: an unregistered failure alongside a registered one still fails the case, and a stale entry is reported", async () => {
+  const target = corpusCase({
+    expected_classification: "existing_workflow",
+    bound: "below_threshold",
+  });
+  const report = await runRegression({
+    cases: [target],
+    suiteVersion: "corpus-v2",
+    store: storeOf(await recordingFor(target)),
+    resolver,
+    now: () => new Date(0),
+    expectationConflicts: [{ caseId: target.caseId, ...CONFLICT_ENTRY }],
+  });
+  assert.equal(report.cases[0]?.status, "failed");
+  assert.equal(report.totals.conflict, 0);
+
+  // A register entry whose contradiction no longer manifests is stale, and
+  // the runner says so rather than letting the register outlive it.
+  const passing = corpusCase();
+  const stale = await runRegression({
+    cases: [passing],
+    suiteVersion: "corpus-v2",
+    store: storeOf(await recordingFor(passing)),
+    resolver,
+    now: () => new Date(0),
+    expectationConflicts: [{ caseId: passing.caseId, ...CONFLICT_ENTRY }],
+  });
+  assert.equal(stale.cases[0]?.status, "passed");
+  assert.match(stale.cases[0]?.detail ?? "", /no longer manifests/);
 });
