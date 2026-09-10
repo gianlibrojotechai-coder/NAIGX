@@ -643,6 +643,19 @@ export function AnalysisView({
               <span className="font-medium">{analysis.derived_title}</span>
             </p>
           )}
+
+          {/* D-86 — Stage 11's band, with every factor exposed (AI §8.4).
+              Here, in the section that is always open, not under
+              Classification, which opens closed: the live check found the
+              table rendered but hidden there. */}
+          {analysis.overall_confidence !== null &&
+            analysis.overall_confidence !== undefined && (
+              <div className="mt-6">
+                <OverallConfidenceView
+                  confidence={analysis.overall_confidence}
+                />
+              </div>
+            )}
         </Section>
 
         {/* 2 · classification */}
@@ -686,11 +699,6 @@ export function AnalysisView({
             </dl>
           )}
 
-          {/* D-86 — Stage 11's band, with every factor exposed (AI §8.4). */}
-          {analysis.overall_confidence !== null &&
-            analysis.overall_confidence !== undefined && (
-              <OverallConfidenceView confidence={analysis.overall_confidence} />
-            )}
 
           {/* `FR-014` — "a control allows reclassification to any supported
             type". It re-submits rather than editing; `API §7.5` creates a new
