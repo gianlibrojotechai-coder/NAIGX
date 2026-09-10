@@ -35,7 +35,8 @@
     "encrypt:backfill": "tsx src/ops/encrypt.ts backfill",
     "bench": "tsx src/ops/bench.ts",
     "confidence:features": "tsx scripts/confidence-features.mts",
-    "confidence:fit": "tsx scripts/confidence-fit.mts"
+    "confidence:fit": "tsx scripts/confidence-fit.mts",
+    "measure:artifact-sets": "tsx scripts/measure-artifact-sets.mts"
   },
   "keywords": [],
   "author": "",

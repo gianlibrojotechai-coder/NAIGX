@@ -27,12 +27,7 @@ import { STAGE_OUTPUT_SCHEMAS } from "../../src/nie/output-schemas.js";
 import { parseStructured } from "../../src/nie/parse.js";
 import { createRecordingStore } from "../../src/regression/recording-store.js";
 
-const OPTIONAL_BY_DESIGN = new Set([
-  "why_not_consolidated",
-  "requested_outcome",
-  "decline_quote",
-  "automation_verdict",
-]);
+const OPTIONAL_BY_DESIGN = new Set(["why_not_consolidated"]);
 
 const UNSUPPORTED = new Set([
   "minimum",
@@ -103,10 +98,6 @@ test("1. every stage schema is in the constrained-decoding dialect", () => {
         }
         const optional = props.filter((p) => !required.includes(p));
         assert.deepEqual(
-          // D-90: requested_outcome, decline_quote and automation_verdict
-          // are optional in the request schema for the same reason (test 3):
-          // the recordings captured before D-90 have none of them, and the
-          // parser reads absence as design / warranted.
           optional.filter((p) => !OPTIONAL_BY_DESIGN.has(p)),
           [],
           `${path}: unexpected optional properties`,
