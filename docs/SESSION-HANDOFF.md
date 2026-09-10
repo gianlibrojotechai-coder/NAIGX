@@ -252,6 +252,18 @@ These are the defects that *passed every test* before being caught. They are the
 
 Ten provider calls at Opus 5 high effort: roughly **$2.0–2.5 per requirement analysis** (D-79 priced one generator at $0.24–0.26; there are now six, concurrent). The $6.00 day cap therefore admits about two requirement analyses a day; the job path (six calls) about four. The caps are the owner's configuration and were not touched; sizing them to the finished pipeline is the owner's call (`NAIGX_SPEND_CAP_USD_PER_DAY`/`_MONTH` in `deploy/.env`, then `up -d backend`).
 
+### Measured this morning, free (2026-09-10)
+
+- **M-10 classification accuracy: 41 of 44 = 93.2 %, NOT MET** against ≥95 % — [research/m10-classification-measurement.md](../research/m10-classification-measurement.md). All three misses are technical assessments read as the artifact they resemble; every other type is 100 %. Measured on the current fragment with Sonnet 5, one sample per case — not the production model. Nothing recaptured to improve it.
+- **M-07 passed** on `FR-039`'s four criteria with evidence (STATUS ledger). **M-18** amended: H-2 was resolved by D-61, so the internal review's criterion is met — with the self-review caveat the review states about itself.
+- **STATUS now carries a milestone ledger** (all 21 milestones, one state each, in four categories: known missing code, unverified behaviour, failed criterion, owner decision) and the **Sprint 6 obligations in full**. Read it before claiming anything is "done": features existing is not criteria met.
+
+### How to do the two human reviews yourself
+
+**M-08 (reasoning quality).** The reviewer packets are regenerated from the recordings in force: `research/reviews/m08-partial-corpus-v1/INDEX.md` lists fifteen, one per recorded case, blinded (do not open `UNBLINDING-INDEX…json` until done). Read `docs/10-Reasoning-Quality-Rubric.md` §3 (the seven criteria), then for each packet write the §4.4 review record — a verdict per criterion with the evidence line — into the packet's result section. Rules that bind: no AI may write or suggest a verdict (§4.3); your review counts as **single-reviewer** and is reported as such; a pass needs seven of seven, and C-3/C-6 are only assessable where the packet shows plan reasons and stated criteria (the job and requirement packets do). Fifteen packets cannot meet §4.1's ≥20 per type — that needs paid captures — so what you can establish now is whether the sample passes, not the milestone.
+
+**M-17 (accessibility).** Open `docs/accessibility/WCAG-AA-CHECKLIST.md`, follow it against the live site `https://naigx.tech` with a keyboard only (§1) and then a screen reader (NVDA is free on Windows), on one completed analysis from your History, and record pass/fail per item in the table at the bottom of that file. Commit the file; that record is the milestone's evidence.
+
 ### What remains, and whose it is
 
 | Item | Whose | Record |

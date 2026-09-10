@@ -34,6 +34,8 @@ milestone.
 
 > **Amended 2026-09-08:** H-2's requirement label was corrected (see the
 > finding). The verdict is unchanged.
+>
+> **Amended 2026-09-10: H-2 is RESOLVED.** [D-61](../36-D-61-Host-Held-Key-File.md) implemented the application-level layer — the three `DB §13.1` row-3 fields sealed under a host-held key file that is never in application configuration (the requirement's "managed key service" replaced by the host-held file, with the reasoning recorded there); the fail-closed key tests ran on the VPS with zero skips (D-61 §8); production logs `Field encryption active`; both restore drills decrypted the fields (M-19 §Phase 4). With no high-severity finding unresolved, **the criterion "review complete; no unresolved high-severity findings" is met on this review's own terms** — and this review's own terms are the caveat above: it was performed by the agent that wrote the code. Reading `AC-026`'s "review completed" as satisfied by a self-review is a judgement the owner should make knowingly; an independent review is the Sprint 6 "external viability review" and has not happened. The four medium and two low findings stand as recorded.
 
 | Severity | Count | State |
 |---|---|---|
