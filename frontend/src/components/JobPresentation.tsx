@@ -1,11 +1,13 @@
 /**
- * The one-page presentation of a job-description analysis (D-93).
+ * The one-page presentation of a job-description analysis (D-93), with the
+ * owner's app choices on top (D-94).
  *
  * The owner's brief: "what I just want to see as the results is the
  * description of the job, the workflow that I will need to create, the apps
  * that I will need to use, build or apply — I don't need the req-4/6,
  * confidence, something visual, like NAIGX will give a single web page
- * presentation."
+ * presentation." And then: "how can it show all available apps, so that I can
+ * choose from."
  *
  * So this view shows four things and nothing else: the job in plain words,
  * the verdict, the workflow to build (as a diagram, then as steps), and the
@@ -13,8 +15,13 @@
  * and the alternatives stay in the full view (`AnalysisView`), one click away
  * — the reasoning is not removed, it is not *led* with.
  *
- * Everything here is read from data the analysis already holds: the Stage 7
- * verdict, the `skill_gap_analysis`, `portfolio_suggestions` and
+ * Every step carries a swap control. Choosing an app from the catalogue
+ * changes that step's app in the diagram, the step list, the toolkit and the
+ * n8n download, and marks it as the owner's pick rather than NAIGX's. The
+ * choice lives in this browser only; the stored analysis is untouched.
+ *
+ * Everything else here is read from data the analysis already holds: the
+ * Stage 7 verdict, the `skill_gap_analysis`, `portfolio_suggestions` and
  * `n8n_workflow` artifacts and the intent brief. No new API, no new
  * generation. If an artifact is absent the panel that needs it says so in one
  * line rather than disappearing (`FR-093`).
@@ -32,7 +39,17 @@ import {
   type PortfolioProject,
   type SkillGapAnalysis,
 } from "../api/types";
+import {
+  appByType,
+  appNameForType,
+  isBuildingBlock,
+  loadChoices,
+  saveChoices,
+  type AppChoices,
+  type CatalogueApp,
+} from "../apps";
 import { humanise, verdictLabel } from "../format";
+import { AppPicker } from "./AppPicker";
 import { ExportAnalysisButton } from "./ExportControls";
 
 // --- data shaping -----------------------------------------------------------
@@ -71,133 +88,142 @@ const roleTitle = (analysis: Analysis): string => {
 interface Step {
   readonly name: string;
   readonly purpose: string | null;
+  /** NAIGX's pick — the n8n node type behind the step, when known. */
+  readonly nodeType: string | null;
+  /** NAIGX's pick, as a person would name it. */
   readonly app: string | null;
+  /** Index into `workflow.nodes` (sticky notes excluded), for the download. */
+  readonly nodeIndex: number | null;
 }
 
-/** `n8n-nodes-base.googleSheets` → "Google Sheets". */
-const appFromNodeType = (type: string): string | null => {
-  const known: Readonly<Record<string, string>> = {
-    httpRequest: "HTTP Request",
-    webhook: "Webhook",
-    scheduleTrigger: "Schedule",
-    manualTrigger: "Manual trigger",
-    gmail: "Gmail",
-    gmailTrigger: "Gmail",
-    googleSheets: "Google Sheets",
-    googleDrive: "Google Drive",
-    googleCalendar: "Google Calendar",
-    slack: "Slack",
-    hubspot: "HubSpot",
-    notion: "Notion",
-    airtable: "Airtable",
-    openAi: "OpenAI",
-    telegram: "Telegram",
-    telegramTrigger: "Telegram",
-    postgres: "PostgreSQL",
-    mySql: "MySQL",
-    code: "Code",
-    set: "Set",
-    if: "IF",
-    switch: "Switch",
-    merge: "Merge",
-    splitInBatches: "Loop",
-    wait: "Wait",
-    emailSend: "Email",
-    microsoftExcel: "Excel",
-    microsoftOutlook: "Outlook",
-    microsoftTeams: "Teams",
-    salesforce: "Salesforce",
-    stripe: "Stripe",
-    shopify: "Shopify",
-    zendesk: "Zendesk",
-    jira: "Jira",
-    github: "GitHub",
-    twilio: "Twilio",
-  };
-  if (type === "n8n-nodes-base.noOp" || type === "n8n-nodes-base.stickyNote")
-    return null;
-  const bare = type
-    .replace(/^@?[\w-]+\/[\w-]+\./, "")
-    .replace(/^n8n-nodes-base\./, "");
-  const base = bare.replace(/Trigger$/, "");
-  if (base in known) return known[base] ?? null;
-  if (/agent|lmChat|openAi|anthropic|gemini/i.test(bare)) return "AI model";
-  return humanise(bare.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase());
-};
+const stepNodes = (workflow: N8nWorkflow | null) =>
+  workflow === null
+    ? []
+    : workflow.nodes
+        .map((node, index) => ({ node, index }))
+        .filter(({ node }) => node.type !== "n8n-nodes-base.stickyNote");
 
 const stepsFor = (
   project: PortfolioProject | null,
   workflow: N8nWorkflow | null,
 ): readonly Step[] => {
-  if (
-    project?.implementation !== undefined &&
-    project.implementation.steps.length > 0
-  ) {
-    return project.implementation.steps.map((s) => ({
-      name: s.node,
-      purpose: s.purpose,
-      app: null,
+  const nodes = stepNodes(workflow);
+  const plan = project?.implementation;
+  if (plan !== undefined && plan.steps.length > 0) {
+    // D-71 built the scaffold from these steps in order, so the i-th node is
+    // the i-th step whenever the counts agree; otherwise the plan stands alone.
+    const aligned = nodes.length === plan.steps.length;
+    return plan.steps.map((s, i) => {
+      const node = aligned ? (nodes[i] ?? null) : null;
+      return {
+        name: s.node,
+        purpose: s.purpose,
+        nodeType: node?.node.type ?? null,
+        app: node === null ? null : appNameForType(node.node.type),
+        nodeIndex: node?.index ?? null,
+      };
+    });
+  }
+  if (nodes.length > 0) {
+    return nodes.map(({ node, index }) => ({
+      name: node.name,
+      purpose: null,
+      nodeType: node.type,
+      app: appNameForType(node.type),
+      nodeIndex: index,
     }));
   }
-  if (workflow !== null) {
-    return workflow.nodes
-      .filter((n) => n.type !== "n8n-nodes-base.stickyNote")
-      .map((n) => ({
-        name: n.name,
-        purpose: null,
-        app: appFromNodeType(n.type),
-      }));
-  }
   if (project?.workflow !== undefined) {
-    return project.workflow.map((s) => ({ name: s, purpose: null, app: null }));
+    return project.workflow.map((s) => ({
+      name: s,
+      purpose: null,
+      nodeType: null,
+      app: null,
+      nodeIndex: null,
+    }));
   }
   return [];
 };
 
+/** A step as it stands after the owner's choice, if any. */
+interface EffectiveStep extends Step {
+  readonly chosen: CatalogueApp | null;
+  readonly shownApp: string | null;
+}
+
+const applyChoices = (
+  steps: readonly Step[],
+  choices: AppChoices,
+): readonly EffectiveStep[] =>
+  steps.map((step, i) => {
+    const chosen = appByType(choices[String(i)] ?? "");
+    return {
+      ...step,
+      chosen,
+      shownApp:
+        chosen === null ? step.app : chosen.name.replace(/ Trigger$/, ""),
+    };
+  });
+
 const appsFor = (
   project: PortfolioProject | null,
-  workflow: N8nWorkflow | null,
-): readonly string[] => {
-  const seen = new Map<string, string>();
-  const add = (name: string | null) => {
+  steps: readonly EffectiveStep[],
+): readonly { name: string; yours: boolean }[] => {
+  const seen = new Map<string, { name: string; yours: boolean }>();
+  const add = (name: string | null, yours: boolean) => {
     if (name === null) return;
-    const key = name.trim().toLowerCase();
-    if (key === "" || seen.has(key)) return;
-    seen.set(key, name.trim());
+    const k = name.trim().toLowerCase();
+    if (k === "" || seen.has(k)) return;
+    seen.set(k, { name: name.trim(), yours });
   };
   if (project?.implementation !== undefined)
-    add(project.implementation.platform);
-  project?.platforms?.forEach(add);
-  workflow?.nodes.forEach((n) => {
-    add(appFromNodeType(n.type));
-  });
-  // Generic n8n building blocks are not "apps you will use".
-  const building = new Set([
+    add(project.implementation.platform, false);
+  for (const step of steps) {
+    if (step.chosen !== null) {
+      if (!isBuildingBlock(step.chosen)) add(step.shownApp, true);
+      continue;
+    }
+    if (step.nodeType !== null) {
+      const known = appByType(step.nodeType);
+      if (known !== null && isBuildingBlock(known)) continue;
+    }
+    add(step.app, false);
+  }
+  const plumbing = new Set([
     "code",
     "set",
+    "edit fields",
     "if",
     "switch",
     "merge",
     "loop",
+    "loop over items",
     "wait",
-    "manual trigger",
+    "filter",
     "no op",
+    "no operation, do nothing",
+    "manual trigger",
+    "http request",
+    "webhook",
+    "schedule",
+    "schedule trigger",
   ]);
-  return [...seen.values()].filter((n) => !building.has(n.toLowerCase()));
+  return [...seen.values()].filter((a) => !plumbing.has(a.name.toLowerCase()));
 };
 
-const mermaidFor = (steps: readonly Step[]): string => {
+const mermaidFor = (steps: readonly EffectiveStep[]): string => {
   const label = (s: string) => s.replace(/["[\]{}()<>|]/g, " ").trim();
   const lines = ["flowchart LR"];
   steps.forEach((step, i) => {
+    const app = step.shownApp;
     const text =
-      step.app !== null &&
-      !step.name.toLowerCase().includes(step.app.toLowerCase())
-        ? `${label(step.name)}<br/><i>${label(step.app)}</i>`
+      app !== null && !step.name.toLowerCase().includes(app.toLowerCase())
+        ? `${label(step.name)}<br/><i>${label(app)}</i>`
         : label(step.name);
     lines.push(`  s${String(i)}["${text}"]`);
-    if (i === 0) lines.push(`  class s${String(i)} trigger`);
-    if (i === steps.length - 1 && steps.length > 1)
+    if (step.chosen !== null) lines.push(`  class s${String(i)} yours`);
+    else if (i === 0) lines.push(`  class s${String(i)} trigger`);
+    else if (i === steps.length - 1 && steps.length > 1)
       lines.push(`  class s${String(i)} last`);
     if (i > 0) lines.push(`  s${String(i - 1)} --> s${String(i)}`);
   });
@@ -210,12 +236,51 @@ const mermaidFor = (steps: readonly Step[]): string => {
   lines.push(
     "  classDef last fill:#0b2a1e,stroke:#34d399,color:#a7f3d0,rx:10,ry:10",
   );
+  lines.push(
+    "  classDef yours fill:#2a1f0b,stroke:#fcd34d,color:#fde68a,rx:10,ry:10",
+  );
   return lines.join("\n");
+};
+
+/**
+ * The n8n file with the owner's choices applied. Names and wiring are kept —
+ * `connections` is keyed by node name — so the import still links up; the
+ * swapped node gets the chosen type at its current version, empty parameters
+ * and a note saying who chose it.
+ */
+const workflowWithChoices = (
+  workflow: N8nWorkflow,
+  steps: readonly EffectiveStep[],
+): N8nWorkflow => {
+  const swaps = new Map<number, CatalogueApp>();
+  for (const step of steps) {
+    if (step.chosen !== null && step.nodeIndex !== null)
+      swaps.set(step.nodeIndex, step.chosen);
+  }
+  if (swaps.size === 0) return workflow;
+  return {
+    ...workflow,
+    nodes: workflow.nodes.map((node, index) => {
+      const chosen = swaps.get(index);
+      if (chosen === undefined) return node;
+      return {
+        ...node,
+        type: chosen.type,
+        typeVersion: chosen.version,
+        parameters: {},
+        notes: `App chosen by you in NAIGX: ${chosen.name} (replacing ${appNameForType(node.type) ?? node.type}). Set this node up from scratch.${node.notes === undefined ? "" : `\n\nNAIGX's original note:\n${node.notes}`}`,
+      };
+    }),
+    naigx: {
+      ...workflow.naigx,
+      steps_unmapped: workflow.naigx.steps_unmapped,
+    },
+  };
 };
 
 // --- pieces -----------------------------------------------------------------
 
-function FlowDiagram({ steps }: { steps: readonly Step[] }) {
+function FlowDiagram({ steps }: { steps: readonly EffectiveStep[] }) {
   const [svg, setSvg] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const domId = useRef(
@@ -315,23 +380,30 @@ function Panel({
   title,
   children,
   index,
+  aside,
 }: {
   eyebrow: string;
   title: string;
   children: ReactNode;
   index: number;
+  aside?: ReactNode;
 }) {
   return (
     <section
       className="rise rounded-xl border border-slate-200 bg-white p-6 sm:p-8"
       style={{ ["--i" as string]: index }}
     >
-      <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-accent-400">
-        {eyebrow}
-      </p>
-      <h2 className="mt-1 font-serif text-2xl text-slate-900 sm:text-3xl">
-        {title}
-      </h2>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-accent-400">
+            {eyebrow}
+          </p>
+          <h2 className="mt-1 font-serif text-2xl text-slate-900 sm:text-3xl">
+            {title}
+          </h2>
+        </div>
+        {aside}
+      </div>
       <div className="mt-5">{children}</div>
     </section>
   );
@@ -348,7 +420,15 @@ const APP_HUES = [
   "#a3e635",
 ];
 
-function AppTile({ name, index }: { name: string; index: number }) {
+function AppTile({
+  name,
+  index,
+  yours,
+}: {
+  name: string;
+  index: number;
+  yours: boolean;
+}) {
   const hue = APP_HUES[index % APP_HUES.length] ?? "#22d3ee";
   const initials = name
     .split(/\s+/)
@@ -358,7 +438,9 @@ function AppTile({ name, index }: { name: string; index: number }) {
     .toUpperCase();
   return (
     <li
-      className="lift rise flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-100/70 px-3 py-2.5"
+      className={`lift rise flex items-center gap-3 rounded-lg border bg-slate-100/70 px-3 py-2.5 ${
+        yours ? "border-amber-300" : "border-slate-200"
+      }`}
       style={{ ["--i" as string]: index + 3 }}
     >
       <span
@@ -368,7 +450,14 @@ function AppTile({ name, index }: { name: string; index: number }) {
       >
         {initials}
       </span>
-      <span className="text-sm font-medium text-slate-800">{name}</span>
+      <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">
+        {name}
+      </span>
+      {yours && (
+        <span className="shrink-0 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">
+          your pick
+        </span>
+      )}
     </li>
   );
 }
@@ -428,8 +517,33 @@ export function JobPresentation({
       : [...portfolio.projects].sort((a, b) => a.rank - b.rank);
   const top = projects[0] ?? null;
   const others = projects.slice(1, 3);
-  const steps = stepsFor(top, workflow);
-  const apps = appsFor(top, workflow);
+
+  // D-94 — the owner's app choices, this browser only.
+  const [choices, setChoices] = useState<AppChoices>(() =>
+    loadChoices(analysis.analysis_id),
+  );
+  const [picking, setPicking] = useState<number | null>(null);
+  const swapButtons = useRef<Map<number, HTMLButtonElement>>(new Map());
+  useEffect(() => {
+    setChoices(loadChoices(analysis.analysis_id));
+  }, [analysis.analysis_id]);
+  const setChoice = (index: number, type: string | null) => {
+    const next: Record<string, string> = { ...choices };
+    if (type === null) delete next[String(index)];
+    else next[String(index)] = type;
+    setChoices(next);
+    saveChoices(analysis.analysis_id, next);
+  };
+  const closePicker = () => {
+    const index = picking;
+    setPicking(null);
+    if (index !== null) swapButtons.current.get(index)?.focus();
+  };
+
+  const steps = applyChoices(stepsFor(top, workflow), choices);
+  const chosenCount = steps.filter((s) => s.chosen !== null).length;
+  const apps = appsFor(top, steps);
+  const canSwap = steps.some((s) => s.nodeIndex !== null);
 
   const verdict = analysis.verdict;
   const build = verdict?.decision === "build_first";
@@ -452,6 +566,8 @@ export function JobPresentation({
   );
   const total = gapAnalysis?.summary.requirements ?? have.length + gaps.length;
   const coverage = total === 0 ? 0 : Math.round((have.length / total) * 100);
+
+  const pickingStep = picking === null ? null : (steps[picking] ?? null);
 
   return (
     <div className="space-y-6">
@@ -596,6 +712,21 @@ export function JobPresentation({
           build ? "What to build first" : "The workflow this role expects"
         }
         title={top?.name ?? "The workflow"}
+        aside={
+          chosenCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setChoices({});
+                saveChoices(analysis.analysis_id, {});
+              }}
+              className="rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-50/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+            >
+              {chosenCount} app{chosenCount === 1 ? "" : "s"} swapped · reset to
+              NAIGX&apos;s picks
+            </button>
+          ) : undefined
+        }
       >
         {top === null && steps.length === 0 ? (
           <p className="text-sm text-slate-500 italic">
@@ -640,7 +771,11 @@ export function JobPresentation({
                 {steps.map((step, i) => (
                   <li
                     key={`${String(i)}-${step.name}`}
-                    className="rise flex gap-3 rounded-lg border border-slate-200 bg-slate-100/60 p-3"
+                    className={`rise flex gap-3 rounded-lg border bg-slate-100/60 p-3 ${
+                      step.chosen !== null
+                        ? "border-amber-300"
+                        : "border-slate-200"
+                    }`}
                     style={{ ["--i" as string]: i + 4 }}
                   >
                     <span
@@ -649,7 +784,7 @@ export function JobPresentation({
                     >
                       {i + 1}
                     </span>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-slate-900">
                         {step.name}
                       </p>
@@ -658,15 +793,50 @@ export function JobPresentation({
                           {step.purpose}
                         </p>
                       )}
-                      {step.purpose === null && step.app !== null && (
-                        <p className="mt-0.5 text-sm text-slate-600">
-                          {step.app}
+                      {step.shownApp !== null && (
+                        <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+                          <span>App:</span>
+                          <span
+                            className={`font-medium ${step.chosen !== null ? "text-amber-900" : "text-slate-700"}`}
+                          >
+                            {step.shownApp}
+                          </span>
+                          {step.chosen !== null && (
+                            <span className="rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">
+                              your pick
+                            </span>
+                          )}
                         </p>
                       )}
                     </div>
+                    {step.nodeIndex !== null && (
+                      <button
+                        type="button"
+                        ref={(el) => {
+                          if (el === null) swapButtons.current.delete(i);
+                          else swapButtons.current.set(i, el);
+                        }}
+                        onClick={() => {
+                          setPicking(i);
+                        }}
+                        aria-label={`Swap the app for step ${String(i + 1)}, ${step.name}`}
+                        className="self-start rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-800 hover:border-accent-500 hover:text-accent-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-300"
+                      >
+                        Swap
+                      </button>
+                    )}
                   </li>
                 ))}
               </ol>
+            )}
+
+            {canSwap && (
+              <p className="text-xs text-slate-500">
+                Swap any step for one of the 400+ apps n8n ships — one you
+                prefer, one the client already pays for, or one you want to
+                learn. Your picks stay in this browser and go into the download;
+                the analysis itself is unchanged.
+              </p>
             )}
 
             {workflow !== null && (
@@ -674,15 +844,19 @@ export function JobPresentation({
                 <button
                   type="button"
                   onClick={() => {
-                    downloadWorkflow(workflow, analysis.analysis_id);
+                    downloadWorkflow(
+                      workflowWithChoices(workflow, steps),
+                      analysis.analysis_id,
+                    );
                   }}
                   className="rounded-md bg-accent-400 px-4 py-2 font-mono text-sm font-semibold uppercase tracking-[0.12em] text-slate-50 hover:bg-accent-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-300 focus-visible:ring-offset-2"
                 >
                   Download for n8n ↓
                 </button>
                 <p className="text-sm text-slate-600">
-                  A scaffold: the nodes are wired, the settings are yours to
-                  fill in.
+                  {chosenCount > 0
+                    ? `A scaffold with your ${String(chosenCount)} swapped app${chosenCount === 1 ? "" : "s"} wired in. Settings are yours to fill in.`
+                    : "A scaffold: the nodes are wired, the settings are yours to fill in."}
                 </p>
               </div>
             )}
@@ -699,7 +873,12 @@ export function JobPresentation({
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {apps.map((app, i) => (
-              <AppTile key={app} name={app} index={i} />
+              <AppTile
+                key={app.name}
+                name={app.name}
+                index={i}
+                yours={app.yours}
+              />
             ))}
           </ul>
         )}
@@ -832,6 +1011,24 @@ export function JobPresentation({
           </button>
         </div>
       </div>
+
+      {picking !== null && pickingStep !== null && (
+        <AppPicker
+          stepName={pickingStep.name}
+          stepNumber={picking + 1}
+          isTrigger={picking === 0}
+          currentType={pickingStep.chosen?.type ?? pickingStep.nodeType}
+          onChoose={(app) => {
+            setChoice(picking, app.type);
+            closePicker();
+          }}
+          onReset={() => {
+            setChoice(picking, null);
+            closePicker();
+          }}
+          onClose={closePicker}
+        />
+      )}
     </div>
   );
 }

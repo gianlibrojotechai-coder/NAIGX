@@ -3,6 +3,8 @@
 **Written:** 2026-09-08 · **Last updated:** 2026-09-10, late (D-72 through D-88 — the finish-line-2 build-out; see **§7c**, which supersedes the front-line statements below it)
 **Purpose:** hand a new chat session everything it needs to continue building NAIGX without re-deriving context or re-litigating settled decisions.
 
+> ▶ **2026-09-29 — [D-94](69-D-94-App-Catalogue-And-Picker.md): app catalogue (n8n's 410) + Swap on every step; frontend only; deploys with D-93.**
+>
 > ▶ **2026-09-29 — [D-93](68-D-93-Job-Presentation.md): one-page job presentation built (frontend only); deploy is an edge rebuild.**
 >
 > ▶ **2026-09-29 — [D-92](67-D-92-Opus-5-5.md) APPLIED.** Production reasons on `claude-opus-5-5` at 4.00 / 20.00, effort `high` (explicit — 5.5 defaults to medium), image unchanged, readiness 200. Verified: the owner's JD run on 5.5 completed, $0.7371 / 262 s, −14 % / −17 % against the same input on Opus 5 (D-92 §5). D-92 §6 records a Stage 7 partition refusal on Opus 5 the same hour and the owner's three options.
