@@ -66,7 +66,7 @@ Stage 7 refusal.
 | A grounding refusal is still not regenerated (`retryCount` 0) | ✅ same |
 | Both partition rules throw `RecommendationPartitionError` | ✅ `tests/unit/nie-recommendation.test.ts` |
 | Full backend gate: typecheck clean, 1,065 tests passing, 95 skipped (the Postgres- and browser-backed suites, absent locally as always) | ✅ 2026-09-29 |
-| Deployed; the next live partition refusal shows `retry_count` 1 on its Stage 7 trace | ⏳ deploy is a backend rebuild (§5) |
+| Deployed; the next live partition refusal shows `retry_count` 1 on its Stage 7 trace | ✅ **Deployed 2026-09-29 ~09:35 UTC** on the owner's pasted commands: host at `96c057f`, backend image `1cf8e11ad6d4` (outgoing `b5f6820c3684` tagged `naigx-backend:rollback-f39c99e`), no migrations, no running analysis at the switch; healthy; readiness 200 inside and out; boot line `mode: live, caps 6.00/50.00, reserve 1.00, allowlist 1`; `claude-opus-5-5`; the compiled pipeline carries `RecommendationPartitionError`. The live proof — a Stage 7 trace with `retry_count` 1 — waits for the next partition refusal |
 
 ## 5. Deploy
 
