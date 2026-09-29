@@ -119,7 +119,8 @@ const appFromNodeType = (type: string): string | null => {
   const bare = type
     .replace(/^@?[\w-]+\/[\w-]+\./, "")
     .replace(/^n8n-nodes-base\./, "");
-  if (bare in known) return known[bare] ?? null;
+  const base = bare.replace(/Trigger$/, "");
+  if (base in known) return known[base] ?? null;
   if (/agent|lmChat|openAi|anthropic|gemini/i.test(bare)) return "AI model";
   return humanise(bare.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase());
 };
@@ -233,13 +234,20 @@ function FlowDiagram({ steps }: { steps: readonly Step[] }) {
           theme: "base",
           themeVariables: {
             fontFamily: "Inter Variable, Inter, system-ui, sans-serif",
-            fontSize: "14px",
+            fontSize: "15px",
             lineColor: "#9aa0ae",
             primaryColor: "#17181d",
             primaryTextColor: "#f1f5f9",
             primaryBorderColor: "#383b46",
           },
-          flowchart: { useMaxWidth: true, curve: "basis", padding: 12 },
+          // Natural size, never shrunk to fit: eight nodes squeezed into the
+          // column are unreadable. The figure scrolls sideways instead.
+          flowchart: {
+            useMaxWidth: false,
+            curve: "basis",
+            padding: 14,
+            nodeSpacing: 36,
+          },
         });
         const out = await mermaid.render(domId, source);
         if (!cancelled) setSvg(out.svg);
@@ -267,7 +275,7 @@ function FlowDiagram({ steps }: { steps: readonly Step[] }) {
         <div
           role="img"
           aria-label={description}
-          className="[&_svg]:mx-auto [&_svg]:max-w-none"
+          className="[&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-w-none"
           // Mermaid's output with `securityLevel: "strict"` — the same trust
           // boundary MermaidDiagram.tsx already relies on.
           dangerouslySetInnerHTML={{ __html: svg }}
