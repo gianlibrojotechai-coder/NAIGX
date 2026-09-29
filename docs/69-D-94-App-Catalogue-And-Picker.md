@@ -82,4 +82,4 @@ them; another device does not see them; the export is unchanged.
 |---|---|
 | Generator runs on Windows (Git Bash tar) and produces 410 apps; `oxlint` clean; `tsc -b && vite build` green | ✅ 2026-09-29 |
 | Preview with sample data: picker opens on step 5, search "pipe" lists Pipedrive and Pipedrive Trigger, choosing Pipedrive marks the card, the tile and the download line; no page errors | ✅ 2026-09-29, headless Chromium screenshots; preview republished |
-| Live on production for the owner's own analyses; a swapped download imports into n8n with the chosen node | ⏳ after the edge image is rebuilt (with D-93) |
+| Live on production for the owner's own analyses; a swapped download imports into n8n with the chosen node | ✅ **Deployed 2026-09-29 ~06:20 UTC**: host at `fe529f6`, edge image `ba5d65af0d27` (outgoing `5afc66381876` tagged `naigx-edge:rollback-9ffb13c`), backend untouched (`b5f6820c3684`, still `claude-opus-5-5`), no migrations; `https://naigx.tech/` 200 serving a bundle that carries the presentation, the picker and `n8n-nodes-base@2.15.1`; readiness 200. The n8n import of a swapped file is the owner's check |

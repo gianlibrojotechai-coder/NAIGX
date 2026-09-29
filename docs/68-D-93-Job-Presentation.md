@@ -48,6 +48,6 @@ review still opens in the full view.
 | Check | Result |
 |---|---|
 | `oxlint` clean, `tsc -b && vite build` green | ✅ 2026-09-29 |
-| Presentation is the default for the owner's 03:57 UTC job-description analysis in production; the toggle reaches the full view and back; the diagram renders; n8n download works | ⏳ after the edge image is rebuilt |
-| A non-job-description analysis still opens in the full view | ⏳ same deploy |
+| Presentation is the default for the owner's 03:57 UTC job-description analysis in production; the toggle reaches the full view and back; the diagram renders; n8n download works | ✅ **Deployed 2026-09-29 ~06:20 UTC**: host at `fe529f6`, edge image `ba5d65af0d27` (outgoing `5afc66381876` tagged `naigx-edge:rollback-9ffb13c`), backend untouched (`b5f6820c3684`, still `claude-opus-5-5`), no migrations; `https://naigx.tech/` 200 serving a bundle that carries the presentation, the picker and `n8n-nodes-base@2.15.1`; readiness 200. The owner's walk of the live page is the remaining check |
+| A non-job-description analysis still opens in the full view | ⏳ owner's walk (no non-JD analysis was run today) |
 | axe on the presentation | ⚠️ not automated — the D-49 harness covers the input surface only; the owner's walk on the live page stands in |
