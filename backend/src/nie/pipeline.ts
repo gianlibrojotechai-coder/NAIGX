@@ -52,7 +52,11 @@ import {
 } from "./contracts.js";
 import { composePrompt, type ComposedPrompt } from "./prompt.js";
 import type { CapabilityProfile } from "./capability-profile.js";
-import { parseRecommendation } from "./stages/recommendation-generation.js";
+import {
+  parseRecommendation,
+  partitionCorrectionFor,
+  RecommendationPartitionError,
+} from "./stages/recommendation-generation.js";
 import { parseInterviewGuidance } from "./stages/interview-guidance.js";
 import { parsePlatformRecommendation } from "./stages/platform-recommendation.js";
 import { parseRiskRegister } from "./stages/risk-assessment.js";
@@ -2393,6 +2397,14 @@ export function createPipeline(deps: PipelineDependencies) {
             }),
           ),
         parse: (text) => parseRecommendation(text, context, profile),
+        // D-95: the two partition rules — a requirement in both lists or in
+        // neither — earn one informed regeneration, the parser's reason
+        // appended. Same mechanism as Stage 6 (traceability) and Stage 2
+        // (decline quote); every other Stage 7 refusal still fails once.
+        regenerateOnce: (error) =>
+          error instanceof RecommendationPartitionError
+            ? { addendum: partitionCorrectionFor(error) }
+            : false,
       });
       extendContext(input, { recommendation });
 

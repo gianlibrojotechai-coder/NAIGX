@@ -82,6 +82,39 @@ export class RecommendationGroundingError extends StageError {
   }
 }
 
+/**
+ * A Stage 7 partition failure — `matched` and `gaps` do not partition the
+ * requirement set: a requirement in both lists, or in neither (D-28).
+ *
+ * The one Stage 7 failure that earns a single *informed* regeneration
+ * (D-95, reversing D-91 §3 for these two rules only). The prompt already
+ * states the rule in bold, and the same input passed fifteen minutes earlier
+ * on the day it refused — this is sample variance on a mechanical rule, not
+ * a finding about the prompt, and each refusal cost the owner a whole run.
+ * Everything else Stage 7 refuses still fails the stage visibly, once.
+ */
+export class RecommendationPartitionError extends StageError {
+  constructor(message: string) {
+    super(STAGE_NUMBER, STAGE_KEY, message);
+    this.name = "RecommendationPartitionError";
+  }
+}
+
+/**
+ * What the regeneration is told (D-95). Appended to the request *input*, so
+ * the fragment-composed instructions stay byte-identical to what the stage
+ * recorded using; the parser's reason is data about one response.
+ */
+export const partitionCorrectionFor = (
+  error: RecommendationPartitionError,
+): string =>
+  [
+    "Your previous answer was rejected before it was used:",
+    error.message + ".",
+    "Every requirement id in required_capabilities must appear exactly once across matched and gaps — never in both, never in neither.",
+    "Re-issue the complete response with that fixed and nothing else changed.",
+  ].join(" ");
+
 function parseRequirement(
   value: unknown,
   index: number,
@@ -260,7 +293,7 @@ export function parseRecommendation(
   const matchedIds = new Set(matched.map((m) => m.requirementId));
   for (const gap of gaps) {
     if (matchedIds.has(gap.requirementId)) {
-      fail(
+      throw new RecommendationPartitionError(
         `requirement ${JSON.stringify(gap.requirementId)} is reported as both matched and a gap`,
       );
     }
@@ -281,7 +314,7 @@ export function parseRecommendation(
     (r) => !matchedIds.has(r.id) && !gapIdSet.has(r.id),
   );
   if (undisposed.length > 0) {
-    throw new RecommendationGroundingError(
+    throw new RecommendationPartitionError(
       `every required capability must be reported as matched or as a gap; ` +
         `${String(undisposed.length)} received neither: ` +
         undisposed

@@ -34,7 +34,11 @@ import {
   correctionFor,
   validateArtifact,
 } from "../../src/nie/artifact-validation.js";
-import { parseRecommendation } from "../../src/nie/stages/recommendation-generation.js";
+import {
+  parseRecommendation,
+  partitionCorrectionFor,
+  RecommendationPartitionError,
+} from "../../src/nie/stages/recommendation-generation.js";
 import { parseClassification } from "../../src/nie/stages/classification.js";
 import { parseIntent } from "../../src/nie/stages/intent.js";
 import { parseContext } from "../../src/nie/stages/context-extraction.js";
@@ -264,6 +268,11 @@ const primedAdapter = async (
      * a corrected second answer.
      */
     readonly portfolioRetry?: string;
+    /**
+     * D-95: what Stage 7 returns on its one informed regeneration after a
+     * partition refusal. Defaults to the first answer, so the failure stands.
+     */
+    readonly recommendationRetry?: string;
   } = {},
 ) => {
   const fixtures: Record<
@@ -319,21 +328,36 @@ const primedAdapter = async (
   );
   const context = parseContext(CONTEXT_OUTPUT, INPUT);
 
+  const recommendationHandoff = stageHandoff({
+    classification,
+    intent,
+    context: contextHandoffView(context),
+    capability_profile: profile,
+  });
   await add(
     "recommendation_generation",
-    stageHandoff({
-      classification,
-      intent,
-      context: contextHandoffView(context),
-      capability_profile: profile,
-    }),
+    recommendationHandoff,
     outputs.recommendation ?? RECOMMENDATION_OUTPUT,
     "job_description",
   );
 
-  // Stage 9 is keyed on the derived eligible-gap view, so the fixture has to
-  // be built the same way the pipeline builds it.
-  const recommendationText = outputs.recommendation ?? RECOMMENDATION_OUTPUT;
+  let recommendationText = outputs.recommendation ?? RECOMMENDATION_OUTPUT;
+  // D-95: a partition refusal is regenerated once with the parser's reason
+  // appended — a different request, so it needs its own fixture. Downstream
+  // fixtures are then built against the answer the pipeline will actually use.
+  try {
+    parseRecommendation(recommendationText, context, profile);
+  } catch (error) {
+    if (error instanceof RecommendationPartitionError) {
+      recommendationText = outputs.recommendationRetry ?? recommendationText;
+      await add(
+        "recommendation_generation",
+        `${recommendationHandoff}\n\n${partitionCorrectionFor(error)}`,
+        recommendationText,
+        "job_description",
+      );
+    }
+  }
   try {
     const recommendation = parseRecommendation(
       recommendationText,
@@ -403,6 +427,7 @@ const buildHarness = async (
     readonly recommendation?: string;
     readonly portfolio?: string;
     readonly portfolioRetry?: string;
+    readonly recommendationRetry?: string;
   } = {},
 ) => {
   const traces: StageTraceRecord[] = [];
@@ -420,6 +445,9 @@ const buildHarness = async (
           : {}),
         ...(options.portfolioRetry !== undefined
           ? { portfolioRetry: options.portfolioRetry }
+          : {}),
+        ...(options.recommendationRetry !== undefined
+          ? { recommendationRetry: options.recommendationRetry }
           : {}),
       }),
       rate,
@@ -588,6 +616,80 @@ test("an invented requirement fails the stage rather than reaching a verdict", a
     }),
     /cites context element 9/,
   );
+});
+
+// --- D-95: a partition refusal earns one informed regeneration ------------
+
+/** RECOMMENDATION_OUTPUT with req-1 reported as both matched and a gap. */
+const BOTH_LISTS_RECOMMENDATION = (() => {
+  const doc = JSON.parse(RECOMMENDATION_OUTPUT) as {
+    gaps: {
+      requirement_id: string;
+      priority: string;
+      why_it_matters: string;
+    }[];
+  };
+  doc.gaps.push({
+    requirement_id: "req-1",
+    priority: "medium",
+    why_it_matters: "listed twice by mistake",
+  });
+  return JSON.stringify(doc);
+})();
+
+test("D-95: a requirement in both lists earns one informed regeneration, and the corrected answer completes the stage", async () => {
+  const { result, traces } = await harness({
+    recommendation: BOTH_LISTS_RECOMMENDATION,
+    recommendationRetry: RECOMMENDATION_OUTPUT,
+  });
+
+  assert.ok(result.recommendation, "the corrected answer is the one used");
+  assert.equal(result.recommendation.verdict.decision, "build_first");
+  const stage7 = traces.find((t) => t.stageNumber === 7);
+  assert.equal(stage7?.outcome, "success");
+  assert.equal(stage7?.retryCount, 1, "exactly one regeneration");
+  assert.equal(result.haltedAt, undefined);
+});
+
+test("D-95: a second partition refusal fails the stage — one regeneration, never two", async () => {
+  const { pipeline, traces } = await buildHarness({
+    recommendation: BOTH_LISTS_RECOMMENDATION,
+  });
+  await assert.rejects(
+    pipeline.run({ analysisId: ANALYSIS_ID, text: INPUT }),
+    /both matched and a gap/,
+  );
+  const stage7 = traces.find((t) => t.stageNumber === 7);
+  assert.equal(stage7?.outcome, "failure");
+  assert.equal(stage7?.retryCount, 1);
+  assert.match(stage7?.failureReason ?? "", /both matched and a gap/);
+});
+
+test("D-95: a grounding refusal is still not regenerated", async () => {
+  const { pipeline, traces } = await buildHarness({
+    recommendation: JSON.stringify({
+      ...(JSON.parse(RECOMMENDATION_OUTPUT) as object),
+      required_capabilities: [
+        {
+          id: "req-1",
+          name: "Kubernetes administration",
+          necessity: "must_have",
+          provenance: "inferred",
+          kind: "technical",
+          grounded_in_context_indices: [9],
+        },
+      ],
+      matched: [],
+      gaps: [
+        { requirement_id: "req-1", priority: "high", why_it_matters: "x" },
+      ],
+    }),
+  });
+  await assert.rejects(
+    pipeline.run({ analysisId: ANALYSIS_ID, text: INPUT }),
+    /cites context element 9/,
+  );
+  assert.equal(traces.find((t) => t.stageNumber === 7)?.retryCount, 0);
 });
 
 // --- Phase 3A: Stage 8 and Stage 9 (`docs/12` D-29) ----------------------

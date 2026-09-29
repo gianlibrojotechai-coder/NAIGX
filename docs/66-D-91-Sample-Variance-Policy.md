@@ -36,6 +36,8 @@
 
 ## 3. Stage 7 regeneration — none; the documents reconciled
 
+> ⚠️ **Reversed in part 2026-09-29 by [D-95](70-D-95-Stage-7-Partition-Regeneration.md):** the two *partition* rules (a requirement in both `matched` and `gaps`, or in neither) now earn one informed regeneration. Everything else in this section stands.
+
 **Owner:** *"Use no Stage 7 regeneration, as recommended. Reconcile the conflicting documents and preserve visible failure behavior."*
 
 `AI §5`'s Stage 7 row said "regenerated once, then fails"; `SA §11.3` said stages 5–10 never retry. The row is amended to match `SA §11.3`: a recommendation missing rationale, context references or (for `build_first`) a decisive gap fails the stage visibly and is not regenerated. The pipeline already behaved this way; the fragment states the rules the parser enforces (D-90 §7), and the jd-002 refusal was fixed there.

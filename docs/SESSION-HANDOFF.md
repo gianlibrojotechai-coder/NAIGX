@@ -3,6 +3,8 @@
 **Written:** 2026-09-08 · **Last updated:** 2026-09-10, late (D-72 through D-88 — the finish-line-2 build-out; see **§7c**, which supersedes the front-line statements below it)
 **Purpose:** hand a new chat session everything it needs to continue building NAIGX without re-deriving context or re-litigating settled decisions.
 
+> ▶ **2026-09-29 — [D-95](70-D-95-Stage-7-Partition-Regeneration.md): one informed Stage 7 regeneration on a partition refusal; reverses D-91 §3 for those two rules only; ⏳ backend rebuild to deploy.**
+>
 > ▶ **2026-09-29 — [D-94](69-D-94-App-Catalogue-And-Picker.md): app catalogue (n8n's 410) + Swap on every step; frontend only; ✅ deployed 2026-09-29 with D-93.**
 >
 > ▶ **2026-09-29 — [D-93](68-D-93-Job-Presentation.md): one-page job presentation ✅ deployed 2026-09-29 (edge `ba5d65af0d27` at `fe529f6`; rollback tag `naigx-edge:rollback-9ffb13c`).**

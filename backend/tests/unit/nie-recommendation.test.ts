@@ -26,6 +26,7 @@ import {
 import {
   parseRecommendation,
   RecommendationGroundingError,
+  RecommendationPartitionError,
 } from "../../src/nie/stages/recommendation-generation.js";
 import {
   parseCapabilityProfile,
@@ -418,7 +419,7 @@ test("a requirement cannot be both matched and a gap", () => {
         }),
       ),
     (error: unknown) =>
-      error instanceof StageError &&
+      error instanceof RecommendationPartitionError &&
       /both matched and a gap/.test(error.message),
   );
 });
@@ -801,7 +802,7 @@ test("G — a requirement in neither matched nor gaps is rejected", () => {
         }),
       ),
     (error: unknown) =>
-      error instanceof RecommendationGroundingError &&
+      error instanceof RecommendationPartitionError &&
       /must be reported as matched or as a gap/.test(error.message) &&
       /req-2/.test(error.message),
   );
