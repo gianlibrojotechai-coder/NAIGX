@@ -66,6 +66,8 @@ test("1. the generation table: 5-generation models reject sampling parameters, 4
   assert.equal(acceptsSamplingParameters("claude-haiku-4-5-20251001"), true);
   assert.equal(acceptsSamplingParameters("claude-sonnet-5"), false);
   assert.equal(acceptsSamplingParameters("claude-opus-5"), false);
+  assert.equal(acceptsSamplingParameters("claude-opus-5-5"), false);
+  assert.equal(acceptsSamplingParameters("claude-sonnet-5-5"), false);
   assert.equal(acceptsSamplingParameters("claude-fable-5-1"), false);
 });
 

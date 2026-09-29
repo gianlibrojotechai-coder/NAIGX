@@ -130,7 +130,10 @@ const DEFAULT_MAX_TOKENS_THINKING = 16_000;
 
 /**
  * The 5-generation models: adaptive thinking on by default, sampling
- * parameters rejected (migration guide, verified 2026-09-09). Everything
+ * parameters rejected (migration guide, verified 2026-09-09; re-verified
+ * 2026-09-29 for `claude-opus-5-5` and `claude-sonnet-5-5`, which the prefix
+ * covers — on those two thinking cannot be disabled at all and the default
+ * effort is `medium`, so the configured `effort` is always sent). Everything
  * else — `claude-sonnet-4-5`, `claude-haiku-4-5`, the 4.x Opus line — keeps
  * accepting `temperature`.
  */
