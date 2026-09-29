@@ -25,6 +25,8 @@ import { Processing } from "./components/Processing";
 import { useEffect, useState } from "react";
 
 import { AnalysisView } from "./components/AnalysisView";
+import { JobPresentation } from "./components/JobPresentation";
+import { hasPresentation } from "./presentation";
 import { RefusalView } from "./components/RefusalView";
 import { AmbientBackground } from "./components/AmbientBackground";
 import { AuthPanel } from "./components/AuthPanel";
@@ -50,6 +52,12 @@ function App() {
   // a peer of the form rather than something behind an account or a footer.
   const [showPolicy, setShowPolicy] = useState(false);
   const [claimNotice, setClaimNotice] = useState<string | null>(null);
+  // D-93 — a job-description result opens as the one-page presentation; the
+  // full reasoning is one click away and remembered only for this analysis.
+  const [fullView, setFullView] = useState(false);
+  useEffect(() => {
+    setFullView(false);
+  }, [state.analysisId]);
 
   /**
    * A refresh that fails ends the session (`API-002`).
@@ -259,7 +267,42 @@ function App() {
 
         {!showHistory && state.phase === "done" && state.analysis !== null && (
           <>
-            <div className="flex justify-end">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {hasPresentation(state.analysis) ? (
+                <div
+                  role="group"
+                  aria-label="Result view"
+                  className="inline-flex rounded-md border border-slate-300 bg-white p-0.5 text-sm font-medium"
+                >
+                  {(
+                    [
+                      ["presentation", "Presentation"],
+                      ["full", "Full analysis"],
+                    ] as const
+                  ).map(([key, label]) => {
+                    const active = (key === "full") === fullView;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => {
+                          setFullView(key === "full");
+                        }}
+                        className={`rounded px-3 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 ${
+                          active
+                            ? "bg-slate-900 text-white"
+                            : "text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <span />
+              )}
               <button
                 type="button"
                 onClick={reset}
@@ -268,16 +311,26 @@ function App() {
                 New analysis
               </button>
             </div>
-            <AnalysisView
-              analysis={state.analysis}
-              // `FR-014` — offered only when this session holds the content the
-              // correction must re-submit (`API §7.5` step 1). An analysis
-              // opened without it cannot be corrected, and hiding the control
-              // beats offering one that would fail.
-              {...(state.submittedContent !== null
-                ? { onCorrectClassification: correctClassification }
-                : {})}
-            />
+            {hasPresentation(state.analysis) && !fullView ? (
+              <JobPresentation
+                analysis={state.analysis}
+                onShowFull={() => {
+                  setFullView(true);
+                  window.scrollTo({ top: 0 });
+                }}
+              />
+            ) : (
+              <AnalysisView
+                analysis={state.analysis}
+                // `FR-014` — offered only when this session holds the content the
+                // correction must re-submit (`API §7.5` step 1). An analysis
+                // opened without it cannot be corrected, and hiding the control
+                // beats offering one that would fail.
+                {...(state.submittedContent !== null
+                  ? { onCorrectClassification: correctClassification }
+                  : {})}
+              />
+            )}
           </>
         )}
       </main>
