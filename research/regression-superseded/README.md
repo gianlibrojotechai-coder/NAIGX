@@ -113,3 +113,10 @@ References in force after D-87: `bd0c8a59df8f7ea4` (targeted, platform compariso
 | File | Why it was replaced |
 |---|---|
 | `br-004-halted-2026-09-10T08-34-16Z.json` | The D-90b campaign's `br-004` sample: Stage 3 reported the 66-character input `insufficient` (5 elements) and the analysis halted before reasoning, contradicting the fragment's own rule that brevity is never a reason to report `insufficient` and the frozen expectation (`thin`, a two-artifact plan) that its two earlier samples met. Under [D-91](../../docs/66-D-91-Sample-Variance-Policy.md) §1 rule 4 one diagnostic rerun was taken (**$0.0671**): it answered `thin` (10 elements) and passed every assertion, and was admitted. **The halting sample is not erased:** it is this file, it is the first entry in `research/regression-variance.json` with the rule it contradicted, and every pass reference that names `br-004` under this prompt version carries `sampleVariance: 1 of 2 failed`. One more failing sample under the same prompt version would fail the case on its history (rule 5). |
+
+## `jd-002-pre-D-97-2026-10-02.json`, `jd-008-pre-D-97-2026-10-02.json` — superseded by the D-97 capture
+
+| File | Why it was replaced |
+|---|---|
+| `jd-002-pre-D-97-2026-10-02.json` | Valid under the composition it was captured with (2026-09-10). [D-97](../../docs/72-D-97-Candidate-Evidence-Is-Supplied-Separately.md) changed `type.job_description`, which composes into every stage after classification on this path, so the recording's composition no longer matches the authored fragments. Recaptured 2026-10-02 on the same model (`claude-sonnet-5`), $0.2747; the new recording passes the same seven assertions |
+| `jd-008-pre-D-97-2026-10-02.json` | Same reason. Recaptured 2026-10-02, $0.2408; seven assertions pass, `build_first` again |
