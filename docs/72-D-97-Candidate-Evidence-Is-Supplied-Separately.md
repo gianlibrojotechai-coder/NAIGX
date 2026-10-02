@@ -49,7 +49,8 @@ is elsewhere, at Stages 7 and 9 it is in the request.
 | Admission — a decision, recorded here | ✅ the two prior recordings moved to `research/regression-superseded/…-pre-D-97-2026-10-02.json` with their reason; new recordings admitted; `recordings:write`, `recordings:check` clean (15) |
 | Targeted run `--fragment=type.job_description` | ✅ 2 passed → **`corpus-regression:corpus-v3+fragments-v1:8a1361a151cba5ca`** (`research/regression-runs/8a1361a151cba5ca.json`) |
 | Full backend gate | ✅ typecheck clean, 1,069 passing, 95 skipped |
-| Production: fragment activated under the reference; one live job-description run shows no "background not supplied" | ⏳ §4 |
+| Production: fragment activated under the reference | ✅ **2026-10-02 ~12:40 UTC**: host at `0daa1a0`, backend image `2c91af27b7a7` (outgoing `2a992098b427` tagged `naigx-backend:rollback-7e11c23`), no migrations, no running analysis; `fragments publish` from the new image → *Published 1 new version(s); 22 unchanged*; 23 active; `type.job_description` **v2** under `8a1361a151cba5ca`; backend recreated, healthy, readiness 200 inside and out, `claude-opus-5-5`, live mode |
+| One live job-description run shows no "background not supplied" | ⏳ the owner's next run of a posting — it also shows D-96's mapping. Not run by this session: a billed run needs a temporary allowlisted account and two backend restarts, and the owner re-running their own posting is the better evidence |
 
 ⚠️ **What the corpus did and did not show.** Neither corpus case exhibited
 the wording before the change — their scopes and unknowns never mentioned

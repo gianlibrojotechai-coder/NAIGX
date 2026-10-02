@@ -3,7 +3,7 @@
 **Written:** 2026-09-08 · **Last updated:** 2026-09-10, late (D-72 through D-88 — the finish-line-2 build-out; see **§7c**, which supersedes the front-line statements below it)
 **Purpose:** hand a new chat session everything it needs to continue building NAIGX without re-deriving context or re-litigating settled decisions.
 
-> ▶ **2026-10-02 — [D-97](72-D-97-Candidate-Evidence-Is-Supplied-Separately.md): `type.job_description` changed (candidate evidence is supplied separately); recaptured, admitted, reference `corpus-regression:corpus-v3+fragments-v1:8a1361a151cba5ca`; ⏳ publish in production from the new image, recreate backend, one live JD run.**
+> ▶ **2026-10-02 — [D-97](72-D-97-Candidate-Evidence-Is-Supplied-Separately.md): `type.job_description` changed (candidate evidence is supplied separately); recaptured, admitted, reference `corpus-regression:corpus-v3+fragments-v1:8a1361a151cba5ca`; ✅ published in production (v2, 23 active), backend `2c91af27b7a7` at `0daa1a0`; ⏳ the owner's next live JD run is the proof.**
 >
 > ▶ **2026-10-02 — [D-96](71-D-96-Scaffold-Maps-Against-The-Catalogue.md): scaffold maps against n8n's full catalogue; ✅ deployed 2026-10-02 (backend `2a992098b427` at `7e11c23`). D-96 §4 scopes the JD type-modifier fix (paid capture, not authorised).**
 >
