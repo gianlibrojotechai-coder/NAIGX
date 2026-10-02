@@ -3,7 +3,7 @@
 
 export const APP_CATALOGUE = {
   "source": "n8n-nodes-base@2.15.1",
-  "generated": "2026-09-29",
+  "generated": "2026-10-02",
   "apps": [
     {
       "type": "n8n-nodes-base.actionNetwork",

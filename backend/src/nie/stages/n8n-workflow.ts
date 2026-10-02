@@ -28,6 +28,7 @@ import type {
   PortfolioProject,
   PortfolioSuggestions,
 } from "../contracts.js";
+import { N8N_NODE_CATALOGUE } from "../n8n-node-catalogue.js";
 
 /**
  * The n8n node types this renderer maps by name. Keys are matched against
@@ -118,6 +119,45 @@ const NODE_TYPES: readonly {
 
 const PLACEHOLDER = { type: "n8n-nodes-base.noOp", typeVersion: 1 } as const;
 
+/**
+ * Every node n8n ships, for the names the table above does not carry (D-96).
+ *
+ * The table was ~30 names typed by hand, so a step the model named exactly as
+ * n8n does — "Shopify Trigger", "Twilio" — became a "(replace me)"
+ * placeholder for a node that exists. The catalogue is generated from n8n's
+ * own package (`frontend/scripts/app-catalogue.mjs`), carries each node's
+ * oldest shipped version (the table's own rule: old versions every current
+ * n8n still imports), and is consulted only after the table, so nothing the
+ * table already mapped changes.
+ *
+ * Longest name first, so "Shopify Trigger" is found before "Shopify". A name
+ * maps exactly, or by a bracketed or colon-qualified form ("Twilio (SMS)");
+ * a bare leading word maps only for names of six characters or more, so
+ * "Line items split" is not mistaken for the Line messaging node. Anything
+ * else is still a placeholder that says so — never a guess.
+ */
+const CATALOGUE = N8N_NODE_CATALOGUE.filter(
+  ([, type]) =>
+    type !== "n8n-nodes-base.noOp" && type !== "n8n-nodes-base.stickyNote",
+)
+  .map(([name, type, typeVersion, trigger]) => ({
+    match: name.toLowerCase(),
+    type,
+    typeVersion,
+    trigger,
+  }))
+  .sort((a, b) => b.match.length - a.match.length);
+
+const fromCatalogue = (name: string) =>
+  CATALOGUE.find((n) => name === n.match) ??
+  CATALOGUE.find(
+    (n) =>
+      name.startsWith(`${n.match} (`) ||
+      name.startsWith(`${n.match}(`) ||
+      name.startsWith(`${n.match}:`),
+  ) ??
+  CATALOGUE.find((n) => n.match.length >= 6 && name.startsWith(`${n.match} `));
+
 const resolveType = (
   node: string,
 ): { type: string; typeVersion: number; trigger: boolean; mapped: boolean } => {
@@ -126,7 +166,8 @@ const resolveType = (
     NODE_TYPES.find((n) => name === n.match) ??
     NODE_TYPES.find((n) => name.startsWith(`${n.match} `)) ??
     NODE_TYPES.find((n) => name.startsWith(`${n.match}(`)) ??
-    NODE_TYPES.find((n) => name.startsWith(`${n.match}:`));
+    NODE_TYPES.find((n) => name.startsWith(`${n.match}:`)) ??
+    fromCatalogue(name);
   return hit === undefined
     ? { ...PLACEHOLDER, trigger: false, mapped: false }
     : {

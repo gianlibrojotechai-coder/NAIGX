@@ -215,3 +215,97 @@ test("D-71 — the plan is a decision: planned on n8n, omitted with the reason o
 test("D-71 — rendering is deterministic", () => {
   assert.deepEqual(renderN8nWorkflow(project), renderN8nWorkflow(project));
 });
+
+// --- D-96: names outside the table fall back to n8n's own catalogue --------
+
+const withSteps = (nodes: readonly string[]): PortfolioProject => ({
+  ...project,
+  implementation: {
+    platform: "n8n",
+    steps: nodes.map((node, i) => ({
+      step: i + 1,
+      node,
+      purpose: "p",
+      setup: [],
+      credential: null,
+    })),
+    notes: [],
+  },
+});
+
+const stepNodesOf = (doc: Record<string, unknown>) =>
+  (
+    doc["nodes"] as { name: string; type: string; typeVersion: number }[]
+  ).filter((n) => n.type !== "n8n-nodes-base.stickyNote");
+
+test("D-96 — a node n8n ships but the table lacks is mapped from the catalogue, not left as a placeholder", () => {
+  const doc = renderN8nWorkflow(
+    withSteps(["Shopify Trigger", "Twilio", "Slack"]),
+  );
+  validateArtifact("n8n_workflow", doc);
+  const nodes = stepNodesOf(doc);
+  assert.deepEqual(
+    nodes.map((n) => n.type),
+    [
+      "n8n-nodes-base.shopifyTrigger",
+      "n8n-nodes-base.twilio",
+      "n8n-nodes-base.slack",
+    ],
+  );
+  assert.deepEqual(
+    nodes.map((n) => n.name),
+    ["Shopify Trigger", "Twilio", "Slack"],
+  );
+  const naigx = doc["naigx"] as Record<string, unknown>;
+  assert.equal(naigx["steps_mapped"], 3);
+  assert.deepEqual(naigx["steps_unmapped"], []);
+});
+
+test("D-96 — the table still wins, and its deliberately old versions are kept", () => {
+  const nodes = stepNodesOf(
+    renderN8nWorkflow(withSteps(["Webhook", "HubSpot", "Google Sheets"])),
+  );
+  assert.deepEqual(
+    nodes.map((n) => [n.type, n.typeVersion]),
+    [
+      ["n8n-nodes-base.webhook", 1],
+      ["n8n-nodes-base.hubspot", 1],
+      ["n8n-nodes-base.googleSheets", 3],
+    ],
+  );
+});
+
+test("D-96 — a qualified name maps by its app; a short or unknown word is still a placeholder", () => {
+  const doc = renderN8nWorkflow(
+    withSteps([
+      "Webhook",
+      "Twilio (SMS)",
+      "Google Ads report",
+      "Klaviyo",
+      "Line items split",
+    ]),
+  );
+  assert.deepEqual(
+    stepNodesOf(doc).map((n) => n.type),
+    [
+      "n8n-nodes-base.webhook",
+      "n8n-nodes-base.twilio",
+      "n8n-nodes-base.googleAds",
+      "n8n-nodes-base.noOp",
+      "n8n-nodes-base.noOp",
+    ],
+  );
+  const naigx = doc["naigx"] as Record<string, unknown>;
+  assert.deepEqual(naigx["steps_unmapped"], ["Klaviyo", "Line items split"]);
+});
+
+test("D-96 — a trigger found in the catalogue is never fed by the step before it", () => {
+  const doc = renderN8nWorkflow(
+    withSteps(["Webhook", "Code", "Shopify Trigger", "Code"]),
+  );
+  assert.equal(
+    JSON.stringify(doc["connections"]).includes('"node":"Shopify Trigger"'),
+    false,
+    "nothing connects into a trigger",
+  );
+});
