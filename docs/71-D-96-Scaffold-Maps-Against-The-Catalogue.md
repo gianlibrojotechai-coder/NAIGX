@@ -57,7 +57,7 @@ mapping.
 | Qualified names map; a short leading word and an unknown app stay placeholders | ✅ same |
 | A catalogue trigger is never fed by the previous step | ✅ same |
 | Full backend gate: typecheck clean, 1,069 passing, 95 skipped | ✅ 2026-10-02 |
-| Deployed | ⏳ backend rebuild |
+| Deployed | ✅ **2026-10-02 ~12:05 UTC**: host at `7e11c23`, backend image `2a992098b427` (outgoing `1cf8e11ad6d4` tagged `naigx-backend:rollback-96c057f`), no migrations, no running analysis at the switch; healthy; readiness 200 inside and out; still `claude-opus-5-5`; the compiled renderer carries the catalogue fallback. A new job-description analysis will show the mapping; stored scaffolds are unchanged |
 
 ## 4. The second defect — scoped, not done
 

@@ -3,7 +3,7 @@
 **Written:** 2026-09-08 · **Last updated:** 2026-09-10, late (D-72 through D-88 — the finish-line-2 build-out; see **§7c**, which supersedes the front-line statements below it)
 **Purpose:** hand a new chat session everything it needs to continue building NAIGX without re-deriving context or re-litigating settled decisions.
 
-> ▶ **2026-10-02 — [D-96](71-D-96-Scaffold-Maps-Against-The-Catalogue.md): scaffold maps against n8n's full catalogue; ⏳ backend rebuild. D-96 §4 scopes the JD type-modifier fix (paid capture, not authorised).**
+> ▶ **2026-10-02 — [D-96](71-D-96-Scaffold-Maps-Against-The-Catalogue.md): scaffold maps against n8n's full catalogue; ✅ deployed 2026-10-02 (backend `2a992098b427` at `7e11c23`). D-96 §4 scopes the JD type-modifier fix (paid capture, not authorised).**
 >
 > ▶ **2026-09-29 — [D-95](70-D-95-Stage-7-Partition-Regeneration.md): one informed Stage 7 regeneration on a partition refusal; reverses D-91 §3 for those two rules only; ✅ deployed 2026-09-29 (backend `1cf8e11ad6d4` at `96c057f`; rollback tag `naigx-backend:rollback-f39c99e`).**
 >
